@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'" />
+  <title>git-graph</title>
+  <link rel="stylesheet" href="./src/app.css" />
+</head>
+<body>
+  <header>
+    <h1 id="title">git-graph</h1>
+    <div class="stats" id="stats"></div>
+    <span class="stat hoverpill" id="hoverinfo" hidden></span>
+    <div class="actions">
+      <button id="mainline" hidden aria-pressed="false">Mainline</button>
+      <button id="loadall" hidden>Tout charger</button>
+      <button id="open">Ouvrir un repo…</button>
+    </div>
+  </header>
+
+  <div class="layout" id="layout" hidden>
+    <div class="board" id="board"><div class="inner" id="inner">
+      <svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div></div>
+    <aside id="panel"><p class="hint">Clique un commit pour le détail.</p></aside>
+  </div>
+
+  <div class="empty" id="empty">
+    <p>Aucun repo ouvert.</p>
+  </div>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
