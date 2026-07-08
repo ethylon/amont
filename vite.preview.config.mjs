@@ -8,5 +8,5 @@ export default {
   root: 'src/renderer',
   resolve: { alias: { '@': resolve(import.meta.dirname, 'src/renderer/src') } },
   plugins: [react(), tailwindcss(), csp()],
-  server: { port: 5199, strictPort: true },
+  server: { port: Number(process.env.PORT) || 5199 },
 };
