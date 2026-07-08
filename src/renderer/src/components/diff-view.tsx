@@ -16,10 +16,7 @@ export type DiffView = "unified" | "sbs"
 export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" | "unstaged" | "untracked" }
 
 const MAX_LINES = 3000
-/* `flex-auto` et non `flex-1` : sous une hauteur définie (détail du commit) le corps se
-   rétrécit à la place restante et scrolle ; sous une hauteur automatique (arbre de travail)
-   il garde celle de son contenu. Une base à 0 le ferait disparaître dans le second cas.
-   Réappliqué à chaque rendu — les effets réécrivent `className` de fond en comble. */
+/* Réappliqué à chaque rendu — les effets réécrivent `className` de fond en comble. */
 const DIFF_BODY = "gg-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches
 
@@ -124,6 +121,23 @@ function renderRaw(body: HTMLElement, text: string) {
   }
 }
 
+/* Côte à côte : d2h donne à chaque volet son propre `overflow-x`. Les deux lignes en vis-à-vis
+   ne restent alignées que si les deux barres avancent ensemble. */
+function syncSides(body: HTMLElement) {
+  const sides = [...body.querySelectorAll<HTMLElement>(".d2h-file-side-diff")]
+  if (sides.length < 2) return
+  let echo = false
+  const onScroll = (ev: Event) => {
+    if (echo) return
+    echo = true
+    const src = ev.currentTarget as HTMLElement
+    for (const s of sides) if (s !== src) s.scrollLeft = src.scrollLeft
+    requestAnimationFrame(() => (echo = false))
+  }
+  sides.forEach((s) => s.addEventListener("scroll", onScroll))
+  return () => sides.forEach((s) => s.removeEventListener("scroll", onScroll))
+}
+
 type Props = {
   api: RepoApi
   ctx: DiffCtx
@@ -172,10 +186,11 @@ export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props)
       colorScheme: ColorSchemeType.AUTO,
     })
     shikiPass(el).catch(() => {})
+    return syncSides(el)
   }, [text, view])
 
   return (
-    <div className="mt-4 flex min-h-0 flex-1 flex-col border-t pt-3">
+    <div className="flex min-h-0 flex-1 flex-col px-4.5 py-4">
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <span className="text-xs break-all text-muted-foreground">{file.path}</span>
         <div className="flex shrink-0 items-center gap-1">

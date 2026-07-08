@@ -42,12 +42,11 @@ type Props = {
   onOpenDiff(ctx: DiffCtx, file: FileChange): void
   onRun(act: WtAct, paths: string[]): void
   onCommit(): Promise<void>
-  children?: React.ReactNode
 }
 
 export function WorktreePanel({
   worktree, activePath, subject, description, onSubjectChange, onDescriptionChange,
-  onOpenDiff, onRun, onCommit, children,
+  onOpenDiff, onRun, onCommit,
 }: Props) {
   const [committing, setCommitting] = useState(false)
   const staged = worktree.staged.length
@@ -103,8 +102,6 @@ export function WorktreePanel({
           )
         })}
       </div>
-
-      {children}
 
       <FieldGroup className="mt-4 shrink-0 border-t pt-3">
         <Field data-invalid={hasConflicts || undefined}>
