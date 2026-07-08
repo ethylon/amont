@@ -3,17 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <title>git-graph — mock</title>
-  <link rel="stylesheet" href="./src/app.css" />
 </head>
 <body>
+<div id="root"></div>
 <script type="module">
-  /* Harnais de vérification : rejoue le markup réel de index.html avec une API git simulée. */
-  const doc = new DOMParser().parseFromString(await (await fetch('./index.html')).text(), 'text/html');
-  doc.querySelectorAll('script').forEach(s => s.remove());
-  document.body.innerHTML = doc.body.innerHTML;
-
+  /* Harnais de vérification : monte le vrai renderer avec une API git simulée.
+     window.gitgraph doit exister avant l'import — lib/git.ts le capture au chargement. */
   const C = [
-    { h: 'a1b2c3d4', p: ['9f8e7d6c'], d: '2026-07-07', a: 'Mathieu Guey', r: 'HEAD -> develop, origin/develop', s: 'feat: optimisation du coût de formulation' },
+    { h: 'a1b2c3d4', p: ['9f8e7d6c', '5a6b7c8d'], d: '2026-07-07', a: 'Mathieu Guey', r: 'HEAD -> develop, origin/develop', s: "Merge branch 'feature/optim-cout' into develop" },
+    { h: '5a6b7c8d', p: ['9f8e7d6c'], d: '2026-07-07', a: 'Mathieu Guey', r: '', s: 'feat(solver): optimisation du coût de formulation' },
     { h: '9f8e7d6c', p: ['3c4d5e6f'], d: '2026-07-06', a: 'Mathieu Guey', r: '', s: '[HOTFIX] plantage sur matrice vide' },
     { h: '3c4d5e6f', p: [], d: '2026-07-05', a: 'Mathieu Guey', r: 'tag: v4.2.0', s: 'chore: init' },
   ];
@@ -27,11 +25,15 @@
   const drop = (arr, paths) => arr.filter(f => !paths.includes(f.path));
 
   window.gitgraph = {
-    current: async () => ({ name: 'mock-repo', total: C.length }),
+    current: async () => ({ path: '/mock', name: 'mock-repo', total: C.length }),
     openRepo: async () => null,
     log: async (skip, count) => C.slice(skip, skip + count),
     total: async () => C.length,
-    files: async () => [{ st: 'M', path: 'src/solver/cost.ts', old: null }],
+    files: async () => [
+      { st: 'M', path: 'src/solver/cost.ts', old: null },
+      { st: 'A', path: 'src/solver/lp/simplex.ts', old: null },
+      { st: 'D', path: 'src/legacy/old.ts', old: null },
+    ],
     diff: async () => 'diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-const a = 1\n+const a = 2\n',
     status: async () => ({ branch: 'develop', head: C[0].h, ahead: 1, behind: 2 }),
     op: async () => {},
@@ -52,7 +54,7 @@
     commit: async () => { wt.staged = []; },
   };
 
-  await import('./src/app.js');
+  await import('./src/main.tsx');
 </script>
 </body>
 </html>
