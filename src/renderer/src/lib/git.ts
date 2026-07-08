@@ -53,7 +53,7 @@ export type GitRef = {
   behind: number
   /** branche locale déjà fusionnée dans la branche d'intégration */
   merged: boolean
-  /** branche locale dont aucune distante ne porte le nom */
+  /** branche locale dont la contrepartie distante a été supprimée */
   gone: boolean
 }
 
