@@ -68,9 +68,11 @@ const track = (r: GitRef) =>
 
 function RefRow({ r, label, icon, onCheckout }: RowProps & { r: GitRef; label: string; icon: IconSvgElement }) {
   const t = track(r)
-  /* seules les branches locales se checkout au double-clic ; une distante ou un tag
-     détacheraient HEAD, ce qui ne s'annule pas d'un double-clic. */
-  const switchable = r.kind === "head" && !r.head
+  /* un tag se checkout en HEAD détaché, ce qui ne s'annule pas d'un double-clic.
+     Une distante bascule sur la locale de suivi (DWIM de git checkout <nom>). */
+  const switchable = (r.kind === "head" && !r.head) || r.kind === "remote"
+  /* ponytail: strip du premier segment ; git refuse de lui-même si le nom est ambigu entre remotes */
+  const target = r.kind === "remote" ? r.name.split("/").slice(1).join("/") : r.name
   const notes = [
     r.merged && "fusionnée",
     r.gone && "distante supprimée",
@@ -81,7 +83,7 @@ function RefRow({ r, label, icon, onCheckout }: RowProps & { r: GitRef; label: s
       <Tip text={[r.name, ...notes].join(" — ")} side="right">
         <button
           type="button"
-          onDoubleClick={switchable ? () => onCheckout(r.name) : undefined}
+          onDoubleClick={switchable ? () => onCheckout(target) : undefined}
           className={cn(
             "flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs select-none",
             "text-foreground hover:bg-muted",
