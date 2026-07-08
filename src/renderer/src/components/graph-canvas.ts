@@ -3,7 +3,7 @@ import { CloudIcon } from "@hugeicons/core-free-icons"
 import { type Commit, type RepoApi } from "@/lib/git"
 import { avatarUrl, initials, tint } from "@/lib/avatar"
 import { iconEl } from "@/lib/utils"
-import { badgeVariants } from "@/components/ui/badge"
+import { badgeSeparator, badgeVariants } from "@/components/ui/badge"
 import {
   BACKUP_WIP, MAIN_TARGETS, parseMerge, parseRefs, parseSubject, refColor, typeColor,
   type BadgeColor, type RefChip,
@@ -175,28 +175,25 @@ export function createGraph(
     return g
   }
 
-  /* Le nuage dit où est la distante. Seul, devant la branche : « ici aussi ». Collé à un nom
+  /* Le nuage dit où est la distante. Détaché du nom par un filet : « ici aussi ». Collé à un nom
      complet (`origin/develop`) : « la branche locale est ailleurs ». Une branche sans nuage
      n'a pas de distante du tout. */
   function refChip(r: RefChip, maxw: string) {
+    const synced = r.remotes.length > 0
     const el = document.createElement("span")
-    el.className = chip(refColor(r.kind)) + " " + maxw + (r.kind === "remote" ? " ps-1.5" : "")
-    el.title = r.name
-    if (r.kind === "remote") el.appendChild(cloud())
+    el.className = chip(refColor(r.kind)) + " " + maxw + (r.kind === "remote" || synced ? " ps-1.5" : "")
+    el.title = synced ? r.remotes.join(", ") : r.name
+    if (r.kind === "remote" || synced) el.appendChild(cloud())
+    if (synced) {
+      const sep = document.createElement("span")
+      sep.className = badgeSeparator
+      el.appendChild(sep)
+    }
     const text = document.createElement("span")
     text.className = "truncate"
     text.textContent = r.name
     el.appendChild(text)
-    if (!r.remotes.length) return el
-
-    const sync = document.createElement("span")
-    sync.className = chip("lane") + " px-1"
-    sync.title = r.remotes.join(", ")
-    sync.appendChild(cloud())
-    const wrap = document.createElement("span")
-    wrap.className = "flex min-w-0 items-center gap-1"
-    wrap.append(sync, el)
-    return wrap
+    return el
   }
 
   /** Les refs d'un groupe, tronquées à `budget`, le reste derrière un "+N" qui les déplie toutes. */
