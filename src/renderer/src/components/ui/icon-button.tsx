@@ -9,13 +9,12 @@ type Props = Omit<React.ComponentProps<typeof Button>, "children"> & {
 }
 
 /** Bouton sans libellé visible : l'infobulle porte le sens, aria-label l'accessibilité. */
-export function IconButton({ label, icon, variant = "ghost", size = "icon-sm", ...props }: Props) {
+export function IconButton({ label, icon, variant = "ghost", size = "icon", ...props }: Props) {
   return (
     <Tooltip>
-      <TooltipTrigger>
-        <Button variant={variant} size={size} aria-label={label} {...props}>
-          <HugeiconsIcon icon={icon} strokeWidth={2} />
-        </Button>
+      {/* l'infobulle est le seul libellé du bouton : elle ne se fait pas attendre */}
+      <TooltipTrigger delay={0} render={<Button variant={variant} size={size} aria-label={label} {...props} />}>
+        <HugeiconsIcon icon={icon} strokeWidth={2} />
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
