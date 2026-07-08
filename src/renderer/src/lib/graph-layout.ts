@@ -90,15 +90,14 @@ export function layoutChunk(S: LayoutState, data: Commit[]) {
 
     c.p.forEach((p, k) => {
       let travel: number
-      const e = S.lanes.indexOf(p)
       if (k === 0) {
-        if (e >= 0) travel = e // fusion : rejoint la ligne qui vise déjà ce parent
-        else {
-          travel = lane
-          S.lanes[lane] = p
-          S.meta[lane] = 0
-        }
+        // le trait first-parent reste dans son couloir jusqu'au fork : les arêtes
+        // convergent sur le nœud parent au lieu de sauter dans le couloir d'à côté
+        travel = lane
+        S.lanes[lane] = p
+        S.meta[lane] = 0
       } else {
+        const e = S.lanes.indexOf(p)
         travel = e >= 0 ? e : alloc(S)
         S.lanes[travel] = p
         if (e < 0 && S.meta[travel] !== 0) S.meta[travel] = k
