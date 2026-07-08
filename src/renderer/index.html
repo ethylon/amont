@@ -7,27 +7,201 @@
   <link rel="stylesheet" href="./src/app.css" />
 </head>
 <body>
-  <header>
-    <h1 id="title">git-graph</h1>
-    <div class="stats" id="stats"></div>
-    <span class="stat hoverpill" id="hoverinfo" hidden></span>
-    <div class="actions">
-      <button id="mainline" hidden aria-pressed="false">Mainline</button>
-      <button id="loadall" hidden>Tout charger</button>
-      <button id="open">Ouvrir un repo…</button>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="mark" viewBox="0 0 20 20" fill="none" stroke-linecap="round">
+      <path d="M5 17.2V3.4" stroke="var(--color-lane-0)" stroke-width="1.7" />
+      <path d="M15 17.2v-3.7C15 10 5 12.5 5 9" stroke="var(--color-lane-4)" stroke-width="1.7" />
+      <circle cx="5" cy="3.4" r="2.4" fill="var(--color-lane-0)" />
+      <circle cx="15" cy="17.2" r="2.1" fill="var(--color-lane-4)" />
+      <circle cx="5" cy="9" r="2.3" fill="var(--color-surface)" stroke="var(--color-lane-0)" stroke-width="1.6" />
+    </symbol>
+    <symbol id="i-sidebar" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.6" /><path d="M6.3 3v10" /></symbol>
+    <symbol id="i-folder" viewBox="0 0 16 16"><path d="M2.5 12.3V4.7c0-.6.5-1.1 1.1-1.1h2.6l1.6 1.8h4.6c.6 0 1.1.5 1.1 1.1v5.8c0 .6-.5 1.1-1.1 1.1H3.6c-.6 0-1.1-.5-1.1-1.1Z" /></symbol>
+    <symbol id="i-chev" viewBox="0 0 16 16"><path d="m4.6 6.4 3.4 3.4 3.4-3.4" /></symbol>
+    <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.2" /><path d="m10.3 10.3 3.2 3.2" /></symbol>
+    <symbol id="i-fetch" viewBox="0 0 16 16"><path d="M13.3 7.1a5.4 5.4 0 0 0-9.6-2.4M2.7 8.9a5.4 5.4 0 0 0 9.6 2.4" /><path d="M13.5 3.6v3.5H10M2.5 12.4V8.9H6" /></symbol>
+    <symbol id="i-pull" viewBox="0 0 16 16"><path d="M8 2.6v7.7M4.9 7.2 8 10.3l3.1-3.1M3.2 13.4h9.6" /></symbol>
+    <symbol id="i-push" viewBox="0 0 16 16"><path d="M8 13.4V5.7M4.9 8.8 8 5.7l3.1 3.1M3.2 2.6h9.6" /></symbol>
+    <symbol id="i-branch" viewBox="0 0 16 16"><circle cx="4.6" cy="3.9" r="1.8" /><circle cx="4.6" cy="12.1" r="1.8" /><circle cx="11.4" cy="3.9" r="1.8" /><path d="M4.6 5.7v4.6M11.4 5.7v.9c0 1.7-1.4 3-3 3H6.4" /></symbol>
+    <symbol id="i-cloud" viewBox="0 0 16 16"><path d="M5 12.4a2.9 2.9 0 0 1 .4-5.8 3.7 3.7 0 0 1 7 .9 2.5 2.5 0 0 1-.6 4.9Z" /></symbol>
+    <symbol id="i-tag" viewBox="0 0 16 16"><path d="M8.5 2.6h4.9v4.9l-5.8 5.9-4.9-5Z" /><circle cx="10.9" cy="5.1" r=".9" /></symbol>
+    <symbol id="i-stash" viewBox="0 0 16 16"><rect x="2.3" y="3" width="11.4" height="3" rx="1" /><path d="M3.5 6v6.1c0 .5.4.9.9.9h7.2c.5 0 .9-.4.9-.9V6M6.6 9h2.8" /></symbol>
+    <symbol id="i-term" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.6" /><path d="m5.2 6.6 1.9 1.8-1.9 1.8M8.8 10.4h2.6" /></symbol>
+    <symbol id="i-commit" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.7" /><path d="M2.2 8h3.1M10.7 8h3.1" /></symbol>
+  </svg>
+
+  <header class="titlebar flex items-center gap-1.5 border-b border-border pr-3 pl-3.5">
+    <div class="me-1.5 flex shrink-0 items-center gap-[9px]">
+      <svg class="size-5 shrink-0" viewBox="0 0 20 20" aria-hidden="true"><use href="#mark" /></svg>
+      <span class="text-[13.5px] font-semibold tracking-[-0.012em]">git-graph</span>
+    </div>
+    <button class="ghost sq" id="togglesidebar" aria-label="Masquer le panneau latéral" title="Panneau latéral">
+      <svg class="i" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-sidebar" /></svg>
+    </button>
+    <button class="ghost repo-switch" data-open title="Ouvrir un repo">
+      <svg class="i" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-folder" /></svg>
+      <span class="repo" id="title">Ouvrir un repo…</span>
+      <svg class="i size-2.75 text-muted" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-chev" /></svg>
+    </button>
+
+    <div class="ms-auto flex shrink-0 items-center gap-1.5">
+      <div class="tb-ops flex items-center gap-1">
+        <button class="ghost" id="fetch" data-op="fetch" title="Fetch — toutes les distantes, avec --prune">
+          <svg class="i" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-fetch" /></svg>
+          Fetch
+        </button>
+        <button class="ghost" id="pull" data-op="pull" title="Pull — fast-forward uniquement" disabled>
+          <svg class="i" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-pull" /></svg>
+          Pull<span class="count" id="behind" hidden></span>
+        </button>
+        <button class="ghost" id="push" data-op="push" title="Push vers la distante suivie" disabled>
+          <svg class="i" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-push" /></svg>
+          Push<span class="count" id="ahead" hidden></span>
+        </button>
+      </div>
+      <span class="tb-sep mx-0.75 h-4.5 w-px bg-border"></span>
+      <button class="ghost text-muted hover:text-ink-2" id="opencmd">
+        <svg class="i" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-search" /></svg>
+        Rechercher
+        <span class="ms-auto flex gap-0.75 ps-2.5"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+      </button>
     </div>
   </header>
 
-  <div class="layout" id="layout" hidden>
-    <div class="board" id="board"><div class="inner" id="inner">
-      <svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg>
-    </div></div>
-    <aside id="panel"><p class="hint">Clique un commit pour le détail.</p></aside>
-  </div>
+  <!-- ponytail: refs en dur — mockup de cadrage, à remplacer par un rendu depuis git for-each-ref -->
+  <nav class="sidebar flex min-w-0 flex-col border-r border-border" id="sidebar" aria-label="Références">
+    <div class="flex border-b border-border p-2.5">
+      <label class="search sm">
+        <svg class="i" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-search" /></svg>
+        <input type="search" placeholder="Filtrer les refs" />
+      </label>
+    </div>
+    <div class="flex-1 overflow-auto px-2 pt-2 pb-4">
+      <details class="side-group" open>
+        <summary><span class="chev">▸</span>Branches<span class="cnt">4</span></summary>
+        <ul role="list">
+          <li><button class="ref current"><span class="dot" style="--dot:var(--color-lane-0)"></span><span class="rname mono">develop</span><span class="ab">↑2</span></button></li>
+          <li><button class="ref"><span class="dot" style="--dot:var(--color-lane-3)"></span><span class="rname mono">master</span></button></li>
+          <li><button class="ref"><span class="dot" style="--dot:var(--color-lane-2)"></span><span class="rname mono">feature/optim-cout</span></button></li>
+          <li><button class="ref"><span class="dot" style="--dot:var(--color-lane-1)"></span><span class="rname mono">hotfix/matrice-vide</span><span class="ab">↓1</span></button></li>
+        </ul>
+      </details>
+      <details class="side-group" open>
+        <summary><span class="chev">▸</span>Distantes<span class="cnt">3</span></summary>
+        <ul role="list">
+          <li><button class="ref"><svg class="i" viewBox="0 0 16 16"><use href="#i-cloud" /></svg><span class="rname mono">origin/develop</span></button></li>
+          <li><button class="ref"><svg class="i" viewBox="0 0 16 16"><use href="#i-cloud" /></svg><span class="rname mono">origin/master</span></button></li>
+          <li><button class="ref"><svg class="i" viewBox="0 0 16 16"><use href="#i-cloud" /></svg><span class="rname mono">origin/release/4.2</span></button></li>
+        </ul>
+      </details>
+      <details class="side-group" open>
+        <summary><span class="chev">▸</span>Tags<span class="cnt">3</span></summary>
+        <ul role="list">
+          <li><button class="ref"><svg class="i" viewBox="0 0 16 16"><use href="#i-tag" /></svg><span class="rname mono">v4.2.0</span></button></li>
+          <li><button class="ref"><svg class="i" viewBox="0 0 16 16"><use href="#i-tag" /></svg><span class="rname mono">v4.1.3</span></button></li>
+          <li><button class="ref"><svg class="i" viewBox="0 0 16 16"><use href="#i-tag" /></svg><span class="rname mono">v4.1.2</span></button></li>
+        </ul>
+      </details>
+      <details class="side-group">
+        <summary><span class="chev">▸</span>Stashes<span class="cnt">1</span></summary>
+        <ul role="list">
+          <li><button class="ref"><svg class="i" viewBox="0 0 16 16"><use href="#i-stash" /></svg><span class="rname mono">stash@{0}</span></button></li>
+        </ul>
+      </details>
+    </div>
+  </nav>
 
-  <div class="empty" id="empty">
-    <p>Aucun repo ouvert.</p>
-  </div>
+  <main class="main">
+    <div class="toolbar flex h-[46px] items-center gap-2 border-b border-border px-3.5">
+      <label class="search">
+        <svg class="i" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-search" /></svg>
+        <input type="search" id="filter" placeholder="Filtrer les commits — message, auteur, hash" />
+      </label>
+      <button class="ghost sm shrink-0">Auteur<svg class="i size-2.75 text-muted" viewBox="0 0 16 16"><use href="#i-chev" /></svg></button>
+      <button class="ghost sm shrink-0">Période<svg class="i size-2.75 text-muted" viewBox="0 0 16 16"><use href="#i-chev" /></svg></button>
+      <span class="flex-1"></span>
+      <button class="shrink-0" id="mainline" aria-pressed="false">Mainline</button>
+      <button class="shrink-0" id="loadall">Tout charger</button>
+    </div>
+
+    <div class="layout" id="layout">
+      <div class="left">
+        <div class="wtrow" id="wtrow" hidden title="Modifications non validées">
+          <span class="wtdot" hidden></span>
+          <span class="wtlabel">Modifications non validées</span>
+          <span class="wtcounts"></span>
+        </div>
+        <div class="board" id="board"><div class="inner" id="inner">
+          <svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div></div>
+      </div>
+      <aside id="panel" class="overflow-auto border-l border-border px-4.5 py-4 text-[12.5px]"><p class="hint">Clique un commit pour le détail.</p></aside>
+    </div>
+
+    <div class="empty relative grid place-items-center overflow-hidden p-6 before:pointer-events-none before:absolute before:top-1/2 before:left-1/2 before:size-[min(70vw,620px)] before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-radial before:from-accent/13 before:to-transparent before:to-66% before:content-['']" id="empty">
+      <div class="relative flex flex-col items-center text-center">
+        <svg class="size-11" viewBox="0 0 20 20" aria-hidden="true"><use href="#mark" /></svg>
+        <h2 class="mt-5 text-[17px] font-semibold tracking-[-0.012em]">Aucun repo ouvert</h2>
+        <p class="mt-1.75 max-w-[42ch] text-[13px]/[1.55] text-muted">Choisis un dossier versionné avec Git pour explorer son graphe de commits, ses branches et ses diffs.</p>
+        <button class="primary mt-5.5" data-open>Ouvrir un repo…</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="statusbar flex items-center gap-3 border-t border-border pr-3 pl-3.5 text-[11px] text-ink-2">
+    <span class="flex shrink-0 items-center gap-1.5">
+      <svg class="i size-3.25 text-muted" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-branch" /></svg>
+      <span id="sb-branch">—</span>
+    </span>
+    <span class="opstate" id="opstate" hidden></span>
+    <span class="hoverpill" id="hoverinfo" hidden></span>
+    <div class="stats" id="stats"></div>
+  </footer>
+
+  <!-- ponytail: entrées inertes — le shell fixe la forme, pas le comportement -->
+  <dialog class="palette mx-auto mt-[12vh] mb-auto w-[min(560px,92vw)] rounded-xl border-0 bg-surface p-0 text-ink" id="palette" aria-label="Palette de commandes">
+    <div class="flex items-center gap-2.5 border-b border-border px-3.75 py-3.25">
+      <svg class="i text-muted" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-term" /></svg>
+      <input class="min-w-0 flex-1 border-0 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-muted" type="text" placeholder="Commande, branche, hash…" />
+    </div>
+    <div class="max-h-[46vh] overflow-auto p-1.5">
+      <p class="mx-2 mt-2 mb-0.75 text-[9.5px] font-semibold tracking-[.07em] text-muted uppercase">Repo</p>
+      <button class="pal-item w-full gap-2.5 rounded-[7px] border-0 bg-transparent px-2.25 py-1.75 text-left text-[12.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:outline-none" type="button" data-open>
+        <svg class="i text-muted" viewBox="0 0 16 16"><use href="#i-folder" /></svg>Ouvrir un repo…
+        <span class="ms-auto flex gap-0.75 ps-2.5"><kbd>Ctrl</kbd><kbd>O</kbd></span>
+      </button>
+      <button class="pal-item w-full gap-2.5 rounded-[7px] border-0 bg-transparent px-2.25 py-1.75 text-left text-[12.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:outline-none" type="button" data-op="fetch">
+        <svg class="i text-muted" viewBox="0 0 16 16"><use href="#i-fetch" /></svg>Fetch
+      </button>
+      <button class="pal-item w-full gap-2.5 rounded-[7px] border-0 bg-transparent px-2.25 py-1.75 text-left text-[12.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:outline-none" type="button" data-op="pull">
+        <svg class="i text-muted" viewBox="0 0 16 16"><use href="#i-pull" /></svg>Pull (fast-forward)
+      </button>
+      <button class="pal-item w-full gap-2.5 rounded-[7px] border-0 bg-transparent px-2.25 py-1.75 text-left text-[12.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:outline-none" type="button" data-op="push">
+        <svg class="i text-muted" viewBox="0 0 16 16"><use href="#i-push" /></svg>Push
+      </button>
+      <p class="mx-2 mt-2 mb-0.75 text-[9.5px] font-semibold tracking-[.07em] text-muted uppercase">Navigation</p>
+      <button class="pal-item w-full gap-2.5 rounded-[7px] border-0 bg-transparent px-2.25 py-1.75 text-left text-[12.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:outline-none" type="button">
+        <svg class="i text-muted" viewBox="0 0 16 16"><use href="#i-commit" /></svg>Aller au commit…
+        <span class="ms-auto flex gap-0.75 ps-2.5"><kbd>Ctrl</kbd><kbd>G</kbd></span>
+      </button>
+      <button class="pal-item w-full gap-2.5 rounded-[7px] border-0 bg-transparent px-2.25 py-1.75 text-left text-[12.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:outline-none" type="button">
+        <svg class="i text-muted" viewBox="0 0 16 16"><use href="#i-branch" /></svg>Aller à la branche…
+      </button>
+      <p class="mx-2 mt-2 mb-0.75 text-[9.5px] font-semibold tracking-[.07em] text-muted uppercase">Vue</p>
+      <button class="pal-item w-full gap-2.5 rounded-[7px] border-0 bg-transparent px-2.25 py-1.75 text-left text-[12.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:outline-none" type="button">
+        <svg class="i text-muted" viewBox="0 0 16 16"><use href="#i-branch" /></svg>Basculer Mainline
+      </button>
+      <button class="pal-item w-full gap-2.5 rounded-[7px] border-0 bg-transparent px-2.25 py-1.75 text-left text-[12.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:outline-none" type="button">
+        <svg class="i text-muted" viewBox="0 0 16 16"><use href="#i-sidebar" /></svg>Afficher / masquer les refs
+        <span class="ms-auto flex gap-0.75 ps-2.5"><kbd>Ctrl</kbd><kbd>B</kbd></span>
+      </button>
+    </div>
+    <div class="flex gap-3.5 rounded-b-xl border-t border-border bg-well px-3.5 py-2 text-[10.5px] text-muted">
+      <span class="flex items-center gap-1"><kbd>↑</kbd><kbd>↓</kbd> naviguer</span>
+      <span class="flex items-center gap-1"><kbd>↵</kbd> valider</span>
+      <span class="flex items-center gap-1"><kbd>Esc</kbd> fermer</span>
+    </div>
+  </dialog>
 
   <script type="module" src="./src/app.js"></script>
 </body>

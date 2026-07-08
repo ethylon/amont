@@ -5,8 +5,9 @@ import { codeToTokens } from 'shiki';
 const api = window.gitgraph;
 
 const ROW = 28, LANE = 14, PAD = 10, R = 4, CHUNK = 500, PAGE = 1000;
-const COLORS = ['#4e8fe0','#e0704e','#3fa96e','#b95fd0','#d8a23c',
-                '#3fb5c4','#8a76e8','#d05f7c','#7aa63f','#5f7ad0'];
+/* Les teintes vivent dans le @theme Tailwind : var() dans un attribut de présentation SVG suit le thème seul. */
+const LANES = 10;
+const laneColor = i => `var(--color-lane-${i % LANES})`;
 
 let DATA = [], TOTAL = 0, NCHUNKS = 0, exhausted = false, fetching = null;
 let MODE = 'all';   // 'all' | 'mainline' (first-parent de HEAD)
@@ -95,17 +96,17 @@ function edgePath(e, yEnd) {
   return d;
 }
 
-const stroke = e => COLORS[e.travel % COLORS.length];
+const stroke = e => laneColor(e.travel);
 
 function edgesSvg(list) {
   return list.map(e => `<path d="${edgePath(e)}" fill="none" stroke="${stroke(e)}" stroke-width="1.6"/>`).join('');
 }
 function nodesSvg(list) {
   return list.map(n => {
-    const c = COLORS[n.lane % COLORS.length];
+    const c = laneColor(n.lane);
     return n.merge
-      ? `<circle cx="${X(n.lane)}" cy="${Y(n.row)}" r="${R - .8}" fill="var(--surface)" stroke="${c}" stroke-width="1.8"/>`
-      : `<circle cx="${X(n.lane)}" cy="${Y(n.row)}" r="${R}" fill="${c}" stroke="var(--surface)" stroke-width="1.5"/>`;
+      ? `<circle cx="${X(n.lane)}" cy="${Y(n.row)}" r="${R - .8}" fill="var(--color-surface)" stroke="${c}" stroke-width="1.8"/>`
+      : `<circle cx="${X(n.lane)}" cy="${Y(n.row)}" r="${R}" fill="${c}" stroke="var(--color-surface)" stroke-width="1.5"/>`;
   }).join('');
 }
 
@@ -254,7 +255,8 @@ function refresh() {
   svg.setAttribute('viewBox', `0 0 ${graphW} ${h}`);
   inner.style.height = h + 'px';
   inner.style.minWidth = graphW + 706 + 'px';   // graphe + place pour les colonnes texte
-  inner.style.setProperty('--graphw', graphW + 'px');
+  /* sur <body> et pas sur .inner : la ligne d'arbre de travail vit hors du scroller */
+  document.body.style.setProperty('--graphw', graphW + 'px');
   let dang = '';
   S.pending.forEach(list => list.forEach(e => {
     dang += `<path d="${edgePath(e, h)}" fill="none" stroke="${stroke(e)}" stroke-width="1.6" stroke-dasharray="2 4" opacity="0.45"/>`;
@@ -393,6 +395,7 @@ function applySel() {
 
 function select(i, additive = false) {
   SELMODE = 'multi';
+  VIEW = 'commits';
   if (additive) SELECTION.has(i) ? SELECTION.delete(i) : SELECTION.add(i);
   else { SELECTION.clear(); SELECTION.add(i); }
   applySel();
@@ -403,6 +406,8 @@ function renderPanel() {
   const gen = ++panelGen;
   closeDiff();
   const panel = document.getElementById('panel');
+  wtrow.classList.toggle('sel', VIEW === 'wt');
+  if (VIEW === 'wt') return renderWorktree(panel);
   const sel = [...SELECTION].sort((a, b) => a - b);
   if (!sel.length) { panel.innerHTML = '<p class="hint">Clique un commit pour le détail.</p>'; return; }
   if (sel.length === 1) renderSingle(panel, sel[0], gen);
@@ -682,6 +687,11 @@ function renderFiles(box, list, ctx) {
 let diffGen = 0;
 let DIFFVIEW = localStorage.getItem('gg.diffview') || 'unified';
 
+/* Un ctx porte soit un couple de commits, soit la source dans l'arbre de travail. */
+const diffText = (ctx, f) => ctx.wt
+  ? api.wtdiff(f.path, ctx.wt)
+  : api.diff(ctx.hash, ctx.parent, f.path, f.old || null);
+
 function closeDiff() {
   diffGen++;
   document.querySelector('.layout').classList.remove('diffing', 'sbs');
@@ -827,7 +837,7 @@ async function openDiff(ctx, f, lineEl) {
   document.querySelector('.layout').classList.add('diffing');
   box.scrollIntoView({ block: 'nearest' });
   try {
-    text = await api.diff(ctx.hash, ctx.parent, f.path, f.old || null);
+    text = await diffText(ctx, f);
     if (diffGen !== gen) return;
     renderDiff(body, text);
   } catch {
@@ -835,9 +845,221 @@ async function openDiff(ctx, f, lineEl) {
   }
 }
 
+/* --- Coquille : sidebar et palette. Le <dialog> natif fournit backdrop, focus trap et Échap. --- */
+const palette = document.getElementById('palette');
+
+document.getElementById('togglesidebar').addEventListener('click', () => document.body.classList.toggle('nosidebar'));
+document.getElementById('opencmd').addEventListener('click', () => palette.showModal());
+palette.addEventListener('click', ev => { if (ev.target.closest('.pal-item')) palette.close(); });
+
 document.addEventListener('keydown', ev => {
-  if (ev.key === 'Escape') closeDiff();
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') { ev.preventDefault(); palette.showModal(); return; }
+  if (ev.key === 'Escape' && !palette.open) closeDiff();
 });
+
+/* --- Opérations git ---
+   Le clic lance l'opération, mais tout le retour passe par api.onOp : l'auto-fetch
+   du process main émet sur le même canal sans avoir d'appelant côté renderer. */
+const OP_LABEL = { fetch: 'Fetch…', pull: 'Pull…', push: 'Push…' };
+const opstate = document.getElementById('opstate');
+let opTimer = 0;
+
+document.querySelectorAll('[data-op]').forEach(b => b.addEventListener('click', () => api.op(b.dataset.op)));
+
+function showOp(text, kind, action) {
+  clearTimeout(opTimer);
+  opstate.className = 'opstate' + (kind ? ' ' + kind : '');
+  opstate.textContent = text;
+  opstate.title = text;   // la pastille tronque : le message git complet reste lisible au survol
+  if (action) {
+    const b = document.createElement('button');
+    b.textContent = action.label;
+    b.addEventListener('click', action.run);
+    opstate.appendChild(b);
+  }
+  opstate.hidden = false;
+  if (kind === 'ok') opTimer = setTimeout(() => { opstate.hidden = true; }, 3000);
+}
+
+async function refreshStatus() {
+  const st = await api.status().catch(() => null);
+  if (!st) return;
+  HEAD_SHA = st.head;
+  document.getElementById('sb-branch').textContent = st.branch || 'HEAD détachée';
+  /* décalage nul : rien à faire. Pas d'upstream (null) : on laisse cliquable, git dira pourquoi. */
+  for (const [op, n] of [['pull', st.behind], ['push', st.ahead]]) {
+    const btn = document.getElementById(op);
+    const badge = btn.querySelector('.count');
+    badge.textContent = n || '';
+    badge.hidden = !n;
+    btn.disabled = n === 0;
+  }
+}
+
+api.onOp(async p => {
+  document.getElementById(p.op).classList.toggle('busy', p.state === 'start');
+  if (p.state === 'start') return showOp(OP_LABEL[p.op], null);
+  if (p.state === 'error') { refreshStatus(); return showOp(p.message, 'error'); }
+
+  await refreshStatus();
+  if (p.op === 'pull') { await resetAndLoad(); showOp('Branche à jour', 'ok'); }
+  else if (p.op === 'push') showOp('Poussé', 'ok');
+  else if (p.added > 0) {
+    const s = p.added > 1 ? 's' : '';
+    /* le graphe n'est pas rechargé d'office : ça perdrait le scroll et la sélection en cours */
+    showOp(`${p.added} nouveau${s} commit${s}`, 'news', { label: 'Recharger', run: () => { opstate.hidden = true; resetAndLoad(); } });
+  }
+  else if (!p.auto) showOp('Déjà à jour', 'ok');
+});
+
+/* --- Arbre de travail ---
+   Une ligne épinglée au-dessus du graphe : le commit qui n'existe pas encore.
+   Elle vit hors du scroller, donc la virtualisation et les indices de DATA sont intacts. */
+let WT = null;
+let VIEW = 'commits';   // 'commits' | 'wt'
+let HEAD_SHA = null;
+let COMMIT_MSG = '';
+
+const wtrow = document.getElementById('wtrow');
+const wtCount = w => w.staged.length + w.unstaged.length + w.untracked.length + w.conflicts.length;
+
+wtrow.addEventListener('click', () => {
+  SELECTION.clear();
+  applySel();
+  VIEW = 'wt';
+  renderPanel();
+});
+
+/* git ne notifie rien : l'arbre a pu bouger dans l'éditeur pendant qu'on regardait ailleurs */
+window.addEventListener('focus', () => { if (document.body.classList.contains('has-repo')) refreshWorktree(); });
+
+async function refreshWorktree() {
+  WT = await api.worktree().catch(() => null);
+  if (!WT || !wtCount(WT)) {
+    wtrow.hidden = true;
+    if (VIEW === 'wt') { VIEW = 'commits'; renderPanel(); }
+    return;
+  }
+  wtrow.hidden = false;
+  paintWtRow();
+  if (VIEW === 'wt') renderPanel();
+}
+
+function paintWtRow() {
+  const counts = wtrow.querySelector('.wtcounts');
+  counts.replaceChildren();
+  for (const [n, cls, label] of [
+    [WT.conflicts.length, 'danger', 'conflits'],
+    [WT.staged.length, 'ok', 'indexés'],
+    [WT.unstaged.length, 'warn', 'modifiés'],
+    [WT.untracked.length, 'muted', 'non suivis'],
+  ]) {
+    if (!n) continue;
+    const s = document.createElement('span');
+    s.className = 'wtc ' + cls;
+    s.textContent = n;
+    s.title = label;
+    counts.appendChild(s);
+  }
+  /* le point s'aligne sur la lane de HEAD ; tant qu'elle n'est pas posée, pas de point */
+  const dot = wtrow.querySelector('.wtdot');
+  const row = S && HEAD_SHA ? S.rowOf.get(HEAD_SHA) : undefined;
+  const lane = row === undefined ? undefined : S.laneOf[row];
+  dot.hidden = lane === undefined;
+  if (lane !== undefined) {
+    dot.style.left = X(lane) + 'px';
+    dot.style.color = laneColor(lane);
+  }
+}
+
+async function wtRun(fn, paths) {
+  try { await fn(paths); } catch (e) { showOp(e.message, 'error'); return; }
+  await refreshWorktree();
+}
+
+const WT_SECTIONS = [
+  { key: 'conflicts', title: 'Conflits',   source: 'unstaged',  cls: 'conflict' },
+  { key: 'staged',    title: 'Indexés',    source: 'staged',    icon: '−', hint: 'Désindexer', all: 'Tout désindexer', act: p => api.unstage(p) },
+  { key: 'unstaged',  title: 'Modifiés',   source: 'unstaged',  icon: '+', hint: 'Indexer',    all: 'Tout indexer',    act: p => api.stage(p) },
+  { key: 'untracked', title: 'Non suivis', source: 'untracked', icon: '+', hint: 'Indexer',    all: 'Tout indexer',    act: p => api.stage(p) },
+];
+
+function renderWorktree(panel) {
+  panel.replaceChildren();
+  const h2 = document.createElement('h2');
+  h2.textContent = 'Modifications non validées';
+  panel.appendChild(h2);
+  if (!WT) return;
+  WT_SECTIONS.forEach(s => { if (WT[s.key].length) panel.appendChild(wtSection(s, WT[s.key])); });
+  panel.appendChild(commitBox());
+}
+
+function wtSection(s, list) {
+  const box = document.createElement('div');
+  box.className = 'files';
+  const head = document.createElement('div');
+  head.className = 'files-head';
+  const title = document.createElement('span');
+  title.textContent = `${s.title} · ${list.length}`;
+  head.appendChild(title);
+  if (s.act) {
+    const all = document.createElement('button');
+    all.className = 'ghost sm';
+    all.textContent = s.all;
+    all.addEventListener('click', () => wtRun(s.act, list.map(f => f.path)));
+    head.appendChild(all);
+  }
+  box.appendChild(head);
+  const ctx = { wt: s.source };
+  list.forEach(f => {
+    const line = fileLine(f, 0, false, ctx);
+    if (s.cls) line.classList.add(s.cls);
+    if (s.act) {
+      const b = document.createElement('button');
+      b.className = 'wtbtn';
+      b.textContent = s.icon;
+      b.title = s.hint;
+      b.setAttribute('aria-label', s.hint);
+      b.addEventListener('click', ev => { ev.stopPropagation(); wtRun(s.act, [f.path]); });
+      line.appendChild(b);
+    }
+    box.appendChild(line);
+  });
+  return box;
+}
+
+function commitBox() {
+  const box = document.createElement('div');
+  box.className = 'commitbox';
+  if (WT.conflicts.length) {
+    const hint = document.createElement('p');
+    hint.className = 'hint';
+    hint.textContent = 'Résous les conflits avant de committer.';
+    box.appendChild(hint);
+  }
+  const ta = document.createElement('textarea');
+  ta.placeholder = 'Message de commit';
+  ta.value = COMMIT_MSG;
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  const n = WT.staged.length;
+  btn.textContent = n ? `Commit · ${n} fichier${n > 1 ? 's' : ''}` : 'Commit';
+  const ready = () => n > 0 && ta.value.trim() && !WT.conflicts.length;
+  btn.disabled = !ready();
+  /* le message survit aux re-rendus que déclenche l'indexation */
+  ta.addEventListener('input', () => { COMMIT_MSG = ta.value; btn.disabled = !ready(); });
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try { await api.commit(ta.value); }
+    catch (e) { showOp(e.message, 'error'); btn.disabled = false; return; }
+    COMMIT_MSG = '';
+    await refreshWorktree();
+    refreshStatus();
+    await resetAndLoad();
+  });
+  box.append(ta, btn);
+  return box;
+}
 
 async function jumpTo(hash) {
   while (!S.rowOf.has(hash) && (S.next < DATA.length || !exhausted)) {
@@ -865,6 +1087,7 @@ inner.addEventListener('dblclick', ev => {
   SELECTION.clear();
   branchSegment(+row.dataset.i).forEach(r => SELECTION.add(r));
   SELMODE = 'branch';
+  VIEW = 'commits';
   applySel();
   renderPanel();
 });
@@ -892,15 +1115,14 @@ async function resetAndLoad() {
   layoutChunk();
   refresh();
   sync();
+  await refreshWorktree();   // après le layout : le point de la ligne a besoin de la lane de HEAD
 }
 
 async function openRepo(repo) {
   document.getElementById('title').textContent = repo.name;
   document.title = `git-graph — ${repo.name}`;
-  document.getElementById('empty').hidden = true;
-  document.getElementById('layout').hidden = false;
-  document.getElementById('loadall').hidden = false;
-  document.getElementById('mainline').hidden = false;
+  document.body.classList.add('has-repo');   // la coquille se déplie en CSS
+  await refreshStatus();                     // pose HEAD_SHA avant le premier layout
   await resetAndLoad();
 }
 
@@ -911,11 +1133,11 @@ document.getElementById('mainline').addEventListener('click', async ev => {
   await resetAndLoad();
 });
 
-document.getElementById('open').addEventListener('click', async () => {
+document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', async () => {
   const repo = await api.openRepo();
   if (!repo) return;
   if (repo.error) { alert(repo.error); return; }
   openRepo(repo);
-});
+}));
 
 api.current().then(repo => { if (repo) openRepo(repo); });
