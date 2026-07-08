@@ -49,6 +49,8 @@ export type GitRef = {
   name: string
   kind: "head" | "remote" | "tag"
   head: boolean
+  /** distante suivie, forme courte ("origin/master") ; vide si la branche n'en a pas */
+  upstream: string
   ahead: number
   behind: number
   /** branche locale déjà fusionnée dans la branche d'intégration */
@@ -56,6 +58,11 @@ export type GitRef = {
   /** branche locale dont la contrepartie distante a été supprimée */
   gone: boolean
 }
+
+/** Les préfixes de `git flow init`, ou `null` si le dépôt ignore git-flow. */
+export type FlowPrefixes = Partial<Record<"feature" | "bugfix" | "release" | "hotfix", string>>
+
+export type BranchAct = "merge" | "delete" | "pull" | "push" | "finish"
 
 export type WtSource = "staged" | "unstaged" | "untracked"
 
@@ -90,6 +97,8 @@ type Bridge = {
   total(id: number): Promise<number>
   search(id: number, q: string, content: boolean): Promise<string[]>
   refs(id: number): Promise<GitRef[]>
+  flow(id: number): Promise<FlowPrefixes | null>
+  branch(id: number, action: BranchAct, name: string): Promise<void>
   files(id: number, hash: string, parent: string | null): Promise<FileChange[]>
   body(id: number, hash: string): Promise<string>
   diff(id: number, hash: string, parent: string | null, path: string, oldPath: string | null): Promise<string>
@@ -148,6 +157,10 @@ export type RepoApi = {
   /** hashes courts des commits correspondants, tous critères confondus ; `content` fouille les diffs */
   search(q: string, content: boolean): Promise<string[]>
   refs(): Promise<GitRef[]>
+  /** `null` : le dépôt n'a jamais vu `git flow init` */
+  flow(): Promise<FlowPrefixes | null>
+  /** merge dans HEAD, suppression, pull/push d'une branche donnée, ou `git flow <type> finish` */
+  branch(action: BranchAct, name: string): Promise<void>
   files(hash: string, parent: string | null): Promise<FileChange[]>
   /** corps du message (`%b`), trailers compris */
   body(hash: string): Promise<string>
@@ -171,6 +184,8 @@ export const repoApi = (id: number): RepoApi => ({
   total: () => bridge.total(id),
   search: (q, content) => bridge.search(id, q, content),
   refs: () => bridge.refs(id),
+  flow: () => bridge.flow(id),
+  branch: (action, name) => bridge.branch(id, action, name),
   files: (hash, parent) => bridge.files(id, hash, parent),
   body: (hash) => bridge.body(id, hash),
   diff: (hash, parent, path, oldPath) => bridge.diff(id, hash, parent, path, oldPath),

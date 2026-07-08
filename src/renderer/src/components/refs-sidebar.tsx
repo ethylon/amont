@@ -1,20 +1,31 @@
 import { useEffect, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
+  ArrowDown02Icon,
   ArrowRight01Icon,
+  ArrowUp02Icon,
+  CheckmarkCircle02Icon,
   CloudIcon,
+  Delete02Icon,
   GitBranchIcon,
   GitMergeIcon,
   Search01Icon,
   Tag01Icon,
 } from "@hugeicons/core-free-icons"
 
-import type { GitRef, RepoApi } from "@/lib/git"
+import type { BranchAct, FlowPrefixes, GitRef, RepoApi } from "@/lib/git"
 import { typeColor, type BadgeColor } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Tip } from "@/components/ui/tip"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/primitives/context-menu"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/primitives/input-group"
 import { Spinner } from "@/components/ui/primitives/spinner"
 
@@ -41,9 +52,31 @@ const pinRank = (label: string) => {
   return i < 0 ? PINNED.length : i
 }
 
+/* `git flow feature finish` : le genre suit le mot français qu'on lui prête. */
+const FLOW_LABEL = {
+  feature: "Terminer la feature",
+  bugfix: "Terminer le bugfix",
+  release: "Terminer la release",
+  hotfix: "Terminer le hotfix",
+} as const satisfies Record<keyof FlowPrefixes, string>
+
+const flowType = (name: string, prefixes: FlowPrefixes | null) =>
+  prefixes &&
+  (Object.keys(FLOW_LABEL) as (keyof FlowPrefixes)[]).find(
+    (t) => prefixes[t] && name.startsWith(prefixes[t]!)
+  )
+
 /* Les segments de `feature/optim-cout` deviennent des dossiers ; la feuille porte la ref. */
 type Node = { dirs: Map<string, Node>; leaves: { ref: GitRef; label: string }[] }
 type RowProps = { onCheckout(name: string): void }
+/* le contexte que le menu d'une branche a besoin de connaître, remis tel quel à chaque niveau
+   de l'arbre : quatre props traversant trois composants ne diraient rien de plus. */
+type Ctx = RowProps & {
+  /** branche courante, `null` sur HEAD détachée */
+  current: string | null
+  flow: FlowPrefixes | null
+  onBranch(action: BranchAct, name: string): void
+}
 
 function buildTree(refs: GitRef[]): Node {
   const root: Node = { dirs: new Map(), leaves: [] }
@@ -66,7 +99,52 @@ const holdsHead = (n: Node): boolean =>
 const track = (r: GitRef) =>
   [r.ahead && `↑${r.ahead}`, r.behind && `↓${r.behind}`].filter(Boolean).join(" ")
 
-function RefRow({ r, label, icon, onCheckout }: RowProps & { r: GitRef; label: string; icon: IconSvgElement }) {
+/* Le menu ne s'ouvre que sur une branche locale : une distante ne se merge ni ne se pousse,
+   et un tag n'a rien de tout ça. `flow finish` connaît le nom complet, préfixe compris. */
+function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
+  const flow = flowType(r.name, ctx.flow)
+  return (
+    <ContextMenuContent>
+      <ContextMenuItem disabled={r.head} onClick={() => ctx.onCheckout(r.name)}>
+        <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} />
+        Checkout
+      </ContextMenuItem>
+      <ContextMenuItem disabled={r.head || !ctx.current} onClick={() => ctx.onBranch("merge", r.name)}>
+        <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} />
+        Fusionner dans «&nbsp;{ctx.current ?? "HEAD"}&nbsp;»
+      </ContextMenuItem>
+
+      <ContextMenuSeparator />
+      <ContextMenuItem disabled={!r.upstream} onClick={() => ctx.onBranch("pull", r.name)}>
+        <HugeiconsIcon icon={ArrowDown02Icon} strokeWidth={2} />
+        Pull
+      </ContextMenuItem>
+      <ContextMenuItem disabled={!r.upstream} onClick={() => ctx.onBranch("push", r.name)}>
+        <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} />
+        {r.upstream ? <>Push vers «&nbsp;{r.upstream}&nbsp;»</> : "Push"}
+      </ContextMenuItem>
+
+      {flow && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => ctx.onBranch("finish", r.name)}>
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
+            {FLOW_LABEL[flow]}
+          </ContextMenuItem>
+        </>
+      )}
+
+      <ContextMenuSeparator />
+      {/* git refuse `-d` sur la branche sortie, mais un item qui ne peut qu'échouer n'a rien à faire là */}
+      <ContextMenuItem variant="destructive" disabled={r.head} onClick={() => ctx.onBranch("delete", r.name)}>
+        <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+        Supprimer la branche
+      </ContextMenuItem>
+    </ContextMenuContent>
+  )
+}
+
+function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconSvgElement; ctx: Ctx }) {
   const t = track(r)
   /* un tag se checkout en HEAD détaché, ce qui ne s'annule pas d'un double-clic.
      Une distante bascule sur la locale de suivi (DWIM de git checkout <nom>). */
@@ -78,43 +156,51 @@ function RefRow({ r, label, icon, onCheckout }: RowProps & { r: GitRef; label: s
     r.gone && "distante supprimée",
     switchable && "double-clic pour basculer",
   ].filter(Boolean)
+
+  const row = (
+    <Tip text={[r.name, ...notes].join(" — ")} side="right">
+      <button
+        type="button"
+        onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
+        className={cn(
+          "flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs select-none",
+          "text-foreground hover:bg-muted",
+          /* surélévation : la surface tient au-dessus de son ombre, et le survol la repose */
+          r.head && "bg-primary/20 shadow-xs shadow-primary/25 hover:bg-primary/25 hover:shadow-none"
+        )}
+      >
+        <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+        {/* une branche dont la distante a disparu n'est plus une destination : elle se lit comme un reliquat */}
+        <span className={cn("truncate font-medium", r.gone && "text-muted-foreground line-through")}>{label}</span>
+        {/* badge, pas du texte nu : en bout de ligne, un nombre nu se lit comme le compteur de
+            refs du groupe. h-4 pour que la ligne garde la hauteur des branches sans suivi. */}
+        {t && (
+          <Badge shape="squared" className="ms-auto h-4 px-1.5 tabular-nums">
+            {t}
+          </Badge>
+        )}
+        {r.merged && (
+          <HugeiconsIcon
+            icon={GitMergeIcon}
+            strokeWidth={2}
+            className={cn("size-3.5 shrink-0 text-muted-foreground", !t && "ms-auto")}
+          />
+        )}
+      </button>
+    </Tip>
+  )
+
+  if (r.kind !== "head") return <li>{row}</li>
+  /* le trigger porte le `li` : le clic droit prend toute la ligne, pas le seul bouton */
   return (
-    <li>
-      <Tip text={[r.name, ...notes].join(" — ")} side="right">
-        <button
-          type="button"
-          onDoubleClick={switchable ? () => onCheckout(target) : undefined}
-          className={cn(
-            "flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs select-none",
-            "text-foreground hover:bg-muted",
-            /* surélévation : la surface tient au-dessus de son ombre, et le survol la repose */
-            r.head && "bg-primary/20 shadow-xs shadow-primary/25 hover:bg-primary/25 hover:shadow-none"
-          )}
-        >
-          <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-          {/* une branche dont la distante a disparu n'est plus une destination : elle se lit comme un reliquat */}
-          <span className={cn("truncate font-medium", r.gone && "text-muted-foreground line-through")}>{label}</span>
-          {/* badge, pas du texte nu : en bout de ligne, un nombre nu se lit comme le compteur de
-              refs du groupe. h-4 pour que la ligne garde la hauteur des branches sans suivi. */}
-          {t && (
-            <Badge shape="squared" className="ms-auto h-4 px-1.5 tabular-nums">
-              {t}
-            </Badge>
-          )}
-          {r.merged && (
-            <HugeiconsIcon
-              icon={GitMergeIcon}
-              strokeWidth={2}
-              className={cn("size-3.5 shrink-0 text-muted-foreground", !t && "ms-auto")}
-            />
-          )}
-        </button>
-      </Tip>
-    </li>
+    <ContextMenu>
+      <ContextMenuTrigger render={<li />}>{row}</ContextMenuTrigger>
+      <BranchMenu r={r} ctx={ctx} />
+    </ContextMenu>
   )
 }
 
-function Tree({ node, icon, onCheckout }: RowProps & { node: Node; icon: IconSvgElement }) {
+function Tree({ node, icon, ctx }: { node: Node; icon: IconSvgElement; ctx: Ctx }) {
   const dirs = [...node.dirs.keys()].sort((a, b) => a.localeCompare(b))
   const leaves = [...node.leaves].sort(
     (a, b) => pinRank(a.label) - pinRank(b.label) || a.label.localeCompare(b.label)
@@ -122,7 +208,7 @@ function Tree({ node, icon, onCheckout }: RowProps & { node: Node; icon: IconSvg
   const pinned = leaves.filter((l) => pinRank(l.label) < PINNED.length)
 
   const row = ({ ref, label }: Node["leaves"][number]) => (
-    <RefRow key={ref.name} r={ref} label={label} icon={icon} onCheckout={onCheckout} />
+    <RefRow key={ref.name} r={ref} label={label} icon={icon} ctx={ctx} />
   )
 
   return (
@@ -144,7 +230,7 @@ function Tree({ node, icon, onCheckout }: RowProps & { node: Node; icon: IconSvg
                 <span className="truncate">{k}</span>
               </CollapsibleTrigger>
               <CollapsibleContent className="ml-2 border-l pl-2">
-                <Tree node={child} icon={icon} onCheckout={onCheckout} />
+                <Tree node={child} icon={icon} ctx={ctx} />
               </CollapsibleContent>
             </Collapsible>
           </li>
@@ -160,10 +246,12 @@ export function RefsSidebar({
   open,
   refreshKey,
   onCheckout,
-}: RowProps & { api: RepoApi; open: boolean; refreshKey: string }) {
+  onBranch,
+}: Pick<Ctx, "onCheckout" | "onBranch"> & { api: RepoApi; open: boolean; refreshKey: string }) {
   /* pas `useAsync` : il vide ses données à chaque clé, et l'auto-fetch ferait clignoter
      l'arbre toutes les cinq minutes. Ici l'ancien rendu tient jusqu'à la réponse. */
   const [data, setData] = useState<GitRef[] | null>(null)
+  const [flow, setFlow] = useState<FlowPrefixes | null>(null)
   const [error, setError] = useState(false)
 
   useEffect(() => {
@@ -172,12 +260,17 @@ export function RefsSidebar({
       (r) => !stale && setData(r),
       () => !stale && setError(true)
     )
+    /* `git flow init` peut arriver après l'ouverture de l'onglet : relu avec les refs, pas mis
+       en cache. Un `git config` coûte moins que le `for-each-ref --merged` d'à côté. */
+    api.flow().then((f) => !stale && setFlow(f), () => {})
     return () => {
       stale = true
     }
     // `api` est stable pour un onglet donné : `refreshKey` porte déjà son identité.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey])
+
+  const ctx: Ctx = { current: data?.find((r) => r.head)?.name ?? null, flow, onCheckout, onBranch }
 
   return (
     /* replié = largeur nulle, pas démonté : le contenu garde sa largeur et se fait rogner,
@@ -225,7 +318,7 @@ export function RefsSidebar({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="mt-0.5">
-                      <Tree node={buildTree(refs)} icon={g.icon} onCheckout={onCheckout} />
+                      <Tree node={buildTree(refs)} icon={g.icon} ctx={ctx} />
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
