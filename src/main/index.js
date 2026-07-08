@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron';
 import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 
@@ -260,6 +260,11 @@ async function createWindow() {
   const win = new BrowserWindow({
     width: 1300,
     height: 850,
+    /* le fond de la fenêtre est peint avant le premier rendu ; sans lui, flash blanc en
+       thème sombre. `show: false` + ready-to-show évite d'exposer une fenêtre vide. */
+    show: false,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#ffffff',
+    icon: join(app.getAppPath(), 'resources/icon.png'),
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.mjs'),
       contextIsolation: true,
@@ -268,6 +273,7 @@ async function createWindow() {
     },
   });
   mainWindow = win;
+  win.once('ready-to-show', () => win.show());
   win.on('closed', () => { mainWindow = null; clearInterval(autoFetchTimer); });
 
   if (process.env.GG_REPO) {
