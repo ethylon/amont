@@ -146,13 +146,18 @@ function diffUntracked(repo, path) {
   });
 }
 
+/* `--all` embarque `refs/stash`, dont les commits de plomberie (« On x », « index on x »,
+   « untracked files on x ») n'ont rien à faire dans le graphe. `--exclude` s'applique au
+   `--all` qui suit. ponytail: idem pour `refs/notes/*` le jour où quelqu'un en pose. */
+const ALL_REFS = ['--exclude=refs/stash', '--all'];
+
 /* ponytail: git log --skip re-parcourt l'historique à chaque page — OK jusqu'à ~100k commits,
    passer à un stream spawn persistant si un jour ça rame. */
 async function logPage(r, skip, count) {
   /* --decorate=full : `%D` sort alors `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
      Sous sa forme courte, `origin/x` et une branche locale `origin/x` sont indistinguables. */
   const out = await git(r.path, [
-    'log', '--all', '--date-order', '--date=short', '--decorate=full',
+    'log', ...ALL_REFS, '--date-order', '--date=short', '--decorate=full',
     `--skip=${skip}`, `-n${count}`,
     '--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e',
   ]);
@@ -175,7 +180,7 @@ const SEARCH_MAX = 2000;
 const SEARCH_TIMEOUT = 30_000;
 
 async function searchCommits(r, q, content) {
-  const base = ['log', '--all', '--format=%H', `-n${SEARCH_MAX}`, '-i', '-F'];
+  const base = ['log', ...ALL_REFS, '--format=%H', `-n${SEARCH_MAX}`, '-i', '-F'];
   const runs = [
     git(r.path, [...base, `--grep=${q}`]),
     git(r.path, [...base, `--author=${q}`]),
@@ -203,7 +208,7 @@ const OP_TIMEOUT = 90_000;
 const AUTOFETCH_MS = 5 * 60_000;
 
 const emit = payload => mainWindow?.webContents.send('git:op', payload);
-const countAll = r => git(r.path, ['rev-list', '--all', '--count']).then(o => parseInt(o, 10));
+const countAll = r => git(r.path, ['rev-list', ...ALL_REFS, '--count']).then(o => parseInt(o, 10));
 
 async function runOp(r, name, auto = false) {
   if (r.running) return;
@@ -557,7 +562,7 @@ ipcMain.handle('repo:search', (_ev, id, q, content) => {
 });
 
 ipcMain.handle('repo:total', async (_ev, id) =>
-  parseInt(await git(use(id).path, ['rev-list', '--count', '--all']), 10));
+  parseInt(await git(use(id).path, ['rev-list', '--count', ...ALL_REFS]), 10));
 
 function createWindow() {
   const win = new BrowserWindow({
