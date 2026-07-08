@@ -22,6 +22,10 @@ const badgeVariants = cva(
         success: "[--badge-color:var(--success)] [--badge-fg:var(--success)]",
         warning: "[--badge-color:var(--warning)] [--badge-fg:var(--warning)]",
         danger: "[--badge-color:var(--destructive)] [--badge-fg:var(--destructive)]",
+        /* Le seul axe où la teinte n'a pas de nom : le porteur — ou n'importe lequel de ses
+           ancêtres, --badge-color hérite — la pose. Les lanes du graphe sont assez lisibles
+           dans les deux thèmes pour servir aussi de couleur de texte. */
+        lane: "[--badge-fg:var(--badge-color)]",
       },
       variant: {
         default: "border-(--badge-color)/20 bg-(--badge-color)/10 text-(--badge-fg) dark:bg-(--badge-color)/20",
