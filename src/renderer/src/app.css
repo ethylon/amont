@@ -1,602 +1,265 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
 
-@font-face {
-  font-family: Geist;
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('./fonts/GeistVariable.woff2') format('woff2');
-}
+@custom-variant dark (&:is(.dark *));
 
-@theme {
-  /* Palette Tailwind par défaut coupée : seuls nos tokens produisent des utilities. */
-  --color-*: initial;
+@theme inline {
+    /* Palette Tailwind coupée : seuls les tokens du preset produisent des utilities, donc
+       `bg-slate-800` fait échouer le build. black survit pour l'overlay de dialog.tsx. */
+    --color-*: initial;
+    --color-black: #000;
 
-  --font-sans: Geist, "Segoe UI", system-ui, sans-serif;
-  /* Cascadia Mono plutôt que Cascadia Code : les ligatures masquent la différence
-     entre `!=` et `! =` dans un diff. Basculer sur Code si tu les veux. */
-  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+    /* Cascadia Mono plutôt que Cascadia Code : les ligatures masquent la différence
+       entre `!=` et `! =` dans un diff. Basculer sur Code si tu les veux. */
+    --font-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, ui-monospace, monospace;
 
-  /* Chrome quasi neutre, légère dominante froide : le graphe est le seul porteur de couleur. */
-  --color-surface:       oklch(100%   0     0);
-  --color-well:          oklch(96.6%  0.004 220);
-  --color-hover:         oklch(96%    0.006 220);
-  --color-ink:           oklch(25%    0.017 250);
-  --color-ink-2:         oklch(43%    0.013 250);
-  --color-muted:         oklch(58%    0.011 250);
-  --color-border:        oklch(91.5%  0.005 250);
-  --color-border-strong: oklch(85%    0.007 250);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
 
-  --color-accent:    oklch(52% 0.13 205);
-  --color-accent-fg: oklch(99% 0.01 205);
+    /* Hors charte shadcn, assumé : le preset ne connaît que destructive. */
+    --color-success: var(--success);
+    --color-warning: var(--warning);
 
-  --color-ok:      oklch(52% 0.14 150);
-  --color-warn:    oklch(56% 0.13 70);
-  --color-danger:  oklch(55% 0.19 25);
-  --color-info:    oklch(53% 0.16 250);
-  --color-violet:  oklch(53% 0.18 290);
-  --color-magenta: oklch(54% 0.19 325);
-  --color-cyan:    oklch(52% 0.11 195);
-
-  /* Lanes : hues espacées de 108° — deux lanes adjacentes ne se confondent jamais.
-     Chroma ajustée par teinte (le jaune et le cyan saturent moins que le rouge). */
-  --color-lane-0: oklch(56% 0.16 250);
-  --color-lane-1: oklch(58% 0.18 358);
-  --color-lane-2: oklch(56% 0.14 106);
-  --color-lane-3: oklch(56% 0.13 214);
-  --color-lane-4: oklch(55% 0.19 322);
-  --color-lane-5: oklch(62% 0.14 70);
-  --color-lane-6: oklch(55% 0.10 178);
-  --color-lane-7: oklch(53% 0.19 286);
-  --color-lane-8: oklch(58% 0.16 34);
-  --color-lane-9: oklch(55% 0.14 142);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  color-scheme: light dark;
-  --titlebar-h: 50px;
-  --statusbar-h: 28px;
-  --sidebar-w: 236px;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.52 0.105 223.128);
+    --primary-foreground: oklch(0.984 0.019 200.873);
+    --secondary: oklch(0.967 0.001 286.375);
+    --secondary-foreground: oklch(0.21 0.006 285.885);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.865 0.127 207.078);
+    --chart-2: oklch(0.715 0.143 215.221);
+    --chart-3: oklch(0.609 0.126 221.723);
+    --chart-4: oklch(0.52 0.105 223.128);
+    --chart-5: oklch(0.45 0.085 224.283);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.609 0.126 221.723);
+    --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
 
-  /* Hors @theme, délibérément : le namespace --shadow-* est inliné dans les utilities
-     à la compilation, donc un override sous @media ne les atteindrait jamais. */
-  --elev-1:     0 1px 2px oklch(30% 0.03 250 / 0.07);
-  --elev-modal: 0 24px 60px -16px oklch(25% 0.03 250 / 0.32), 0 0 0 1px var(--color-border);
+    --success: oklch(0.52 0.14 150);
+    --warning: oklch(0.56 0.13 70);
+
+    /* Lanes : hues espacées de 108° — deux lanes adjacentes ne se confondent jamais.
+       Chroma ajustée par teinte (le jaune et le cyan saturent moins que le rouge).
+       Hors @theme : consommées par var() dans des attributs SVG, jamais par une utility. */
+    --lane-0: oklch(0.56 0.16 250);
+    --lane-1: oklch(0.58 0.18 358);
+    --lane-2: oklch(0.56 0.14 106);
+    --lane-3: oklch(0.56 0.13 214);
+    --lane-4: oklch(0.55 0.19 322);
+    --lane-5: oklch(0.62 0.14 70);
+    --lane-6: oklch(0.55 0.10 178);
+    --lane-7: oklch(0.53 0.19 286);
+    --lane-8: oklch(0.58 0.16 34);
+    --lane-9: oklch(0.55 0.14 142);
 }
 
-/* Overrides sombres hors layer : ils gagnent sur l'émission @layer theme de Tailwind,
-   et les utilities résolvent leurs var() au niveau de l'élément — tout suit.
-   Placés après le :root clair : à spécificité égale, l'ordre source tranche. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-surface:       oklch(20.5% 0.010 250);
-    --color-well:          oklch(16.5% 0.010 250);
-    --color-hover:         oklch(24.5% 0.013 250);
-    --color-ink:           oklch(93%   0.008 250);
-    --color-ink-2:         oklch(76%   0.011 250);
-    --color-muted:         oklch(62%   0.013 250);
-    --color-border:        oklch(28%   0.012 250);
-    --color-border-strong: oklch(35%   0.014 250);
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.45 0.085 224.283);
+    --primary-foreground: oklch(0.984 0.019 200.873);
+    --secondary: oklch(0.274 0.006 286.033);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.865 0.127 207.078);
+    --chart-2: oklch(0.715 0.143 215.221);
+    --chart-3: oklch(0.609 0.126 221.723);
+    --chart-4: oklch(0.52 0.105 223.128);
+    --chart-5: oklch(0.45 0.085 224.283);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.715 0.143 215.221);
+    --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
 
-    --color-accent:    oklch(76% 0.11 205);
-    --color-accent-fg: oklch(18% 0.03 205);
+    --success: oklch(0.74 0.15 150);
+    --warning: oklch(0.80 0.14 70);
 
-    --color-ok:      oklch(74% 0.15 150);
-    --color-warn:    oklch(80% 0.14 70);
-    --color-danger:  oklch(70% 0.16 25);
-    --color-info:    oklch(74% 0.13 250);
-    --color-violet:  oklch(74% 0.14 290);
-    --color-magenta: oklch(74% 0.16 325);
-    --color-cyan:    oklch(76% 0.10 195);
-
-    /* pas d'ombre en sombre : la profondeur passe par la luminance des surfaces */
-    --elev-1:     0 0 #0000;
-    --elev-modal: 0 0 0 1px var(--color-border-strong);
-
-    --color-lane-0: oklch(70% 0.14 250);
-    --color-lane-1: oklch(70% 0.16 358);
-    --color-lane-2: oklch(74% 0.16 106);
-    --color-lane-3: oklch(74% 0.12 214);
-    --color-lane-4: oklch(70% 0.17 322);
-    --color-lane-5: oklch(80% 0.14 70);
-    --color-lane-6: oklch(76% 0.11 178);
-    --color-lane-7: oklch(69% 0.16 286);
-    --color-lane-8: oklch(73% 0.15 34);
-    --color-lane-9: oklch(72% 0.14 142);
-  }
+    --lane-0: oklch(0.70 0.14 250);
+    --lane-1: oklch(0.70 0.16 358);
+    --lane-2: oklch(0.74 0.16 106);
+    --lane-3: oklch(0.74 0.12 214);
+    --lane-4: oklch(0.70 0.17 322);
+    --lane-5: oklch(0.80 0.14 70);
+    --lane-6: oklch(0.76 0.11 178);
+    --lane-7: oklch(0.69 0.16 286);
+    --lane-8: oklch(0.73 0.15 34);
+    --lane-9: oklch(0.72 0.14 142);
 }
 
-/* [hidden] doit gagner sur tout display posé par une utility ou un composant */
-[hidden] { display: none !important; }
-
-/* États de la coquille : hors layer, sinon les utilities display (flex/grid)
-   posées sur ces éléments gagneraient sur le display:none. */
-body:not(.has-repo), body.nosidebar { --sidebar-w: 0px; }
-body:not(.has-repo) .sidebar, body.nosidebar .sidebar,
-body:not(.has-repo) .toolbar,
-body:not(.has-repo) .layout,
-body:not(.has-repo) #togglesidebar,
-body:not(.has-repo) .tb-ops,
-body:not(.has-repo) .tb-sep,
-body.has-repo .empty { display: none; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes fadein { to { opacity: 1; } }
-@keyframes flash {
-  0%, 40% { background: color-mix(in oklab, var(--color-accent) 22%, transparent); }
-  100%    { background: transparent; }
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    }
+  body {
+    @apply bg-background text-foreground;
+    }
+  html {
+    @apply font-sans;
+    }
 }
 
-/* Couche composants : tout ce qui est créé ou basculé par le JS, les états,
-   et les systèmes réutilisés (boutons, chips, lignes). Les utilities gardent le dernier mot. */
-@layer components {
+@layer base {
+  html, body, #root { height: 100%; }
+  body { overflow: hidden; -webkit-font-smoothing: antialiased; font-optical-sizing: auto; }
 
   ::-webkit-scrollbar { width: 11px; height: 11px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-border-strong);
+    background: var(--border);
     border-radius: 6px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
-  ::-webkit-scrollbar-thumb:hover { background: var(--color-muted); background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); background-clip: padding-box; }
   ::-webkit-scrollbar-corner { background: transparent; }
+}
 
-  html { background: var(--color-surface); }
-  .mono { font-family: var(--font-mono); }
+/* Le strict nécessaire que les utilities n'expriment pas : une gouttière calculée au
+   runtime, l'estompage du graphe au survol, et le flash d'un commit ciblé. */
+@layer components {
+  .gg-row, .gg-wtrow { padding-left: calc(var(--graphw, 0px) + 12px); }
 
-  /* --- Coquille : titlebar / sidebar / main / statusbar --- */
-  body {
-    font: 13px/1.4 var(--font-sans);
-    color: var(--color-ink);
-    height: 100vh;
-    overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-    font-optical-sizing: auto;
-    display: grid;
-    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
-    grid-template-rows: var(--titlebar-h) minmax(0, 1fr) var(--statusbar-h);
-    grid-template-areas:
-      "bar    bar"
-      "side   main"
-      "status status";
-  }
-  .titlebar { grid-area: bar; }
-  .sidebar { grid-area: side; }
-  .statusbar { grid-area: status; }
-  .main { grid-area: main; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-  .toolbar { grid-row: 1; }
-  .layout, .empty { grid-row: 2; grid-column: 1; }
+  .gg-graph > g { transition: opacity 0.12s ease; }
+  .gg-graph.dim > g:not(.gg-hl) { opacity: 0.16; }
 
-  /* --- Boutons --- */
-  button {
-    font: inherit; font-size: 12px; font-weight: 500;
-    display: inline-flex; align-items: center; gap: 6px;
-    color: var(--color-ink-2); background: var(--color-surface);
-    border: 1px solid var(--color-border-strong); border-radius: 6px;
-    padding: 5px 11px; cursor: pointer; white-space: nowrap;
-    transition: background .12s ease, color .12s ease, border-color .12s ease;
+  @keyframes gg-flash {
+    0%, 40% { background: color-mix(in oklab, var(--primary) 22%, transparent); }
+    100%    { background: transparent; }
   }
-  button:hover { background: var(--color-hover); color: var(--color-ink); }
-  button:active { transform: translateY(0.5px); }
-  button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-  button.active {
-    color: var(--color-accent);
-    background: color-mix(in oklab, var(--color-accent) 11%, transparent);
-    border-color: color-mix(in oklab, var(--color-accent) 42%, transparent);
-  }
-  button.primary {
-    color: var(--color-accent-fg); background: var(--color-accent);
-    border-color: transparent; box-shadow: var(--elev-1);
-  }
-  button.primary:hover { color: var(--color-accent-fg); background: color-mix(in oklab, var(--color-accent) 88%, black); }
-  button.ghost { background: transparent; border-color: transparent; }
-  button.ghost:hover { background: var(--color-hover); }
-  button.sm { padding: 4px 8px; font-size: 11.5px; gap: 4px; }
-  button.sq { padding: 6px; }
-  button:disabled { opacity: .4; cursor: default; }
-  button:disabled:hover { background: transparent; color: var(--color-ink-2); }
-  button.busy { pointer-events: none; }
-  button.busy .i { animation: spin .7s linear infinite; }
+  .gg-flash { animation: gg-flash 1.6s ease-out; }
+
   @media (prefers-reduced-motion: reduce) {
-    button { transition: none; }
-    button.busy .i { animation: none; opacity: .5; }
+    .gg-graph > g { transition: none; }
+    .gg-flash { animation: none; background: color-mix(in oklab, var(--primary) 18%, transparent); }
   }
-
-  .count {
-    font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; line-height: 1;
-    padding: 3px 4px; border-radius: 4px; font-variant-numeric: tabular-nums;
-    color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 15%, transparent);
-  }
-
-  .i { width: 14px; height: 14px; flex: none; display: block; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-
-  .search {
-    display: flex; align-items: center; gap: 7px;
-    height: 30px; padding: 0 10px; border-radius: 7px;
-    background: var(--color-well); box-shadow: inset 0 0 0 1px var(--color-border);
-    color: var(--color-muted); flex: 0 1 400px; min-width: 0;
-  }
-  .search.sm { height: 28px; flex: 1; }
-  .search:focus-within {
-    box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 3px color-mix(in oklab, var(--color-accent) 16%, transparent);
-  }
-  .search input {
-    border: 0; background: transparent; outline: 0; min-width: 0; width: 100%;
-    font: inherit; font-size: 12px; color: var(--color-ink);
-  }
-  .search input::placeholder { color: var(--color-muted); }
-  .search input::-webkit-search-cancel-button { display: none; }
-
-  kbd {
-    font-family: var(--font-mono);
-    font-size: 9.5px; line-height: 1; color: var(--color-muted);
-    padding: 3px 4px; border-radius: 4px;
-    background: var(--color-well); box-shadow: inset 0 0 0 1px var(--color-border);
-  }
-
-  /* --- Titlebar : sélecteur de repo --- */
-  .repo-switch { flex: 0 1 auto; min-width: 0; padding: 5px 8px; color: var(--color-ink-2); }
-  .repo-switch > .i:first-child { color: var(--color-muted); }
-  .repo { font-size: 12.5px; font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .repo::before { content: '/'; color: var(--color-border-strong); margin: 0 10px 0 4px; }
-
-  /* --- Sidebar : refs (rendues par le JS à terme) --- */
-  .side-group + .side-group { margin-top: 6px; }
-  .side-group summary {
-    list-style: none; cursor: pointer; user-select: none;
-    display: flex; align-items: center; gap: 7px; padding: 5px 6px; border-radius: 6px;
-    font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em;
-    color: var(--color-muted);
-  }
-  .side-group summary::-webkit-details-marker { display: none; }
-  .side-group summary:hover { background: var(--color-hover); }
-  .side-group summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -1px; }
-  .side-group summary .cnt { margin-left: auto; }
-  .side-group ul { list-style: none; margin: 2px 0 0; padding: 0; }
-
-  .ref {
-    display: flex; align-items: center; gap: 8px; width: 100%;
-    padding: 4px 6px; border: 0; border-radius: 6px; background: transparent;
-    font-size: 12px; color: var(--color-ink-2); text-align: left;
-  }
-  .ref:hover { background: var(--color-hover); color: var(--color-ink); }
-  .ref.current {
-    color: var(--color-ink); font-weight: 500;
-    background: color-mix(in oklab, var(--color-accent) 10%, transparent);
-    box-shadow: inset 2px 0 0 var(--color-accent);
-  }
-  .ref .i { color: var(--color-muted); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dot, var(--color-muted)); flex: none; margin: 0 3.5px; }
-  .rname { font-size: 11.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .ab { margin-left: auto; padding-left: 6px; font-size: 10px; color: var(--color-muted); font-variant-numeric: tabular-nums; flex: none; }
-
-  /* --- Zone graphe + panneau --- */
-  .layout {
-    min-height: 0;
-    display: grid; grid-template-columns: 1fr 320px; grid-template-rows: minmax(0, 1fr);
-    transition: grid-template-columns .18s ease;
-  }
-  .layout.diffing { grid-template-columns: 1fr minmax(470px, 44%); }
-  .layout.diffing.sbs { grid-template-columns: 1fr minmax(730px, 62%); }
-  @media (prefers-reduced-motion: reduce) { .layout { transition: none; } }
-
-  /* --- Arbre de travail : le commit qui n'existe pas encore, épinglé au-dessus du graphe --- */
-  .left { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-  .wtrow {
-    position: relative; display: flex; align-items: center; gap: 10px;
-    height: 34px; padding-left: calc(var(--graphw, 0px) + 14px); padding-right: 18px;
-    border-bottom: 1px dashed var(--color-border-strong); cursor: pointer;
-    font-size: 12px; color: var(--color-ink-2);
-  }
-  .wtrow:hover { background: var(--color-hover); }
-  .wtrow.sel {
-    color: var(--color-ink);
-    background: color-mix(in oklab, var(--color-accent) 11%, transparent);
-    box-shadow: inset 2px 0 0 var(--color-accent);
-  }
-  .wtdot {
-    position: absolute; top: 50%; translate: -50% -50%;
-    width: 10px; height: 10px; border-radius: 50%;
-    border: 2px dashed currentColor; background: var(--color-surface);
-  }
-  .wtlabel { font-weight: 500; }
-  .wtcounts { display: flex; gap: 4px; margin-left: auto; }
-  .wtc {
-    --c: var(--color-muted);
-    font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; line-height: 1;
-    padding: 3px 5px; border-radius: 4px; font-variant-numeric: tabular-nums;
-    color: var(--c); background: color-mix(in oklab, var(--c) 15%, transparent);
-  }
-  .wtc.ok { --c: var(--color-ok); }
-  .wtc.warn { --c: var(--color-warn); }
-  .wtc.danger { --c: var(--color-danger); }
-
-  .files-head button { text-transform: none; letter-spacing: 0; }
-  .wtbtn {
-    margin-left: auto; align-self: center; flex: none;
-    width: 18px; height: 18px; padding: 0; justify-content: center;
-    border-color: transparent; background: transparent; border-radius: 4px;
-    font-size: 13px; line-height: 1; color: var(--color-muted); opacity: 0;
-  }
-  .file:hover .wtbtn, .wtbtn:focus-visible { opacity: 1; }
-  .wtbtn:hover { background: var(--color-surface); color: var(--color-ink); }
-  .file.conflict .st { color: var(--color-danger); }
-
-  .commitbox {
-    margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 12px;
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .commitbox textarea {
-    font: inherit; font-size: 12.5px; line-height: 1.45; resize: vertical; min-height: 66px;
-    padding: 9px 10px; border: 0; border-radius: 7px; outline: 0;
-    color: var(--color-ink); background: var(--color-well); box-shadow: inset 0 0 0 1px var(--color-border);
-  }
-  .commitbox textarea::placeholder { color: var(--color-muted); }
-  .commitbox textarea:focus {
-    box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 0 3px color-mix(in oklab, var(--color-accent) 16%, transparent);
-  }
-  .commitbox button { justify-content: center; }
-  .commitbox .hint { font-size: 11px; color: var(--color-danger); }
-
-  /* --- Graphe et lignes --- */
-  .board { overflow: auto; position: relative; }
-  .inner { position: relative; }
-  #graph { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
-  #graph > g { transition: opacity .12s ease; }
-  #graph.dim > g:not(.hl) { opacity: .16; }
-  @media (prefers-reduced-motion: reduce) { #graph > g { transition: none; } }
-
-  .rowchunk { position: absolute; left: 0; right: 0; }
-  .row {
-    display: grid; grid-template-columns: 64px 1fr 120px 74px 68px;
-    gap: 10px; align-items: center; height: 28px;
-    padding-left: calc(var(--graphw, 0px) + 14px); padding-right: 18px; cursor: pointer;
-  }
-  .row:hover { background: var(--color-hover); }
-  .row:hover .hash, .row:hover .date { color: var(--color-ink-2); }
-  .row.sel, .row.sel:hover {
-    background: color-mix(in oklab, var(--color-accent) 11%, transparent);
-    box-shadow: inset 2px 0 0 var(--color-accent);
-  }
-  .row.flash { animation: flash 1.6s ease-out; }
-  .row.noise { opacity: .45; }
-  @media (prefers-reduced-motion: reduce) {
-    .row.flash { animation: none; background: color-mix(in oklab, var(--color-accent) 18%, transparent); }
-  }
-
-  .badge-cell { display: flex; min-width: 0; }
-  .badge-cell .chip { max-width: 64px; }
-  .subject { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .subject > span:last-child { overflow: hidden; text-overflow: ellipsis; }
-  .arrow { color: var(--color-muted); flex: none; font-size: 11px; }
-  .row .author { color: var(--color-muted); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .row .date { color: var(--color-muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
-  .row .hash { color: var(--color-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-
-  /* Chips : une teinte unique --c pilote fond, texte et liseré. */
-  .chip {
-    --c: var(--color-muted);
-    flex: none; font-size: 10.5px; font-weight: 500; line-height: 1;
-    padding: 3px 6px; border-radius: 5px;
-    color: var(--c);
-    background: color-mix(in oklab, var(--c) 13%, var(--color-surface));
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c) 24%, transparent);
-    max-width: 170px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-  }
-  .chip.head { --c: var(--color-info); font-weight: 600; }
-  .chip.tag  { --c: var(--color-warn); }
-  .chip.type { font-weight: 600; letter-spacing: .01em; }
-  .type-feature  { --c: var(--color-ok); }
-  .type-hotfix   { --c: var(--color-danger); }
-  .type-bugfix   { --c: var(--color-warn); }
-  .type-plugin   { --c: var(--color-violet); }
-  .type-release  { --c: var(--color-info); }
-  .type-beta     { --c: var(--color-cyan); }
-  .type-refactor { --c: var(--color-magenta); }
-  .type-perf     { --c: var(--color-warn); }
-
-  /* --- Panneau de détail (contenu généré par le JS) --- */
-  aside .hint { color: var(--color-muted); margin: 0; }
-  aside h2 { font-size: 14px; font-weight: 600; letter-spacing: -.008em; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
-  aside dl { margin: 14px 0 0; display: grid; grid-template-columns: 66px 1fr; gap: 8px 12px; }
-  aside dt {
-    font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em;
-    color: var(--color-muted); padding-top: 2px;
-  }
-  aside dd { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
-  aside .refs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px; }
-  a.parent { color: var(--color-accent); text-decoration: none; cursor: pointer; display: block; }
-  a.parent:hover { text-decoration: underline; }
-
-  .multilist { margin-top: 12px; display: flex; flex-direction: column; gap: 2px; }
-  .multirow { display: flex; gap: 8px; font-size: 11.5px; align-items: baseline; min-width: 0; }
-  .multirow .mono { color: var(--color-muted); flex: none; font-size: 11px; }
-  .msub { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-
-  .loading {
-    display: flex; align-items: center; gap: 8px;
-    color: var(--color-muted); font-size: 11px; padding: 4px 0;
-    opacity: 0; animation: fadein .15s ease .15s forwards;
-  }
-  .spinner {
-    width: 11px; height: 11px; flex: none; border-radius: 50%;
-    border: 2px solid var(--color-border); border-top-color: var(--color-accent);
-    animation: spin .7s linear infinite;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .spinner { animation: none; border-top-color: var(--color-border); }
-  }
-
-  /* --- Fichiers --- */
-  .files { margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 12px; }
-  .files-head {
-    color: var(--color-muted); font-size: 9.5px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .07em;
-    margin-bottom: 8px; min-height: 24px;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .viewtoggle {
-    display: flex; gap: 2px; padding: 2px; border-radius: 7px;
-    background: var(--color-well); box-shadow: inset 0 0 0 1px var(--color-border);
-  }
-  .viewtoggle button {
-    padding: 3px 6px; border: 0; border-radius: 5px; background: transparent;
-    color: var(--color-muted); display: flex; align-items: center;
-  }
-  .viewtoggle button:hover { background: transparent; color: var(--color-ink-2); }
-  .viewtoggle button.active {
-    color: var(--color-accent); background: var(--color-surface);
-    box-shadow: var(--elev-1), 0 0 0 1px var(--color-border);
-  }
-  .viewtoggle svg {
-    width: 13px; height: 13px; display: block;
-    fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round;
-  }
-  .viewtoggle svg circle { fill: currentColor; stroke: none; }
-  .viewtoggle svg rect { stroke-linejoin: round; }
-
-  .file { display: flex; gap: 8px; padding: 2px 6px; align-items: baseline; cursor: pointer; border-radius: 5px; }
-  .file:hover { background: var(--color-hover); }
-  .file.active {
-    background: color-mix(in oklab, var(--color-accent) 12%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-accent) 26%, transparent);
-  }
-  .file .st { flex: none; min-width: 12px; font-size: 11px; font-weight: 600; color: var(--color-muted); }
-  .st-A { color: var(--color-ok); }
-  .st-M { color: var(--color-warn); }
-  .st-D { color: var(--color-danger); }
-  .st-R, .st-C { color: var(--color-violet); }
-  /* à plat : le dossier se tronque, le nom de fichier reste entier */
-  .file .path { font-size: 11px; display: flex; min-width: 0; white-space: nowrap; }
-  .file .dir { color: var(--color-muted); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
-  .file .name { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-
-  .tdir summary {
-    list-style: none; cursor: pointer; user-select: none;
-    display: flex; gap: 6px; align-items: baseline;
-    font-size: 11px; padding: 3px 0 2px;
-  }
-  .tdir summary::-webkit-details-marker { display: none; }
-  .tdir summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; border-radius: 3px; }
-  .chev { flex: none; display: inline-block; font-size: 9px; color: var(--color-muted); transition: transform .12s; }
-  details[open] > summary .chev { transform: rotate(90deg); }
-  @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
-  .dname { color: var(--color-ink); font-weight: 500; }
-  .cnt { font-size: 10px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
-  .tkids { margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--color-border); }
-
-  /* --- Diff --- */
-  .diffbox { margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 12px; }
-  .diffhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .dpath { font-size: 11px; overflow-wrap: anywhere; color: var(--color-ink-2); }
-  .diffhead > button { font-size: 11px; line-height: 1; padding: 4px 7px; flex: none; }
-  .diffbody {
-    font-family: var(--font-mono);
-    font-size: 11px; line-height: 1.5;
-    border-radius: 6px; overflow-x: auto; tab-size: 4;
-  }
-  /* fond uniquement pour le rendu fallback brut */
-  .diffbody > .dl:first-child { margin-top: 6px; }
-  .diffbody:has(> .dl) { background: var(--color-well); padding: 6px 0; }
-  .dl { padding: 0 8px; white-space: pre; min-width: max-content; }
-  .dl.add { background: color-mix(in oklab, var(--color-ok) 16%, transparent); }
-  .dl.del { background: color-mix(in oklab, var(--color-danger) 16%, transparent); }
-  .dl.hunk { color: var(--color-accent); padding-top: 4px; }
-  .dl.meta { color: var(--color-muted); }
-  .diffbody .hint, .diffbody .loading { padding: 2px 8px; }
-
-  /* --- Statusbar : retours d'opérations git --- */
-  .opstate {
-    --c: var(--color-muted);
-    display: flex; align-items: center; gap: 8px; flex: none;
-    padding: 2px 4px 2px 8px; border-radius: 5px; font-size: 10.5px; font-weight: 500;
-    color: var(--c);
-    background: color-mix(in oklab, var(--c) 11%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c) 24%, transparent);
-    max-width: 46ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-  }
-  .opstate:not(:has(button)) { padding-right: 8px; }
-  .opstate.ok    { --c: var(--color-ok); }
-  .opstate.news  { --c: var(--color-accent); }
-  .opstate.error { --c: var(--color-danger); }
-  .opstate button {
-    flex: none; padding: 2px 7px; font-size: 10px; border-radius: 4px;
-    color: var(--c); background: transparent;
-    border-color: color-mix(in oklab, var(--c) 35%, transparent);
-  }
-  .opstate button:hover { color: var(--c); background: color-mix(in oklab, var(--c) 14%, transparent); }
-
-  .hoverpill {
-    flex: 0 1 auto; min-width: 0;
-    padding: 2px 8px; border-radius: 5px; font-size: 10.5px; font-weight: 500;
-    color: var(--color-accent); background: color-mix(in oklab, var(--color-accent) 11%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-accent) 26%, transparent);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-
-  .stats { display: flex; align-items: center; margin-left: auto; flex: none; }
-  .stat {
-    font-size: 11px; color: var(--color-muted); padding: 1px 12px;
-    border-left: 1px solid var(--color-border);
-    font-variant-numeric: tabular-nums; white-space: nowrap;
-  }
-  .stats .stat:first-child { border-left: 0; }
-  .stat b {
-    color: var(--color-ink); font-weight: 500;
-    font-family: var(--font-mono);
-  }
-
-  /* --- Palette : backdrop (pseudo-élément) et élévation (voir --elev-modal) --- */
-  .palette { box-shadow: var(--elev-modal); }
-  .palette::backdrop { background: oklch(20% .02 250 / .45); }
 }
 
 /* --- diff2html / hljs : hors layer, obligatoirement ---
-   Le CSS de diff2html est importé sans layer par app.js ; une règle @layer
+   Le CSS de diff2html est importé sans layer par diff-view.tsx ; une règle @layer
    perdrait contre lui quelle que soit sa spécificité. */
-.diffbody .d2h-file-header { display: none; }
-.diffbody .d2h-wrapper { text-align: left; }
-.diffbody .d2h-file-wrapper { border: 1px solid var(--color-border); border-radius: 6px; margin: 0; }
-.diffbody .d2h-diff-table,
-.diffbody .d2h-code-line,
-.diffbody .d2h-code-side-line,
-.diffbody .d2h-code-linenumber,
-.diffbody .d2h-code-side-linenumber {
-  font-family: var(--font-mono);
-  font-size: 11px;
+.gg-diffbody .d2h-file-header { display: none; }
+.gg-diffbody .d2h-wrapper { text-align: left; }
+.gg-diffbody .d2h-file-wrapper {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.8);
+  margin: 0;
+}
+/* la police et la taille viennent de .gg-diffbody (font-mono text-xs) */
+.gg-diffbody .d2h-diff-table,
+.gg-diffbody .d2h-code-line,
+.gg-diffbody .d2h-code-side-line,
+.gg-diffbody .d2h-code-linenumber,
+.gg-diffbody .d2h-code-side-linenumber {
+  font-family: inherit;
+  font-size: inherit;
 }
 /* le thème hljs pose un background opaque qui écrase les fonds add/del de d2h */
-.diffbody .hljs { background: transparent; padding: 0; }
+.gg-diffbody .hljs { background: transparent; padding: 0; }
 /* pas d'ambre "changement" en vue unifiée : une ligne modifiée = del rouge + ins vert */
-.diffbody {
+.gg-diffbody {
   --d2h-change-del-color: var(--d2h-del-bg-color);
   --d2h-change-ins-color: var(--d2h-ins-bg-color);
   --d2h-dark-change-del-color: var(--d2h-dark-del-bg-color);
   --d2h-dark-change-ins-color: var(--d2h-dark-ins-bg-color);
 }
 /* numéros de ligne collants au scroll horizontal (d2h les met en absolute) */
-.diffbody .d2h-code-linenumber,
-.diffbody .d2h-code-side-linenumber {
+.gg-diffbody .d2h-code-linenumber,
+.gg-diffbody .d2h-code-side-linenumber {
   position: sticky;
   left: 0;
   z-index: 2;
 }
 /* fond opaque sous le gutter sticky : ::before pose la surface, ::after re-peint
    la teinte add/del semi-transparente de d2h par-dessus */
-.diffbody .d2h-code-linenumber::before,
-.diffbody .d2h-code-side-linenumber::before {
+.gg-diffbody .d2h-code-linenumber::before,
+.gg-diffbody .d2h-code-side-linenumber::before {
   content: ''; position: absolute; inset: 0; z-index: -2;
-  background: var(--color-surface);
+  background: var(--background);
 }
-.diffbody .d2h-code-linenumber::after,
-.diffbody .d2h-code-side-linenumber::after {
+.gg-diffbody .d2h-code-linenumber::after,
+.gg-diffbody .d2h-code-side-linenumber::after {
   content: ''; position: absolute; inset: 0; z-index: -1;
   background: inherit;
 }
 /* la ligne s'étend au contenu (la table s'élargit et scrolle) au lieu de le déborder */
-.diffbody .d2h-code-line,
-.diffbody .d2h-code-side-line {
+.gg-diffbody .d2h-code-line,
+.gg-diffbody .d2h-code-side-line {
   padding: 0 .5em; box-sizing: border-box;
   width: max-content; min-width: 100%;
 }
