@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron';
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, watch } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 
@@ -76,15 +76,17 @@ async function openRepo(path) {
   const already = [...repos.values()].find(r => r.path === path);
   if (already) return pub(already);
 
+  let gitDir;
   try {
-    await git(path, ['rev-parse', '--git-dir']);
+    gitDir = (await git(path, ['rev-parse', '--absolute-git-dir'])).trim();
   } catch {
     return { error: 'Not a git repository (or git not found)' };
   }
   /* pas de comptage de commits à l'ouverture : le renderer demandera `total` quand il en
      aura besoin, et restaurer N onglets ne doit pas coûter N `rev-list --all --count`. */
-  const r = { id: nextId++, path, name: basename(path), running: null, timer: null };
+  const r = { id: nextId++, path, name: basename(path), gitDir, running: null, muted: 0, dirty: false, timer: null, watcher: null };
   r.timer = setInterval(() => runOp(r, 'fetch', true), AUTOFETCH_MS);
+  watchGit(r);
   repos.set(r.id, r);
   remember(path);
   return pub(r);
@@ -94,6 +96,7 @@ function closeRepo(id) {
   const r = repos.get(id);
   if (!r) return;
   clearInterval(r.timer);
+  r.watcher?.close();
   repos.delete(id);
 }
 
@@ -151,14 +154,14 @@ async function logPage(r, skip, count) {
   const out = await git(r.path, [
     'log', '--all', '--date-order', '--date=short', '--decorate=full',
     `--skip=${skip}`, `-n${count}`,
-    '--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%D%x1f%s%x1e',
+    '--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e',
   ]);
   return out.split('\x1e').filter(row => row.includes('\x1f')).map(row => {
     const f = row.split('\x1f');
     return {
       h: f[0].trim().slice(0, 8),
       p: f[1].split(' ').filter(Boolean).map(x => x.slice(0, 8)),
-      d: f[2], a: f[3], r: f[4], s: f[5],
+      d: f[2], a: f[3], e: f[4], r: f[5], s: f[6],
     };
   });
 }
@@ -214,9 +217,54 @@ async function runOp(r, name, auto = false) {
   } catch (e) {
     emit({ id: r.id, op: name, state: 'error', auto, message: e.message });
   } finally {
+    mute(r);
     r.running = null;
   }
 }
+
+/* --- Surveillance de .git ---
+   git ne notifie rien : on regarde bouger les seuls fichiers qui changent le graphe — HEAD
+   (bascule), les refs locales, et `packed-refs` (gc, suppression de branche). L'index relève
+   de l'arbre de travail, `objects/` n'est que du bruit, et `refs/remotes/` appartient au fetch,
+   qui annonce déjà son résultat.
+
+   Hors premier plan on retient l'événement au lieu de l'émettre : relire un dépôt que personne
+   ne regarde ne sert à rien, et Windows ne suspend rien de lui-même.
+
+   ponytail: dans un worktree lié, `--absolute-git-dir` pointe `.git/worktrees/<nom>` — HEAD y est,
+   mais pas les refs. Surveiller aussi `--git-common-dir` le jour où le cas se présente. */
+const WATCH_DEBOUNCE = 300;
+const MUTE_MS = 1500;
+const WATCHED = /^(?:HEAD|packed-refs)$|^refs[\\/](?:heads|tags)[\\/]/;
+
+/* Nos propres commandes réveillent le watcher, alors que le renderer a déjà rechargé derrière
+   elles. On ne sait pas distinguer ces événements des autres : on se tait un instant. */
+const mute = r => { r.muted = Date.now() + MUTE_MS; };
+
+const emitChange = r => mainWindow?.webContents.send('git:changed', { id: r.id });
+
+function watchGit(r) {
+  let timer;
+  const fire = () => {
+    if (r.running || Date.now() < r.muted) return;
+    if (mainWindow?.isFocused()) emitChange(r);
+    else r.dirty = true;
+  };
+  try {
+    r.watcher = watch(r.gitDir, { recursive: true }, (_type, file) => {
+      if (!file || file.endsWith('.lock') || !WATCHED.test(file)) return;
+      clearTimeout(timer);
+      timer = setTimeout(fire, WATCH_DEBOUNCE);
+    });
+    r.watcher.on('error', () => {}); // volume démonté, dépôt effacé : on cesse de surveiller, sans bruit
+  } catch { /* pas de watcher : l'app reste utilisable, le rafraîchissement redevient manuel */ }
+}
+
+app.on('browser-window-focus', () => repos.forEach(r => {
+  if (!r.dirty) return;
+  r.dirty = false;
+  emitChange(r);
+}));
 
 /* --- Découverte des dépôts sous la racine ---
    ponytail: profondeur 3 et pas de dépôt dans un dépôt. Couvre `~/Projets/<client>/<repo>` ;
@@ -362,7 +410,7 @@ ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
 ipcMain.handle('repo:commit', (_ev, id, message) => {
   const r = use(id);
   if (typeof message !== 'string' || !message.trim()) throw new Error('empty message');
-  return git(r.path, ['commit', '-m', message]).then(() => {});
+  return git(r.path, ['commit', '-m', message]).then(() => mute(r));
 });
 
 /* ponytail: filtre de sûreté, pas un parseur de refname — refuse surtout le nom qui
@@ -383,6 +431,8 @@ ipcMain.handle('repo:checkout', async (_ev, id, name) => {
   } catch (e) {
     if (dirty) await git(r.path, ['stash', 'pop']);
     throw e;
+  } finally {
+    mute(r); // HEAD a bougé : le renderer recharge de lui-même, le watcher n'a rien à ajouter
   }
   if (dirty) await git(r.path, ['stash', 'pop']).catch(() => {
     throw new Error(`Sur ${name}, mais le stash entre en conflit — entrée conservée`);
@@ -440,6 +490,14 @@ ipcMain.handle('repo:files', async (_ev, id, hash, parent) => {
   });
 });
 
+/* Corps du message, à la demande. Le joindre au log coûterait, pour n'en afficher qu'un,
+   une copie de tous les messages longs de l'historique. */
+ipcMain.handle('repo:body', (_ev, id, hash) => {
+  const r = use(id);
+  if (!/^[0-9a-f]{7,40}$/.test(hash)) throw new Error('bad hash');
+  return git(r.path, ['show', '-s', '--format=%b', hash]);
+});
+
 ipcMain.handle('repo:diff', async (_ev, id, hash, parent, path, oldPath) => {
   const r = use(id);
   if (!/^[0-9a-f]{7,40}$/.test(hash) || (parent != null && !/^[0-9a-f]{7,40}$/.test(parent)))
@@ -480,9 +538,14 @@ function createWindow() {
   });
   mainWindow = win;
   win.once('ready-to-show', () => win.show());
+  /* liens des messages de commit : au navigateur, jamais dans la fenêtre de l'app */
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
   win.on('closed', () => {
     mainWindow = null;
-    repos.forEach(r => clearInterval(r.timer));
+    repos.forEach(r => { clearInterval(r.timer); r.watcher?.close(); });
     repos.clear();
   });
 

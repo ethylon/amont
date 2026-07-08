@@ -8,6 +8,8 @@ export type Commit = {
   p: string[]
   d: string
   a: string
+  /** e-mail de l'auteur, seule clé d'avatar que git connaisse */
+  e: string
   /** refs brutes de `%D --decorate=full` : "HEAD -> refs/heads/develop, tag: refs/tags/v4.2.0" */
   r: string
   s: string
@@ -63,7 +65,12 @@ export type OpEvent = { id: number } & (
   | { op: OpName; state: "error"; auto: boolean; message: string }
 )
 
+/** `.git` a bougé sous nos pieds. Main ne l'émet qu'application au premier plan. */
+export type ChangeEvent = { id: number }
+
 type Bridge = {
+  /** hex minuscule ; hache dans le preload, `crypto.subtle` étant asynchrone */
+  sha256(text: string): string
   state(): Promise<BootState>
   repos(): Promise<{ root: string | null; recents: RepoRef[] }>
   setTabs(paths: string[], active: string | null): Promise<void>
@@ -73,12 +80,14 @@ type Bridge = {
   chooseRoot(): Promise<string | null>
   scanRoot(): Promise<RepoRef[]>
   onOp(cb: (payload: OpEvent) => void): void
+  onChanged(cb: (payload: ChangeEvent) => void): void
 
   log(id: number, skip: number, count: number): Promise<Commit[]>
   total(id: number): Promise<number>
   search(id: number, q: string, content: boolean): Promise<string[]>
   refs(id: number): Promise<GitRef[]>
   files(id: number, hash: string, parent: string | null): Promise<FileChange[]>
+  body(id: number, hash: string): Promise<string>
   diff(id: number, hash: string, parent: string | null, path: string, oldPath: string | null): Promise<string>
   status(id: number): Promise<Status>
   op(id: number, name: OpName): Promise<void>
@@ -101,6 +110,7 @@ declare global {
 const bridge = window.gitgraph
 
 export const host = {
+  sha256: bridge.sha256,
   repos: bridge.repos,
   setTabs: bridge.setTabs,
   openDialog: bridge.openDialog,
@@ -110,15 +120,19 @@ export const host = {
   scanRoot: bridge.scanRoot,
 }
 
-/* Un seul écouteur IPC — le preload n'expose pas de désabonnement — redistribué aux vues.
-   Sans ça, StrictMode doublerait les événements et une vue démontée en recevrait encore. */
-const subscribers = new Set<(p: OpEvent) => void>()
-bridge.onOp((p) => subscribers.forEach((f) => f(p)))
-
-export function onOp(cb: (p: OpEvent) => void) {
-  subscribers.add(cb)
-  return () => void subscribers.delete(cb)
+/* Un seul écouteur IPC par canal — le preload n'expose pas de désabonnement — redistribué aux
+   vues. Sans ça, StrictMode doublerait les événements et une vue démontée en recevrait encore. */
+function fanout<T>(listen: (cb: (p: T) => void) => void) {
+  const subscribers = new Set<(p: T) => void>()
+  listen((p) => subscribers.forEach((f) => f(p)))
+  return (cb: (p: T) => void) => {
+    subscribers.add(cb)
+    return () => void subscribers.delete(cb)
+  }
 }
+
+export const onOp = fanout<OpEvent>(bridge.onOp)
+export const onChanged = fanout<ChangeEvent>(bridge.onChanged)
 
 /* Évalué à l'import, donc une seule fois : `app:state` ouvre les repos des onglets restaurés
    et n'est pas idempotent vis-à-vis du double montage de StrictMode. */
@@ -131,6 +145,8 @@ export type RepoApi = {
   search(q: string, content: boolean): Promise<string[]>
   refs(): Promise<GitRef[]>
   files(hash: string, parent: string | null): Promise<FileChange[]>
+  /** corps du message (`%b`), trailers compris */
+  body(hash: string): Promise<string>
   diff(hash: string, parent: string | null, path: string, oldPath: string | null): Promise<string>
   status(): Promise<Status>
   op(name: OpName): Promise<void>
@@ -152,6 +168,7 @@ export const repoApi = (id: number): RepoApi => ({
   search: (q, content) => bridge.search(id, q, content),
   refs: () => bridge.refs(id),
   files: (hash, parent) => bridge.files(id, hash, parent),
+  body: (hash) => bridge.body(id, hash),
   diff: (hash, parent, path, oldPath) => bridge.diff(id, hash, parent, path, oldPath),
   status: () => bridge.status(id),
   op: (name) => bridge.op(id, name),
