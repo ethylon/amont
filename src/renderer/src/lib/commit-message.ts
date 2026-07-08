@@ -54,6 +54,60 @@ export function parseSubject(s: string): ParsedSubject {
   return { type: null, label: null, text: s }
 }
 
+/* --- Refs (`%D` avec --decorate=full) --- */
+
+export type RefKind = "head" | "branch" | "remote" | "tag"
+
+export type RefChip = {
+  /** nom court : "master", "origin/topic", "helpers/v5.11.0" */
+  name: string
+  kind: RefKind
+  /** remotes posés sur le même commit que cette branche locale */
+  remotes: string[]
+}
+
+export const refColor = (kind: RefKind): BadgeColor =>
+  kind === "head" ? "primary" : kind === "tag" ? "warning" : "neutral"
+
+/* Une branche est un point de navigation, un tag un marqueur : il passe en dernier.
+   Ce rang décide seul de qui survit au budget de chips de la ligne. */
+const RANK: Record<RefKind, number> = { head: 0, branch: 1, remote: 2, tag: 3 }
+
+export function parseRefs(raw: string): RefChip[] {
+  const chips: RefChip[] = []
+  const locals = new Map<string, RefChip>()
+  const remotes: string[] = []
+
+  const add = (name: string, kind: RefKind) => {
+    const c: RefChip = { name, kind, remotes: [] }
+    chips.push(c)
+    return c
+  }
+
+  for (const entry of raw.split(", ").filter(Boolean)) {
+    const head = entry.startsWith("HEAD -> ")
+    const ref = head ? entry.slice(8) : entry
+    if (ref === "HEAD") add("HEAD", "head") // détaché
+    else if (ref.startsWith("tag: refs/tags/")) add(ref.slice(15), "tag")
+    else if (ref.startsWith("refs/heads/")) {
+      const name = ref.slice(11)
+      locals.set(name, add(name, head ? "head" : "branch"))
+    } else if (ref.startsWith("refs/remotes/")) remotes.push(ref.slice(13))
+  }
+
+  /* `origin/HEAD` est un alias symbolique, et `origin/master` collé à `master` un doublon :
+     aucun des deux ne mérite un chip. La branche locale porte alors un point de synchro. */
+  for (const r of remotes) {
+    const short = r.slice(r.indexOf("/") + 1)
+    if (short === "HEAD") continue
+    const local = locals.get(short)
+    if (local) local.remotes.push(r)
+    else add(r, "remote")
+  }
+
+  return chips.sort((a, b) => RANK[a.kind] - RANK[b.kind]) // sort stable : ordre git conservé à rang égal
+}
+
 export type ParsedMerge = { from: string; to: string | null; tag?: boolean; noise: boolean }
 
 /* Merges gitflow : "Merge branch 'X' into Y" → chips X → Y.
