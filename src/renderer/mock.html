@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>git-graph — mock</title>
+  <link rel="stylesheet" href="./src/app.css" />
+</head>
+<body>
+<script type="module">
+  /* Harnais de vérification : rejoue le markup réel de index.html avec une API git simulée. */
+  const doc = new DOMParser().parseFromString(await (await fetch('./index.html')).text(), 'text/html');
+  doc.querySelectorAll('script').forEach(s => s.remove());
+  document.body.innerHTML = doc.body.innerHTML;
+
+  const C = [
+    { h: 'a1b2c3d4', p: ['9f8e7d6c'], d: '2026-07-07', a: 'Mathieu Guey', r: 'HEAD -> develop, origin/develop', s: 'feat: optimisation du coût de formulation' },
+    { h: '9f8e7d6c', p: ['3c4d5e6f'], d: '2026-07-06', a: 'Mathieu Guey', r: '', s: '[HOTFIX] plantage sur matrice vide' },
+    { h: '3c4d5e6f', p: [], d: '2026-07-05', a: 'Mathieu Guey', r: 'tag: v4.2.0', s: 'chore: init' },
+  ];
+
+  let wt = {
+    staged: [{ st: 'A', path: 'src/solver/cost.ts', old: null }],
+    unstaged: [{ st: 'M', path: 'src/solver/constraints.ts' }, { st: 'D', path: 'src/legacy/old.ts' }],
+    untracked: [{ st: '?', path: 'notes/todo.md' }],
+    conflicts: [],
+  };
+  const drop = (arr, paths) => arr.filter(f => !paths.includes(f.path));
+
+  window.gitgraph = {
+    current: async () => ({ name: 'mock-repo', total: C.length }),
+    openRepo: async () => null,
+    log: async (skip, count) => C.slice(skip, skip + count),
+    total: async () => C.length,
+    files: async () => [{ st: 'M', path: 'src/solver/cost.ts', old: null }],
+    diff: async () => 'diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-const a = 1\n+const a = 2\n',
+    status: async () => ({ branch: 'develop', head: C[0].h, ahead: 1, behind: 2 }),
+    op: async () => {},
+    onOp: () => {},
+    worktree: async () => structuredClone(wt),
+    wtdiff: async (p) => `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`,
+    stage: async (paths) => {
+      const moved = [...wt.unstaged, ...wt.untracked].filter(f => paths.includes(f.path));
+      wt.unstaged = drop(wt.unstaged, paths);
+      wt.untracked = drop(wt.untracked, paths);
+      wt.staged.push(...moved.map(f => ({ st: f.st === '?' ? 'A' : f.st, path: f.path, old: null })));
+    },
+    unstage: async (paths) => {
+      const moved = wt.staged.filter(f => paths.includes(f.path));
+      wt.staged = drop(wt.staged, paths);
+      wt.unstaged.push(...moved.map(f => ({ st: 'M', path: f.path })));
+    },
+    commit: async () => { wt.staged = []; },
+  };
+
+  await import('./src/app.js');
+</script>
+</body>
+</html>
