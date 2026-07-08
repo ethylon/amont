@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
-  onOp, repoApi, worktreeCount,
+  onChanged, onOp, repoApi, worktreeCount,
   type FileChange, type OpName, type Repo, type Status, type Worktree,
 } from "@/lib/git"
 import { cn } from "@/lib/utils"
@@ -55,7 +55,8 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   const [diffMode, setDiffMode] = useState<DiffMode>(
     () => (localStorage.getItem("gg.diffview") as DiffMode) || "unified"
   )
-  const [commitMsg, setCommitMsg] = useState("")
+  const [subject, setSubject] = useState("")
+  const [description, setDescription] = useState("")
   const [graphW, setGraphW] = useState(0)
 
   const graphRef = useRef<GraphHandle | null>(null)
@@ -107,6 +108,18 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     window.addEventListener("focus", onFocus)
     return () => window.removeEventListener("focus", onFocus)
   }, [active, refreshWorktree])
+
+  /* Les refs ont bougé hors de l'application : commit, rebase ou checkout depuis un terminal.
+     Main ne prévient qu'au premier plan et se tait après nos propres commandes. */
+  useEffect(
+    () =>
+      onChanged((p) => {
+        if (p.id !== repo.id) return
+        refreshStatus()
+        resetAndLoad()
+      }),
+    [refreshStatus, repo.id, resetAndLoad]
+  )
 
   /* --- Opérations git : le clic lance, mais tout le retour passe par onOp
      (l'auto-fetch du process main émet sans avoir d'appelant côté renderer). --- */
@@ -194,17 +207,20 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     [api, refreshWorktree, showOp]
   )
 
+  /* Sujet et corps sont séparés par une ligne vide : c'est ce qui les distingue pour git. */
   const doCommit = useCallback(async () => {
+    const body = description.trim()
     try {
-      await api.commit(commitMsg)
+      await api.commit(body ? `${subject.trim()}\n\n${body}` : subject)
     } catch (e) {
       return showOp((e as Error).message, "danger")
     }
-    setCommitMsg("")
+    setSubject("")
+    setDescription("")
     await refreshWorktree()
     refreshStatus()
     await resetAndLoad()
-  }, [api, commitMsg, refreshStatus, refreshWorktree, resetAndLoad, showOp])
+  }, [api, description, refreshStatus, refreshWorktree, resetAndLoad, showOp, subject])
 
   /* on recharge dans tous les cas : un `stash pop` en conflit échoue alors que HEAD a déjà bougé */
   const checkout = useCallback(
@@ -255,7 +271,8 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
         <CommitSearch api={api} graph={graphRef} active={active} />
       </Toolbar>
 
-      <div className="flex min-h-0 flex-1">
+      {/* gg-tabbody : le bloc qui glisse au changement d'onglet, toolbar et statut restant fixes */}
+      <div className="gg-tabbody flex min-h-0 flex-1">
         <RefsSidebar
           api={api}
           open={sidebarOpen}
@@ -322,22 +339,21 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                 Les panneaux rendent des fragments — leurs enfants sont donc les items flex. */}
             <aside className="flex min-h-0 flex-col overflow-hidden border-l px-4.5 py-4">
               {view === "wt" && worktree ? (
-                /* l'arbre de travail garde un défilement d'un bloc : sections, message, commit */
-                <div className="min-h-0 flex-1 overflow-auto">
-                  <WorktreePanel
-                    worktree={worktree}
-                    activePath={diff?.file.path}
-                    message={commitMsg}
-                    onMessageChange={setCommitMsg}
-                    onOpenDiff={openDiff}
-                    onRun={runWt}
-                    onCommit={doCommit}
-                  >
-                    {diff && (
-                      <DiffView api={api} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
-                    )}
-                  </WorktreePanel>
-                </div>
+                <WorktreePanel
+                  worktree={worktree}
+                  activePath={diff?.file.path}
+                  subject={subject}
+                  description={description}
+                  onSubjectChange={setSubject}
+                  onDescriptionChange={setDescription}
+                  onOpenDiff={openDiff}
+                  onRun={runWt}
+                  onCommit={doCommit}
+                >
+                  {diff && (
+                    <DiffView api={api} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
+                  )}
+                </WorktreePanel>
               ) : panelOpen && graphRef.current ? (
                 <DetailPanel
                   api={api}
