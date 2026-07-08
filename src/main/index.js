@@ -1,9 +1,13 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron';
 import { execFile } from 'node:child_process';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { join, resolve, sep } from 'node:path';
 
-/* Repo courant, côté main uniquement — le renderer n'a jamais de chemin en direct. */
-let currentRepo = null;
+/* Repos ouverts, côté main uniquement : le renderer ne les désigne que par un id opaque.
+   Un onglet = un repo ouvert ; la fermeture d'onglet passe par repo:close. */
+const repos = new Map();
+let nextId = 1;
 let mainWindow = null;
 
 if (process.env.GG_DEBUG) app.commandLine.appendSwitch('remote-debugging-port', process.env.GG_DEBUG);
@@ -29,20 +33,78 @@ function git(repo, args, timeout = 0) {
   });
 }
 
-async function repoInfo(path) {
-  const total = parseInt(await git(path, ['rev-list', '--all', '--count']), 10);
-  const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
-  return { name, total };
+const basename = p => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+const pub = r => ({ id: r.id, path: r.path, name: r.name });
+
+function use(id) {
+  const r = repos.get(id);
+  if (!r) throw new Error('no repo open');
+  return r;
+}
+
+/* --- État persisté ---
+   userData/state.json. Fichier minuscule, écrit à chaque mutation : une perte au crash
+   ne coûte qu'une liste d'onglets. */
+let persisted = { root: null, recents: [], tabs: [], active: null };
+const stateFile = () => join(app.getPath('userData'), 'state.json');
+const saveState = () => writeFile(stateFile(), JSON.stringify(persisted)).catch(() => {});
+
+/* Le renderer n'ouvre que des chemins qu'on lui a montrés : récents, résultats de scan,
+   ou choix dans le dialogue système. Sans ce filtre, un renderer compromis (le diff affiche
+   du contenu arbitraire) pourrait pointer git — et ses hooks — sur n'importe quel dossier. */
+const openable = new Set();
+
+async function loadState() {
+  try {
+    Object.assign(persisted, JSON.parse(await readFile(stateFile(), 'utf8')));
+  } catch { /* premier lancement */ }
+  persisted.recents = persisted.recents.filter(isRepo);
+  persisted.tabs.forEach(p => openable.add(p));
+  persisted.recents.forEach(p => openable.add(p));
+}
+
+const isRepo = p => existsSync(join(p, '.git'));
+
+function remember(path) {
+  persisted.recents = [path, ...persisted.recents.filter(p => p !== path)].slice(0, 12);
+  openable.add(path);
+  saveState();
+}
+
+/* --- Cycle de vie d'un repo --- */
+async function openRepo(path) {
+  const already = [...repos.values()].find(r => r.path === path);
+  if (already) return pub(already);
+
+  try {
+    await git(path, ['rev-parse', '--git-dir']);
+  } catch {
+    return { error: 'Not a git repository (or git not found)' };
+  }
+  /* pas de comptage de commits à l'ouverture : le renderer demandera `total` quand il en
+     aura besoin, et restaurer N onglets ne doit pas coûter N `rev-list --all --count`. */
+  const r = { id: nextId++, path, name: basename(path), running: null, timer: null };
+  r.timer = setInterval(() => runOp(r, 'fetch', true), AUTOFETCH_MS);
+  repos.set(r.id, r);
+  remember(path);
+  return pub(r);
+}
+
+function closeRepo(id) {
+  const r = repos.get(id);
+  if (!r) return;
+  clearInterval(r.timer);
+  repos.delete(id);
 }
 
 /* Branche courante + décalage avec sa distante. Absence d'upstream ou HEAD détachée
    ne sont pas des erreurs : le renderer affiche simplement des tirets. */
-async function repoStatus() {
-  const branch = (await git(currentRepo.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
-  const head = (await git(currentRepo.path, ['rev-parse', 'HEAD']).catch(() => '')).trim().slice(0, 8) || null;
+async function repoStatus(r) {
+  const branch = (await git(r.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+  const head = (await git(r.path, ['rev-parse', 'HEAD']).catch(() => '')).trim().slice(0, 8) || null;
   if (branch === 'HEAD') return { branch: null, head, ahead: null, behind: null };
   try {
-    const [behind, ahead] = (await git(currentRepo.path,
+    const [behind, ahead] = (await git(r.path,
       ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'])).trim().split(/\s+/).map(Number);
     return { branch, head, ahead, behind };
   } catch {
@@ -81,22 +143,18 @@ function diffUntracked(repo, path) {
   });
 }
 
-/* mainline = chaîne first-parent de HEAD : une ligne par feature livrée. */
-const MODES = {
-  all: ['--all', '--date-order'],
-  mainline: ['--first-parent', 'HEAD'],
-};
-
 /* ponytail: git log --skip re-parcourt l'historique à chaque page — OK jusqu'à ~100k commits,
    passer à un stream spawn persistant si un jour ça rame. */
-async function logPage(skip, count, mode) {
-  const out = await git(currentRepo.path, [
-    'log', ...MODES[mode], '--date=short',
+async function logPage(r, skip, count) {
+  /* --decorate=full : `%D` sort alors `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
+     Sous sa forme courte, `origin/x` et une branche locale `origin/x` sont indistinguables. */
+  const out = await git(r.path, [
+    'log', '--all', '--date-order', '--date=short', '--decorate=full',
     `--skip=${skip}`, `-n${count}`,
     '--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%D%x1f%s%x1e',
   ]);
-  return out.split('\x1e').filter(r => r.includes('\x1f')).map(r => {
-    const f = r.split('\x1f');
+  return out.split('\x1e').filter(row => row.includes('\x1f')).map(row => {
+    const f = row.split('\x1f');
     return {
       h: f[0].trim().slice(0, 8),
       p: f[1].split(' ').filter(Boolean).map(x => x.slice(0, 8)),
@@ -105,9 +163,33 @@ async function logPage(skip, count, mode) {
   });
 }
 
+/* --- Recherche ---
+   git ET-alise `--grep` et `--author` : chaque critère est donc une invocation séparée dont on
+   prend l'union. `-F` rend les motifs littéraux, `-S` fouille le contenu des diffs (la pioche).
+   ponytail: plafond par critère, pas de pagination — la barre n'affiche qu'un compteur et saute
+   de résultat en résultat. */
+const SEARCH_MAX = 2000;
+const SEARCH_TIMEOUT = 30_000;
+
+async function searchCommits(r, q, content) {
+  const base = ['log', '--all', '--format=%H', `-n${SEARCH_MAX}`, '-i', '-F'];
+  const runs = [
+    git(r.path, [...base, `--grep=${q}`]),
+    git(r.path, [...base, `--author=${q}`]),
+  ];
+  /* un préfixe de hash n'est pas un motif : rev-parse le résout, ou échoue (inconnu, ambigu) */
+  if (/^[0-9a-f]{4,40}$/i.test(q))
+    runs.push(git(r.path, ['rev-parse', '--verify', '-q', `${q}^{commit}`]).catch(() => ''));
+  /* la pioche relit le diff de chaque commit : lente, donc jamais implicite */
+  if (content) runs.push(git(r.path, [...base, `-S${q}`], SEARCH_TIMEOUT));
+
+  const outs = await Promise.all(runs);
+  return [...new Set(outs.join('\n').split('\n').filter(Boolean).map(h => h.slice(0, 8)))];
+}
+
 /* --- Opérations réseau ---
-   Une seule à la fois (git pose ses propres verrous, mais deux fetch concurrents
-   se soldent par une erreur inutile). Le résultat part par événement, pas par
+   Une par repo à la fois (git pose ses propres verrous, mais deux fetch concurrents sur le
+   même dépôt se soldent par une erreur inutile). Le résultat part par événement, pas par
    retour d'invoke : l'auto-fetch n'a pas d'appelant côté renderer. */
 const OPS = {
   fetch: ['fetch', '--all', '--prune'],
@@ -117,42 +199,115 @@ const OPS = {
 const OP_TIMEOUT = 90_000;
 const AUTOFETCH_MS = 5 * 60_000;
 
-let running = null;
-let autoFetchTimer = null;
-
 const emit = payload => mainWindow?.webContents.send('git:op', payload);
-const countAll = () => git(currentRepo.path, ['rev-list', '--all', '--count']).then(o => parseInt(o, 10));
+const countAll = r => git(r.path, ['rev-list', '--all', '--count']).then(o => parseInt(o, 10));
 
-async function runOp(name, auto = false) {
-  if (!currentRepo || running) return;
-  running = name;
-  emit({ op: name, state: 'start', auto });
+async function runOp(r, name, auto = false) {
+  if (r.running) return;
+  r.running = name;
+  emit({ id: r.id, op: name, state: 'start', auto });
   try {
-    const before = name === 'push' ? 0 : await countAll();
-    await git(currentRepo.path, OPS[name], OP_TIMEOUT);
-    const added = name === 'push' ? 0 : (await countAll()) - before;
-    emit({ op: name, state: 'done', auto, added });
+    const before = name === 'push' ? 0 : await countAll(r);
+    await git(r.path, OPS[name], OP_TIMEOUT);
+    const added = name === 'push' ? 0 : (await countAll(r)) - before;
+    emit({ id: r.id, op: name, state: 'done', auto, added });
   } catch (e) {
-    emit({ op: name, state: 'error', auto, message: e.message });
+    emit({ id: r.id, op: name, state: 'error', auto, message: e.message });
   } finally {
-    running = null;
+    r.running = null;
   }
 }
 
-function scheduleAutoFetch() {
-  clearInterval(autoFetchTimer);
-  autoFetchTimer = currentRepo ? setInterval(() => runOp('fetch', true), AUTOFETCH_MS) : null;
+/* --- Découverte des dépôts sous la racine ---
+   ponytail: profondeur 3 et pas de dépôt dans un dépôt. Couvre `~/Projets/<client>/<repo>` ;
+   à revoir si des dépôts se cachent plus bas. */
+const DEPTH = 3;
+const SKIP = new Set(['node_modules', 'bin', 'obj', 'dist', 'out', 'target', 'vendor']);
+
+async function scan(dir, depth, found) {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return; // dossier illisible : il n'a rien à nous dire
+  }
+  if (entries.some(e => e.name === '.git')) return void found.push(dir);
+  if (depth === DEPTH) return;
+  await Promise.all(entries
+    .filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP.has(e.name))
+    .map(e => scan(join(dir, e.name), depth + 1, found)));
 }
 
-ipcMain.handle('repo:op', (_ev, name) => {
-  if (!OPS[name]) throw new Error('bad op');
-  return runOp(name);
+/* --- IPC : état de l'application --- */
+
+/* Appelé une fois au démarrage du renderer. Ouvre les repos des onglets restaurés — ceux
+   qui ont disparu du disque sont simplement omis. */
+ipcMain.handle('app:state', async () => {
+  const paths = process.env.GG_REPO ? [process.env.GG_REPO, ...persisted.tabs] : persisted.tabs;
+  const tabs = [];
+  for (const path of [...new Set(paths)]) {
+    const r = await openRepo(path);
+    if (!r.error) tabs.push(r);
+  }
+  return {
+    root: persisted.root,
+    recents: persisted.recents.map(path => ({ path, name: basename(path) })),
+    tabs,
+    active: tabs.find(t => t.path === persisted.active)?.id ?? tabs[0]?.id ?? null,
+  };
 });
 
-ipcMain.handle('repo:status', () => {
-  if (!currentRepo) throw new Error('no repo open');
-  return repoStatus();
+/* Ce que l'écran d'accueil connaît des dépôts. Séparé de app:state, qui ouvre des repos. */
+ipcMain.handle('app:repos', () => ({
+  root: persisted.root,
+  recents: persisted.recents.map(path => ({ path, name: basename(path) })),
+}));
+
+ipcMain.handle('app:tabs', (_ev, paths, active) => {
+  persisted.tabs = paths.filter(p => openable.has(p));
+  persisted.active = active;
+  saveState();
 });
+
+ipcMain.handle('repo:openDialog', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
+  if (res.canceled || !res.filePaths.length) return null;
+  return openRepo(res.filePaths[0]);
+});
+
+ipcMain.handle('repo:openPath', (_ev, path) => {
+  if (!openable.has(path)) throw new Error('bad path');
+  return openRepo(path);
+});
+
+ipcMain.handle('repo:close', (_ev, id) => closeRepo(id));
+
+ipcMain.handle('root:choose', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
+  if (res.canceled || !res.filePaths.length) return persisted.root;
+  persisted.root = res.filePaths[0];
+  saveState();
+  return persisted.root;
+});
+
+ipcMain.handle('root:scan', async () => {
+  if (!persisted.root) return [];
+  const found = [];
+  await scan(persisted.root, 0, found);
+  found.forEach(p => openable.add(p));
+  return found
+    .map(path => ({ path, name: basename(path) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+});
+
+/* --- IPC : opérations sur un repo, id en premier argument --- */
+
+ipcMain.handle('repo:op', (_ev, id, name) => {
+  if (!OPS[name]) throw new Error('bad op');
+  return runOp(use(id), name);
+});
+
+ipcMain.handle('repo:status', (_ev, id) => repoStatus(use(id)));
 
 /* Les chemins arrivent du renderer : ils passent toujours après `--`, jamais comme options. */
 function assertPaths(paths) {
@@ -160,84 +315,133 @@ function assertPaths(paths) {
     throw new Error('bad paths');
 }
 
-ipcMain.handle('repo:worktree', () => {
-  if (!currentRepo) throw new Error('no repo open');
-  return git(currentRepo.path, ['status', '--porcelain=v1', '-z', '-uall']).then(parsePorcelain);
-});
+/* Chemin absolu confiné au dépôt : git nous protège du `--`, pas d'un `../..` passé à shell. */
+function inRepo(r, path) {
+  assertPaths([path]);
+  const full = resolve(r.path, path);
+  if (!full.startsWith(r.path + sep)) throw new Error('bad path');
+  return full;
+}
+
+/* Icône Windows du fichier. Absent du disque (supprimé, vieux commit) : le renderer retombe
+   sur son icône générique. */
+ipcMain.handle('repo:fileIcon', (_ev, id, path) =>
+  app.getFileIcon(inRepo(use(id), path), { size: 'small' }).then(i => i.toDataURL(), () => null));
+
+ipcMain.handle('repo:openFile', (_ev, id, path) => shell.openPath(inRepo(use(id), path)));
+
+ipcMain.handle('repo:worktree', (_ev, id) =>
+  git(use(id).path, ['status', '--porcelain=v1', '-z', '-uall']).then(parsePorcelain));
 
 const WT_DIFF = { staged: ['diff', '--cached'], unstaged: ['diff'] };
 
-ipcMain.handle('repo:wtdiff', (_ev, path, source) => {
-  if (!currentRepo) throw new Error('no repo open');
+ipcMain.handle('repo:wtdiff', (_ev, id, path, source) => {
+  const r = use(id);
   assertPaths([path]);
-  if (source === 'untracked') return diffUntracked(currentRepo.path, path);
+  if (source === 'untracked') return diffUntracked(r.path, path);
   if (!WT_DIFF[source]) throw new Error('bad source');
-  return git(currentRepo.path, [...WT_DIFF[source], '--', path]);
+  return git(r.path, [...WT_DIFF[source], '--', path]);
 });
 
-ipcMain.handle('repo:stage', (_ev, paths) => {
-  if (!currentRepo) throw new Error('no repo open');
+ipcMain.handle('repo:stage', (_ev, id, paths) => {
+  const r = use(id);
   assertPaths(paths);
-  return git(currentRepo.path, ['add', '--', ...paths]).then(() => {});
+  return git(r.path, ['add', '--', ...paths]).then(() => {});
 });
 
-ipcMain.handle('repo:unstage', async (_ev, paths) => {
-  if (!currentRepo) throw new Error('no repo open');
+ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
+  const r = use(id);
   assertPaths(paths);
   /* avant le premier commit il n'y a pas de HEAD, donc rien à restaurer depuis :
      sortir le chemin de l'index le laisse non suivi, ce qui est le résultat attendu. */
-  const cmd = await git(currentRepo.path, ['rev-parse', '--verify', '-q', 'HEAD'])
+  const cmd = await git(r.path, ['rev-parse', '--verify', '-q', 'HEAD'])
     .then(() => ['restore', '--staged'], () => ['rm', '--cached', '-q']);
-  await git(currentRepo.path, [...cmd, '--', ...paths]);
+  await git(r.path, [...cmd, '--', ...paths]);
 });
 
-ipcMain.handle('repo:commit', (_ev, message) => {
-  if (!currentRepo) throw new Error('no repo open');
+ipcMain.handle('repo:commit', (_ev, id, message) => {
+  const r = use(id);
   if (typeof message !== 'string' || !message.trim()) throw new Error('empty message');
-  return git(currentRepo.path, ['commit', '-m', message]).then(() => {});
+  return git(r.path, ['commit', '-m', message]).then(() => {});
 });
 
-ipcMain.handle('repo:current', () => currentRepo);
+/* ponytail: filtre de sûreté, pas un parseur de refname — refuse surtout le nom qui
+   commencerait par `-` et se ferait passer pour une option de git. */
+const BRANCH = /^(?!-)(?!.*\.\.)[\w./+-]+$/;
 
-ipcMain.handle('repo:open', async () => {
-  const res = await dialog.showOpenDialog({ properties: ['openDirectory'] });
-  if (res.canceled || !res.filePaths.length) return null;
-  const path = res.filePaths[0];
+/* L'arbre sale part au stash et revient après la bascule. Bascule refusée : on repose l'arbre
+   où on l'a trouvé. `pop` en conflit : git garde l'entrée de stash et pose ses marqueurs —
+   on le dit et on n'essaie pas de rattraper, l'utilisateur est déjà sur la bonne branche.
+   Son message part sur stdout, que gitError ne voit pas : d'où le nôtre. */
+ipcMain.handle('repo:checkout', async (_ev, id, name) => {
+  const r = use(id);
+  if (typeof name !== 'string' || !BRANCH.test(name)) throw new Error('bad branch');
+  const dirty = !!(await git(r.path, ['status', '--porcelain', '-uall'])).trim();
+  if (dirty) await git(r.path, ['stash', 'push', '-u', '-m', `git-graph: ${name}`]);
   try {
-    currentRepo = { path, ...(await repoInfo(path)) };
-    scheduleAutoFetch();
-    return currentRepo;
-  } catch {
-    return { error: 'Not a git repository (or git not found)' };
+    await git(r.path, ['checkout', name]);
+  } catch (e) {
+    if (dirty) await git(r.path, ['stash', 'pop']);
+    throw e;
   }
+  if (dirty) await git(r.path, ['stash', 'pop']).catch(() => {
+    throw new Error(`Sur ${name}, mais le stash entre en conflit — entrée conservée`);
+  });
 });
 
-ipcMain.handle('repo:log', (_ev, skip, count, mode) => {
-  if (!currentRepo) throw new Error('no repo open');
+ipcMain.handle('repo:log', (_ev, id, skip, count) => {
+  const r = use(id);
   if (!Number.isInteger(skip) || !Number.isInteger(count) || skip < 0 || count < 1 || count > 5000)
     throw new Error('bad page args');
-  if (!MODES[mode]) throw new Error('bad mode');
-  return logPage(skip, count, mode);
+  return logPage(r, skip, count);
+});
+
+/* Refs telles que git les voit. `origin/HEAD` est un alias d'affichage : il ferait doublon
+   avec la branche par défaut de la distante. */
+const REF_KINDS = [['refs/heads/', 'head'], ['refs/remotes/', 'remote'], ['refs/tags/', 'tag']];
+
+ipcMain.handle('repo:refs', async (_ev, id) => {
+  const out = await git(use(id).path, [
+    'for-each-ref', '--sort=refname',
+    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)',
+    'refs/heads', 'refs/remotes', 'refs/tags',
+  ]);
+  return out.split('\n').filter(Boolean).flatMap(line => {
+    const [refname, head, track = ''] = line.split('\x1f');
+    const kind = REF_KINDS.find(([prefix]) => refname.startsWith(prefix));
+    if (!kind) return [];
+    const name = refname.slice(kind[0].length);
+    if (kind[1] === 'remote' && name.endsWith('/HEAD')) return [];
+    const ahead = /ahead (\d+)/.exec(track);
+    const behind = /behind (\d+)/.exec(track);
+    return [{
+      name,
+      kind: kind[1],
+      head: head === '*',
+      ahead: ahead ? +ahead[1] : 0,
+      behind: behind ? +behind[1] : 0,
+    }];
+  });
 });
 
 /* Fichiers touchés. Pour un merge, le renderer passe le first-parent :
    le diff montre ce que le merge a apporté sur la branche cible. */
-ipcMain.handle('repo:files', async (_ev, hash, parent) => {
-  if (!currentRepo) throw new Error('no repo open');
+ipcMain.handle('repo:files', async (_ev, id, hash, parent) => {
+  const r = use(id);
   if (!/^[0-9a-f]{7,40}$/.test(hash) || (parent != null && !/^[0-9a-f]{7,40}$/.test(parent)))
     throw new Error('bad hash');
   const args = parent
     ? ['diff', '--name-status', parent, hash]
     : ['diff-tree', '-r', '--root', '--no-commit-id', '--name-status', hash];
-  const out = await git(currentRepo.path, args);
+  const out = await git(r.path, args);
   return out.split('\n').filter(Boolean).map(l => {
     const f = l.split('\t');
     return { st: f[0][0], path: f[2] || f[1], old: f[2] ? f[1] : null };
   });
 });
 
-ipcMain.handle('repo:diff', async (_ev, hash, parent, path, oldPath) => {
-  if (!currentRepo) throw new Error('no repo open');
+ipcMain.handle('repo:diff', async (_ev, id, hash, parent, path, oldPath) => {
+  const r = use(id);
   if (!/^[0-9a-f]{7,40}$/.test(hash) || (parent != null && !/^[0-9a-f]{7,40}$/.test(parent)))
     throw new Error('bad hash');
   if (typeof path !== 'string' || (oldPath != null && typeof oldPath !== 'string'))
@@ -246,17 +450,19 @@ ipcMain.handle('repo:diff', async (_ev, hash, parent, path, oldPath) => {
   const args = parent
     ? ['diff', parent, hash, '--', ...paths]
     : ['show', '--format=', hash, '--', ...paths];
-  return git(currentRepo.path, args);
+  return git(r.path, args);
 });
 
-ipcMain.handle('repo:total', async (_ev, mode) => {
-  if (!currentRepo) throw new Error('no repo open');
-  if (!MODES[mode]) throw new Error('bad mode');
-  const args = mode === 'mainline' ? ['--first-parent', 'HEAD'] : ['--all'];
-  return parseInt(await git(currentRepo.path, ['rev-list', '--count', ...args]), 10);
+ipcMain.handle('repo:search', (_ev, id, q, content) => {
+  const r = use(id);
+  if (typeof q !== 'string' || q.trim().length < 2) return [];
+  return searchCommits(r, q.trim(), content === true);
 });
 
-async function createWindow() {
+ipcMain.handle('repo:total', async (_ev, id) =>
+  parseInt(await git(use(id).path, ['rev-list', '--count', '--all']), 10));
+
+function createWindow() {
   const win = new BrowserWindow({
     width: 1300,
     height: 850,
@@ -274,21 +480,15 @@ async function createWindow() {
   });
   mainWindow = win;
   win.once('ready-to-show', () => win.show());
-  win.on('closed', () => { mainWindow = null; clearInterval(autoFetchTimer); });
-
-  if (process.env.GG_REPO) {
-    try {
-      currentRepo = { path: process.env.GG_REPO, ...(await repoInfo(process.env.GG_REPO)) };
-      scheduleAutoFetch();
-      console.log(`[git-graph] repo: ${currentRepo.name} (${currentRepo.total} commits)`);
-    } catch (e) {
-      console.error(`[git-graph] GG_REPO invalid: ${e.message}`);
-    }
-  }
+  win.on('closed', () => {
+    mainWindow = null;
+    repos.forEach(r => clearInterval(r.timer));
+    repos.clear();
+  });
 
   if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else win.loadFile(join(import.meta.dirname, '../renderer/index.html'));
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(loadState).then(createWindow);
 app.on('window-all-closed', () => app.quit());

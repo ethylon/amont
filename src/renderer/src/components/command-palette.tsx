@@ -1,6 +1,6 @@
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
-  ArrowDown02Icon, ArrowUp02Icon, Folder01Icon, GitBranchIcon,
+  ArrowDown02Icon, ArrowUp02Icon, Folder01Icon,
   GitCommitIcon, PanelLeftIcon, Refresh01Icon,
 } from "@hugeicons/core-free-icons"
 
@@ -10,13 +10,13 @@ import {
   CommandItem, CommandList, CommandShortcut,
 } from "@/components/ui/primitives/command"
 
+/* Rendue par la vue du repo actif : la palette n'existe donc jamais sans repo. */
 type Props = {
   open: boolean
   onOpenChange(open: boolean): void
-  hasRepo: boolean
-  onOpenRepo(): void
+  /** l'ouverture passe par l'écran d'accueil d'un nouvel onglet, pas par un dialogue direct */
+  onNewTab(): void
   onRunOp(op: OpName): void
-  onToggleMainline(): void
   onToggleSidebar(): void
 }
 
@@ -36,7 +36,7 @@ function Entry({ icon, children, shortcut, onSelect }: {
 }
 
 export function CommandPalette({
-  open, onOpenChange, hasRepo, onOpenRepo, onRunOp, onToggleMainline, onToggleSidebar,
+  open, onOpenChange, onNewTab, onRunOp, onToggleSidebar,
 }: Props) {
   const run = (fn: () => void) => () => {
     onOpenChange(false)
@@ -50,34 +50,25 @@ export function CommandPalette({
         <CommandList>
           <CommandEmpty>Aucun résultat.</CommandEmpty>
 
-          <CommandGroup heading="Repo">
-            <Entry icon={Folder01Icon} shortcut="Ctrl O" onSelect={run(onOpenRepo)}>
-              Ouvrir un repo…
+          <CommandGroup heading="Dépôt">
+            <Entry icon={Folder01Icon} onSelect={run(onNewTab)}>
+              Ouvrir un dépôt…
             </Entry>
-            {hasRepo && (
-              <>
-                <Entry icon={Refresh01Icon} onSelect={run(() => onRunOp("fetch"))}>Fetch</Entry>
-                <Entry icon={ArrowDown02Icon} onSelect={run(() => onRunOp("pull"))}>Pull (fast-forward)</Entry>
-                <Entry icon={ArrowUp02Icon} onSelect={run(() => onRunOp("push"))}>Push</Entry>
-              </>
-            )}
+            <Entry icon={Refresh01Icon} onSelect={run(() => onRunOp("fetch"))}>Fetch</Entry>
+            <Entry icon={ArrowDown02Icon} onSelect={run(() => onRunOp("pull"))}>Pull (fast-forward)</Entry>
+            <Entry icon={ArrowUp02Icon} onSelect={run(() => onRunOp("push"))}>Push</Entry>
           </CommandGroup>
 
-          {hasRepo && (
-            <CommandGroup heading="Vue">
-              <Entry icon={GitBranchIcon} onSelect={run(onToggleMainline)}>Basculer Mainline</Entry>
-              <Entry icon={PanelLeftIcon} shortcut="Ctrl B" onSelect={run(onToggleSidebar)}>
-                Afficher / masquer les refs
-              </Entry>
-            </CommandGroup>
-          )}
+          <CommandGroup heading="Vue">
+            <Entry icon={PanelLeftIcon} shortcut="Ctrl B" onSelect={run(onToggleSidebar)}>
+              Afficher / masquer les branches
+            </Entry>
+          </CommandGroup>
 
           {/* ponytail: navigation par hash — pas de champ de saisie dédié tant que le filtre du toolbar est inerte */}
-          {hasRepo && (
-            <CommandGroup heading="Navigation">
-              <Entry icon={GitCommitIcon} shortcut="Ctrl G" onSelect={run(() => {})}>Aller au commit…</Entry>
-            </CommandGroup>
-          )}
+          <CommandGroup heading="Navigation">
+            <Entry icon={GitCommitIcon} shortcut="Ctrl G" onSelect={run(() => {})}>Aller au commit…</Entry>
+          </CommandGroup>
         </CommandList>
       </Command>
     </CommandDialog>

@@ -1,5 +1,5 @@
 import type { Commit } from "@/lib/git"
-import { parseMerge } from "@/lib/commit-message"
+import { parseMerge, parseRefs } from "@/lib/commit-message"
 
 export const ROW = 28
 export const LANE = 14
@@ -198,9 +198,7 @@ export function branchSegment(S: LayoutState, data: Commit[], i: number) {
 
 export function chainInfo(S: LayoutState, data: Commit[], rows: number[]) {
   const tip = data[rows[0]]
-  const ref = tip.r
-    ? tip.r.split(", ").filter((x) => x && !x.startsWith("tag: ")).map((x) => x.replace("HEAD -> ", ""))[0]
-    : null
+  const ref = parseRefs(tip.r).find((r) => r.kind !== "tag")?.name ?? null
   const mrow = S.mergedBy.get(tip.h)
   if (mrow !== undefined) {
     const to = parseMerge(data[mrow].s)?.to

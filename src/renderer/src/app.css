@@ -195,6 +195,10 @@
 @layer components {
   .gg-row, .gg-wtrow { padding-left: calc(var(--graphw, 0px) + 12px); }
 
+  /* Recherche en cours : les lignes hors résultat s'effacent, les autres se teintent. */
+  [data-search] .gg-row[data-match="false"] { opacity: 0.32; }
+  [data-search] .gg-row[data-match="true"] { background: color-mix(in oklab, var(--warning) 14%, transparent); }
+
   .gg-graph > g { transition: opacity 0.12s ease; }
   .gg-graph.dim > g:not(.gg-hl) { opacity: 0.16; }
 
@@ -203,6 +207,45 @@
     100%    { background: transparent; }
   }
   .gg-flash { animation: gg-flash 1.6s ease-out; }
+
+  /* Changement d'onglet : seul le contenu bouge. La racine — barre d'onglets comprise —
+     bascule net, le surlignage de l'onglet étant l'accusé de réception du clic.
+     `new` est peint après `old` : sans animation, il le couvre d'emblée. */
+  .gg-tabview { view-transition-name: gg-tabview; }
+
+  ::view-transition-image-pair(root) { isolation: auto; }
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+
+  /* Fondu enchaîné + déplacement, en deux animations parallèles : le fondu reste linéaire —
+     `plus-lighter` (le défaut de l'image-pair) n'additionne proprement que des opacités
+     complémentaires — pendant que le déplacement, lui, décélère. */
+  ::view-transition-old(gg-tabview),
+  ::view-transition-new(gg-tabview) {
+    animation-duration: 220ms;
+    animation-fill-mode: both;
+    animation-timing-function: linear, cubic-bezier(0.2, 0, 0, 1);
+  }
+  ::view-transition-old(gg-tabview) { animation-name: gg-tab-fade-out, gg-tab-out; }
+  ::view-transition-new(gg-tabview) { animation-name: gg-tab-fade-in, gg-tab-in; }
+
+  @keyframes gg-tab-fade-out { to   { opacity: 0; } }
+  @keyframes gg-tab-fade-in  { from { opacity: 0; } }
+
+  /* --gg-slide : sens de marche dans la barre d'onglets. Les custom properties de :root
+     descendent dans l'arbre des pseudo-éléments de transition. */
+  :root:active-view-transition-type(next) { --gg-slide: 32px; }
+  :root:active-view-transition-type(prev) { --gg-slide: -32px; }
+
+  @keyframes gg-tab-in  { from { transform: translateX(var(--gg-slide, 0)); } }
+  @keyframes gg-tab-out { to   { transform: translateX(calc(var(--gg-slide, 0) * -1)); } }
+
+  /* Ouverture d'un dépôt : rien à côté d'où venir, il monte du fond. */
+  :root:active-view-transition-type(open)::view-transition-old(gg-tabview) { animation-name: gg-tab-fade-out, gg-tab-zoom-out; }
+  :root:active-view-transition-type(open)::view-transition-new(gg-tabview) { animation-name: gg-tab-fade-in, gg-tab-zoom-in; }
+
+  @keyframes gg-tab-zoom-in  { from { transform: scale(0.97); } }
+  @keyframes gg-tab-zoom-out { to   { transform: scale(1.02); } }
 
   @media (prefers-reduced-motion: reduce) {
     .gg-graph > g { transition: none; }
