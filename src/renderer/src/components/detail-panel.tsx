@@ -6,7 +6,7 @@ import { parseBody, parseMarkdown, parseRefs, parseSubject, refColor, typeColor,
 import type { GraphHandle } from "@/components/graph-canvas"
 import { useAsync } from "@/hooks/use-async"
 import { Avatar } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { Badge, badgeSeparator } from "@/components/ui/badge"
 import { Tip } from "@/components/ui/tip"
 import { FileList } from "@/components/file-list"
 import { Spinner } from "@/components/ui/primitives/spinner"
@@ -47,26 +47,18 @@ function TypeChip({ commit }: { commit: Commit }) {
 
 const Cloud = () => <HugeiconsIcon icon={CloudIcon} strokeWidth={2} className="shrink-0" />
 
-/* Même grammaire que le graphe : nuage seul = la distante est sur ce commit ; nuage collé à
-   `origin/develop` = la branche locale est ailleurs. */
+/* Même grammaire que le graphe : nuage détaché par un filet = la distante est sur ce commit ;
+   nuage collé à `origin/develop` = la branche locale est ailleurs. */
 function RefBadge({ r }: { r: RefChip }) {
-  const name = (
-    <Badge shape="squared" color={refColor(r.kind)} className={r.kind === "remote" ? "ps-1.5" : undefined}>
-      {r.kind === "remote" && <Cloud />}
+  const synced = r.remotes.length > 0
+  const badge = (
+    <Badge shape="squared" color={refColor(r.kind)} className={r.kind === "remote" || synced ? "ps-1.5" : undefined}>
+      {(r.kind === "remote" || synced) && <Cloud />}
+      {synced && <span className={badgeSeparator} />}
       {r.name}
     </Badge>
   )
-  if (!r.remotes.length) return name
-  return (
-    <span className="flex items-center gap-1">
-      <Tip text={r.remotes.join(", ")}>
-        <Badge shape="squared" color="lane" className="px-1">
-          <Cloud />
-        </Badge>
-      </Tip>
-      {name}
-    </span>
-  )
+  return synced ? <Tip text={r.remotes.join(", ")}>{badge}</Tip> : badge
 }
 
 /** Auteur ou co-auteur : même grammaire, l'e-mail n'apparaît qu'au survol. */
