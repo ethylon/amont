@@ -108,17 +108,25 @@ export default function App() {
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
-      <div className="gg-tabview relative min-h-0 flex-1">
+      {/* `data-tab-active` porte les noms de view-transition sur le seul onglet visible (cf. app.css) */}
+      <div className="relative min-h-0 flex-1">
         {/* invisible plutôt que hidden : la boîte reste posée, donc le canvas garde sa taille
             mesurée et son scroll. */}
-        <div className={cn("absolute inset-0 flex flex-col", active !== HOME && "invisible")}>
+        <div
+          data-tab-active={active === HOME || undefined}
+          className={cn("gg-tabbody absolute inset-0 flex flex-col", active !== HOME && "invisible")}
+        >
           <HomeScreen active={active === HOME} onOpened={openTab} />
         </div>
 
         {tabs
           .filter((r) => mounted.includes(r.id))
           .map((r) => (
-            <div key={r.id} className={cn("absolute inset-0 flex flex-col", r.id !== active && "invisible")}>
+            <div
+              key={r.id}
+              data-tab-active={r.id === active || undefined}
+              className={cn("absolute inset-0 flex flex-col", r.id !== active && "invisible")}
+            >
               <RepoView
                 repo={r}
                 active={r.id === active}
