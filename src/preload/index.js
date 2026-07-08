@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('gitgraph', {
   total: (id) => ipcRenderer.invoke('repo:total', id),
   search: (id, q, content) => ipcRenderer.invoke('repo:search', id, q, content),
   refs: (id) => ipcRenderer.invoke('repo:refs', id),
+  flow: (id) => ipcRenderer.invoke('repo:flow', id),
+  branch: (id, action, name) => ipcRenderer.invoke('repo:branch', id, action, name),
   files: (id, hash, parent) => ipcRenderer.invoke('repo:files', id, hash, parent),
   body: (id, hash) => ipcRenderer.invoke('repo:body', id, hash),
   diff: (id, hash, parent, path, oldPath) => ipcRenderer.invoke('repo:diff', id, hash, parent, path, oldPath),
