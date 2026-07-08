@@ -3,8 +3,9 @@
 
      pnpm exec electron scripts/make-icon.mjs
 
-   Le fond est transparent, donc l'anneau du milieu ne peut pas masquer les traits qui le
-   traversent avec un fill : un masque les coupe à son bord extérieur (r = 2.3 + 1.6/2). */
+   Tous les tracés sont en stroke et se rejoignent bord à bord (les segments partent du bord des
+   cercles, jamais de leur centre) : rien ne se recouvre, le fond transparent ne pose donc pas de
+   problème et aucun masque n'est nécessaire. */
 import { app, BrowserWindow } from 'electron';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -19,19 +20,18 @@ const B = 'oklch(0.62 0.19 322)';
 
 const HTML = `<!doctype html><html>
 <style>html,body{margin:0;overflow:hidden;background:transparent}svg{display:block}</style>
-<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="-1.15 -0.85 22 22"
-     fill="none" stroke-linecap="round">
-  <mask id="ring">
-    <rect x="-2" y="-2" width="25" height="25" fill="#fff"/>
-    <circle cx="5" cy="9" r="3.1" fill="#000"/>
-  </mask>
-  <g mask="url(#ring)">
-    <path d="M5 17.2V3.4" stroke="${A}" stroke-width="1.7"/>
-    <path d="M15 17.2v-3.7C15 10 5 12.5 5 9" stroke="${B}" stroke-width="1.7"/>
-    <circle cx="5" cy="3.4" r="2.4" fill="${A}"/>
-    <circle cx="15" cy="17.2" r="2.1" fill="${B}"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 24 24"
+     fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <g stroke="${A}">
+    <circle cx="5" cy="6" r="3"/>
+    <path d="M5 9v6"/>
+    <circle cx="5" cy="18" r="3"/>
+    <path d="M12 3v18"/>
   </g>
-  <circle cx="5" cy="9" r="2.3" stroke="${A}" stroke-width="1.6"/>
+  <g stroke="${B}">
+    <circle cx="19" cy="6" r="3"/>
+    <path d="M16 15.7C16.9428 14.8567 17.6972 13.8242 18.2142 12.6698C18.7311 11.5153 18.9988 10.2649 19 9"/>
+  </g>
 </svg></html>`;
 
 /* loadFile plutôt que loadURL('data:…') : Chromium refuse les navigations de premier niveau
