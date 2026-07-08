@@ -4,15 +4,28 @@ import { join } from 'node:path';
 
 /* Repo courant, côté main uniquement — le renderer n'a jamais de chemin en direct. */
 let currentRepo = null;
+let mainWindow = null;
 
 if (process.env.GG_DEBUG) app.commandLine.appendSwitch('remote-debugging-port', process.env.GG_DEBUG);
 
-function git(repo, args) {
+/* GIT_TERMINAL_PROMPT=0 : sans TTY, un git qui demande un mot de passe se bloquerait
+   indéfiniment. Les helpers de credentials graphiques (GCM) restent utilisables. */
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+
+/* git noie ses erreurs sous des lignes `hint:` : on ne garde que les fatal/error. */
+function gitError(err, stderr) {
+  if (err.killed) return 'git timed out';
+  const lines = (stderr || err.message).split('\n').map(l => l.trim()).filter(Boolean);
+  const fatal = lines.filter(l => /^(fatal|error):/.test(l)).slice(0, 2);
+  const msg = (fatal.length ? fatal : lines.slice(-1)).map(l => l.replace(/^(fatal|error):\s*/, '')).join(' — ');
+  return msg || 'git failed';
+}
+
+function git(repo, args, timeout = 0) {
   return new Promise((resolve, reject) => {
-    execFile('git', ['-C', repo, ...args], { maxBuffer: 64 * 1024 * 1024 }, (err, out) => {
-      if (err) reject(err);
-      else resolve(out);
-    });
+    execFile('git', ['-C', repo, ...args],
+      { maxBuffer: 64 * 1024 * 1024, env: GIT_ENV, windowsHide: true, timeout },
+      (err, out, errOut) => err ? reject(new Error(gitError(err, errOut))) : resolve(out));
   });
 }
 
@@ -20,6 +33,52 @@ async function repoInfo(path) {
   const total = parseInt(await git(path, ['rev-list', '--all', '--count']), 10);
   const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
   return { name, total };
+}
+
+/* Branche courante + décalage avec sa distante. Absence d'upstream ou HEAD détachée
+   ne sont pas des erreurs : le renderer affiche simplement des tirets. */
+async function repoStatus() {
+  const branch = (await git(currentRepo.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+  const head = (await git(currentRepo.path, ['rev-parse', 'HEAD']).catch(() => '')).trim().slice(0, 8) || null;
+  if (branch === 'HEAD') return { branch: null, head, ahead: null, behind: null };
+  try {
+    const [behind, ahead] = (await git(currentRepo.path,
+      ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'])).trim().split(/\s+/).map(Number);
+    return { branch, head, ahead, behind };
+  } catch {
+    return { branch, head, ahead: null, behind: null };
+  }
+}
+
+/* --- Arbre de travail ---
+   `status --porcelain=v1 -z` : chaque entrée est `XY<espace>chemin`, X = index, Y = arbre.
+   Pour un rename, l'ancien chemin occupe le champ NUL suivant — d'où le ++i. */
+const CONFLICT = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
+
+function parsePorcelain(out) {
+  const parts = out.split('\0');
+  const wt = { staged: [], unstaged: [], untracked: [], conflicts: [] };
+  for (let i = 0; i < parts.length; i++) {
+    const e = parts[i];
+    if (e.length < 4) continue;
+    const x = e[0], y = e[1], path = e.slice(3);
+    if (x === '?') { wt.untracked.push({ st: '?', path }); continue; }
+    if (CONFLICT.has(x + y)) { wt.conflicts.push({ st: x + y, path }); continue; }
+    const old = (x === 'R' || x === 'C') ? parts[++i] : null;
+    if (x !== ' ') wt.staged.push({ st: x, path, old });
+    if (y !== ' ') wt.unstaged.push({ st: y, path });
+  }
+  return wt;
+}
+
+/* Un fichier non suivi n'a pas de contrepartie dans l'index : on le diffe contre le vide.
+   `--no-index` sort en 1 dès qu'il y a une différence, ce qui est le cas nominal ici. */
+function diffUntracked(repo, path) {
+  return new Promise(resolve => {
+    execFile('git', ['-C', repo, 'diff', '--no-index', '--', '/dev/null', path],
+      { maxBuffer: 64 * 1024 * 1024, env: GIT_ENV, windowsHide: true },
+      (_err, out) => resolve(out || ''));
+  });
 }
 
 /* mainline = chaîne first-parent de HEAD : une ligne par feature livrée. */
@@ -46,6 +105,98 @@ async function logPage(skip, count, mode) {
   });
 }
 
+/* --- Opérations réseau ---
+   Une seule à la fois (git pose ses propres verrous, mais deux fetch concurrents
+   se soldent par une erreur inutile). Le résultat part par événement, pas par
+   retour d'invoke : l'auto-fetch n'a pas d'appelant côté renderer. */
+const OPS = {
+  fetch: ['fetch', '--all', '--prune'],
+  pull:  ['pull', '--ff-only'],
+  push:  ['push'],
+};
+const OP_TIMEOUT = 90_000;
+const AUTOFETCH_MS = 5 * 60_000;
+
+let running = null;
+let autoFetchTimer = null;
+
+const emit = payload => mainWindow?.webContents.send('git:op', payload);
+const countAll = () => git(currentRepo.path, ['rev-list', '--all', '--count']).then(o => parseInt(o, 10));
+
+async function runOp(name, auto = false) {
+  if (!currentRepo || running) return;
+  running = name;
+  emit({ op: name, state: 'start', auto });
+  try {
+    const before = name === 'push' ? 0 : await countAll();
+    await git(currentRepo.path, OPS[name], OP_TIMEOUT);
+    const added = name === 'push' ? 0 : (await countAll()) - before;
+    emit({ op: name, state: 'done', auto, added });
+  } catch (e) {
+    emit({ op: name, state: 'error', auto, message: e.message });
+  } finally {
+    running = null;
+  }
+}
+
+function scheduleAutoFetch() {
+  clearInterval(autoFetchTimer);
+  autoFetchTimer = currentRepo ? setInterval(() => runOp('fetch', true), AUTOFETCH_MS) : null;
+}
+
+ipcMain.handle('repo:op', (_ev, name) => {
+  if (!OPS[name]) throw new Error('bad op');
+  return runOp(name);
+});
+
+ipcMain.handle('repo:status', () => {
+  if (!currentRepo) throw new Error('no repo open');
+  return repoStatus();
+});
+
+/* Les chemins arrivent du renderer : ils passent toujours après `--`, jamais comme options. */
+function assertPaths(paths) {
+  if (!Array.isArray(paths) || !paths.length || paths.some(p => typeof p !== 'string' || !p))
+    throw new Error('bad paths');
+}
+
+ipcMain.handle('repo:worktree', () => {
+  if (!currentRepo) throw new Error('no repo open');
+  return git(currentRepo.path, ['status', '--porcelain=v1', '-z', '-uall']).then(parsePorcelain);
+});
+
+const WT_DIFF = { staged: ['diff', '--cached'], unstaged: ['diff'] };
+
+ipcMain.handle('repo:wtdiff', (_ev, path, source) => {
+  if (!currentRepo) throw new Error('no repo open');
+  assertPaths([path]);
+  if (source === 'untracked') return diffUntracked(currentRepo.path, path);
+  if (!WT_DIFF[source]) throw new Error('bad source');
+  return git(currentRepo.path, [...WT_DIFF[source], '--', path]);
+});
+
+ipcMain.handle('repo:stage', (_ev, paths) => {
+  if (!currentRepo) throw new Error('no repo open');
+  assertPaths(paths);
+  return git(currentRepo.path, ['add', '--', ...paths]).then(() => {});
+});
+
+ipcMain.handle('repo:unstage', async (_ev, paths) => {
+  if (!currentRepo) throw new Error('no repo open');
+  assertPaths(paths);
+  /* avant le premier commit il n'y a pas de HEAD, donc rien à restaurer depuis :
+     sortir le chemin de l'index le laisse non suivi, ce qui est le résultat attendu. */
+  const cmd = await git(currentRepo.path, ['rev-parse', '--verify', '-q', 'HEAD'])
+    .then(() => ['restore', '--staged'], () => ['rm', '--cached', '-q']);
+  await git(currentRepo.path, [...cmd, '--', ...paths]);
+});
+
+ipcMain.handle('repo:commit', (_ev, message) => {
+  if (!currentRepo) throw new Error('no repo open');
+  if (typeof message !== 'string' || !message.trim()) throw new Error('empty message');
+  return git(currentRepo.path, ['commit', '-m', message]).then(() => {});
+});
+
 ipcMain.handle('repo:current', () => currentRepo);
 
 ipcMain.handle('repo:open', async () => {
@@ -54,6 +205,7 @@ ipcMain.handle('repo:open', async () => {
   const path = res.filePaths[0];
   try {
     currentRepo = { path, ...(await repoInfo(path)) };
+    scheduleAutoFetch();
     return currentRepo;
   } catch {
     return { error: 'Not a git repository (or git not found)' };
@@ -115,10 +267,13 @@ async function createWindow() {
       sandbox: false,
     },
   });
+  mainWindow = win;
+  win.on('closed', () => { mainWindow = null; clearInterval(autoFetchTimer); });
 
   if (process.env.GG_REPO) {
     try {
       currentRepo = { path: process.env.GG_REPO, ...(await repoInfo(process.env.GG_REPO)) };
+      scheduleAutoFetch();
       console.log(`[git-graph] repo: ${currentRepo.name} (${currentRepo.total} commits)`);
     } catch (e) {
       console.error(`[git-graph] GG_REPO invalid: ${e.message}`);
