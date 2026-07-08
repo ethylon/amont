@@ -9,11 +9,15 @@
 <script type="module">
   /* Harnais de vérification : monte le vrai renderer avec une API git simulée.
      window.gitgraph doit exister avant l'import — lib/git.ts le capture au chargement. */
+  /* `r` est au format `%D --decorate=full`. Les cas que la ligne doit tenir :
+     branche + son remote + origin/HEAD (un seul chip), remote orphelin, tags en surnombre, tag isolé. */
   const C = [
-    { h: 'a1b2c3d4', p: ['9f8e7d6c', '5a6b7c8d'], d: '2026-07-07', a: 'Mathieu Guey', r: 'HEAD -> develop, origin/develop', s: "Merge branch 'feature/optim-cout' into develop" },
-    { h: '5a6b7c8d', p: ['9f8e7d6c'], d: '2026-07-07', a: 'Mathieu Guey', r: '', s: 'feat(solver): optimisation du coût de formulation' },
-    { h: '9f8e7d6c', p: ['3c4d5e6f'], d: '2026-07-06', a: 'Mathieu Guey', r: '', s: '[HOTFIX] plantage sur matrice vide' },
-    { h: '3c4d5e6f', p: [], d: '2026-07-05', a: 'Mathieu Guey', r: 'tag: v4.2.0', s: 'chore: init' },
+    { h: 'a1b2c3d4', p: ['9f8e7d6c', '5a6b7c8d'], d: '2026-07-07', a: 'Mathieu Guey', r: 'HEAD -> refs/heads/develop, refs/remotes/origin/develop, refs/remotes/origin/HEAD', s: "Merge branch 'feature/optim-cout' into develop" },
+    { h: '5a6b7c8d', p: ['9f8e7d6c'], d: '2026-07-07', a: 'Mathieu Guey', r: 'refs/remotes/origin/release/4.2', s: 'feat(solver): optimisation du coût de formulation' },
+    { h: '9f8e7d6c', p: ['7e8f9a0b'], d: '2026-07-06', a: 'Mathieu Guey', r: 'refs/heads/master, refs/heads/hotfix/matrice-vide, refs/heads/release/4.3, refs/remotes/origin/master, tag: refs/tags/v4.3.0', s: '[HOTFIX] plantage sur matrice vide' },
+    { h: '7e8f9a0b', p: ['2b3c4d5e'], d: '2026-07-06', a: 'Mathieu Guey', r: 'tag: refs/tags/reflection/v3.0.1, tag: refs/tags/maths/v2.1.0, tag: refs/tags/helpers/v5.5.0, tag: refs/tags/extensions/v3.3.0, tag: refs/tags/exceptions/v1.0.0, tag: refs/tags/collections/v3.0.1', s: 'feat: per-package CI/CD triggers + MinVer versioning' },
+    { h: '2b3c4d5e', p: ['3c4d5e6f'], d: '2026-07-05', a: 'Mathieu Guey', r: 'tag: refs/tags/holidays/v1.0.0, tag: refs/tags/helpers/v5.9.0', s: 'Helpers v5.9.0: Holidays France & Mexique (Holidays v1.0.0)' },
+    { h: '3c4d5e6f', p: [], d: '2026-07-05', a: 'Mathieu Guey', r: 'tag: refs/tags/v4.2.0', s: 'chore: init' },
   ];
 
   let wt = {
@@ -24,11 +28,34 @@
   };
   const drop = (arr, paths) => arr.filter(f => !paths.includes(f.path));
 
+  const REPO = { id: 1, path: '/mock/mock-repo', name: 'mock-repo' };
+  const RECENTS = [{ path: '/mock/mock-repo', name: 'mock-repo' }];
+
+  const REFS = [
+    { name: 'develop', kind: 'head', head: true, ahead: 2, behind: 0 },
+    { name: 'feature/optim-cout', kind: 'head', head: false, ahead: 0, behind: 0 },
+    { name: 'feature/ui/graph', kind: 'head', head: false, ahead: 0, behind: 0 },
+    { name: 'hotfix/matrice-vide', kind: 'head', head: false, ahead: 0, behind: 1 },
+    { name: 'master', kind: 'head', head: false, ahead: 0, behind: 0 },
+    { name: 'origin/develop', kind: 'remote', head: false, ahead: 0, behind: 0 },
+    { name: 'origin/master', kind: 'remote', head: false, ahead: 0, behind: 0 },
+    { name: 'origin/release/4.2', kind: 'remote', head: false, ahead: 0, behind: 0 },
+    { name: 'v4.1.3', kind: 'tag', head: false, ahead: 0, behind: 0 },
+    { name: 'v4.2.0', kind: 'tag', head: false, ahead: 0, behind: 0 },
+  ];
+
   window.gitgraph = {
-    current: async () => ({ path: '/mock', name: 'mock-repo', total: C.length }),
-    openRepo: async () => null,
-    log: async (skip, count) => C.slice(skip, skip + count),
+    state: async () => ({ root: '/mock', recents: RECENTS, tabs: [REPO], active: REPO.id }),
+    repos: async () => ({ root: '/mock', recents: RECENTS }),
+    setTabs: async () => {},
+    openDialog: async () => REPO,
+    openPath: async () => REPO,
+    close: async () => {},
+    chooseRoot: async () => '/mock',
+    scanRoot: async () => RECENTS,
+    log: async (_id, skip, count) => C.slice(skip, skip + count),
     total: async () => C.length,
+    refs: async () => REFS,
     files: async () => [
       { st: 'M', path: 'src/solver/cost.ts', old: null },
       { st: 'A', path: 'src/solver/lp/simplex.ts', old: null },
@@ -39,19 +66,21 @@
     op: async () => {},
     onOp: () => {},
     worktree: async () => structuredClone(wt),
-    wtdiff: async (p) => `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`,
-    stage: async (paths) => {
+    wtdiff: async (_id, p) => `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`,
+    stage: async (_id, paths) => {
       const moved = [...wt.unstaged, ...wt.untracked].filter(f => paths.includes(f.path));
       wt.unstaged = drop(wt.unstaged, paths);
       wt.untracked = drop(wt.untracked, paths);
       wt.staged.push(...moved.map(f => ({ st: f.st === '?' ? 'A' : f.st, path: f.path, old: null })));
     },
-    unstage: async (paths) => {
+    unstage: async (_id, paths) => {
       const moved = wt.staged.filter(f => paths.includes(f.path));
       wt.staged = drop(wt.staged, paths);
       wt.unstaged.push(...moved.map(f => ({ st: 'M', path: f.path })));
     },
     commit: async () => { wt.staged = []; },
+    fileIcon: async () => null,
+    openFile: async () => '',
   };
 
   await import('./src/main.tsx');

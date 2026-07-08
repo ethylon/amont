@@ -1,374 +1,134 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
+import { flushSync } from "react-dom"
 
-import {
-  api, worktreeCount,
-  type FileChange, type LogMode, type OpEvent, type OpName, type Repo, type Status, type Worktree,
-} from "@/lib/git"
+import { bootState, host, type Repo } from "@/lib/git"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { CommandPalette } from "@/components/command-palette"
-import { CommitGraph } from "@/components/commit-graph"
-import { DetailPanel, type SelMode } from "@/components/detail-panel"
-import { DiffView, type DiffCtx, type DiffView as DiffMode } from "@/components/diff-view"
-import { EmptyState } from "@/components/empty-state"
-import type { GraphHandle, Stats } from "@/components/graph-canvas"
-import { RefsSidebar } from "@/components/refs-sidebar"
-import { StatusBar, type OpState } from "@/components/status-bar"
-import { Titlebar } from "@/components/titlebar"
-import { Toolbar } from "@/components/toolbar"
-import { WorktreePanel } from "@/components/worktree-panel"
+import { HomeScreen } from "@/components/home-screen"
+import { RepoView } from "@/components/repo-view"
+import { HOME, TabStrip } from "@/components/tab-strip"
 
-/* Le preload n'expose pas de désabonnement : un seul écouteur est posé au chargement du
-   module, et React n'en remplace que la cible. Sans ça, StrictMode doublerait les événements. */
-let opHandler: ((p: OpEvent) => void) | null = null
-api.onOp((p) => opHandler?.(p))
+const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
-const OP_LABEL: Record<OpName, string> = { fetch: "Fetch…", pull: "Pull…", push: "Push…" }
-
-const WT_COUNTERS = [
-  { key: "conflicts", color: "danger", label: "conflits" },
-  { key: "staged", color: "success", label: "indexés" },
-  { key: "unstaged", color: "warning", label: "modifiés" },
-  { key: "untracked", color: "neutral", label: "non suivis" },
-] as const
+/** Le contenu de l'onglet glisse ; le reste du châssis bascule net (cf. `.gg-tabview`). */
+function transition(type: "next" | "prev" | "open", update: () => void) {
+  if (reduced.matches) return update()
+  document.startViewTransition({ types: [type], update: () => flushSync(update) })
+}
 
 export default function App() {
-  const [repo, setRepo] = useState<Repo | null>(null)
-  const [status, setStatus] = useState<Status | null>(null)
-  const [worktree, setWorktree] = useState<Worktree | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [mode, setMode] = useState<LogMode>("all")
-  const [selection, setSelection] = useState<number[]>([])
-  const [selMode, setSelMode] = useState<SelMode>("multi")
-  const [view, setView] = useState<"commits" | "wt">("commits")
-  const [hoverInfo, setHoverInfo] = useState<string | null>(null)
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [opState, setOpState] = useState<OpState | null>(null)
-  const [busyOp, setBusyOp] = useState<OpName | null>(null)
+  /* l'accueil n'est pas dans `tabs` : il est épinglé, toujours là, jamais fermé */
+  const [tabs, setTabs] = useState<Repo[]>([])
+  const [active, setActive] = useState(HOME)
+  /* un onglet visité reste monté : y revenir ne recharge pas son graphe, ne perd pas son scroll */
+  const [mounted, setMounted] = useState<number[]>([])
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [diff, setDiff] = useState<{ ctx: DiffCtx; file: FileChange } | null>(null)
-  const [diffMode, setDiffMode] = useState<DiffMode>(
-    () => (localStorage.getItem("gg.diffview") as DiffMode) || "unified"
-  )
-  const [commitMsg, setCommitMsg] = useState("")
-  const [graphW, setGraphW] = useState(0)
+  const [booted, setBooted] = useState(false)
 
-  const graphRef = useRef<GraphHandle | null>(null)
-  const okTimer = useRef<number>(0)
-
-  const showOp = useCallback((text: string, color: OpState["color"], action?: OpState["action"]) => {
-    clearTimeout(okTimer.current)
-    setOpState({ text, color, action })
-    if (color === "success") okTimer.current = window.setTimeout(() => setOpState(null), 3000)
-  }, [])
-
-  const refreshStatus = useCallback(async () => {
-    const st = await api.status().catch(() => null)
-    if (st) setStatus(st)
-  }, [])
-
-  const refreshWorktree = useCallback(async () => {
-    const wt = await api.worktree().catch(() => null)
-    const next = wt && worktreeCount(wt) ? wt : null
-    setWorktree(next)
-    /* l'arbre s'est vidé pendant qu'on le regardait : la vue n'a plus de sujet */
-    if (!next) setView((v) => (v === "wt" ? "commits" : v))
-  }, [])
-
-  const resetAndLoad = useCallback(
-    async (m: LogMode) => {
-      setSelection([])
-      setDiff(null)
-      setHoverInfo(null)
-      setView("commits")
-      await graphRef.current?.reset(m)
-      await refreshWorktree() // après le layout : le point de la ligne a besoin de la lane de HEAD
+  /* Le sens du glissement suit la barre d'onglets, l'accueil en position 0. Un dépôt qui n'y
+     figure pas encore vient d'être ouvert : il arrive de face plutôt que par le côté.
+     (`::view-transition-new` est un rendu vivant, pas une photo : un graphe encore en cours
+     de pose finit de s'afficher pendant l'animation.) */
+  const select = useCallback(
+    (key: number) => {
+      if (key === active) return
+      const pos = (k: number) => (k === HOME ? 0 : tabs.findIndex((r) => r.id === k) + 1)
+      const known = key === HOME || tabs.some((r) => r.id === key)
+      transition(!known ? "open" : pos(key) > pos(active) ? "next" : "prev", () => {
+        setActive(key)
+        if (key !== HOME) setMounted((m) => (m.includes(key) ? m : [...m, key]))
+      })
     },
-    [refreshWorktree]
+    [active, tabs]
   )
 
-  /* --- Cycle de vie du repo --- */
-  const openRepo = useCallback(async () => {
-    const res = await api.openRepo()
-    if (!res) return
-    if ("error" in res) return showOp(res.error, "danger")
-    setRepo(res)
-  }, [showOp])
-
+  /* restauration : pas d'animation, il n'y a pas d'état précédent à quitter */
   useEffect(() => {
-    api.current().then((r) => r && setRepo(r))
-  }, [])
-
-  useEffect(() => {
-    if (!repo) return
-    document.title = `git-graph — ${repo.name}`
-    refreshStatus()
-  }, [repo, refreshStatus])
-
-  /* git ne notifie rien : l'arbre a pu bouger dans l'éditeur pendant qu'on regardait ailleurs */
-  useEffect(() => {
-    if (!repo) return
-    const onFocus = () => refreshWorktree()
-    window.addEventListener("focus", onFocus)
-    return () => window.removeEventListener("focus", onFocus)
-  }, [repo, refreshWorktree])
-
-  /* --- Opérations git : le clic lance, mais tout le retour passe par onOp
-     (l'auto-fetch du process main émet sans avoir d'appelant côté renderer). --- */
-  useEffect(() => {
-    opHandler = async (p) => {
-      setBusyOp(p.state === "start" ? p.op : null)
-      if (p.state === "start") return showOp(OP_LABEL[p.op], "neutral")
-      if (p.state === "error") {
-        refreshStatus()
-        return showOp(p.message, "danger")
+    bootState.then((s) => {
+      if (s.tabs.length) {
+        const key = s.active ?? s.tabs[0].id
+        setTabs(s.tabs)
+        setActive(key)
+        setMounted([key])
       }
-      await refreshStatus()
-      if (p.op === "pull") {
-        await resetAndLoad(mode)
-        showOp("Branche à jour", "success")
-      } else if (p.op === "push") {
-        showOp("Poussé", "success")
-      } else if (p.added > 0) {
-        const s = p.added > 1 ? "s" : ""
-        /* le graphe n'est pas rechargé d'office : ça perdrait le scroll et la sélection */
-        showOp(`${p.added} nouveau${s} commit${s}`, "primary", {
-          label: "Recharger",
-          run: () => {
-            setOpState(null)
-            resetAndLoad(mode)
-          },
-        })
-      } else if (!p.auto) {
-        showOp("Déjà à jour", "success")
-      }
-    }
-    return () => {
-      opHandler = null
-    }
-  }, [mode, refreshStatus, resetAndLoad, showOp])
-
-  /* --- Sélection : la source de vérité est ici, le canvas ne fait qu'appliquer les classes --- */
-  useEffect(() => {
-    graphRef.current?.setSelection(selection)
-  }, [selection])
-
-  const selectRow = useCallback((row: number, additive: boolean) => {
-    setSelMode("multi")
-    setView("commits")
-    setDiff(null)
-    setSelection((prev) => {
-      if (!additive) return [row]
-      const s = new Set(prev)
-      s.has(row) ? s.delete(row) : s.add(row)
-      return [...s].sort((a, b) => a - b)
+      setBooted(true)
     })
   }, [])
 
-  const selectBranch = useCallback((row: number) => {
-    const rows = graphRef.current!.branchSegment(row).sort((a, b) => a - b)
-    setSelMode("branch")
-    setView("commits")
-    setDiff(null)
-    setSelection(rows)
-  }, [])
+  /* pas avant le boot : on écraserait les onglets persistés avec l'état initial vide */
+  useEffect(() => {
+    if (!booted) return
+    host.setTabs(tabs.map((r) => r.path), tabs.find((r) => r.id === active)?.path ?? null)
+  }, [booted, tabs, active])
 
-  const openDiff = useCallback((ctx: DiffCtx, file: FileChange) => setDiff({ ctx, file }), [])
-  const closeDiff = useCallback(() => setDiff(null), [])
-
-  const changeDiffMode = useCallback((m: DiffMode) => {
-    setDiffMode(m)
-    localStorage.setItem("gg.diffview", m)
-  }, [])
-
-  const showWorktree = useCallback(() => {
-    setSelection([])
-    setDiff(null)
-    setView("wt")
-  }, [])
-
-  const runWt = useCallback(
-    async (act: (paths: string[]) => Promise<void>, paths: string[]) => {
-      try {
-        await act(paths)
-      } catch (e) {
-        return showOp((e as Error).message, "danger")
-      }
-      await refreshWorktree()
+  /* déjà ouvert : on s'y rend au lieu d'en faire un doublon (main renvoie le même id) */
+  const openTab = useCallback(
+    (repo: Repo) => {
+      setTabs((prev) => (prev.some((r) => r.id === repo.id) ? prev : [...prev, repo]))
+      select(repo.id)
     },
-    [refreshWorktree, showOp]
+    [select]
   )
 
-  const doCommit = useCallback(async () => {
-    try {
-      await api.commit(commitMsg)
-    } catch (e) {
-      return showOp((e as Error).message, "danger")
-    }
-    setCommitMsg("")
-    await refreshWorktree()
-    refreshStatus()
-    await resetAndLoad(mode)
-  }, [commitMsg, mode, refreshStatus, refreshWorktree, resetAndLoad, showOp])
-
-  const changeMode = useCallback(
-    (m: LogMode) => {
-      setMode(m)
-      resetAndLoad(m)
+  const closeTab = useCallback(
+    (key: number) => {
+      const i = tabs.findIndex((r) => r.id === key)
+      if (i < 0) return
+      host.close(key)
+      const next = tabs.filter((r) => r.id !== key)
+      setTabs(next)
+      setMounted((m) => m.filter((k) => k !== key))
+      if (active === key) select(next[Math.min(i, next.length - 1)]?.id ?? HOME)
     },
-    [resetAndLoad]
+    [active, select, tabs]
   )
 
-  /* --- Raccourcis --- */
+  const activeRepo = tabs.find((r) => r.id === active) ?? null
+
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      const mod = ev.ctrlKey || ev.metaKey
-      const k = ev.key.toLowerCase()
-      if (mod && k === "k") {
+      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
         ev.preventDefault()
-        setPaletteOpen(true)
-      } else if (mod && k === "b" && repo) {
-        ev.preventDefault()
-        setSidebarOpen((v) => !v)
-      } else if (ev.key === "Escape" && !paletteOpen) {
-        closeDiff()
+        if (activeRepo) setPaletteOpen(true)
       }
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [closeDiff, paletteOpen, repo])
+  }, [activeRepo])
 
-  /* le point s'aligne sur la lane de HEAD ; tant qu'elle n'est pas posée, pas de point */
-  const headDot = useMemo(
-    () => (stats ? (graphRef.current?.headDot(status?.head ?? null) ?? null) : null),
-    [stats, status?.head]
-  )
-
-  const panelOpen = view === "wt" || selection.length > 0
+  const goHome = useCallback(() => select(HOME), [select])
 
   return (
     <div className="flex h-full flex-col">
-      <Titlebar
-        repoName={repo?.name ?? null}
-        status={status}
-        busyOp={busyOp}
-        onToggleSidebar={() => setSidebarOpen((v) => !v)}
-        onOpenRepo={openRepo}
+      <TabStrip
+        tabs={tabs.map((r) => ({ key: r.id, name: r.name, path: r.path }))}
+        active={active}
+        hasRepo={!!activeRepo}
+        onSelect={select}
+        onClose={closeTab}
         onOpenPalette={() => setPaletteOpen(true)}
-        onRunOp={(op) => api.op(op)}
       />
 
-      <div className="flex min-h-0 flex-1">
-        {repo && sidebarOpen && <RefsSidebar />}
+      <div className="gg-tabview relative min-h-0 flex-1">
+        {/* invisible plutôt que hidden : la boîte reste posée, donc le canvas garde sa taille
+            mesurée et son scroll. */}
+        <div className={cn("absolute inset-0 flex flex-col", active !== HOME && "invisible")}>
+          <HomeScreen active={active === HOME} onOpened={openTab} />
+        </div>
 
-        <main className="flex min-w-0 flex-1 flex-col">
-          {!repo ? (
-            <EmptyState onOpenRepo={openRepo} />
-          ) : (
-            <>
-              <Toolbar mode={mode} onModeChange={changeMode} onLoadAll={() => graphRef.current?.loadAll()} />
-
-              <div
-                style={{ "--graphw": `${graphW}px` } as React.CSSProperties}
-                className={cn(
-                  "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
-                  !diff && "grid-cols-[1fr_320px]",
-                  diff && diffMode === "unified" && "grid-cols-[1fr_minmax(470px,44%)]",
-                  diff && diffMode === "sbs" && "grid-cols-[1fr_minmax(730px,62%)]"
-                )}
-              >
-                <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
-                  {worktree && (
-                    <div
-                      onClick={showWorktree}
-                      title="Modifications non validées"
-                      className={cn(
-                        "gg-wtrow relative flex h-8.5 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
-                        view === "wt" && "border-l-primary bg-primary/10 text-foreground"
-                      )}
-                    >
-                      {headDot && (
-                        /* -2px : l'absolu se cale sur la padding-box, le SVG sur la border-box */
-                        <span
-                          className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed bg-background"
-                          style={{ left: headDot.left - 2, color: headDot.color }}
-                        />
-                      )}
-                      <span className="font-medium">Modifications non validées</span>
-                      <span className="ms-auto flex gap-1">
-                        {WT_COUNTERS.map(({ key, color, label }) =>
-                          worktree[key].length ? (
-                            <Badge key={key} color={color} shape="squared" title={label} className="font-mono tabular-nums">
-                              {worktree[key].length}
-                            </Badge>
-                          ) : null
-                        )}
-                      </span>
-                    </div>
-                  )}
-
-                  <CommitGraph
-                    graphRef={graphRef}
-                    onReady={() => resetAndLoad(mode)}
-                    callbacks={{
-                      onSelect: selectRow,
-                      onBranchSelect: selectBranch,
-                      onHover: setHoverInfo,
-                      onStats: setStats,
-                      onGraphWidth: setGraphW,
-                    }}
-                  />
-                </div>
-
-                <aside className="overflow-auto border-l px-4.5 py-4">
-                  {view === "wt" && worktree ? (
-                    <WorktreePanel
-                      worktree={worktree}
-                      activePath={diff?.file.path}
-                      message={commitMsg}
-                      onMessageChange={setCommitMsg}
-                      onOpenDiff={openDiff}
-                      onRun={runWt}
-                      onCommit={doCommit}
-                    >
-                      {diff && (
-                        <DiffView ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
-                      )}
-                    </WorktreePanel>
-                  ) : panelOpen && graphRef.current ? (
-                    <DetailPanel
-                      graph={graphRef.current}
-                      selection={selection}
-                      selMode={selMode}
-                      activePath={diff?.file.path}
-                      onOpenDiff={openDiff}
-                      onJump={(hash) => graphRef.current?.jumpTo(hash)}
-                    >
-                      {diff && (
-                        <DiffView ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
-                      )}
-                    </DetailPanel>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Clique un commit pour le détail.</p>
-                  )}
-                </aside>
-              </div>
-            </>
-          )}
-        </main>
+        {tabs
+          .filter((r) => mounted.includes(r.id))
+          .map((r) => (
+            <div key={r.id} className={cn("absolute inset-0 flex flex-col", r.id !== active && "invisible")}>
+              <RepoView
+                repo={r}
+                active={r.id === active}
+                paletteOpen={paletteOpen}
+                onPaletteChange={setPaletteOpen}
+                onNewTab={goHome}
+              />
+            </div>
+          ))}
       </div>
-
-      <StatusBar branch={status?.branch ?? null} opState={opState} hoverInfo={hoverInfo} stats={repo ? stats : null} />
-
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        hasRepo={!!repo}
-        onOpenRepo={openRepo}
-        onRunOp={(op) => api.op(op)}
-        onToggleMainline={() => changeMode(mode === "all" ? "mainline" : "all")}
-        onToggleSidebar={() => setSidebarOpen((v) => !v)}
-      />
     </div>
   )
 }
