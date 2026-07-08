@@ -13,8 +13,10 @@ let mainWindow = null;
 if (process.env.GG_DEBUG) app.commandLine.appendSwitch('remote-debugging-port', process.env.GG_DEBUG);
 
 /* GIT_TERMINAL_PROMPT=0 : sans TTY, un git qui demande un mot de passe se bloquerait
-   indéfiniment. Les helpers de credentials graphiques (GCM) restent utilisables. */
-const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+   indéfiniment. Les helpers de credentials graphiques (GCM) restent utilisables.
+   GIT_EDITOR : git n'ouvre pas d'éditeur sans TTY, mais `git flow` est un script shell qui,
+   lui, en réclame un pour son tag annoté. `true` le transforme en échec propre. */
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true', GIT_MERGE_AUTOEDIT: 'no' };
 
 /* git noie ses erreurs sous des lignes `hint:` : on ne garde que les fatal/error. */
 function gitError(err, stderr) {
@@ -444,6 +446,86 @@ ipcMain.handle('repo:checkout', async (_ev, id, name) => {
   });
 });
 
+/* --- Actions de branche (menu contextuel) ---
+   Aucun événement : le renderer a lancé l'action, c'est lui qui recharge et affiche l'erreur.
+   `running` est le verrou des opérations réseau — il tient l'auto-fetch et le watcher à l'écart
+   le temps d'un merge ou d'un `git flow finish`. */
+
+const FLOW_TYPES = ['feature', 'bugfix', 'release', 'hotfix'];
+
+/** Les préfixes posés par `git flow init` dans la config, ou `null` : le dépôt ignore git-flow. */
+async function flowPrefixes(r) {
+  const out = await git(r.path, ['config', '--get-regexp', '^gitflow\\.prefix\\.']).catch(() => '');
+  const prefixes = {};
+  for (const line of out.split('\n').filter(Boolean)) {
+    const [key, value = ''] = line.split(' ');
+    prefixes[key.slice('gitflow.prefix.'.length)] = value;
+  }
+  return FLOW_TYPES.some(t => prefixes[t]) ? prefixes : null;
+}
+
+/** La distante suivie par une branche, telle que sa config la déclare. */
+async function upstreamOf(r, name) {
+  const read = key => git(r.path, ['config', '--get', `branch.${name}.${key}`]).then(o => o.trim(), () => '');
+  const [remote, merge] = await Promise.all([read('remote'), read('merge')]);
+  if (!remote || !merge) throw new Error(`${name} ne suit aucune branche distante`);
+  return { remote, merge };
+}
+
+const BRANCH_OPS = {
+  merge: (r, name) => git(r.path, ['merge', name], OP_TIMEOUT),
+
+  /* `-d`, jamais `-D` : le refus de git sur une branche non fusionnée est le seul garde-fou
+     qu'on ait — le menu ne demande pas confirmation. La distante, elle, reste en place. */
+  delete: (r, name) => git(r.path, ['branch', '-d', name]),
+
+  /* On ne fetche pas dans une branche sortie : sur HEAD, c'est un pull. Ailleurs, le refspec
+     explicite est fast-forward-only, et git en profite pour remettre `refs/remotes/…` à jour. */
+  async pull(r, name) {
+    const { remote, merge } = await upstreamOf(r, name);
+    const current = (await git(r.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+    await git(r.path, name === current
+      ? ['pull', '--ff-only']
+      : ['fetch', remote, `${merge}:refs/heads/${name}`], OP_TIMEOUT);
+  },
+
+  /* Le refspec nomme les deux côtés : `git push <remote> <branche>` pousserait vers une branche
+     de même nom, quand bien même l'upstream en porte un autre. */
+  async push(r, name) {
+    const { remote, merge } = await upstreamOf(r, name);
+    await git(r.path, ['push', remote, `refs/heads/${name}:${merge}`], OP_TIMEOUT);
+  },
+
+  /* `git flow` fait tout — merge, tag, back-merge, suppression de la branche. Le réimplémenter,
+     c'est s'écarter en silence de la sémantique que l'utilisateur attend de son outil.
+     ponytail: l'extension n'est pas installée ? le message de git le dira au clic. */
+  async finish(r, name) {
+    const prefixes = (await flowPrefixes(r)) ?? {};
+    const type = FLOW_TYPES.find(t => prefixes[t] && name.startsWith(prefixes[t]));
+    if (!type) throw new Error(`${name} n'est pas une branche git-flow`);
+    const version = name.slice(prefixes[type].length);
+    /* release et hotfix posent un tag annoté : sans `-m`, `git tag -a` réclamerait un éditeur */
+    const tagged = type === 'release' || type === 'hotfix';
+    await git(r.path, ['flow', type, 'finish', ...(tagged ? ['-m', version] : []), version], OP_TIMEOUT);
+  },
+};
+
+ipcMain.handle('repo:flow', (_ev, id) => flowPrefixes(use(id)));
+
+ipcMain.handle('repo:branch', async (_ev, id, action, name) => {
+  const r = use(id);
+  if (!Object.hasOwn(BRANCH_OPS, action)) throw new Error('bad action');
+  if (typeof name !== 'string' || !BRANCH.test(name)) throw new Error('bad branch');
+  if (r.running) throw new Error('Une opération est déjà en cours sur ce dépôt');
+  r.running = action;
+  try {
+    await BRANCH_OPS[action](r, name);
+  } finally {
+    mute(r);
+    r.running = null;
+  }
+});
+
 ipcMain.handle('repo:log', (_ev, id, skip, count) => {
   const r = use(id);
   if (!Number.isInteger(skip) || !Number.isInteger(count) || skip < 0 || count < 1 || count > 5000)
@@ -459,7 +541,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
   const r = use(id);
   const out = await git(r.path, [
     'for-each-ref', '--sort=refname',
-    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)\x1f%(symref:short)',
+    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)\x1f%(symref:short)\x1f%(upstream:short)',
     'refs/heads', 'refs/remotes', 'refs/tags',
   ]);
 
@@ -467,7 +549,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
      de fusion. Plusieurs distantes ? la première dans l'ordre alphabétique tranche. */
   let base = '';
   const refs = out.split('\n').filter(Boolean).flatMap(line => {
-    const [refname, head, track = '', symref = ''] = line.split('\x1f');
+    const [refname, head, track = '', symref = '', upstream = ''] = line.split('\x1f');
     const kind = REF_KINDS.find(([prefix]) => refname.startsWith(prefix));
     if (!kind) return [];
     const name = refname.slice(kind[0].length);
@@ -481,6 +563,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
       name,
       kind: kind[1],
       head: head === '*',
+      upstream,
       ahead: ahead ? +ahead[1] : 0,
       behind: behind ? +behind[1] : 0,
       merged: false,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   onChanged, onOp, repoApi, worktreeCount,
-  type FileChange, type OpName, type Repo, type Status, type Worktree,
+  type BranchAct, type FileChange, type OpName, type Repo, type Status, type Worktree,
 } from "@/lib/git"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,15 @@ import { Toolbar } from "@/components/toolbar"
 import { WorktreePanel, type WtAct } from "@/components/worktree-panel"
 
 const OP_LABEL: Record<OpName, string> = { fetch: "Fetch…", pull: "Pull…", push: "Push…" }
+
+/** verbe en cours, puis participe : « Fusion de x… » → « x fusionnée » */
+const BRANCH_LABEL: Record<BranchAct, [string, string]> = {
+  merge: ["Fusion de", "fusionnée"],
+  delete: ["Suppression de", "supprimée"],
+  pull: ["Pull de", "à jour"],
+  push: ["Push de", "poussée"],
+  finish: ["Clôture de", "terminée"],
+}
 
 const WT_COUNTERS = [
   { key: "conflicts", color: "danger", label: "conflits" },
@@ -234,6 +243,20 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     [api, refreshStatus, resetAndLoad, showOp]
   )
 
+  /* Un merge en conflit, un `flow finish` interrompu : l'échec laisse l'arbre et les refs
+     déplacés. On recharge dans tous les cas, comme pour le checkout. */
+  const runBranch = useCallback(
+    async (action: BranchAct, name: string) => {
+      const [pending, done] = BRANCH_LABEL[action]
+      showOp(`${pending} ${name}…`, "neutral")
+      const err = await api.branch(action, name).then(() => null, (e: Error) => e.message)
+      await refreshStatus()
+      await resetAndLoad()
+      showOp(err ?? `${name} ${done}`, err ? "danger" : "success")
+    },
+    [api, refreshStatus, resetAndLoad, showOp]
+  )
+
   /* --- Raccourcis --- (Ctrl+K est géré par le shell : il traverse les onglets) */
   useEffect(() => {
     if (!active) return
@@ -278,6 +301,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
           open={sidebarOpen}
           refreshKey={`refs:${repo.id}:${refsGen}`}
           onCheckout={checkout}
+          onBranch={runBranch}
         />
 
         <main className="flex min-w-0 flex-1 flex-col">
