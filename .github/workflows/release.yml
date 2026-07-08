@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v5
         with:
@@ -24,7 +24,11 @@ jobs:
 
       - run: pnpm typecheck
 
-      # electron-builder lit `publish` dans electron-builder.yml et attache l'installeur au tag
+      # electron-builder lit `publish` dans electron-builder.yml : brouillon + installeur attaché
       - run: pnpm release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: gh release edit ${{ github.ref_name }} --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -17,8 +17,10 @@ win:
 # ponytail: pas de signature de code. SmartScreen affichera « éditeur inconnu »
 # jusqu'à l'achat d'un certificat EV — renseigner alors `win.certificateSubjectName`.
 
+# La release reste en brouillon le temps de l'upload : le workflow la publie ensuite.
+# `releaseType: release` fait re-créer la release à chaque artefact → 422 already_exists.
 publish:
   provider: github
   owner: ethylon
   repo: git-graph
-  releaseType: release
+  releaseType: draft
