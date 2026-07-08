@@ -22,7 +22,6 @@ type Props = {
   activePath?: string
   onOpenDiff(commits: { hash: string; parent: string | null }, file: FileChange): void
   onJump(hash: string): void
-  children?: React.ReactNode
 }
 
 const Loading = () => (
@@ -287,19 +286,14 @@ const Dt = ({ children }: { children: React.ReactNode }) => (
   <dt className="pt-0.5 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase">{children}</dt>
 )
 
-export function DetailPanel({ api, graph, selection, selMode, activePath, onOpenDiff, onJump, children }: Props) {
+export function DetailPanel({ api, graph, selection, selMode, activePath, onOpenDiff, onJump }: Props) {
   if (!selection.length) return <Hint>Clique un commit pour le détail.</Hint>
 
-  return (
-    <>
-      {selection.length === 1 ? (
-        <Single api={api} graph={graph} row={selection[0]} activePath={activePath} onOpenDiff={onOpenDiff} onJump={onJump} />
-      ) : selMode === "branch" ? (
-        <Branch api={api} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
-      ) : (
-        <Multi api={api} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
-      )}
-      {children}
-    </>
+  return selection.length === 1 ? (
+    <Single api={api} graph={graph} row={selection[0]} activePath={activePath} onOpenDiff={onOpenDiff} onJump={onJump} />
+  ) : selMode === "branch" ? (
+    <Branch api={api} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
+  ) : (
+    <Multi api={api} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
   )
 }

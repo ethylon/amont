@@ -307,12 +307,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
         <main className="flex min-w-0 flex-1 flex-col">
           <div
             style={{ "--graphw": `${graphW}px` } as React.CSSProperties}
-            className={cn(
-              "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
-              !diff && "grid-cols-[1fr_320px]",
-              diff && diffMode === "unified" && "grid-cols-[1fr_minmax(470px,44%)]",
-              diff && diffMode === "sbs" && "grid-cols-[1fr_minmax(730px,62%)]"
-            )}
+            className="grid min-h-0 flex-1 grid-cols-[1fr_320px] grid-rows-[minmax(0,1fr)]"
           >
             <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
               {worktree && (
@@ -345,18 +340,27 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                 </div>
               )}
 
-              <CommitGraph
-                graphRef={graphRef}
-                api={api}
-                onReady={() => resetAndLoad()}
-                callbacks={{
-                  onSelect: selectRow,
-                  onBranchSelect: selectBranch,
-                  onHover: setHoverInfo,
-                  onStats: setStats,
-                  onGraphWidth: setGraphW,
-                }}
-              />
+              {/* le diff recouvre le graphe au lieu de le démonter : scroll, sélection et
+                  mise en page du canvas survivent à la fermeture */}
+              <div className="relative grid min-h-0">
+                <CommitGraph
+                  graphRef={graphRef}
+                  api={api}
+                  onReady={() => resetAndLoad()}
+                  callbacks={{
+                    onSelect: selectRow,
+                    onBranchSelect: selectBranch,
+                    onHover: setHoverInfo,
+                    onStats: setStats,
+                    onGraphWidth: setGraphW,
+                  }}
+                />
+                {diff && (
+                  <div className="absolute inset-0 z-2 flex flex-col bg-background">
+                    <DiffView api={api} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* colonne : l'en-tête du détail est figé, la liste et le diff scrollent chacun chez eux.
@@ -373,11 +377,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                   onOpenDiff={openDiff}
                   onRun={runWt}
                   onCommit={doCommit}
-                >
-                  {diff && (
-                    <DiffView api={api} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
-                  )}
-                </WorktreePanel>
+                />
               ) : panelOpen && graphRef.current ? (
                 <DetailPanel
                   api={api}
@@ -387,11 +387,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                   activePath={diff?.file.path}
                   onOpenDiff={openDiff}
                   onJump={(hash) => graphRef.current?.jumpTo(hash)}
-                >
-                  {diff && (
-                    <DiffView api={api} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
-                  )}
-                </DetailPanel>
+                />
               ) : (
                 <p className="shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
               )}
