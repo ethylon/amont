@@ -451,17 +451,25 @@ ipcMain.handle('repo:log', (_ev, id, skip, count) => {
 const REF_KINDS = [['refs/heads/', 'head'], ['refs/remotes/', 'remote'], ['refs/tags/', 'tag']];
 
 ipcMain.handle('repo:refs', async (_ev, id) => {
-  const out = await git(use(id).path, [
+  const r = use(id);
+  const out = await git(r.path, [
     'for-each-ref', '--sort=refname',
-    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)',
+    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)\x1f%(symref:short)',
     'refs/heads', 'refs/remotes', 'refs/tags',
   ]);
-  return out.split('\n').filter(Boolean).flatMap(line => {
-    const [refname, head, track = ''] = line.split('\x1f');
+
+  /* `<remote>/HEAD` est un symref vers la branche par défaut de la distante : c'est la référence
+     de fusion. Plusieurs distantes ? la première dans l'ordre alphabétique tranche. */
+  let base = '';
+  const refs = out.split('\n').filter(Boolean).flatMap(line => {
+    const [refname, head, track = '', symref = ''] = line.split('\x1f');
     const kind = REF_KINDS.find(([prefix]) => refname.startsWith(prefix));
     if (!kind) return [];
     const name = refname.slice(kind[0].length);
-    if (kind[1] === 'remote' && name.endsWith('/HEAD')) return [];
+    if (kind[1] === 'remote' && name.endsWith('/HEAD')) {
+      base ||= symref;
+      return [];
+    }
     const ahead = /ahead (\d+)/.exec(track);
     const behind = /behind (\d+)/.exec(track);
     return [{
@@ -470,8 +478,23 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
       head: head === '*',
       ahead: ahead ? +ahead[1] : 0,
       behind: behind ? +behind[1] : 0,
+      merged: false,
+      gone: track === 'gone',
     }];
   });
+
+  /* Sans distante, on retombe sur la convention. Sans convention non plus, personne n'est
+     « mergé » : mieux vaut ne rien dire que désigner une base arbitraire. */
+  base ||= ['main', 'master', 'develop'].find(b => refs.some(x => x.kind === 'head' && x.name === b)) || '';
+  if (base) {
+    /* `origin/main` → `main` ; une base déjà locale traverse inchangée. La branche
+       d'intégration est ancêtre d'elle-même : la marquer n'apprendrait rien. */
+    const mainline = base.slice(base.indexOf('/') + 1);
+    const out = await git(r.path, ['for-each-ref', '--merged', base, '--format=%(refname:short)', 'refs/heads']);
+    const merged = new Set(out.split('\n').filter(Boolean));
+    for (const ref of refs) ref.merged = ref.kind === 'head' && ref.name !== mainline && merged.has(ref.name);
+  }
+  return refs;
 });
 
 /* Fichiers touchés. Pour un merge, le renderer passe le first-parent :
