@@ -1,7 +1,11 @@
+import { CloudIcon } from "@hugeicons/core-free-icons"
+
 import { type Commit, type RepoApi } from "@/lib/git"
+import { avatarUrl, initials, tint } from "@/lib/avatar"
+import { iconEl } from "@/lib/utils"
 import { badgeVariants } from "@/components/ui/badge"
 import {
-  MAIN_TARGETS, parseMerge, parseRefs, parseSubject, refColor, typeColor,
+  BACKUP_WIP, MAIN_TARGETS, parseMerge, parseRefs, parseSubject, refColor, typeColor,
   type BadgeColor, type RefChip,
 } from "@/lib/commit-message"
 import {
@@ -17,16 +21,48 @@ import {
 const SVG_NS = "http://www.w3.org/2000/svg"
 
 /* Les tags ont leur colonne, à droite du sujet : leur nombre ne déplace plus le texte du commit.
-   Chaque ligne est sa propre grille, donc une piste `auto` se dimensionnerait ligne par ligne et
-   les colonnes ne s'aligneraient plus — d'où la largeur fixe, au prix d'un vide sur les lignes
-   sans tag. `TAG_COL` la répète pour le calcul de minWidth : Tailwind n'indexe que des littéraux. */
+   Type et tags sont dimensionnés sur le contenu chargé (cf. `measureCols`) et tombent à 0 quand
+   le dépôt n'en a aucun. Leur gouttière est du vide en fin de piste, pas un `gap` ni un padding :
+   l'un survivrait à une piste nulle, l'autre lui imposerait un plancher (`box-sizing: border-box`).
+   Les colonnes qui ne s'effacent jamais, elles, portent la leur en `pe-2.5`. */
 const ROW_CLASS =
-  "gg-row grid h-7 cursor-pointer grid-cols-[64px_1fr_160px_120px_74px_68px] items-center gap-2.5 " +
-  "border-l-2 border-l-transparent pr-4.5 text-xs hover:bg-muted/60 " +
+  "gg-row grid h-7 cursor-pointer grid-cols-[var(--gg-type,0px)_1fr_var(--gg-tag,0px)_130px_84px_68px] " +
+  "items-center border-l-2 border-l-transparent pr-4.5 text-xs hover:bg-muted/60 " +
   "data-selected:border-l-primary data-selected:bg-primary/10"
-const TAG_COL = 160 + 10 // + gap-2.5
+
+/** gouttière d'une colonne, `pe-2.5` ou vide de fin de piste */
+const GAP = 10
+/** `gap-1.5` entre le dernier tag et son "+N" */
+const CHIP_GAP = 6
+const TYPE_MAX = "max-w-24"
+const TAG_MAX = "max-w-30"
+/** pl du graphe + sujet (min) + auteur + date + hash + pr-4.5, gouttières comprises */
+const FIXED_W = 12 + 320 + 130 + 84 + 68 + 18
 
 const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
+const cloud = () => iconEl(CloudIcon, "shrink-0")
+
+/* Jumeau impératif de `<Avatar>` : l'image recouvre le monogramme, un 404 la retire.
+   Une ligne du graphe n'est jamais recyclée — la retirer suffit, rien ne la remontera. */
+function avatarEl(name: string, email: string) {
+  const el = document.createElement("span")
+  el.className =
+    "relative flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-full " +
+    "text-[0.5rem] font-medium text-background"
+  el.style.background = tint(name, email)
+  el.textContent = initials(name)
+
+  const src = avatarUrl(email)
+  if (src) {
+    const img = document.createElement("img")
+    img.src = src
+    img.alt = ""
+    img.className = "absolute inset-0 size-full"
+    img.onerror = () => img.remove()
+    el.appendChild(img)
+  }
+  return el
+}
 
 /* Au-delà du budget de sa colonne, le reste d'un groupe tient dans un "+N" qui déplie la liste
    entière. Rien n'est perdu — le panneau de détail liste aussi toutes les refs de la sélection.
@@ -35,8 +71,8 @@ const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
    isolée ne gagnerait pas un pixel, et un "+N" sans chip devant n'annonce rien. Ces seuils
    garantissent les deux — `slice(0, n>0)` d'une liste non vide ne l'est pas non plus. */
 const HEAD_BUDGET = 2
-/* ponytail: budget fixe à 1 — deux tags courts tiendraient dans les 160px, mais le savoir
-   demande de mesurer chaque ligne, dans une liste virtualisée. Compter, pas mesurer. */
+/* ponytail: budget fixe à 1 — la colonne fait la largeur du tag le plus long, deux tags courts
+   y tiendraient donc, mais le savoir demanderait de mesurer chaque ligne. Compter, pas mesurer. */
 const TAG_BUDGET = 1
 
 /** Surface flottante du projet (cf. `dialog`, `command`). */
@@ -65,6 +101,8 @@ export type GraphHandle = {
   commit(row: number): Commit | undefined
   branchSegment(row: number): number[]
   chainInfo(rows: number[]): string
+  /** teinte du trait de la ligne, à poser en `--badge-color` sur les chips de branche */
+  laneColor(row: number): string
   /** position et teinte du point d'arbre de travail, aligné sur la lane de HEAD */
   headDot(headSha: string | null): { left: number; color: string } | null
   destroy(): void
@@ -114,10 +152,13 @@ export function createGraph(
 
   function openMore(btn: HTMLElement) {
     closeMore()
-    const c = DATA[Number(btn.closest<HTMLElement>(".gg-row")!.dataset.i)]
+    const row = btn.closest<HTMLElement>(".gg-row")!
+    const c = DATA[Number(row.dataset.i)]
     const tags = btn.dataset.tags === "true"
     const refs = parseRefs(c.r).filter((r) => (r.kind === "tag") === tags)
     more.replaceChildren(...refs.map((r) => refChip(r, "max-w-full")))
+    /* le panneau flotte sous `inner`, pas sous la ligne : la teinte de lane ne peut pas hériter */
+    more.style.setProperty("--badge-color", row.style.getPropertyValue("--badge-color"))
 
     const b = btn.getBoundingClientRect()
     const box = inner.getBoundingClientRect() // se déplace avec le scroll, comme `more`
@@ -134,20 +175,28 @@ export function createGraph(
     return g
   }
 
+  /* Le nuage dit où est la distante. Seul, devant la branche : « ici aussi ». Collé à un nom
+     complet (`origin/develop`) : « la branche locale est ailleurs ». Une branche sans nuage
+     n'a pas de distante du tout. */
   function refChip(r: RefChip, maxw: string) {
     const el = document.createElement("span")
-    el.className = chip(refColor(r.kind)) + " " + maxw
-    el.title = r.remotes.length ? `${r.name} = ${r.remotes.join(", ")}` : r.name
+    el.className = chip(refColor(r.kind)) + " " + maxw + (r.kind === "remote" ? " ps-1.5" : "")
+    el.title = r.name
+    if (r.kind === "remote") el.appendChild(cloud())
     const text = document.createElement("span")
     text.className = "truncate"
     text.textContent = r.name
     el.appendChild(text)
-    if (r.remotes.length) {
-      const dot = document.createElement("span")
-      dot.className = "size-1 shrink-0 rounded-full bg-current opacity-60"
-      el.appendChild(dot)
-    }
-    return el
+    if (!r.remotes.length) return el
+
+    const sync = document.createElement("span")
+    sync.className = chip("lane") + " px-1"
+    sync.title = r.remotes.join(", ")
+    sync.appendChild(cloud())
+    const wrap = document.createElement("span")
+    wrap.className = "flex min-w-0 items-center gap-1"
+    wrap.append(sync, el)
+    return wrap
   }
 
   /** Les refs d'un groupe, tronquées à `budget`, le reste derrière un "+N" qui les déplie toutes. */
@@ -172,13 +221,15 @@ export function createGraph(
     row.dataset.i = String(i)
     row.dataset.selected = String(selection.has(i))
     if (matches) row.dataset.match = String(matches.has(c.h))
+    /* hérité par les chips `lane` de la ligne — les noms de branche portent la couleur du trait */
+    row.style.setProperty("--badge-color", laneColor(S.laneOf[i]))
 
     const ps = parseSubject(c.s)
     const badge = document.createElement("div")
     badge.className = "flex min-w-0"
     if (ps.label) {
       const b = document.createElement("span")
-      b.className = chip(typeColor(ps.type!)) + " max-w-16 font-semibold"
+      b.className = chip(typeColor(ps.type!)) + " " + TYPE_MAX
       b.textContent = ps.label
       badge.appendChild(b)
     }
@@ -188,7 +239,8 @@ export function createGraph(
        Les tags, eux, sont des marqueurs de release — ils partent dans leur colonne. */
     const refs = c.r ? parseRefs(c.r) : []
     const subj = document.createElement("div")
-    subj.className = "flex min-w-0 items-center gap-1.5 truncate"
+    subj.className =
+      "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " text-muted-foreground" : "")
     refGroup(refs.filter((r) => r.kind !== "tag"), HEAD_BUDGET, false, "max-w-42", subj)
 
     const mg = c.p.length > 1 ? parseMerge(c.s) : null
@@ -219,13 +271,20 @@ export function createGraph(
 
     const tags = document.createElement("div")
     tags.className = "flex min-w-0 items-center gap-1.5"
-    /* max-w-30 : 120px + gap-1.5 + un "+N" à deux chiffres (34px) = les 160px de la colonne */
-    refGroup(refs.filter((r) => r.kind === "tag"), TAG_BUDGET, true, "max-w-30", tags)
+    refGroup(refs.filter((r) => r.kind === "tag"), TAG_BUDGET, true, TAG_MAX, tags)
     row.appendChild(tags)
 
+    const author = document.createElement("div")
+    author.className = "flex min-w-0 items-center gap-1.5 pe-2.5 text-muted-foreground"
+    author.title = c.e || c.a
+    const name = document.createElement("span")
+    name.className = "truncate"
+    name.textContent = c.a
+    author.append(avatarEl(c.a, c.e), name)
+    row.appendChild(author)
+
     for (const [cls, val] of [
-      ["truncate text-muted-foreground", c.a],
-      ["text-muted-foreground tabular-nums", c.d],
+      ["pe-2.5 text-muted-foreground tabular-nums", c.d],
       ["font-mono text-muted-foreground tabular-nums", c.h],
     ] as const) {
       const el = document.createElement("span")
@@ -245,6 +304,78 @@ export function createGraph(
     return div
   }
 
+  /* --- Largeur des colonnes type et tags ---
+     Une piste `auto` se dimensionnerait ligne par ligne (chaque ligne est sa propre grille) :
+     les colonnes ne s'aligneraient plus. On mesure donc, une fois par chaîne distincte, dans un
+     règle hors flux — écritures groupées puis lectures groupées, un seul reflow. Les maxima ne
+     font que croître : ni la pagination ni le scroll ne déplacent une colonne. */
+  const ruler = document.createElement("div")
+  ruler.className = "invisible absolute top-0 left-0 flex"
+  const seenType = new Set<string>()
+  const seenTag = new Set<string>()
+  let scanned = 0
+  let typeW = 0
+  let tagW = 0
+  let plusN = 0
+  let plusW = 0
+
+  function widest(texts: string[], maxw: string) {
+    ruler.replaceChildren(
+      ...texts.map((t) => {
+        const s = document.createElement("span")
+        s.className = chip("neutral") + " " + maxw
+        s.textContent = t
+        return s
+      })
+    )
+    inner.appendChild(ruler)
+    const w = Math.max(0, ...[...ruler.children].map((el) => (el as HTMLElement).offsetWidth))
+    ruler.remove()
+    return w
+  }
+
+  /** Pose `--gg-type` / `--gg-tag` et renvoie la place que les deux colonnes prennent. */
+  function measureCols() {
+    const types: string[] = []
+    const tags: string[] = []
+    let plus = plusN
+    for (; scanned < S.next; scanned++) {
+      const c = DATA[scanned]
+      const label = parseSubject(c.s).label
+      if (label && !seenType.has(label)) seenType.add(label), types.push(label)
+      if (!c.r) continue
+      let n = 0
+      for (const r of parseRefs(c.r)) {
+        if (r.kind !== "tag") continue
+        n++
+        if (!seenTag.has(r.name)) seenTag.add(r.name), tags.push(r.name)
+      }
+      plus = Math.max(plus, n - TAG_BUDGET)
+    }
+    if (types.length) typeW = Math.max(typeW, widest(types, TYPE_MAX))
+    if (tags.length) tagW = Math.max(tagW, widest(tags, TAG_MAX))
+    if (plus > plusN) {
+      plusN = plus
+      plusW = CHIP_GAP + widest([`+${plusN}`], "")
+    }
+
+    const type = typeW && typeW + GAP
+    const tag = tagW && tagW + plusW + GAP
+    inner.style.setProperty("--gg-type", type + "px")
+    inner.style.setProperty("--gg-tag", tag + "px")
+    return type + tag
+  }
+
+  /* Les chips sont mesurés à la police réelle. Tant que Geist n'a pas remplacé le fallback,
+     les largeurs sont fausses : une seule reprise suffit à les asseoir. */
+  document.fonts.ready.then(() => {
+    if (!svg.isConnected) return
+    seenType.clear()
+    seenTag.clear()
+    scanned = typeW = tagW = plusN = plusW = 0
+    refresh()
+  })
+
   function refresh() {
     const graphW = PAD * 2 + S.lanes.length * LANE
     const h = S.next * ROW
@@ -252,7 +383,7 @@ export function createGraph(
     svg.setAttribute("height", String(h))
     svg.setAttribute("viewBox", `0 0 ${graphW} ${h}`)
     inner.style.height = h + "px"
-    inner.style.minWidth = graphW + 706 + TAG_COL + "px" // graphe + place pour les colonnes texte
+    inner.style.minWidth = graphW + FIXED_W + measureCols() + "px"
     cb.onGraphWidth(graphW)
 
     let dangling = ""
@@ -474,6 +605,7 @@ export function createGraph(
     commit: (row) => DATA[row],
     branchSegment: (row) => branchSegment(S, DATA, row),
     chainInfo: (rows) => chainInfo(S, DATA, rows),
+    laneColor: (row) => laneColor(S.laneOf[row]),
 
     headDot(headSha) {
       const row = headSha === null ? undefined : S.rowOf.get(headSha)

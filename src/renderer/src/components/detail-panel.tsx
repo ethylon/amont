@@ -1,7 +1,11 @@
+import { HugeiconsIcon } from "@hugeicons/react"
+import { CloudIcon } from "@hugeicons/core-free-icons"
+
 import type { Commit, FileChange, RepoApi } from "@/lib/git"
-import { parseRefs, parseSubject, refColor, typeColor } from "@/lib/commit-message"
+import { parseBody, parseMarkdown, parseRefs, parseSubject, refColor, typeColor, type MdToken, type RefChip } from "@/lib/commit-message"
 import type { GraphHandle } from "@/components/graph-canvas"
 import { useAsync } from "@/hooks/use-async"
+import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Tip } from "@/components/ui/tip"
 import { FileList } from "@/components/file-list"
@@ -35,11 +39,78 @@ function TypeChip({ commit }: { commit: Commit }) {
   const ps = parseSubject(commit.s)
   if (!ps.label) return null
   return (
-    <Badge color={typeColor(ps.type!)} shape="squared" className="me-1.5 font-semibold">
+    <Badge color={typeColor(ps.type!)} shape="squared" className="me-1.5">
       {ps.label}
     </Badge>
   )
 }
+
+const Cloud = () => <HugeiconsIcon icon={CloudIcon} strokeWidth={2} className="shrink-0" />
+
+/* Même grammaire que le graphe : nuage seul = la distante est sur ce commit ; nuage collé à
+   `origin/develop` = la branche locale est ailleurs. */
+function RefBadge({ r }: { r: RefChip }) {
+  const name = (
+    <Badge shape="squared" color={refColor(r.kind)} className={r.kind === "remote" ? "ps-1.5" : undefined}>
+      {r.kind === "remote" && <Cloud />}
+      {r.name}
+    </Badge>
+  )
+  if (!r.remotes.length) return name
+  return (
+    <span className="flex items-center gap-1">
+      <Tip text={r.remotes.join(", ")}>
+        <Badge shape="squared" color="lane" className="px-1">
+          <Cloud />
+        </Badge>
+      </Tip>
+      {name}
+    </span>
+  )
+}
+
+/** Auteur ou co-auteur : même grammaire, l'e-mail n'apparaît qu'au survol. */
+function PersonChip({ name, email }: { name: string; email: string }) {
+  return (
+    <Tip text={email || name}>
+      <span className="flex min-w-0 items-center gap-1.5">
+        <Avatar name={name} email={email} />
+        <span className="truncate">{name}</span>
+      </span>
+    </Tip>
+  )
+}
+
+/* Les URLs partent au navigateur : `setWindowOpenHandler` refuse la navigation dans la fenêtre. */
+const Inline = ({ tokens }: { tokens: MdToken[] }) => (
+  <>
+    {tokens.map((k, i) =>
+      k.t === "code" ? <code key={i} className="rounded-sm bg-muted px-1 font-mono">{k.v}</code>
+        : k.t === "bold" ? <strong key={i} className="font-medium text-foreground">{k.v}</strong>
+          : k.t === "em" ? <em key={i}>{k.v}</em>
+            : k.t === "link" ? <a key={i} href={k.v} target="_blank" rel="noreferrer" className="text-primary hover:underline">{k.v}</a>
+              : k.v
+    )}
+  </>
+)
+
+const Markdown = ({ text }: { text: string }) => (
+  <>
+    {parseMarkdown(text).map((b, i) =>
+      b.kind === "p" ? (
+        <p key={i} className="whitespace-pre-wrap">
+          <Inline tokens={b.tokens} />
+        </p>
+      ) : (
+        <ul key={i} className="list-disc space-y-0.5 ps-4">
+          {b.items.map((it, j) => (
+            <li key={j}><Inline tokens={it} /></li>
+          ))}
+        </ul>
+      )
+    )}
+  </>
+)
 
 /** Diff net entre le plus ancien sélectionné (son parent) et le plus récent. */
 const spanCtx = (graph: GraphHandle, selection: number[]) => ({
@@ -70,19 +141,40 @@ function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
   const c = graph.commit(row)!
   const ps = parseSubject(c.s)
   const ctx = { hash: c.h, parent: c.p[0] || null }
+  /* le corps ne voyage pas avec le log : il est relu pour la seule ligne sélectionnée */
+  const { data: raw } = useAsync(() => api.body(c.h), `body:${c.h}`)
+  const body = raw === undefined ? null : parseBody(raw)
 
   return (
     <>
-      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight [overflow-wrap:anywhere]">
+      <h2 className="shrink-0 text-sm leading-snug tracking-tight [overflow-wrap:anywhere]">
         <TypeChip commit={c} />
         {ps.text}
       </h2>
 
-      <dl className="mt-3.5 grid shrink-0 grid-cols-[66px_1fr] gap-x-3 gap-y-2">
+      {/* un corps de cinquante lignes ne pousse pas la liste des fichiers hors de l'écran */}
+      {body?.text && (
+        <div className="mt-2 max-h-32 shrink-0 space-y-2 overflow-y-auto text-xs/5 text-muted-foreground [overflow-wrap:anywhere]">
+          <Markdown text={body.text} />
+        </div>
+      )}
+
+      {/* 76px : la piste tient "CO-AUTEURS" sur une ligne, interlettrage compris */}
+      <dl className="mt-3.5 grid shrink-0 grid-cols-[76px_1fr] gap-x-3 gap-y-2">
         <Dt>commit</Dt>
         <dd className="font-mono text-xs">{c.h}</dd>
         <Dt>auteur</Dt>
-        <dd className="text-xs">{c.a}</dd>
+        <dd className="text-xs"><PersonChip name={c.a} email={c.e} /></dd>
+        {!!body?.coAuthors.length && (
+          <>
+            <Dt>co-auteurs</Dt>
+            <dd className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              {body.coAuthors.map((a) => (
+                <PersonChip key={a.email + a.name} name={a.name} email={a.email} />
+              ))}
+            </dd>
+          </>
+        )}
         <Dt>date</Dt>
         <dd className="text-xs tabular-nums">{c.d}</dd>
         <Dt>{c.p.length > 1 ? "parents" : "parent"}</Dt>
@@ -102,19 +194,15 @@ function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
         </dd>
       </dl>
 
-      {/* le panneau ne rationne pas : c'est ici qu'on retrouve ce que le "+N" du graphe replie */}
+      {/* le panneau ne rationne pas : c'est ici qu'on retrouve ce que le "+N" du graphe replie.
+          `--badge-color` descend sur les chips `lane`, comme sur la ligne du graphe. */}
       {c.r && (
-        <div className="mt-3 flex shrink-0 flex-wrap gap-1">
+        <div
+          className="mt-3 flex shrink-0 flex-wrap gap-1"
+          style={{ "--badge-color": graph.laneColor(row) } as React.CSSProperties}
+        >
           {parseRefs(c.r).map((r) => (
-            <Badge
-              key={`${r.kind}:${r.name}`}
-              shape="squared"
-              color={refColor(r.kind)}
-              title={r.remotes.length ? `${r.name} = ${r.remotes.join(", ")}` : undefined}
-            >
-              {r.name}
-              {r.remotes.length > 0 && <span className="size-1 shrink-0 rounded-full bg-current opacity-60" />}
-            </Badge>
+            <RefBadge key={`${r.kind}:${r.name}`} r={r} />
           ))}
         </div>
       )}
