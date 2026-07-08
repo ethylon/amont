@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
-import { ArrowRight01Icon, CloudIcon, GitBranchIcon, Search01Icon, Tag01Icon } from "@hugeicons/core-free-icons"
+import {
+  ArrowRight01Icon,
+  CloudIcon,
+  GitBranchIcon,
+  GitMergeIcon,
+  Search01Icon,
+  Tag01Icon,
+} from "@hugeicons/core-free-icons"
 
 import type { GitRef, RepoApi } from "@/lib/git"
 import { typeColor, type BadgeColor } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import { Tip } from "@/components/ui/tip"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/primitives/input-group"
@@ -63,9 +71,14 @@ function RefRow({ r, label, icon, onCheckout }: RowProps & { r: GitRef; label: s
   /* seules les branches locales se checkout au double-clic ; une distante ou un tag
      détacheraient HEAD, ce qui ne s'annule pas d'un double-clic. */
   const switchable = r.kind === "head" && !r.head
+  const notes = [
+    r.merged && "fusionnée",
+    r.gone && "distante supprimée",
+    switchable && "double-clic pour basculer",
+  ].filter(Boolean)
   return (
     <li>
-      <Tip text={switchable ? `${r.name} — double-clic pour basculer` : r.name} side="right">
+      <Tip text={[r.name, ...notes].join(" — ")} side="right">
         <button
           type="button"
           onDoubleClick={switchable ? () => onCheckout(r.name) : undefined}
@@ -77,8 +90,22 @@ function RefRow({ r, label, icon, onCheckout }: RowProps & { r: GitRef; label: s
           )}
         >
           <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium">{label}</span>
-          {t && <span className="ms-auto shrink-0 ps-1.5 text-muted-foreground tabular-nums">{t}</span>}
+          {/* une branche dont la distante a disparu n'est plus une destination : elle se lit comme un reliquat */}
+          <span className={cn("truncate font-medium", r.gone && "text-muted-foreground line-through")}>{label}</span>
+          {/* badge, pas du texte nu : en bout de ligne, un nombre nu se lit comme le compteur de
+              refs du groupe. h-4 pour que la ligne garde la hauteur des branches sans suivi. */}
+          {t && (
+            <Badge shape="squared" className="ms-auto h-4 px-1.5 tabular-nums">
+              {t}
+            </Badge>
+          )}
+          {r.merged && (
+            <HugeiconsIcon
+              icon={GitMergeIcon}
+              strokeWidth={2}
+              className={cn("size-3.5 shrink-0 text-muted-foreground", !t && "ms-auto")}
+            />
+          )}
         </button>
       </Tip>
     </li>

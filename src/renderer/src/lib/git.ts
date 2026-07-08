@@ -51,6 +51,10 @@ export type GitRef = {
   head: boolean
   ahead: number
   behind: number
+  /** branche locale déjà fusionnée dans la branche d'intégration */
+  merged: boolean
+  /** la branche suivie a disparu du dépôt distant */
+  gone: boolean
 }
 
 export type WtSource = "staged" | "unstaged" | "untracked"
