@@ -495,12 +495,21 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
     for (const ref of refs) ref.merged = ref.kind === 'head' && ref.name !== mainline && merged.has(ref.name);
   }
 
-  /* `upstream:track` ne dirait `gone` que pour une branche suivie ; poussée sans `-u`, une
-     branche n'a aucun upstream, et la suppression distante emporte jusqu'au reflog de
-     `refs/remotes/…`. Le nom est alors le seul lien qui survit. Un dépôt sans aucune ref
-     distante n'a rien à dire : jamais fetché, ou pas de distante du tout. */
-  const remotes = new Set(refs.flatMap(x => (x.kind === 'remote' ? [x.name.slice(x.name.indexOf('/') + 1)] : [])));
-  if (remotes.size) for (const ref of refs) ref.gone = ref.kind === 'head' && !remotes.has(ref.name);
+  /* Une branche suivie annonce `gone` d'elle-même. Sans upstream — poussée sans `-u`, ou config
+     jamais posée — la suppression distante emporte jusqu'au reflog de `refs/remotes/…` : ne
+     reste que le reflog local, où `branch: Created from origin/x` témoigne du lien passé. Une
+     branche née localement n'y mentionne jamais son propre nom distant, et n'est donc pas barrée.
+
+     ponytail: un reflog expiré (gc, 90 j) rend la branche indiscernable d'une branche locale. */
+  const remoteRefs = refs.filter(x => x.kind === 'remote').map(x => x.name);
+  const present = new Set(remoteRefs.map(n => n.slice(n.indexOf('/') + 1)));
+  const remoteNames = [...new Set(remoteRefs.map(n => n.slice(0, n.indexOf('/'))))];
+
+  await Promise.all(refs.map(async ref => {
+    if (ref.kind !== 'head' || ref.gone || !remoteNames.length || present.has(ref.name)) return;
+    const reflog = await git(r.path, ['reflog', 'show', '--format=%gs', ref.name]).catch(() => '');
+    ref.gone = remoteNames.some(remote => reflog.includes(`${remote}/${ref.name}`));
+  }));
   return refs;
 });
 
