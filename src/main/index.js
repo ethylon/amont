@@ -494,6 +494,13 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
     const merged = new Set(out.split('\n').filter(Boolean));
     for (const ref of refs) ref.merged = ref.kind === 'head' && ref.name !== mainline && merged.has(ref.name);
   }
+
+  /* `upstream:track` ne dirait `gone` que pour une branche suivie ; poussée sans `-u`, une
+     branche n'a aucun upstream, et la suppression distante emporte jusqu'au reflog de
+     `refs/remotes/…`. Le nom est alors le seul lien qui survit. Un dépôt sans aucune ref
+     distante n'a rien à dire : jamais fetché, ou pas de distante du tout. */
+  const remotes = new Set(refs.flatMap(x => (x.kind === 'remote' ? [x.name.slice(x.name.indexOf('/') + 1)] : [])));
+  if (remotes.size) for (const ref of refs) ref.gone = ref.kind === 'head' && !remotes.has(ref.name);
   return refs;
 });
 
