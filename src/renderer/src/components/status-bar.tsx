@@ -3,6 +3,7 @@ import { GitBranchIcon } from "@hugeicons/core-free-icons"
 
 import type { Stats } from "@/components/graph-canvas"
 import { Badge } from "@/components/ui/badge"
+import { Tip } from "@/components/ui/tip"
 import { Button } from "@/components/ui/primitives/button"
 import { Separator } from "@/components/ui/primitives/separator"
 
@@ -22,7 +23,7 @@ type Props = {
 const nf = new Intl.NumberFormat("fr")
 
 const Num = ({ children }: { children: React.ReactNode }) => (
-  <b className="font-mono font-medium text-foreground">{children}</b>
+  <b className="font-medium text-foreground">{children}</b>
 )
 
 export function StatusBar({ branch, opState, hoverInfo, stats }: Props) {
@@ -34,14 +35,16 @@ export function StatusBar({ branch, opState, hoverInfo, stats }: Props) {
       </span>
 
       {opState && (
-        <Badge color={opState.color} shape="squared" title={opState.text} className="max-w-[46ch] gap-2 ps-2 pe-1">
-          <span className="truncate">{opState.text}</span>
-          {opState.action && (
-            <Button variant="ghost" size="xs" onClick={opState.action.run} className="text-(--badge-fg)">
-              {opState.action.label}
-            </Button>
-          )}
-        </Badge>
+        <Tip text={opState.text}>
+          <Badge color={opState.color} shape="squared" className="max-w-[46ch] gap-2 ps-2 pe-1">
+            <span className="truncate">{opState.text}</span>
+            {opState.action && (
+              <Button variant="ghost" size="xs" onClick={opState.action.run} className="text-(--badge-fg)">
+                {opState.action.label}
+              </Button>
+            )}
+          </Badge>
+        </Tip>
       )}
 
       {hoverInfo && (
@@ -56,15 +59,7 @@ export function StatusBar({ branch, opState, hoverInfo, stats }: Props) {
           <span>
             <Num>{nf.format(stats.loaded)}</Num> / {nf.format(stats.total)} commits
           </span>
-          <Separator orientation="vertical" className="h-3.5" />
-          <span>
-            <Num>{stats.lanes}</Num> lanes
-          </span>
-          <Separator orientation="vertical" className="h-3.5" />
-          <span>
-            <Num>{stats.dangling}</Num> arêtes en attente
-          </span>
-          <Separator orientation="vertical" className="h-3.5" />
+          <Separator orientation="vertical" />
           <span>
             layout <Num>{stats.ms.toFixed(0)} ms</Num>
           </span>

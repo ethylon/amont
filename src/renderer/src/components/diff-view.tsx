@@ -6,7 +6,7 @@ import { codeToTokens, type BundledLanguage } from "shiki"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/core-free-icons"
 
-import { api, type FileChange } from "@/lib/git"
+import type { FileChange, RepoApi } from "@/lib/git"
 import { IconButton } from "@/components/ui/icon-button"
 import { Spinner } from "@/components/ui/primitives/spinner"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/primitives/toggle-group"
@@ -16,10 +16,14 @@ export type DiffView = "unified" | "sbs"
 export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" | "unstaged" | "untracked" }
 
 const MAX_LINES = 3000
-const DIFF_BODY = "gg-diffbody overflow-x-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
+/* `flex-auto` et non `flex-1` : sous une hauteur définie (détail du commit) le corps se
+   rétrécit à la place restante et scrolle ; sous une hauteur automatique (arbre de travail)
+   il garde celle de son contenu. Une base à 0 le ferait disparaître dans le second cas.
+   Réappliqué à chaque rendu — les effets réécrivent `className` de fond en comble. */
+const DIFF_BODY = "gg-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches
 
-const diffText = (ctx: DiffCtx, f: FileChange) =>
+const diffText = (api: RepoApi, ctx: DiffCtx, f: FileChange) =>
   "wt" in ctx ? api.wtdiff(f.path, ctx.wt) : api.diff(ctx.hash, ctx.parent, f.path, f.old || null)
 
 /* extensions maison -> grammaire shiki */
@@ -121,6 +125,7 @@ function renderRaw(body: HTMLElement, text: string) {
 }
 
 type Props = {
+  api: RepoApi
   ctx: DiffCtx
   file: FileChange
   view: DiffView
@@ -128,7 +133,7 @@ type Props = {
   onClose(): void
 }
 
-export function DiffView({ ctx, file, view, onViewChange, onClose }: Props) {
+export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props) {
   const body = useRef<HTMLDivElement>(null)
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState(false)
@@ -137,14 +142,14 @@ export function DiffView({ ctx, file, view, onViewChange, onClose }: Props) {
     let stale = false
     setText(null)
     setError(false)
-    diffText(ctx, file).then(
+    diffText(api, ctx, file).then(
       (t) => !stale && setText(t),
       () => !stale && setError(true)
     )
     return () => {
       stale = true
     }
-  }, [ctx, file])
+  }, [api, ctx, file])
 
   useEffect(() => {
     const el = body.current
@@ -170,9 +175,9 @@ export function DiffView({ ctx, file, view, onViewChange, onClose }: Props) {
   }, [text, view])
 
   return (
-    <div className="mt-4 border-t pt-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="font-mono text-xs break-all text-muted-foreground">{file.path}</span>
+    <div className="mt-4 flex min-h-0 flex-1 flex-col border-t pt-3">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+        <span className="text-xs break-all text-muted-foreground">{file.path}</span>
         <div className="flex shrink-0 items-center gap-1">
           <ToggleGroup
             spacing={0}
@@ -193,9 +198,9 @@ export function DiffView({ ctx, file, view, onViewChange, onClose }: Props) {
       </div>
 
       {error ? (
-        <p className="text-xs text-muted-foreground">Diff indisponible.</p>
+        <p className="shrink-0 text-xs text-muted-foreground">Diff indisponible.</p>
       ) : text === null ? (
-        <p className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
+        <p className="flex shrink-0 items-center gap-2 py-1 text-xs text-muted-foreground">
           <Spinner className="size-3" /> diff…
         </p>
       ) : (

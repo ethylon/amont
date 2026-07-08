@@ -1,10 +1,12 @@
 import { useEffect, useRef, type RefObject } from "react"
 
+import type { RepoApi } from "@/lib/git"
 import { createGraph, type GraphCallbacks, type GraphHandle } from "@/components/graph-canvas"
 
 type Props = {
-  /** rempli au montage, vidé au démontage — App pilote le graphe à travers cette ref */
+  /** rempli au montage, vidé au démontage — RepoView pilote le graphe à travers cette ref */
   graphRef: RefObject<GraphHandle | null>
+  api: RepoApi
   callbacks: GraphCallbacks
   onReady(graph: GraphHandle): void
 }
@@ -12,7 +14,7 @@ type Props = {
 /* Coque React autour du canvas impératif : elle fournit les trois nœuds DOM et le cycle de
    vie, rien d'autre. Les callbacks passent par une ref pour qu'un handler qui change
    d'identité ne remonte jamais le graphe. */
-export function CommitGraph({ graphRef, callbacks, onReady }: Props) {
+export function CommitGraph({ graphRef, api, callbacks, onReady }: Props) {
   const board = useRef<HTMLDivElement>(null)
   const inner = useRef<HTMLDivElement>(null)
   const svg = useRef<SVGSVGElement>(null)
@@ -23,7 +25,7 @@ export function CommitGraph({ graphRef, callbacks, onReady }: Props) {
   ready.current = onReady
 
   useEffect(() => {
-    const graph = createGraph(board.current!, inner.current!, svg.current!, {
+    const graph = createGraph(board.current!, inner.current!, svg.current!, api, {
       onSelect: (r, a) => cb.current.onSelect(r, a),
       onBranchSelect: (r) => cb.current.onBranchSelect(r),
       onHover: (i) => cb.current.onHover(i),
@@ -36,7 +38,7 @@ export function CommitGraph({ graphRef, callbacks, onReady }: Props) {
       graph.destroy()
       graphRef.current = null
     }
-  }, [graphRef])
+  }, [api, graphRef])
 
   return (
     <div ref={board} className="relative overflow-auto">
