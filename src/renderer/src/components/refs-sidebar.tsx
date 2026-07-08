@@ -73,7 +73,7 @@ function RefRow({ r, label, icon, onCheckout }: RowProps & { r: GitRef; label: s
   const switchable = r.kind === "head" && !r.head
   const notes = [
     r.merged && "fusionnée",
-    r.gone && "distante supprimée",
+    r.gone && "absente de la distante",
     switchable && "double-clic pour basculer",
   ].filter(Boolean)
   return (
@@ -90,7 +90,7 @@ function RefRow({ r, label, icon, onCheckout }: RowProps & { r: GitRef; label: s
           )}
         >
           <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-          {/* une branche dont la distante a disparu n'est plus une destination : elle se lit comme un reliquat */}
+          {/* une branche que la distante ignore n'est plus une destination : elle se lit comme un reliquat */}
           <span className={cn("truncate font-medium", r.gone && "text-muted-foreground line-through")}>{label}</span>
           {/* badge, pas du texte nu : en bout de ligne, un nombre nu se lit comme le compteur de
               refs du groupe. h-4 pour que la ligne garde la hauteur des branches sans suivi. */}
