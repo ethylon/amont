@@ -16,3 +16,9 @@ win:
 
 # ponytail: pas de signature de code. SmartScreen affichera « éditeur inconnu »
 # jusqu'à l'achat d'un certificat EV — renseigner alors `win.certificateSubjectName`.
+
+publish:
+  provider: github
+  owner: ethylon
+  repo: git-graph
+  releaseType: release
