@@ -326,6 +326,27 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     [stats, status?.head]
   )
 
+  /* hashes des commits sélectionnés : le sidebar y allume les branches dont le tip est sélectionné.
+     Les lignes sélectionnées sont chargées, donc `commit()` les résout ; `stats` force le recalcul
+     quand un relayout change l'assignation ligne → commit. */
+  const selectedTips = useMemo(
+    () => new Set(selection.map((r) => graphRef.current?.commit(r)?.h).filter((h): h is string => !!h)),
+    [selection, stats]
+  )
+
+  /* Un clic hors du sidebar, des panneaux détail/diff et des commits du graphe lève le focus.
+     Les commits sont gérés par leur propre clic ; ici on ne traite que le « clic dans le vide ». */
+  useEffect(() => {
+    if (!active || !selection.length) return
+    const onDown = (ev: MouseEvent) => {
+      if ((ev.target as HTMLElement).closest("[data-gg-keep-focus], .gg-row, .gg-wtrow")) return
+      setSelection([])
+      setDiff(null)
+    }
+    document.addEventListener("mousedown", onDown)
+    return () => document.removeEventListener("mousedown", onDown)
+  }, [active, selection.length])
+
   const panelOpen = view === "wt" || selection.length > 0
   /* rien à amender tant qu'aucun commit n'existe */
   const canAmend = !!status?.head
@@ -352,6 +373,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
           onCheckout={checkout}
           onBranch={runBranch}
           onFocusHeads={focusHeads}
+          selectedTips={selectedTips}
         />
 
         <main className="flex min-w-0 flex-1 flex-col">

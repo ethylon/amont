@@ -77,13 +77,10 @@ type Ctx = RowProps & {
   current: string | null
   flow: FlowPrefixes | null
   onBranch(action: BranchAct, name: string): void
-  /** refs focalisées (`kind:name`) ; Ctrl en ajoute, sinon une seule remplace l'ensemble */
-  focused: Set<string>
+  /** hashes des commits sélectionnés : une branche est allumée si son tip en fait partie */
+  selectedTips: Set<string>
   onFocus(r: GitRef, additive: boolean): void
 }
-
-/* Identité stable d'une ref : `master` local, `origin/master` distant et un tag `master` cohabitent. */
-const refKey = (r: GitRef) => `${r.kind}:${r.name}`
 
 function buildTree(refs: GitRef[]): Node {
   const root: Node = { dirs: new Map(), leaves: [] }
@@ -164,9 +161,9 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
     switchable && "double-clic pour basculer",
   ].filter(Boolean)
 
-  /* « allumée » = focalisée : la passe DOM (cf. RefsSidebar) lit `data-lit` pour tracer le contour
-     et fusionner les runs contigus. Le contour est réservé au focus ; HEAD garde son seul fond plein. */
-  const lit = ctx.focused.has(refKey(r))
+  /* « allumée » = son tip est sélectionné dans le graphe. Réservé aux branches locales : la passe DOM
+     (cf. RefsSidebar) lit `data-lit` pour tracer le contour et fusionner les runs contigus. */
+  const lit = r.kind === "head" && ctx.selectedTips.has(r.tip)
   const row = (
     <Tip text={[r.name, ...notes].join(" — ")} side="right">
       <button
@@ -261,19 +258,21 @@ export function RefsSidebar({
   onCheckout,
   onBranch,
   onFocusHeads,
+  selectedTips,
 }: Pick<Ctx, "onCheckout" | "onBranch"> & {
   api: RepoApi
   open: boolean
   refreshKey: string
   /** sélectionne dans le graphe les heads des branches focalisées et scrolle vers `scrollTo` */
   onFocusHeads(tips: string[], scrollTo: string | null): void
+  /** hashes des commits sélectionnés dans le graphe : une branche s'allume si son tip en fait partie */
+  selectedTips: Set<string>
 }) {
   /* pas `useAsync` : il vide ses données à chaque clé, et l'auto-fetch ferait clignoter
      l'arbre toutes les cinq minutes. Ici l'ancien rendu tient jusqu'à la réponse. */
   const [data, setData] = useState<GitRef[] | null>(null)
   const [flow, setFlow] = useState<FlowPrefixes | null>(null)
   const [error, setError] = useState(false)
-  const [focused, setFocused] = useState<Set<string>>(() => new Set())
   const navRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -310,7 +309,7 @@ export function RefsSidebar({
     })
   }, [])
 
-  useLayoutEffect(paint, [paint, focused, data])
+  useLayoutEffect(paint, [paint, selectedTips, data])
   /* Un repli/dépli de dossier ne rerend pas le sidebar (état interne du Collapsible) : on repeint
      après chaque clic dans la nav, une fois le DOM stabilisé. */
   useEffect(() => {
@@ -321,37 +320,20 @@ export function RefsSidebar({
     return () => root.removeEventListener("click", onClick)
   }, [paint])
 
-  /* Un clic hors du sidebar et des panneaux détail/diff lève le focus. Le clic sur un commit
-     refait la sélection lui-même : on ne vide alors que la surbrillance, pas la sélection sous ses pieds. */
-  useEffect(() => {
-    if (!focused.size) return
-    const onDown = (ev: MouseEvent) => {
-      const t = ev.target as HTMLElement
-      if (navRef.current?.contains(t) || t.closest("[data-gg-keep-focus]")) return
-      setFocused(new Set())
-      if (!t.closest(".gg-row")) onFocusHeads([], null)
-    }
-    document.addEventListener("mousedown", onDown)
-    return () => document.removeEventListener("mousedown", onDown)
-  }, [focused, onFocusHeads])
-
+  /* Focus = sélection du graphe. Cliquer une ref sélectionne son tip (Ctrl étend, reclic retire) ;
+     le graphe et le sidebar lisent la même vérité, un commit-tip sélectionné rallume donc sa branche. */
   const onFocus = (r: GitRef, additive: boolean) => {
-    const key = refKey(r)
-    const next = new Set(additive ? focused : [])
-    next.has(key) ? next.delete(key) : next.add(key)
-    setFocused(next)
-    /* les heads focalisés forment la sélection du graphe (→ diff) ; on scrolle vers la ref cliquée,
-       ou vers un head restant si on vient de la défocaliser, sinon rien à montrer. */
-    const tips = (data ?? []).filter((x) => next.has(refKey(x))).map((x) => x.tip)
-    const scrollTo = next.has(key) ? r.tip : (tips[tips.length - 1] ?? null)
-    onFocusHeads(tips, scrollTo)
+    const tips = new Set(additive ? selectedTips : [])
+    tips.has(r.tip) ? tips.delete(r.tip) : tips.add(r.tip)
+    const arr = [...tips]
+    onFocusHeads(arr, tips.has(r.tip) ? r.tip : (arr[arr.length - 1] ?? null))
   }
   const ctx: Ctx = {
     current: data?.find((r) => r.head)?.name ?? null,
     flow,
     onCheckout,
     onBranch,
-    focused,
+    selectedTips,
     onFocus,
   }
 
@@ -360,6 +342,7 @@ export function RefsSidebar({
        sinon les champs et les libellés se tasseraient pendant l'animation. */
     <nav
       ref={navRef}
+      data-gg-keep-focus
       aria-label="Branches"
       inert={!open}
       className={cn(
@@ -370,12 +353,15 @@ export function RefsSidebar({
     >
       <div className="flex w-59 flex-1 flex-col overflow-hidden">
         <div className="flex border-b p-2.5">
-          <InputGroup>
-            <InputGroupAddon>
-              <HugeiconsIcon icon={Search01Icon} strokeWidth={2} />
-            </InputGroupAddon>
-            <InputGroupInput type="search" placeholder="Filtrer les branches" />
-          </InputGroup>
+          {/* ponytail: filtre à venir — désactivé tant qu'inerte */}
+          <Tip text="Filtre à venir" align="start">
+            <InputGroup className="opacity-60">
+              <InputGroupAddon>
+                <HugeiconsIcon icon={Search01Icon} strokeWidth={2} />
+              </InputGroupAddon>
+              <InputGroupInput type="search" placeholder="Filtrer les branches" disabled />
+            </InputGroup>
+          </Tip>
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 overflow-auto px-2 pt-2 pb-4">

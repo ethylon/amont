@@ -5,7 +5,7 @@ import { bootState, host, type Repo } from "@/lib/git"
 import { cn } from "@/lib/utils"
 import { HomeScreen } from "@/components/home-screen"
 import { RepoView } from "@/components/repo-view"
-import { HOME, TabStrip } from "@/components/tab-strip"
+import { HOME, panelId, tabId, TabStrip } from "@/components/tab-strip"
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
@@ -113,6 +113,9 @@ export default function App() {
         {/* invisible plutôt que hidden : la boîte reste posée, donc le canvas garde sa taille
             mesurée et son scroll. */}
         <div
+          role="tabpanel"
+          id={panelId(HOME)}
+          aria-labelledby={tabId(HOME)}
           data-tab-active={active === HOME || undefined}
           className={cn("gg-tabbody absolute inset-0 flex flex-col", active !== HOME && "invisible")}
         >
@@ -124,6 +127,9 @@ export default function App() {
           .map((r) => (
             <div
               key={r.id}
+              role="tabpanel"
+              id={panelId(r.id)}
+              aria-labelledby={tabId(r.id)}
               data-tab-active={r.id === active || undefined}
               className={cn("absolute inset-0 flex flex-col", r.id !== active && "invisible")}
             >

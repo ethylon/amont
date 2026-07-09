@@ -148,6 +148,7 @@ type Props = {
 }
 
 export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props) {
+  const root = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState(false)
@@ -155,6 +156,14 @@ export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props)
      un re-rendu explicite à chaque bascule, sinon il reste figé sur le thème d'ouverture */
   const [dark, setDarkState] = useState(isDark)
   useEffect(() => onThemeChange(() => setDarkState(isDark())), [])
+
+  /* Le diff recouvre le graphe : on y amène le focus à l'ouverture (Échap et fermeture
+     atteignables au clavier) et on le rend à l'élément précédent à la fermeture. */
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null
+    root.current?.focus()
+    return () => prev?.focus?.()
+  }, [])
 
   useEffect(() => {
     let stale = false
@@ -194,7 +203,7 @@ export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props)
   }, [text, view, dark])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-4.5 py-4">
+    <div ref={root} tabIndex={-1} className="flex min-h-0 flex-1 flex-col px-4.5 py-4 outline-none">
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <span className="text-xs break-all text-muted-foreground">{file.path}</span>
         <div className="flex shrink-0 items-center gap-1">
