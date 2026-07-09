@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
+import { isDark, onThemeChange } from "@/lib/theme"
 import { IconButton } from "@/components/ui/icon-button"
 import { Spinner } from "@/components/ui/primitives/spinner"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/primitives/toggle-group"
@@ -18,7 +19,6 @@ export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" |
 const MAX_LINES = 3000
 /* Réappliqué à chaque rendu — les effets réécrivent `className` de fond en comble. */
 const DIFF_BODY = "gg-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
-const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches
 
 const diffText = (api: RepoApi, ctx: DiffCtx, f: FileChange) =>
   "wt" in ctx ? api.wtdiff(f.path, ctx.wt) : api.diff(ctx.hash, ctx.parent, f.path, f.old || null)
@@ -151,6 +151,10 @@ export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props)
   const body = useRef<HTMLDivElement>(null)
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState(false)
+  /* le diff est peint hors de la classe `.dark` (diff2html + shiki reçoivent le thème en dur) :
+     un re-rendu explicite à chaque bascule, sinon il reste figé sur le thème d'ouverture */
+  const [dark, setDarkState] = useState(isDark)
+  useEffect(() => onThemeChange(() => setDarkState(isDark())), [])
 
   useEffect(() => {
     let stale = false
@@ -183,11 +187,11 @@ export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props)
       outputFormat: view === "sbs" ? OutputFormatType.SIDE_BY_SIDE : OutputFormatType.LINE_BY_LINE,
       drawFileList: false,
       matching: "lines",
-      colorScheme: ColorSchemeType.AUTO,
+      colorScheme: dark ? ColorSchemeType.DARK : ColorSchemeType.LIGHT,
     })
     shikiPass(el).catch(() => {})
     return syncSides(el)
-  }, [text, view])
+  }, [text, view, dark])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-4.5 py-4">
