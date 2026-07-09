@@ -28,19 +28,30 @@ const SVG_NS = "http://www.w3.org/2000/svg"
 const ROW_CLASS =
   "gg-row grid h-7 cursor-pointer grid-cols-[var(--gg-type,0px)_1fr_var(--gg-tag,0px)_130px_84px_68px] " +
   "items-center border-l-2 border-l-transparent pr-4.5 text-xs hover:bg-muted/60 " +
-  "data-selected:border-l-primary data-selected:bg-primary/10"
+  "data-selected:border-l-primary data-selected:bg-primary/20 data-selected:hover:bg-primary/25"
 
 /** gouttière d'une colonne, `pe-2.5` ou vide de fin de piste */
 const GAP = 10
 /** `gap-1.5` entre le dernier tag et son "+N" */
 const CHIP_GAP = 6
-const TYPE_MAX = "max-w-24"
+const TYPE_MAX = "max-w-28"
 const TAG_MAX = "max-w-30"
 /** pl du graphe + sujet (min) + auteur + date + hash + pr-4.5, gouttières comprises */
 const FIXED_W = 12 + 320 + 130 + 84 + 68 + 18
 
 const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
 const cloud = () => iconEl(CloudIcon, "shrink-0")
+
+/* Texte de chip défilable : `.gg-clip` rogne, `.gg-scroll` porte l'anim de survol (cf. app.css). */
+function marq(text: string) {
+  const clip = document.createElement("span")
+  clip.className = "gg-clip"
+  const inner = document.createElement("span")
+  inner.className = "gg-scroll"
+  inner.textContent = text
+  clip.appendChild(inner)
+  return clip
+}
 
 /* Jumeau impératif de `<Avatar>` : l'image recouvre le monogramme, un 404 la retire.
    Une ligne du graphe n'est jamais recyclée — la retirer suffit, rien ne la remontera. */
@@ -189,10 +200,7 @@ export function createGraph(
       sep.className = badgeSeparator
       el.appendChild(sep)
     }
-    const text = document.createElement("span")
-    text.className = "truncate"
-    text.textContent = r.name
-    el.appendChild(text)
+    el.appendChild(marq(r.name))
     return el
   }
 
@@ -227,7 +235,7 @@ export function createGraph(
     if (ps.label) {
       const b = document.createElement("span")
       b.className = chip(typeColor(ps.type!)) + " " + TYPE_MAX
-      b.textContent = ps.label
+      b.appendChild(marq(ps.label))
       badge.appendChild(b)
     }
     row.appendChild(badge)
@@ -247,14 +255,14 @@ export function createGraph(
       const from = document.createElement("span")
       from.className =
         chip(mg.tag ? "warning" : !mg.noise && mg.to && MAIN_TARGETS.test(mg.to) ? "primary" : "neutral") + " max-w-42"
-      from.textContent = mg.from
+      from.appendChild(marq(mg.from))
       from.title = mg.from
       const arrow = document.createElement("span")
       arrow.className = "shrink-0 text-muted-foreground"
       arrow.textContent = "→"
       const to = document.createElement("span")
       to.className = chip("neutral") + " max-w-42"
-      to.textContent = mg.to || "HEAD"
+      to.appendChild(marq(mg.to || "HEAD"))
       to.title = mg.to || ""
       subj.append(from, arrow, to)
     } else {
@@ -485,6 +493,24 @@ export function createGraph(
     cb.onHover(null)
   }
 
+  /* Marquee de chip : mesuré une fois à l'entrée, avant que `gg-marqrun` ne libère la largeur. */
+  let marqEl: HTMLElement | null = null
+  function clearMarq() {
+    if (!marqEl) return
+    marqEl.classList.remove("gg-marqrun")
+    marqEl.style.removeProperty("--marq")
+    marqEl = null
+  }
+  function marqOver(el: HTMLElement | null) {
+    if (el === marqEl) return
+    clearMarq()
+    if (el && el.scrollWidth > el.clientWidth) {
+      el.style.setProperty("--marq", el.clientWidth - el.scrollWidth + "px")
+      el.classList.add("gg-marqrun")
+      marqEl = el
+    }
+  }
+
   function hoverRow(i: number) {
     if (hoverChain?.has(i)) return
     const rows = branchChain(S, DATA, i)
@@ -509,13 +535,18 @@ export function createGraph(
   /* le panneau est ancré à une ligne : le scroll peut la démonter sous lui */
   const onScroll = () => {
     closeMore()
+    clearMarq()
     sync()
   }
   const onMouseOver = (ev: MouseEvent) => {
+    marqOver((ev.target as HTMLElement).closest<HTMLElement>(".gg-scroll"))
     const i = rowIndex(ev)
     if (i !== null) hoverRow(i)
   }
-  const onMouseLeave = () => clearHover()
+  const onMouseLeave = () => {
+    clearHover()
+    clearMarq()
+  }
   const onKeyDown = (ev: KeyboardEvent) => {
     if (ev.key === "Escape") closeMore()
   }
