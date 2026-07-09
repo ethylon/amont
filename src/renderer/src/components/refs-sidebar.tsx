@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   ArrowDown02Icon,
@@ -77,7 +77,13 @@ type Ctx = RowProps & {
   current: string | null
   flow: FlowPrefixes | null
   onBranch(action: BranchAct, name: string): void
+  /** refs focalisées (`kind:name`) ; Ctrl en ajoute, sinon une seule remplace l'ensemble */
+  focused: Set<string>
+  onFocus(r: GitRef, additive: boolean): void
 }
+
+/* Identité stable d'une ref : `master` local, `origin/master` distant et un tag `master` cohabitent. */
+const refKey = (r: GitRef) => `${r.kind}:${r.name}`
 
 function buildTree(refs: GitRef[]): Node {
   const root: Node = { dirs: new Map(), leaves: [] }
@@ -158,15 +164,20 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
     switchable && "double-clic pour basculer",
   ].filter(Boolean)
 
+  /* « allumée » = focalisée : la passe DOM (cf. RefsSidebar) lit `data-lit` pour tracer le contour
+     et fusionner les runs contigus. Le contour est réservé au focus ; HEAD garde son seul fond plein. */
+  const lit = ctx.focused.has(refKey(r))
   const row = (
     <Tip text={[r.name, ...notes].join(" — ")} side="right">
       <button
         type="button"
+        data-lit={lit ? "1" : undefined}
+        onClick={(e) => ctx.onFocus(r, e.ctrlKey || e.metaKey)}
         onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
         className={cn(
-          "flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs select-none",
-          "text-foreground hover:bg-muted",
-          r.head && "bg-primary/30 border border-primary hover:bg-primary/45"
+          "gg-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
+          "text-foreground hover:bg-muted -my-px",
+          r.head && "bg-primary/30 hover:bg-primary/45"
         )}
       >
         <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
@@ -249,12 +260,21 @@ export function RefsSidebar({
   refreshKey,
   onCheckout,
   onBranch,
-}: Pick<Ctx, "onCheckout" | "onBranch"> & { api: RepoApi; open: boolean; refreshKey: string }) {
+  onFocusHeads,
+}: Pick<Ctx, "onCheckout" | "onBranch"> & {
+  api: RepoApi
+  open: boolean
+  refreshKey: string
+  /** sélectionne dans le graphe les heads des branches focalisées et scrolle vers `scrollTo` */
+  onFocusHeads(tips: string[], scrollTo: string | null): void
+}) {
   /* pas `useAsync` : il vide ses données à chaque clé, et l'auto-fetch ferait clignoter
      l'arbre toutes les cinq minutes. Ici l'ancien rendu tient jusqu'à la réponse. */
   const [data, setData] = useState<GitRef[] | null>(null)
   const [flow, setFlow] = useState<FlowPrefixes | null>(null)
   const [error, setError] = useState(false)
+  const [focused, setFocused] = useState<Set<string>>(() => new Set())
+  const navRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     let stale = false
@@ -272,12 +292,60 @@ export function RefsSidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey])
 
-  const ctx: Ctx = { current: data?.find((r) => r.head)?.name ?? null, flow, onCheckout, onBranch }
+  /* Fusionne les contours des refs allumées visuellement contiguës : on lit l'ordre DOM réel
+     (les dossiers repliés sont display:none → hors flux), pas l'ordre logique de l'arbre. */
+  const paint = useCallback(() => {
+    const root = navRef.current
+    if (!root) return
+    const rows = [...root.querySelectorAll<HTMLElement>(".gg-refrow")].filter((b) => b.offsetParent)
+    const lit = rows.map((b) => b.dataset.lit === "1")
+    /* Deux refs ne se joignent que dans la même liste : un trigger de dossier n'est pas une `.gg-refrow`,
+       donc deux branches de dossiers voisins seraient consécutives ici alors qu'un pli les sépare. */
+    const list = rows.map((b) => b.closest("ul"))
+    rows.forEach((b, i) => {
+      if (!lit[i]) return void delete b.dataset.run
+      const p = i > 0 && lit[i - 1] && list[i - 1] === list[i]
+      const n = i < rows.length - 1 && lit[i + 1] && list[i + 1] === list[i]
+      b.dataset.run = p && n ? "mid" : p ? "end" : n ? "start" : "solo"
+    })
+  }, [])
+
+  useLayoutEffect(paint, [paint, focused, data])
+  /* Un repli/dépli de dossier ne rerend pas le sidebar (état interne du Collapsible) : on repeint
+     après chaque clic dans la nav, une fois le DOM stabilisé. */
+  useEffect(() => {
+    const root = navRef.current
+    if (!root) return
+    const onClick = () => requestAnimationFrame(paint)
+    root.addEventListener("click", onClick)
+    return () => root.removeEventListener("click", onClick)
+  }, [paint])
+
+  const onFocus = (r: GitRef, additive: boolean) => {
+    const key = refKey(r)
+    const next = new Set(additive ? focused : [])
+    next.has(key) ? next.delete(key) : next.add(key)
+    setFocused(next)
+    /* les heads focalisés forment la sélection du graphe (→ diff) ; on scrolle vers la ref cliquée,
+       ou vers un head restant si on vient de la défocaliser, sinon rien à montrer. */
+    const tips = (data ?? []).filter((x) => next.has(refKey(x))).map((x) => x.tip)
+    const scrollTo = next.has(key) ? r.tip : (tips[tips.length - 1] ?? null)
+    onFocusHeads(tips, scrollTo)
+  }
+  const ctx: Ctx = {
+    current: data?.find((r) => r.head)?.name ?? null,
+    flow,
+    onCheckout,
+    onBranch,
+    focused,
+    onFocus,
+  }
 
   return (
     /* replié = largeur nulle, pas démonté : le contenu garde sa largeur et se fait rogner,
        sinon les champs et les libellés se tasseraient pendant l'animation. */
     <nav
+      ref={navRef}
       aria-label="Branches"
       inert={!open}
       className={cn(

@@ -70,6 +70,8 @@ export type GitRef = {
   merged: boolean
   /** branche locale dont la contrepartie distante a été supprimée */
   gone: boolean
+  /** hash court (8) du commit pointé, pelé pour un tag annoté : la cible d'un focus dans le graphe */
+  tip: string
 }
 
 /** Les préfixes de `git flow init`, ou `null` si le dépôt ignore git-flow. */

@@ -200,6 +200,19 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     setSelection(rows)
   }, [])
 
+  /* Focus de branches dans le sidebar : leurs heads deviennent la sélection du graphe (donc le diff),
+     et on scrolle vers la dernière ref touchée. Sélection vide = focus levé, le panneau se ferme. */
+  const focusHeads = useCallback(async (tips: string[], scrollTo: string | null) => {
+    const g = graphRef.current
+    if (!g) return
+    if (scrollTo) await g.jumpTo(scrollTo)
+    const rows = await g.rowsOf(tips)
+    setSelMode("multi")
+    setView("commits")
+    setDiff(null)
+    setSelection([...new Set(rows)].sort((a, b) => a - b))
+  }, [])
+
   const openDiff = useCallback((ctx: DiffCtx, file: FileChange) => setDiff({ ctx, file }), [])
   const closeDiff = useCallback(() => setDiff(null), [])
 
@@ -338,6 +351,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
           refreshKey={`refs:${repo.id}:${refsGen}`}
           onCheckout={checkout}
           onBranch={runBranch}
+          onFocusHeads={focusHeads}
         />
 
         <main className="flex min-w-0 flex-1 flex-col">

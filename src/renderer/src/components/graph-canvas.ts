@@ -123,6 +123,8 @@ export type GraphHandle = {
   setMatches(hashes: string[] | null): void
   /** ligne du prochain résultat après `from` dans le sens `dir`, `null` s'il n'y en a plus */
   nextMatch(from: number, dir: 1 | -1): Promise<number | null>
+  /** lignes des commits donnés, chargées à la demande ; les hash introuvables sont omis */
+  rowsOf(hashes: string[]): Promise<number[]>
   commit(row: number): Commit | undefined
   branchSegment(row: number): number[]
   chainInfo(rows: number[]): string
@@ -716,6 +718,19 @@ export function createGraph(
       const row = S.rowOf.get(hash)
       if (row === undefined) return
       reveal(row)
+    },
+
+    async rowsOf(hashes) {
+      const rows: number[] = []
+      for (const h of hashes) {
+        while (!S.rowOf.has(h) && (S.next < DATA.length || !exhausted)) {
+          if (S.next < DATA.length) layoutChunk(S, DATA)
+          else await fetchMore()
+        }
+        const r = S.rowOf.get(h)
+        if (r !== undefined) rows.push(r)
+      }
+      return rows
     },
 
     setSelection(rows) {
