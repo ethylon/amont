@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { existsSync, watch } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
@@ -27,11 +27,52 @@ function gitError(err, stderr) {
   return msg || 'git failed';
 }
 
+/* --- Console (lecture seule) ---
+   Toute commande git passe par `git()` : c'est le point unique d'où la console lit ce que
+   l'app exécute. On streame stderr ligne à ligne — progression, résumés fetch/push, hints —,
+   la seule sortie que git destine à un humain ; stdout est la donnée machine que le renderer
+   consomme, jamais affichée. La trace est taguée par l'id de l'onglet, comme `git:op`. */
+const emitTrace = payload => mainWindow?.webContents.send('git:trace', payload);
+const traceId = repo => { for (const r of repos.values()) if (r.path === repo) return r.id; return 0; };
+
+/* En-tête d'opération : borne le flux au niveau de l'action utilisateur (un push, un pull,
+   l'auto-fetch), là où `git()` ne voit que des commandes isolées. Les lectures de fond
+   (statut, pages de log) restent sans en-tête, ce qui les distingue à l'œil. */
+const traceGroup = (id, text) => emitTrace({ id, kind: 'group', text, ts: Date.now() });
+
 function git(repo, args, timeout = 0) {
+  const id = traceId(repo);
+  emitTrace({ id, kind: 'cmd', text: `git ${args.join(' ')}` });
+  const started = Date.now();
   return new Promise((resolve, reject) => {
-    execFile('git', ['-C', repo, ...args],
-      { maxBuffer: 64 * 1024 * 1024, env: GIT_ENV, windowsHide: true, timeout },
-      (err, out, errOut) => err ? reject(new Error(gitError(err, errOut))) : resolve(out));
+    const child = spawn('git', ['-C', repo, ...args], { env: GIT_ENV, windowsHide: true });
+    let out = '', errAll = '', pending = '', killed = false;
+    /* setEncoding pose un StringDecoder : une séquence UTF-8 coupée entre deux chunks est
+       recollée, là où `buf += chunk` la corromprait. */
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', d => { out += d; });
+    /* git réécrit sa progression avec \r sur une même ligne : on ne pousse qu'aux \n, donc une
+       ligne par étape terminée (« Receiving objects: 100% … »), sans inonder le flux d'IPC. */
+    child.stderr.on('data', d => {
+      errAll += d;
+      pending += d;
+      const lines = pending.split('\n');
+      pending = lines.pop();
+      for (const l of lines) { const t = l.replace(/\r+$/, ''); if (t) emitTrace({ id, kind: 'out', text: t }); }
+    });
+    const timer = timeout ? setTimeout(() => { killed = true; child.kill(); }, timeout) : null;
+    child.on('error', err => { clearTimeout(timer); emitTrace({ id, kind: 'exit', ok: false, ms: Date.now() - started }); reject(new Error(gitError(err, errAll))); });
+    child.on('close', code => {
+      clearTimeout(timer);
+      const t = pending.replace(/\r+$/, '');
+      if (t) emitTrace({ id, kind: 'out', text: t });
+      const ms = Date.now() - started;
+      if (killed) { emitTrace({ id, kind: 'exit', ok: false, ms }); return reject(new Error('git timed out')); }
+      if (code !== 0) { emitTrace({ id, kind: 'exit', ok: false, ms }); return reject(new Error(gitError({ message: errAll }, errAll))); }
+      emitTrace({ id, kind: 'exit', ok: true, ms });
+      resolve(out);
+    });
   });
 }
 
@@ -201,11 +242,13 @@ async function searchCommits(r, q, content) {
    Une par repo à la fois (git pose ses propres verrous, mais deux fetch concurrents sur le
    même dépôt se soldent par une erreur inutile). Le résultat part par événement, pas par
    retour d'invoke : l'auto-fetch n'a pas d'appelant côté renderer. */
+/* --progress : sans TTY git tait sa progression ; on la force pour que la console la streame. */
 const OPS = {
-  fetch: ['fetch', '--all', '--prune'],
-  pull:  ['pull', '--ff-only'],
-  push:  ['push'],
+  fetch: ['fetch', '--all', '--prune', '--progress'],
+  pull:  ['pull', '--ff-only', '--progress'],
+  push:  ['push', '--progress'],
 };
+const OP_GROUP = { fetch: 'Fetch', pull: 'Pull', push: 'Push' };
 const OP_TIMEOUT = 90_000;
 const AUTOFETCH_MS = 5 * 60_000;
 
@@ -215,6 +258,7 @@ const countAll = r => git(r.path, ['rev-list', ...ALL_REFS, '--count']).then(o =
 async function runOp(r, name, auto = false) {
   if (r.running) return;
   r.running = name;
+  traceGroup(r.id, auto ? 'Auto-fetch' : OP_GROUP[name]);
   emit({ id: r.id, op: name, state: 'start', auto });
   try {
     const before = name === 'push' ? 0 : await countAll(r);
@@ -417,6 +461,7 @@ ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
 ipcMain.handle('repo:commit', (_ev, id, message) => {
   const r = use(id);
   if (typeof message !== 'string' || !message.trim()) throw new Error('empty message');
+  traceGroup(r.id, 'Commit');
   return git(r.path, ['commit', '-m', message]).then(() => mute(r));
 });
 
@@ -431,6 +476,7 @@ const BRANCH = /^(?!-)(?!.*\.\.)[\w./+-]+$/;
 ipcMain.handle('repo:checkout', async (_ev, id, name) => {
   const r = use(id);
   if (typeof name !== 'string' || !BRANCH.test(name)) throw new Error('bad branch');
+  traceGroup(r.id, `Checkout ${name}`);
   const dirty = !!(await git(r.path, ['status', '--porcelain', '-uall'])).trim();
   if (dirty) await git(r.path, ['stash', 'push', '-u', '-m', `git-graph: ${name}`]);
   try {
@@ -452,6 +498,7 @@ ipcMain.handle('repo:checkout', async (_ev, id, name) => {
    le temps d'un merge ou d'un `git flow finish`. */
 
 const FLOW_TYPES = ['feature', 'bugfix', 'release', 'hotfix'];
+const BRANCH_GROUP = { merge: 'Fusion', delete: 'Suppression', pull: 'Pull', push: 'Push', finish: 'Clôture flow' };
 
 /** Les préfixes posés par `git flow init` dans la config, ou `null` : le dépôt ignore git-flow. */
 async function flowPrefixes(r) {
@@ -485,15 +532,15 @@ const BRANCH_OPS = {
     const { remote, merge } = await upstreamOf(r, name);
     const current = (await git(r.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
     await git(r.path, name === current
-      ? ['pull', '--ff-only']
-      : ['fetch', remote, `${merge}:refs/heads/${name}`], OP_TIMEOUT);
+      ? ['pull', '--ff-only', '--progress']
+      : ['fetch', remote, `${merge}:refs/heads/${name}`, '--progress'], OP_TIMEOUT);
   },
 
   /* Le refspec nomme les deux côtés : `git push <remote> <branche>` pousserait vers une branche
      de même nom, quand bien même l'upstream en porte un autre. */
   async push(r, name) {
     const { remote, merge } = await upstreamOf(r, name);
-    await git(r.path, ['push', remote, `refs/heads/${name}:${merge}`], OP_TIMEOUT);
+    await git(r.path, ['push', remote, `refs/heads/${name}:${merge}`, '--progress'], OP_TIMEOUT);
   },
 
   /* `git flow` fait tout — merge, tag, back-merge, suppression de la branche. Le réimplémenter,
@@ -518,6 +565,7 @@ ipcMain.handle('repo:branch', async (_ev, id, action, name) => {
   if (typeof name !== 'string' || !BRANCH.test(name)) throw new Error('bad branch');
   if (r.running) throw new Error('Une opération est déjà en cours sur ce dépôt');
   r.running = action;
+  traceGroup(r.id, `${BRANCH_GROUP[action]} ${name}`);
   try {
     await BRANCH_OPS[action](r, name);
   } finally {
