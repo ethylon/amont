@@ -166,8 +166,7 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
         className={cn(
           "flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs select-none",
           "text-foreground hover:bg-muted",
-          /* surélévation : la surface tient au-dessus de son ombre, et le survol la repose */
-          r.head && "bg-primary/20 shadow-xs shadow-primary/25 hover:bg-primary/25 hover:shadow-none"
+          r.head && "bg-primary/30 border border-primary hover:bg-primary/45"
         )}
       >
         <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
