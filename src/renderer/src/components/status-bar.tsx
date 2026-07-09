@@ -18,6 +18,8 @@ type Props = {
   opState: OpState | null
   hoverInfo: string | null
   stats: Stats | null
+  /** console git, rendue à droite des infos de survol */
+  console?: React.ReactNode
 }
 
 const nf = new Intl.NumberFormat("fr")
@@ -26,7 +28,7 @@ const Num = ({ children }: { children: React.ReactNode }) => (
   <b className="font-medium text-foreground">{children}</b>
 )
 
-export function StatusBar({ branch, opState, hoverInfo, stats }: Props) {
+export function StatusBar({ branch, opState, hoverInfo, stats, console }: Props) {
   return (
     <footer className="flex h-7 shrink-0 items-center gap-3 border-t pr-3 pl-3.5 text-[0.625rem] text-muted-foreground">
       <span className="flex shrink-0 items-center gap-1.5">
@@ -53,6 +55,8 @@ export function StatusBar({ branch, opState, hoverInfo, stats }: Props) {
           <span className="truncate">{hoverInfo}</span>
         </Badge>
       )}
+
+      {console}
 
       {stats && (
         <div className="ms-auto flex shrink-0 items-center gap-3 whitespace-nowrap tabular-nums">
