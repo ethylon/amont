@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 /* pas de `border-transparent` dans la base : cva concatène avec clsx, pas tailwind-merge,
    et il gagnerait sur la couleur de bordure posée par le variant. */
 const badgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border px-2 py-0.5 text-[0.625rem] font-medium whitespace-nowrap transition-all focus-visible:border-(--badge-color) focus-visible:ring-[3px] focus-visible:ring-(--badge-color)/20 has-data-[icon=inline-end]:pe-1.5 has-data-[icon=inline-start]:ps-1.5 [&>svg]:pointer-events-none [&>svg]:size-2.5!",
+  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border px-2 py-0.5 text-[0.625rem] font-medium whitespace-nowrap transition-colors focus-visible:border-(--badge-color) focus-visible:ring-[3px] focus-visible:ring-(--badge-color)/20 has-data-[icon=inline-end]:pe-1.5 has-data-[icon=inline-start]:ps-1.5 [&>svg]:pointer-events-none [&>svg]:size-2.5!",
   {
     variants: {
       color: {

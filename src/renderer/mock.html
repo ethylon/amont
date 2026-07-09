@@ -50,16 +50,16 @@
   const RECENTS = [{ path: '/mock/mock-repo', name: 'mock-repo' }];
 
   const REFS = [
-    { name: 'develop', kind: 'head', head: true, ahead: 2, behind: 0 },
-    { name: 'feature/optim-cout', kind: 'head', head: false, ahead: 0, behind: 0 },
-    { name: 'feature/ui/graph', kind: 'head', head: false, ahead: 0, behind: 0 },
-    { name: 'hotfix/matrice-vide', kind: 'head', head: false, ahead: 0, behind: 1 },
-    { name: 'master', kind: 'head', head: false, ahead: 0, behind: 0 },
-    { name: 'origin/develop', kind: 'remote', head: false, ahead: 0, behind: 0 },
-    { name: 'origin/master', kind: 'remote', head: false, ahead: 0, behind: 0 },
-    { name: 'origin/release/4.2', kind: 'remote', head: false, ahead: 0, behind: 0 },
-    { name: 'v4.1.3', kind: 'tag', head: false, ahead: 0, behind: 0 },
-    { name: 'v4.2.0', kind: 'tag', head: false, ahead: 0, behind: 0 },
+    { name: 'develop', kind: 'head', head: true, ahead: 2, behind: 0, tip: 'a1b2c3d4' },
+    { name: 'feature/optim-cout', kind: 'head', head: false, ahead: 0, behind: 0, tip: '5a6b7c8d' },
+    { name: 'feature/ui/graph', kind: 'head', head: false, ahead: 0, behind: 0, tip: '7e8f9a0b' },
+    { name: 'hotfix/matrice-vide', kind: 'head', head: false, ahead: 0, behind: 1, tip: '9f8e7d6c' },
+    { name: 'master', kind: 'head', head: false, ahead: 0, behind: 0, tip: '9f8e7d6c' },
+    { name: 'origin/develop', kind: 'remote', head: false, ahead: 0, behind: 0, tip: 'a1b2c3d4' },
+    { name: 'origin/master', kind: 'remote', head: false, ahead: 0, behind: 0, tip: '9f8e7d6c' },
+    { name: 'origin/release/4.2', kind: 'remote', head: false, ahead: 0, behind: 0, tip: '5a6b7c8d' },
+    { name: 'v4.1.3', kind: 'tag', head: false, ahead: 0, behind: 0, tip: '4d5e6f70' },
+    { name: 'v4.2.0', kind: 'tag', head: false, ahead: 0, behind: 0, tip: '3c4d5e6f' },
   ];
 
   window.gitgraph = {
