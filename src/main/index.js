@@ -458,11 +458,12 @@ ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
   await git(r.path, [...cmd, '--', ...paths]);
 });
 
-ipcMain.handle('repo:commit', (_ev, id, message) => {
+ipcMain.handle('repo:commit', (_ev, id, message, amend) => {
   const r = use(id);
   if (typeof message !== 'string' || !message.trim()) throw new Error('empty message');
-  traceGroup(r.id, 'Commit');
-  return git(r.path, ['commit', '-m', message]).then(() => mute(r));
+  traceGroup(r.id, amend ? 'Amend' : 'Commit');
+  const args = ['commit', ...(amend ? ['--amend'] : []), '-m', message];
+  return git(r.path, args).then(() => mute(r));
 });
 
 /* ponytail: filtre de sûreté, pas un parseur de refname — refuse surtout le nom qui
@@ -687,6 +688,17 @@ ipcMain.handle('repo:body', (_ev, id, hash) => {
   const r = use(id);
   if (!/^[0-9a-f]{7,40}$/.test(hash)) throw new Error('bad hash');
   return git(r.path, ['show', '-s', '--format=%b', hash]);
+});
+
+/* Sujet et corps du dernier commit, pour préremplir un amend. `%B` est le message brut :
+   la première ligne est le sujet, le reste (après la ligne vide) la description. */
+ipcMain.handle('repo:headMessage', async (_ev, id) => {
+  const r = use(id);
+  const raw = await git(r.path, ['show', '-s', '--format=%B', 'HEAD']);
+  const nl = raw.indexOf('\n');
+  const subject = (nl < 0 ? raw : raw.slice(0, nl)).trim();
+  const body = (nl < 0 ? '' : raw.slice(nl + 1)).replace(/^\n+/, '').trimEnd();
+  return { subject, body };
 });
 
 ipcMain.handle('repo:diff', async (_ev, id, hash, parent, path, oldPath) => {
