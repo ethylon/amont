@@ -13,6 +13,19 @@ export type Commit = {
   /** refs brutes de `%D --decorate=full` : "HEAD -> refs/heads/develop, tag: refs/tags/v4.2.0" */
   r: string
   s: string
+  /** posé par le collapse release/hotfix (cf. graph-layout) : cette ligne fusionne les deux merges
+      d'une version — côté master (absorbé) et côté develop (survivant). */
+  cap?: {
+    /** hash court du merge master fusionné ; reste résolu par la capsule dans layoutChunk */
+    absorbed: string
+    /** tag semver de la release, `null` si la paire n'en portait pas */
+    version: string | null
+    /** branche source : "release/1.6.2", "hotfix/1.6.3" */
+    from: string
+    flow: "release" | "hotfix"
+    /** [cible master, cible develop] */
+    targets: [string, string]
+  }
 }
 
 export type FileChange = {
