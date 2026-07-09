@@ -730,6 +730,9 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1300,
     height: 850,
+    /* sous cette largeur, sidebar + colonne détail (556px fixes) écraseraient le graphe */
+    minWidth: 900,
+    minHeight: 600,
     /* le fond de la fenêtre est peint avant le premier rendu ; sans lui, flash blanc en
        thème sombre. `show: false` + ready-to-show évite d'exposer une fenêtre vide. */
     show: false,

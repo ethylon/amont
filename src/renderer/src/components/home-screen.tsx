@@ -102,7 +102,7 @@ export function HomeScreen({ active, onOpened }: Props) {
               <Mark className="size-11" />
             </EmptyMedia>
             <EmptyTitle className="text-base">Aucun dépôt</EmptyTitle>
-            <EmptyDescription>
+            <EmptyDescription className="text-pretty">
               Choisis un dossier racine pour lister les dépôts qu'il contient, ou ouvre un dépôt
               directement.
             </EmptyDescription>
