@@ -1,0 +1,30 @@
+# Le workflow release ne se déclenche qu'au tag : sans celui-ci, rien ne vérifie
+# les commits ordinaires — les auto-contrôles de scripts/ ne tournaient nulle part.
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      # le bundle complet (main, preload CJS, renderer) : attrape ce que tsc ne voit pas
+      - run: pnpm build

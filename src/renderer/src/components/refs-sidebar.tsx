@@ -212,8 +212,12 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
 }
 
 /* `openDirs` : ouvre les dossiers de ce seul niveau (la récursion repasse à false). Sert aux
-   distantes, où le remote (`origin`) resterait sinon replié faute de HEAD à l'intérieur. */
-function Tree({ node, icon, ctx, openDirs = false }: { node: Node; icon: IconSvgElement; ctx: Ctx; openDirs?: boolean }) {
+   distantes, où le remote (`origin`) resterait sinon replié faute de HEAD à l'intérieur.
+   `forceOpen` : tout ouvert, à tous les niveaux — un résultat de filtre caché dans un pli
+   serait invisible. La clé change avec lui : `defaultOpen` ne vaut qu'au montage. */
+function Tree({ node, icon, ctx, openDirs = false, forceOpen = false }: {
+  node: Node; icon: IconSvgElement; ctx: Ctx; openDirs?: boolean; forceOpen?: boolean
+}) {
   const dirs = [...node.dirs.keys()].sort((a, b) => a.localeCompare(b))
   const leaves = [...node.leaves].sort(
     (a, b) => pinRank(a.label) - pinRank(b.label) || a.label.localeCompare(b.label)
@@ -232,7 +236,7 @@ function Tree({ node, icon, ctx, openDirs = false }: { node: Node; icon: IconSvg
         const dot = DOT[typeColor(k.toLowerCase())]
         return (
           <li key={k}>
-            <Collapsible defaultOpen={openDirs || holdsHead(child)}>
+            <Collapsible key={forceOpen ? `f:${k}` : k} defaultOpen={forceOpen || openDirs || holdsHead(child)}>
               <CollapsibleTrigger className="group/dir flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
                 <HugeiconsIcon
                   icon={ArrowRight01Icon}
@@ -243,7 +247,7 @@ function Tree({ node, icon, ctx, openDirs = false }: { node: Node; icon: IconSvg
                 <span className="truncate">{k}</span>
               </CollapsibleTrigger>
               <CollapsibleContent className="ml-2 border-l pl-2">
-                <Tree node={child} icon={icon} ctx={ctx} />
+                <Tree node={child} icon={icon} ctx={ctx} forceOpen={forceOpen} />
               </CollapsibleContent>
             </Collapsible>
           </li>
@@ -274,7 +278,12 @@ export function RefsSidebar({
   const [flow, setFlow] = useState<FlowPrefixes | null>(null)
   const [error, setError] = useState(false)
   const [focused, setFocused] = useState<Set<string>>(() => new Set())
+  const [filter, setFilter] = useState("")
   const navRef = useRef<HTMLElement>(null)
+
+  /* filtre par sous-chaîne sur le nom complet, préfixe compris : `feat` attrape `feature/x` */
+  const q = filter.trim().toLowerCase()
+  const match = (r: GitRef) => !q || r.name.toLowerCase().includes(q)
 
   useEffect(() => {
     let stale = false
@@ -310,7 +319,7 @@ export function RefsSidebar({
     })
   }, [])
 
-  useLayoutEffect(paint, [paint, focused, data])
+  useLayoutEffect(paint, [paint, focused, data, q]) // le filtre déplace les refs allumées
   /* Un repli/dépli de dossier ne rerend pas le sidebar (état interne du Collapsible) : on repeint
      après chaque clic dans la nav, une fois le DOM stabilisé. */
   useEffect(() => {
@@ -374,7 +383,13 @@ export function RefsSidebar({
             <InputGroupAddon>
               <HugeiconsIcon icon={Search01Icon} strokeWidth={2} />
             </InputGroupAddon>
-            <InputGroupInput type="search" placeholder="Filtrer les branches" />
+            <InputGroupInput
+              type="search"
+              placeholder="Filtrer les branches"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && filter && (e.stopPropagation(), setFilter(""))}
+            />
           </InputGroup>
         </div>
 
@@ -385,12 +400,17 @@ export function RefsSidebar({
               <Spinner className="size-3" /> branches…
             </p>
           )}
+          {data && q && !data.some(match) && (
+            <p className="px-1.5 text-xs text-muted-foreground">Aucune ref ne correspond.</p>
+          )}
           {data &&
             GROUPS.map((g) => {
-              const refs = data.filter((r) => r.kind === g.kind)
+              const refs = data.filter((r) => r.kind === g.kind && match(r))
               if (!refs.length) return null
               return (
-                <Collapsible key={g.kind} defaultOpen>
+                /* la clé change avec le filtre : un groupe replié à la main se rouvre pour
+                   montrer les résultats, comme les dossiers */
+                <Collapsible key={q ? `f:${g.kind}` : g.kind} defaultOpen>
                   <CollapsibleTrigger className="group/trigger flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
                     <HugeiconsIcon
                       icon={ArrowRight01Icon}
@@ -402,7 +422,7 @@ export function RefsSidebar({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="mt-0.5">
-                      <Tree node={buildTree(refs)} icon={g.icon} ctx={ctx} openDirs={g.kind === "remote"} />
+                      <Tree node={buildTree(refs)} icon={g.icon} ctx={ctx} openDirs={g.kind === "remote"} forceOpen={!!q} />
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
