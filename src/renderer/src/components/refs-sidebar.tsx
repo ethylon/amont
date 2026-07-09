@@ -321,6 +321,20 @@ export function RefsSidebar({
     return () => root.removeEventListener("click", onClick)
   }, [paint])
 
+  /* Un clic hors du sidebar et des panneaux détail/diff lève le focus. Le clic sur un commit
+     refait la sélection lui-même : on ne vide alors que la surbrillance, pas la sélection sous ses pieds. */
+  useEffect(() => {
+    if (!focused.size) return
+    const onDown = (ev: MouseEvent) => {
+      const t = ev.target as HTMLElement
+      if (navRef.current?.contains(t) || t.closest("[data-gg-keep-focus]")) return
+      setFocused(new Set())
+      if (!t.closest(".gg-row")) onFocusHeads([], null)
+    }
+    document.addEventListener("mousedown", onDown)
+    return () => document.removeEventListener("mousedown", onDown)
+  }, [focused, onFocusHeads])
+
   const onFocus = (r: GitRef, additive: boolean) => {
     const key = refKey(r)
     const next = new Set(additive ? focused : [])

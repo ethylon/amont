@@ -407,7 +407,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                   }}
                 />
                 {diff && (
-                  <div className="absolute inset-0 z-2 flex flex-col bg-background">
+                  <div data-gg-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
                     <DiffView api={api} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
                   </div>
                 )}
@@ -416,7 +416,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
 
             {/* colonne : l'en-tête du détail est figé, la liste et le diff scrollent chacun chez eux.
                 Les panneaux rendent des fragments — leurs enfants sont donc les items flex. */}
-            <aside className="flex min-h-0 flex-col overflow-hidden border-l px-4.5 py-4">
+            <aside data-gg-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l px-4.5 py-4">
               {view === "wt" && worktree ? (
                 <WorktreePanel
                   api={api}
