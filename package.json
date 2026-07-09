@@ -11,7 +11,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json",
+    "test": "node scripts/check-refs.ts && node scripts/check-graph.ts && node scripts/check-sha256.ts",
     "dist": "electron-vite build && electron-builder",
     "release": "electron-vite build && electron-builder --publish always"
   },
