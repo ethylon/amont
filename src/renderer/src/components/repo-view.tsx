@@ -67,10 +67,13 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   )
   const [subject, setSubject] = useState("")
   const [description, setDescription] = useState("")
+  const [amend, setAmend] = useState(false)
   const [graphW, setGraphW] = useState(0)
 
   const graphRef = useRef<GraphHandle | null>(null)
   const okTimer = useRef<number>(0)
+  /* brouillon de message mis de côté le temps qu'un amend emprunte celui du dernier commit */
+  const draftRef = useRef<{ subject: string; description: string } | null>(null)
 
   const showOp = useCallback((text: string, color: OpState["color"], action?: OpState["action"]) => {
     clearTimeout(okTimer.current)
@@ -88,8 +91,13 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     const wt = await api.worktree().catch(() => null)
     const next = wt && worktreeCount(wt) ? wt : null
     setWorktree(next)
-    /* l'arbre s'est vidé pendant qu'on le regardait : la vue n'a plus de sujet */
-    if (!next) setView((v) => (v === "wt" ? "commits" : v))
+    /* l'arbre s'est vidé pendant qu'on le regardait : la vue n'a plus de sujet, et un amend
+       en cours n'a plus de bloc où s'afficher */
+    if (!next) {
+      setView((v) => (v === "wt" ? "commits" : v))
+      setAmend(false)
+      draftRef.current = null
+    }
   }, [api])
 
   const resetAndLoad = useCallback(async () => {
@@ -221,16 +229,40 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   const doCommit = useCallback(async () => {
     const body = description.trim()
     try {
-      await api.commit(body ? `${subject.trim()}\n\n${body}` : subject)
+      await api.commit(body ? `${subject.trim()}\n\n${body}` : subject, amend)
     } catch (e) {
       return showOp((e as Error).message, "danger")
     }
     setSubject("")
     setDescription("")
+    setAmend(false)
+    draftRef.current = null
     await refreshWorktree()
     refreshStatus()
     await resetAndLoad()
-  }, [api, description, refreshStatus, refreshWorktree, resetAndLoad, showOp, subject])
+  }, [amend, api, description, refreshStatus, refreshWorktree, resetAndLoad, showOp, subject])
+
+  /* Cocher « amender » emprunte le message du dernier commit après avoir mis le brouillon de côté ;
+     le décocher rend ce brouillon. Un échec de lecture laisse la case telle quelle. */
+  const toggleAmend = useCallback(
+    async (on: boolean) => {
+      if (!on) {
+        const draft = draftRef.current
+        draftRef.current = null
+        setSubject(draft?.subject ?? "")
+        setDescription(draft?.description ?? "")
+        setAmend(false)
+        return
+      }
+      const msg = await api.headMessage().catch(() => null)
+      if (!msg) return
+      draftRef.current = { subject, description }
+      setSubject(msg.subject)
+      setDescription(msg.body)
+      setAmend(true)
+    },
+    [api, description, subject]
+  )
 
   /* on recharge dans tous les cas : un `stash pop` en conflit échoue alors que HEAD a déjà bougé */
   const checkout = useCallback(
@@ -281,6 +313,8 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   )
 
   const panelOpen = view === "wt" || selection.length > 0
+  /* rien à amender tant qu'aucun commit n'existe */
+  const canAmend = !!status?.head
 
   return (
     <>
@@ -369,12 +403,16 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
             <aside className="flex min-h-0 flex-col overflow-hidden border-l px-4.5 py-4">
               {view === "wt" && worktree ? (
                 <WorktreePanel
+                  api={api}
                   worktree={worktree}
                   activePath={diff?.file.path}
                   subject={subject}
                   description={description}
+                  amend={amend}
+                  canAmend={canAmend}
                   onSubjectChange={setSubject}
                   onDescriptionChange={setDescription}
+                  onAmendChange={toggleAmend}
                   onOpenDiff={openDiff}
                   onRun={runWt}
                   onCommit={doCommit}
