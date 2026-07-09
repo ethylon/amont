@@ -106,8 +106,6 @@ export type TraceLine = { id: number } & (
 )
 
 type Bridge = {
-  /** hex minuscule ; hache dans le preload, `crypto.subtle` étant asynchrone */
-  sha256(text: string): string
   state(): Promise<BootState>
   repos(): Promise<{ root: string | null; recents: RepoRef[] }>
   setTabs(paths: string[], active: string | null): Promise<void>
@@ -151,7 +149,6 @@ declare global {
 const bridge = window.gitgraph
 
 export const host = {
-  sha256: bridge.sha256,
   repos: bridge.repos,
   setTabs: bridge.setTabs,
   openDialog: bridge.openDialog,

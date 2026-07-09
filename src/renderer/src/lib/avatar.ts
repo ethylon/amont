@@ -1,4 +1,4 @@
-import { host } from "@/lib/git"
+import { sha256 } from "@/lib/sha256"
 import { laneColor } from "@/lib/graph-layout"
 
 /* Une adresse `users.noreply.github.com` porte l'id du compte dans son préfixe : l'avatar se
@@ -23,7 +23,7 @@ export function avatarUrl(email: string) {
   const e = email.trim().toLowerCase()
   const id = KNOWN[e] ?? Number(GH_NOREPLY.exec(e)?.[1])
   if (id) return `https://avatars.githubusercontent.com/u/${id}?s=64`
-  return `https://www.gravatar.com/avatar/${host.sha256(e)}?s=64&d=404`
+  return `https://www.gravatar.com/avatar/${sha256(e)}?s=64&d=404`
 }
 
 /* Monogramme teinté par l'e-mail : deux auteurs se distinguent d'un coup d'œil, avatar ou pas.
