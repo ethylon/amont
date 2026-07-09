@@ -79,6 +79,14 @@ export type OpEvent = { id: number } & (
 /** `.git` a bougé sous nos pieds. Main ne l'émet qu'application au premier plan. */
 export type ChangeEvent = { id: number }
 
+/** Une ligne de la console : en-tête d'opération, commande lancée, sortie stderr, ou issue. */
+export type TraceLine = { id: number } & (
+  | { kind: "group"; text: string; ts: number }
+  | { kind: "cmd"; text: string }
+  | { kind: "out"; text: string }
+  | { kind: "exit"; ok: boolean; ms: number }
+)
+
 type Bridge = {
   /** hex minuscule ; hache dans le preload, `crypto.subtle` étant asynchrone */
   sha256(text: string): string
@@ -92,6 +100,7 @@ type Bridge = {
   scanRoot(): Promise<RepoRef[]>
   onOp(cb: (payload: OpEvent) => void): void
   onChanged(cb: (payload: ChangeEvent) => void): void
+  onTrace(cb: (payload: TraceLine) => void): void
 
   log(id: number, skip: number, count: number): Promise<Commit[]>
   total(id: number): Promise<number>
@@ -146,6 +155,7 @@ function fanout<T>(listen: (cb: (p: T) => void) => void) {
 
 export const onOp = fanout<OpEvent>(bridge.onOp)
 export const onChanged = fanout<ChangeEvent>(bridge.onChanged)
+export const onTrace = fanout<TraceLine>(bridge.onTrace)
 
 /* Évalué à l'import, donc une seule fois : `app:state` ouvre les repos des onglets restaurés
    et n'est pas idempotent vis-à-vis du double montage de StrictMode. */

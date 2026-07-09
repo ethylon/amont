@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('gitgraph', {
   scanRoot: () => ipcRenderer.invoke('root:scan'),
   onOp: (cb) => ipcRenderer.on('git:op', (_ev, payload) => cb(payload)),
   onChanged: (cb) => ipcRenderer.on('git:changed', (_ev, payload) => cb(payload)),
+  onTrace: (cb) => ipcRenderer.on('git:trace', (_ev, payload) => cb(payload)),
 
   log: (id, skip, count) => ipcRenderer.invoke('repo:log', id, skip, count),
   total: (id) => ipcRenderer.invoke('repo:total', id),
