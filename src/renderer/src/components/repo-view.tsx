@@ -69,6 +69,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   const [description, setDescription] = useState("")
   const [amend, setAmend] = useState(false)
   const [graphW, setGraphW] = useState(0)
+  const [branchW, setBranchW] = useState(0)
 
   const graphRef = useRef<GraphHandle | null>(null)
   const okTimer = useRef<number>(0)
@@ -341,7 +342,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
 
         <main className="flex min-w-0 flex-1 flex-col">
           <div
-            style={{ "--graphw": `${graphW}px` } as React.CSSProperties}
+            style={{ "--graphw": `${graphW}px`, "--gg-branch": `${branchW}px` } as React.CSSProperties}
             className="grid min-h-0 flex-1 grid-cols-[1fr_320px] grid-rows-[minmax(0,1fr)]"
           >
             <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
@@ -357,7 +358,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                     /* -2px : l'absolu se cale sur la padding-box, le SVG sur la border-box */
                     <span
                       className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed bg-background"
-                      style={{ left: headDot.left - 2, color: headDot.color }}
+                      style={{ left: `calc(var(--gg-branch, 0px) + ${headDot.left - 2}px)`, color: headDot.color }}
                     />
                   )}
                   <span className="font-medium">Modifications non validées</span>
@@ -388,6 +389,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                     onHover: setHoverInfo,
                     onStats: setStats,
                     onGraphWidth: setGraphW,
+                    onBranchWidth: setBranchW,
                   }}
                 />
                 {diff && (
