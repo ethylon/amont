@@ -1,7 +1,7 @@
 /* Teintes disponibles pour les chips : le preset n'expose que destructive, on lui adjoint
    success et warning (cf. @theme dans app.css). `lane` n'est pas une teinte mais un relais :
    le chip prend celle que son porteur lui pose — le trait de branche du graphe, ici. */
-export type BadgeColor = "neutral" | "primary" | "success" | "warning" | "danger" | "lane"
+export type BadgeColor = "neutral" | "primary" | "success" | "warning" | "danger" | "release" | "lane"
 
 /* Badges de type : conventions internes, typos incluses.
    ponytail: table d'alias explicite — passer en config si les conventions bougent. */
@@ -33,7 +33,7 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   revert: "danger",
   bugfix: "warning",
   perf: "warning",
-  release: "primary",
+  release: "release",
   beta: "primary",
 }
 
