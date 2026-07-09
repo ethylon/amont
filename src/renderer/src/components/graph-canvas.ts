@@ -1,15 +1,16 @@
-import { CloudIcon, GitMergeIcon } from "@hugeicons/core-free-icons"
+import { ArrowRight01Icon, CloudIcon, Fire02Icon, RocketIcon, Tag01Icon } from "@hugeicons/core-free-icons"
 
 import { type Commit, type RepoApi } from "@/lib/git"
 import { avatarUrl, initials, tint } from "@/lib/avatar"
 import { iconEl } from "@/lib/utils"
 import { badgeSeparator, badgeVariants } from "@/components/ui/badge"
 import {
-  BACKUP_WIP, MAIN_TARGETS, mergeSource, parseMerge, parseRefs, parseSubject, refColor, typeColor,
-  type BadgeColor, type RefChip,
+  BACKUP_WIP, mergeColor, mergeFlow, mergeSource, parseMerge, parseRefs, parseSubject, refColor,
+  SEMVER, tagFlowColor, typeColor,
+  type BadgeColor, type FlowKind, type ParsedMerge, type RefChip,
 } from "@/lib/commit-message"
 import {
-  branchChain, branchSegment, chainInfo, createState, edgePath, edgesSvg, laneColor,
+  branchChain, branchSegment, chainInfo, collapsePairs, createState, edgePath, edgesSvg, laneColor,
   layoutChunk, nodesSvg, stroke, CHUNK, PAGE, ROW, PAD, LANE, X,
   type LayoutState,
 } from "@/lib/graph-layout"
@@ -41,6 +42,7 @@ const FIXED_W = 12 + 320 + 130 + 84 + 68 + 18
 
 const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
 const cloud = () => iconEl(CloudIcon, "shrink-0")
+const tagIcon = () => iconEl(Tag01Icon, "shrink-0")
 
 /* Texte de chip défilable : `.gg-clip` rogne, `.gg-scroll` porte l'anim de survol (cf. app.css). */
 function marq(text: string) {
@@ -139,6 +141,7 @@ export function createGraph(
   cb: GraphCallbacks
 ): GraphHandle {
   let DATA: Commit[] = []
+  let rawLoaded = 0 // commits bruts consommés (skip de `api.log`) : le collapse rend DATA plus court
   let TOTAL = 0
   let NCHUNKS = 0
   let exhausted = false
@@ -186,7 +189,8 @@ export function createGraph(
     const row = btn.closest<HTMLElement>(".gg-row")!
     const c = DATA[Number(row.dataset.i)]
     const refs = parseRefs(c.r).slice(Number(btn.dataset.n))
-    more.replaceChildren(...refs.map((r) => refChip(r, "max-w-full")))
+    const flow = (row.dataset.flow as FlowKind) || null
+    more.replaceChildren(...refs.map((r) => refChip(r, "max-w-full", flow)))
     /* le panneau flotte sous `inner`, pas sous la ligne : la teinte de lane ne peut pas hériter */
     more.style.setProperty("--badge-color", row.style.getPropertyValue("--badge-color"))
 
@@ -208,11 +212,16 @@ export function createGraph(
   /* Le nuage dit où est la distante. Détaché du nom par un filet : « ici aussi ». Collé à un nom
      complet (`origin/develop`) : « la branche locale est ailleurs ». Une branche sans nuage
      n'a pas de distante du tout. */
-  function refChip(r: RefChip, maxw: string) {
+  function refChip(r: RefChip, maxw: string, flow: FlowKind | null = null) {
     const synced = r.remotes.length > 0
+    /* Un tag de version est le jalon d'une release : icône étiquette + teinte du flow (violet/rouge). */
+    const version = r.kind === "tag" && SEMVER.test(r.name)
     const el = document.createElement("span")
-    el.className = chip(refColor(r.kind)) + " " + maxw + (r.kind === "remote" || synced ? " ps-1.5" : "")
+    el.className =
+      chip(version ? tagFlowColor(flow) : refColor(r.kind)) + " " + maxw +
+      (!version && (r.kind === "remote" || synced) ? " ps-1.5" : "")
     el.title = synced ? r.remotes.join(", ") : r.name
+    if (version) el.appendChild(tagIcon())
     if (r.kind === "remote" || synced) el.appendChild(cloud())
     if (synced) {
       const sep = document.createElement("span")
@@ -224,8 +233,8 @@ export function createGraph(
   }
 
   /** Les refs d'un groupe, tronquées à `budget`, le reste derrière un "+N" qui les déplie toutes. */
-  function refGroup(refs: RefChip[], budget: number, maxw: string, parent: HTMLElement) {
-    for (const r of refs.slice(0, budget)) parent.appendChild(refChip(r, maxw))
+  function refGroup(refs: RefChip[], budget: number, maxw: string, parent: HTMLElement, flow: FlowKind | null = null) {
+    for (const r of refs.slice(0, budget)) parent.appendChild(refChip(r, maxw, flow))
     const hidden = refs.slice(budget)
     if (!hidden.length) return
     const btn = document.createElement("button")
@@ -238,6 +247,20 @@ export function createGraph(
     parent.appendChild(btn)
   }
 
+  /* Flow d'une ligne. Un merge `hotfix/*`|`release/*` se lit sur son sujet ; mais « Merge tag 'vX'
+     into develop » rapatrie une version sans dire d'où elle vient. On remonte alors au commit tagué
+     (2ᵉ parent, le merge côté master) : si c'est un hotfix, ce re-merge l'est aussi. Sans ça, le
+     retour d'un hotfix sur develop passerait pour une release. */
+  function rowFlow(c: Commit, mg: ParsedMerge | null): FlowKind | null {
+    if (!mg) return null
+    const own = mergeFlow(mg)
+    if (!mg.tag) return own
+    const pr = S.rowOf.get(c.p[1])
+    const parent = pr !== undefined ? DATA[pr] : undefined
+    const pmg = parent && parent.p.length > 1 ? parseMerge(parent.s) : null
+    return pmg && mergeFlow(pmg) === "hotfix" ? "hotfix" : own
+  }
+
   function rowDiv(i: number) {
     const c = DATA[i]
     const row = document.createElement("div")
@@ -248,12 +271,27 @@ export function createGraph(
     /* hérité par les chips `lane` de la ligne — les noms de branche portent la couleur du trait */
     row.style.setProperty("--badge-color", laneColor(S.laneOf[i]))
 
+    /* Motif release/hotfix : la ligne porte un accent latéral (cf. app.css) et sa teinte irrigue
+       le chip source du merge comme le drapeau du tag. */
+    const mg = c.p.length > 1 ? parseMerge(c.s) : null
+    const flow = c.cap ? c.cap.flow : rowFlow(c, mg)
+    if (flow) row.dataset.flow = flow
+
     /* Colonne branche, à gauche du métro : nom(s) de branche puis tags, repliés au budget.
-       Le survol y pose un chip fantôme quand la cellule est vide (cf. hoverRow). */
+       Une capsule y met sa version en tête ; sinon le survol y pose un chip fantôme (cf. hoverRow). */
     const refs = c.r ? parseRefs(c.r) : []
     const branch = document.createElement("div")
     branch.className = "gg-branchcell flex min-w-0 items-center gap-1.5 px-2.5"
-    refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, branch)
+    if (c.cap) {
+      const v = document.createElement("span")
+      v.className = chip(tagFlowColor(c.cap.flow)) + " " + BRANCH_MAX
+      v.appendChild(tagIcon())
+      v.appendChild(marq(c.cap.version ?? c.cap.from))
+      v.title = c.cap.version ?? c.cap.from
+      branch.appendChild(v)
+    } else {
+      refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, branch, flow)
+    }
     row.appendChild(branch)
 
     row.appendChild(document.createElement("div")) // espaceur : la colonne graphe, sous le SVG
@@ -271,18 +309,39 @@ export function createGraph(
 
     const subj = document.createElement("div")
     subj.className =
-      "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " text-muted-foreground" : "")
+      "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " opacity-30" : "")
 
-    const mg = c.p.length > 1 ? parseMerge(c.s) : null
-    if (mg) {
+    if (c.cap) {
+      /* Capsule : le motif entier sur une ligne — `release/x →(fusée/flamme) master · develop`. */
+      subj.title = c.s
+      const from = document.createElement("span")
+      from.className = chip(tagFlowColor(c.cap.flow)) + " max-w-42"
+      from.appendChild(iconEl(c.cap.flow === "hotfix" ? Fire02Icon : RocketIcon, "shrink-0"))
+      from.appendChild(marq(c.cap.from))
+      from.title = c.cap.from
+      subj.append(from, iconEl(ArrowRight01Icon, "size-3.5 shrink-0 text-muted-foreground"))
+      c.cap.targets.forEach((t, k) => {
+        if (k) {
+          const sep = document.createElement("span")
+          sep.className = "shrink-0 text-muted-foreground/60"
+          sep.textContent = "·"
+          subj.appendChild(sep)
+        }
+        const tc = document.createElement("span")
+        tc.className = chip("neutral") + " max-w-42"
+        tc.appendChild(marq(t))
+        tc.title = t
+        subj.appendChild(tc)
+      })
+    } else if (mg) {
       if (mg.noise) row.classList.add("opacity-45")
       subj.title = c.s
       const from = document.createElement("span")
-      from.className =
-        chip(mg.tag ? "warning" : !mg.noise && mg.to && MAIN_TARGETS.test(mg.to) ? "primary" : "neutral") + " max-w-42"
+      from.className = chip(flow ? tagFlowColor(flow) : mergeColor(mg)) + " max-w-42"
+      if (flow) from.appendChild(iconEl(flow === "hotfix" ? Fire02Icon : RocketIcon, "shrink-0"))
       from.appendChild(marq(mg.from))
       from.title = mg.from
-      const arrow = iconEl(GitMergeIcon, "size-3.5 shrink-0 text-muted-foreground")
+      const arrow = iconEl(ArrowRight01Icon, "size-3.5 shrink-0 text-muted-foreground")
       const to = document.createElement("span")
       to.className = chip("neutral") + " max-w-42"
       to.appendChild(marq(mg.to || "HEAD"))
@@ -428,10 +487,11 @@ export function createGraph(
     if (exhausted) return
     if (!fetching) {
       const g = gen
-      fetching = api.log(DATA.length, PAGE).then((page) => {
+      fetching = api.log(rawLoaded, PAGE).then((page) => {
         if (g !== gen) return // reset entre-temps : page obsolète
-        DATA.push(...page)
-        if (page.length < PAGE || DATA.length >= TOTAL) exhausted = true
+        rawLoaded += page.length
+        DATA.push(...collapsePairs(page)) // fusionne les paires release/hotfix de la page
+        if (page.length < PAGE) exhausted = true
         fetching = null
       })
     }
@@ -631,6 +691,7 @@ export function createGraph(
     async reset() {
       gen++
       DATA = []
+      rawLoaded = 0
       fetching = null
       TOTAL = await api.total()
       exhausted = TOTAL === 0

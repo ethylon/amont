@@ -170,7 +170,7 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground tabular-nums;
     }
   html {
     @apply font-sans;
@@ -202,6 +202,12 @@
   /* Recherche en cours : les lignes hors résultat s'effacent, les autres se teintent. */
   [data-search] .gg-row[data-match="false"] { opacity: 0.32; }
   [data-search] .gg-row[data-match="true"] { background: color-mix(in oklab, var(--warning) 14%, transparent); }
+
+  /* Motif release/hotfix : fond teinté pour repérer l'atterrissage d'une version d'un coup d'œil.
+     Le survol et la sélection (utilities) le recouvrent — leur couche gagne. Le rail 2px, lui, est
+     posé hors @layer plus bas (sinon `border-l-transparent` de ROW_CLASS gagnerait). */
+  .gg-row[data-flow="release"] { background: color-mix(in oklab, var(--release) 8%, transparent); }
+  .gg-row[data-flow="hotfix"]  { background: color-mix(in oklab, var(--destructive) 9%, transparent); }
 
   @keyframes gg-flash {
     0%, 40% { background: color-mix(in oklab, var(--primary) 22%, transparent); }
@@ -284,6 +290,12 @@
   @keyframes gg-marq { from { transform: translateX(0); } to { transform: translateX(var(--marq, 0)); } }
   @media (prefers-reduced-motion: reduce) { .gg-scroll.gg-marqrun { animation: none; } }
 }
+
+/* Rail 2px du motif release/hotfix. Hors @layer, sinon la utility `border-l-transparent` de ROW_CLASS
+   primerait (une couche postérieure gagne sur la spécificité). `:not([data-selected])` laisse la
+   sélection poser son propre rail. La largeur (2px) vient de ROW_CLASS. */
+.gg-row[data-flow="release"]:not([data-selected="true"]) { border-left-color: var(--release); }
+.gg-row[data-flow="hotfix"]:not([data-selected="true"]) { border-left-color: var(--destructive); }
 
 /* --- diff2html / hljs : hors layer, obligatoirement ---
    Le CSS de diff2html est importé sans layer par diff-view.tsx ; une règle @layer
