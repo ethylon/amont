@@ -273,6 +273,13 @@
 
   @media (prefers-reduced-motion: reduce) {
     .gg-flash { animation: none; background: color-mix(in oklab, var(--primary) 18%, transparent); }
+
+    /* Changement d'onglet : on garde le fondu, on retire le glissement et le zoom (motion vestibulaire). */
+    ::view-transition-group(gg-tabbody) { animation: none; }
+    ::view-transition-old(gg-tabbody),
+    :root:active-view-transition-type(open)::view-transition-old(gg-tabbody) { animation-name: gg-tab-fade-out; }
+    ::view-transition-new(gg-tabbody),
+    :root:active-view-transition-type(open)::view-transition-new(gg-tabbody) { animation-name: gg-tab-fade-in; }
   }
 
   /* Chip trop long : au survol le texte défile au lieu de rester tronqué. `.gg-clip` borne et
@@ -289,6 +296,10 @@
   }
   @keyframes gg-marq { from { transform: translateX(0); } to { transform: translateX(var(--marq, 0)); } }
   @media (prefers-reduced-motion: reduce) { .gg-scroll.gg-marqrun { animation: none; } }
+
+  /* Palette de commandes : ouverte au clavier (Ctrl+K), une action clavier n'anime pas de
+     déplacement. On neutralise le zoom (aucune origine d'où grandir) et on garde le seul fondu. */
+  [data-slot="dialog-content"]:has([data-slot="command"]) { --tw-enter-scale: 1; --tw-exit-scale: 1; }
 }
 
 /* Rail 2px du motif release/hotfix. Hors @layer, sinon la utility `border-l-transparent` de ROW_CLASS
@@ -296,6 +307,15 @@
    sélection poser son propre rail. La largeur (2px) vient de ROW_CLASS. */
 .gg-row[data-flow="release"]:not([data-selected="true"]) { border-left-color: var(--release); }
 .gg-row[data-flow="hotfix"]:not([data-selected="true"]) { border-left-color: var(--destructive); }
+
+/* Contour d'une ref focalisée (et de la branche courante). Hors @layer pour la même raison que le
+   rail ci-dessus : la utility `border-transparent` de la ligne primerait sinon. `data-run` est posé
+   par la passe DOM du sidebar ; des refs allumées contiguës se joignent en un seul cadre (bords
+   intérieurs effacés, seuls les coins extrêmes arrondis). */
+.gg-refrow[data-run] { border-color: var(--primary); }
+.gg-refrow[data-run="start"] { border-bottom-color: transparent; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.gg-refrow[data-run="mid"]   { border-top-color: transparent; border-bottom-color: transparent; border-radius: 0; }
+.gg-refrow[data-run="end"]   { border-top-color: transparent; border-top-left-radius: 0; border-top-right-radius: 0; }
 
 /* --- diff2html / hljs : hors layer, obligatoirement ---
    Le CSS de diff2html est importé sans layer par diff-view.tsx ; une règle @layer

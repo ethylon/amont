@@ -592,7 +592,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
   const r = use(id);
   const out = await git(r.path, [
     'for-each-ref', '--sort=refname',
-    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)\x1f%(symref:short)\x1f%(upstream:short)\x1f%(objectname)',
+    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)\x1f%(symref:short)\x1f%(upstream:short)\x1f%(objectname)\x1f%(*objectname)',
     'refs/heads', 'refs/remotes', 'refs/tags',
   ]);
 
@@ -600,7 +600,9 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
      de fusion. Plusieurs distantes ? la première dans l'ordre alphabétique tranche. */
   let base = '';
   const refs = out.split('\n').filter(Boolean).flatMap(line => {
-    const [refname, head, track = '', symref = '', upstream = '', tip = ''] = line.split('\x1f');
+    const [refname, head, track = '', symref = '', upstream = '', oid = '', peeled = ''] = line.split('\x1f');
+    /* `%(*objectname)` pèle un tag annoté vers son commit ; vide pour une branche ou un tag léger */
+    const tip = peeled || oid;
     const kind = REF_KINDS.find(([prefix]) => refname.startsWith(prefix));
     if (!kind) return [];
     const name = refname.slice(kind[0].length);
@@ -646,7 +648,8 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
         !trunk.has(ref.tip) &&
         merged.has(ref.name);
   }
-  for (const ref of refs) delete ref.tip;
+  /* le graphe indexe les commits par hash court : `merged` s'est servi du SHA complet, on rabote */
+  for (const ref of refs) ref.tip = ref.tip.slice(0, 8);
 
   /* Une branche suivie annonce `gone` d'elle-même. Sans upstream — poussée sans `-u`, ou config
      jamais posée — la suppression distante emporte jusqu'au reflog de `refs/remotes/…` : ne
