@@ -86,6 +86,11 @@
     op: async () => {},
     onOp: () => {},
     onChanged: () => {},
+    onTrace: () => {},
+    search: async () => [],
+    flow: async () => null,
+    branch: async () => {},
+    checkout: async () => {},
     worktree: async () => structuredClone(wt),
     wtdiff: async (_id, p) => `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`,
     stage: async (_id, paths) => {
