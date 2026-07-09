@@ -153,7 +153,7 @@ export const nodesSvg = (list: GraphNode[]) =>
     })
     .join("")
 
-/** Segment de branche : chaîne first-parent vers le bas, remontée tant que l'enfant first-parent est unique. */
+/** Segment de branche : chaîne first-parent vers le bas, remontée le long du tronc vers le tip. */
 export function branchChain(S: LayoutState, data: Commit[], i: number) {
   const rows = [i]
   let r = i
@@ -166,8 +166,13 @@ export function branchChain(S: LayoutState, data: Commit[], i: number) {
   r = i
   for (;;) {
     const kids = S.fpChildren.get(data[r].h)
-    if (!kids || kids.length !== 1) break
-    r = kids[0]
+    if (!kids || !kids.length) break
+    /* Fork (une release, un hotfix branchés ici) : plusieurs enfants ont ce commit pour first-parent.
+       Le tronc est celui qui garde le couloir — même lane. Sans ça la remontée s'arrête au fork, et
+       un commit sans ref y perd le nom de sa branche (ex. un WIP juste sous un « Merge tag … into develop »). */
+    const up = kids.length === 1 ? kids[0] : kids.find((k) => S.laneOf[k] === S.laneOf[r])
+    if (up === undefined) break
+    r = up
     rows.unshift(r)
   }
   return rows
