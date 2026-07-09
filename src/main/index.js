@@ -536,12 +536,14 @@ ipcMain.handle('repo:log', (_ev, id, skip, count) => {
 /* Refs telles que git les voit. `origin/HEAD` est un alias d'affichage : il ferait doublon
    avec la branche par défaut de la distante. */
 const REF_KINDS = [['refs/heads/', 'head'], ['refs/remotes/', 'remote'], ['refs/tags/', 'tag']];
+/* Branches d'intégration : jamais signalées « fusionnées », on ne les nettoie pas. */
+const TRUNK = new Set(['main', 'master', 'develop']);
 
 ipcMain.handle('repo:refs', async (_ev, id) => {
   const r = use(id);
   const out = await git(r.path, [
     'for-each-ref', '--sort=refname',
-    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)\x1f%(symref:short)\x1f%(upstream:short)',
+    '--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)\x1f%(symref:short)\x1f%(upstream:short)\x1f%(objectname)',
     'refs/heads', 'refs/remotes', 'refs/tags',
   ]);
 
@@ -549,7 +551,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
      de fusion. Plusieurs distantes ? la première dans l'ordre alphabétique tranche. */
   let base = '';
   const refs = out.split('\n').filter(Boolean).flatMap(line => {
-    const [refname, head, track = '', symref = '', upstream = ''] = line.split('\x1f');
+    const [refname, head, track = '', symref = '', upstream = '', tip = ''] = line.split('\x1f');
     const kind = REF_KINDS.find(([prefix]) => refname.startsWith(prefix));
     if (!kind) return [];
     const name = refname.slice(kind[0].length);
@@ -568,6 +570,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
       behind: behind ? +behind[1] : 0,
       merged: false,
       gone: track === 'gone',
+      tip,
     }];
   });
 
@@ -580,8 +583,21 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
     const mainline = base.slice(base.indexOf('/') + 1);
     const out = await git(r.path, ['for-each-ref', '--merged', base, '--format=%(refname:short)', 'refs/heads']);
     const merged = new Set(out.split('\n').filter(Boolean));
-    for (const ref of refs) ref.merged = ref.kind === 'head' && ref.name !== mainline && merged.has(ref.name);
+    /* `--merged` inclut tout ancêtre de la base : un tronc (master fusionné dans main) et une
+       branche fraîche y figurent sans rien avoir « fini ». On ne signale que ce qui se nettoie.
+       Une branche fraîche est posée sur le tip d'un tronc (souvent en retard sur `origin`, donc
+       ≠ base) : on écarte tout ce qui pointe encore sur un tronc, pas seulement sur la base. */
+    const anchors = new Set(refs.filter(x => x.kind === 'head' && TRUNK.has(x.name)).map(x => x.tip));
+    anchors.add(refs.find(x => x.name === base)?.tip);
+    for (const ref of refs)
+      ref.merged =
+        ref.kind === 'head' &&
+        ref.name !== mainline &&
+        !TRUNK.has(ref.name) &&
+        !anchors.has(ref.tip) &&
+        merged.has(ref.name);
   }
+  for (const ref of refs) delete ref.tip;
 
   /* Une branche suivie annonce `gone` d'elle-même. Sans upstream — poussée sans `-u`, ou config
      jamais posée — la suppression distante emporte jusqu'au reflog de `refs/remotes/…` : ne
