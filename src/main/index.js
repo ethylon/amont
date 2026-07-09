@@ -632,18 +632,18 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
     const mainline = base.slice(base.indexOf('/') + 1);
     const out = await git(r.path, ['for-each-ref', '--merged', base, '--format=%(refname:short)', 'refs/heads']);
     const merged = new Set(out.split('\n').filter(Boolean));
-    /* `--merged` inclut tout ancêtre de la base : un tronc (master fusionné dans main) et une
-       branche fraîche y figurent sans rien avoir « fini ». On ne signale que ce qui se nettoie.
-       Une branche fraîche est posée sur le tip d'un tronc (souvent en retard sur `origin`, donc
-       ≠ base) : on écarte tout ce qui pointe encore sur un tronc, pas seulement sur la base. */
-    const anchors = new Set(refs.filter(x => x.kind === 'head' && TRUNK.has(x.name)).map(x => x.tip));
-    anchors.add(refs.find(x => x.name === base)?.tip);
+    /* `--merged` inclut tout ancêtre de la base : une branche fraîche ou en retard, posée sur un
+       commit du tronc, y figure sans rien avoir « fini ». Son tip est alors sur la chaîne
+       first-parent de la base — un simple signet dans l'historique. Seule une branche dont le tip
+       quitte le tronc (côté second parent d'un merge) a réellement été fusionnée : on écarte tout
+       ce qui pointe sur le tronc, tip courant comme commit ancien. */
+    const trunk = new Set((await git(r.path, ['rev-list', '--first-parent', base])).split('\n').filter(Boolean));
     for (const ref of refs)
       ref.merged =
         ref.kind === 'head' &&
         ref.name !== mainline &&
         !TRUNK.has(ref.name) &&
-        !anchors.has(ref.tip) &&
+        !trunk.has(ref.tip) &&
         merged.has(ref.name);
   }
   for (const ref of refs) delete ref.tip;
