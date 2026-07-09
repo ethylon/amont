@@ -41,7 +41,7 @@ export const typeColor = (type: string): BadgeColor => TYPE_COLOR[type] ?? "neut
 
 /* Sauvegardes automatiques d'un outil tiers : présentes dans l'historique, jamais une intention.
    Elles restent lisibles, mais cessent de disputer l'attention au reste de la colonne. */
-export const BACKUP_WIP = /^\s*\[BACKUP\]\s*WIP\b/i
+export const BACKUP_WIP = /^\s*\[(?:AUTO-)?BACKUP\]\s*WIP\b/i
 
 export type ParsedSubject = { type: string | null; label: string | null; text: string }
 
@@ -217,6 +217,35 @@ export function mergeSource(s: string): string | null {
 }
 
 export const MAIN_TARGETS = /^(develop|master|main|release\/.+)$/
+
+/* Une release/hotfix gitflow atterrit sur master ET develop, avec un tag de version. Le motif se
+   reconnaît à la source du merge : préfixe `release/`|`hotfix/`, ou — côté develop du « merge tag
+   into develop » — au tag semver lui-même. Un tag semver seul ne distingue pas release de hotfix :
+   on retombe sur release, le rouge du hotfix venant de ses merges `hotfix/`. */
+export type FlowKind = "release" | "hotfix"
+export const SEMVER = /^v?\d+\.\d+\.\d+/
+const RELEASE_BRANCH = /^release\//
+const HOTFIX_BRANCH = /^hotfix\//
+const FLOW_COLOR: Record<FlowKind, BadgeColor> = { release: "release", hotfix: "danger" }
+
+export function mergeFlow(mg: ParsedMerge): FlowKind | null {
+  if (HOTFIX_BRANCH.test(mg.from)) return "hotfix"
+  if (RELEASE_BRANCH.test(mg.from)) return "release"
+  if (mg.tag && SEMVER.test(mg.from)) return "release"
+  return null
+}
+
+/* Teinte du chip source d'un merge. Le motif release/hotfix prime ; sinon un tag reste ambre, et
+   un merge vers un tronc garde son teal. */
+export function mergeColor(mg: ParsedMerge): BadgeColor {
+  const flow = mergeFlow(mg)
+  if (flow) return FLOW_COLOR[flow]
+  if (mg.tag) return "warning"
+  return !mg.noise && mg.to && MAIN_TARGETS.test(mg.to) ? "primary" : "neutral"
+}
+
+/** Teinte d'un tag semver posé sur une ligne : rouge si la ligne est un hotfix, violet sinon. */
+export const tagFlowColor = (flow: FlowKind | null): BadgeColor => (flow === "hotfix" ? "danger" : "release")
 
 /* Statuts `git diff --name-status`. Un statut à deux lettres est un conflit (UU, AA, DD…).
    R et C n'ont plus de teinte propre : ce sont des déplacements, pas des changements de contenu. */
