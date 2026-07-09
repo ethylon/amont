@@ -12,6 +12,7 @@ import { CommitGraph } from "@/components/commit-graph"
 import { CommitSearch } from "@/components/commit-search"
 import { DetailPanel, type SelMode } from "@/components/detail-panel"
 import { DiffView, type DiffCtx, type DiffView as DiffMode } from "@/components/diff-view"
+import { GitConsole } from "@/components/git-console"
 import type { GraphHandle, Stats } from "@/components/graph-canvas"
 import { RefsSidebar } from "@/components/refs-sidebar"
 import { StatusBar, type OpState } from "@/components/status-bar"
@@ -396,7 +397,13 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
         </main>
       </div>
 
-      <StatusBar branch={status?.branch ?? null} opState={opState} hoverInfo={hoverInfo} stats={stats} />
+      <StatusBar
+        branch={status?.branch ?? null}
+        opState={opState}
+        hoverInfo={hoverInfo}
+        stats={stats}
+        console={<GitConsole repoId={repo.id} />}
+      />
 
       {active && (
         <CommandPalette
