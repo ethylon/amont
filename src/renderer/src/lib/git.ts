@@ -66,6 +66,9 @@ export type BranchAct = "merge" | "delete" | "pull" | "push" | "finish"
 
 export type WtSource = "staged" | "unstaged" | "untracked"
 
+/** Sujet (première ligne) et description (corps) d'un message de commit, tels que saisis. */
+export type CommitMessage = { subject: string; body: string }
+
 export type Worktree = Record<"staged" | "unstaged" | "untracked" | "conflicts", FileChange[]>
 
 export type OpName = "fetch" | "pull" | "push"
@@ -117,7 +120,8 @@ type Bridge = {
   wtdiff(id: number, path: string, source: WtSource): Promise<string>
   stage(id: number, paths: string[]): Promise<void>
   unstage(id: number, paths: string[]): Promise<void>
-  commit(id: number, message: string): Promise<void>
+  commit(id: number, message: string, amend: boolean): Promise<void>
+  headMessage(id: number): Promise<CommitMessage>
   checkout(id: number, name: string): Promise<void>
   fileIcon(id: number, path: string): Promise<string | null>
   openFile(id: number, path: string): Promise<string>
@@ -181,7 +185,10 @@ export type RepoApi = {
   wtdiff(path: string, source: WtSource): Promise<string>
   stage(paths: string[]): Promise<void>
   unstage(paths: string[]): Promise<void>
-  commit(message: string): Promise<void>
+  /** `amend` réécrit le dernier commit (message, et arbre indexé s'il y en a) au lieu d'en créer un */
+  commit(message: string, amend: boolean): Promise<void>
+  /** sujet et corps du dernier commit, pour préremplir un amend */
+  headMessage(): Promise<CommitMessage>
   /** bascule sur une branche locale ; l'arbre sale est stashé puis réappliqué */
   checkout(name: string): Promise<void>
   /** icône Windows du fichier, `null` s'il n'existe pas sur le disque */
@@ -205,7 +212,8 @@ export const repoApi = (id: number): RepoApi => ({
   wtdiff: (path, source) => bridge.wtdiff(id, path, source),
   stage: (paths) => bridge.stage(id, paths),
   unstage: (paths) => bridge.unstage(id, paths),
-  commit: (message) => bridge.commit(id, message),
+  commit: (message, amend) => bridge.commit(id, message, amend),
+  headMessage: () => bridge.headMessage(id),
   checkout: (name) => bridge.checkout(id, name),
   fileIcon: (path) => bridge.fileIcon(id, path),
   openFile: (path) => bridge.openFile(id, path),
