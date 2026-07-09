@@ -43,6 +43,7 @@ const DOT: Partial<Record<BadgeColor, string>> = {
   success: "bg-success",
   warning: "bg-warning",
   danger: "bg-destructive",
+  release: "bg-release",
 }
 
 /** Les branches d'intégration passent devant, dans cet ordre. */
@@ -200,7 +201,9 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
   )
 }
 
-function Tree({ node, icon, ctx }: { node: Node; icon: IconSvgElement; ctx: Ctx }) {
+/* `openDirs` : ouvre les dossiers de ce seul niveau (la récursion repasse à false). Sert aux
+   distantes, où le remote (`origin`) resterait sinon replié faute de HEAD à l'intérieur. */
+function Tree({ node, icon, ctx, openDirs = false }: { node: Node; icon: IconSvgElement; ctx: Ctx; openDirs?: boolean }) {
   const dirs = [...node.dirs.keys()].sort((a, b) => a.localeCompare(b))
   const leaves = [...node.leaves].sort(
     (a, b) => pinRank(a.label) - pinRank(b.label) || a.label.localeCompare(b.label)
@@ -219,7 +222,7 @@ function Tree({ node, icon, ctx }: { node: Node; icon: IconSvgElement; ctx: Ctx 
         const dot = DOT[typeColor(k.toLowerCase())]
         return (
           <li key={k}>
-            <Collapsible defaultOpen={holdsHead(child)}>
+            <Collapsible defaultOpen={openDirs || holdsHead(child)}>
               <CollapsibleTrigger className="group/dir flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
                 <HugeiconsIcon
                   icon={ArrowRight01Icon}
@@ -318,7 +321,7 @@ export function RefsSidebar({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="mt-0.5">
-                      <Tree node={buildTree(refs)} icon={g.icon} ctx={ctx} />
+                      <Tree node={buildTree(refs)} icon={g.icon} ctx={ctx} openDirs={g.kind === "remote"} />
                     </div>
                   </CollapsibleContent>
                 </Collapsible>

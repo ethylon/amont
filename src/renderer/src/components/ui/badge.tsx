@@ -21,6 +21,7 @@ const badgeVariants = cva(
         neutral: "[--badge-color:var(--muted-foreground)] [--badge-fg:var(--muted-foreground)]",
         success: "[--badge-color:var(--success)] [--badge-fg:var(--success)]",
         warning: "[--badge-color:var(--warning)] [--badge-fg:var(--warning)]",
+        release: "[--badge-color:var(--release)] [--badge-fg:var(--release)]",
         danger: "[--badge-color:var(--destructive)] [--badge-fg:var(--destructive)]",
         /* Le seul axe où la teinte n'a pas de nom : le porteur — ou n'importe lequel de ses
            ancêtres, --badge-color hérite — la pose. Les lanes du graphe sont assez lisibles
