@@ -7,6 +7,7 @@ const IMG = "img-src 'self' data: https://*.gravatar.com https://avatars.githubu
 const PROD = `default-src 'self'; ${IMG}; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'`;
 const DEV = `default-src 'self'; ${IMG}; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'`;
 
+/** @returns {import('vite').Plugin} */
 export const csp = () => ({
   name: 'gg-csp',
   transformIndexHtml: {

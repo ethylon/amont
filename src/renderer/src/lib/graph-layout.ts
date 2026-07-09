@@ -1,5 +1,7 @@
 import type { Commit } from "@/lib/git"
-import { mergeFlow, parseMerge, parseRefs, SEMVER, type FlowKind, type ParsedMerge } from "@/lib/commit-message"
+/* relatif avec extension, pas l'alias `@/` : scripts/check-graph.ts importe ce module sous
+   Node (type stripping), qui ne connaît ni l'alias ni la résolution sans extension */
+import { mergeFlow, parseMerge, parseRefs, SEMVER, type FlowKind, type ParsedMerge } from "./commit-message.ts"
 
 export const ROW = 28
 export const LANE = 14
