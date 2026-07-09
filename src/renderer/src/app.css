@@ -196,14 +196,12 @@
 /* Le strict nécessaire que les utilities n'expriment pas : une gouttière calculée au
    runtime, l'estompage du graphe au survol, et le flash d'un commit ciblé. */
 @layer components {
-  .gg-row, .gg-wtrow { padding-left: calc(var(--graphw, 0px) + 12px); }
+  /* La colonne branche tient à gauche du métro, l'arbre de travail garde son décalage total. */
+  .gg-wtrow { padding-left: calc(var(--gg-branch, 0px) + var(--graphw, 0px) + 12px); }
 
   /* Recherche en cours : les lignes hors résultat s'effacent, les autres se teintent. */
   [data-search] .gg-row[data-match="false"] { opacity: 0.32; }
   [data-search] .gg-row[data-match="true"] { background: color-mix(in oklab, var(--warning) 14%, transparent); }
-
-  .gg-graph > g { transition: opacity 0.12s ease; }
-  .gg-graph.dim > g:not(.gg-hl) { opacity: 0.16; }
 
   @keyframes gg-flash {
     0%, 40% { background: color-mix(in oklab, var(--primary) 22%, transparent); }
@@ -268,7 +266,6 @@
   @keyframes gg-tab-zoom-out { to   { transform: scale(1.02); } }
 
   @media (prefers-reduced-motion: reduce) {
-    .gg-graph > g { transition: none; }
     .gg-flash { animation: none; background: color-mix(in oklab, var(--primary) 18%, transparent); }
   }
 

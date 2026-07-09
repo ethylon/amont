@@ -205,6 +205,17 @@ export function parseMerge(s: string): ParsedMerge | null {
   return null
 }
 
+/* Nom de la branche source d'un merge, tous formats : gitflow/tag (via parseMerge) et PR GitHub
+   « Merge pull request #N from owner/branche ». Sert à nommer une branche mergée puis supprimée,
+   dont il ne reste plus aucune ref locale. Le préfixe owner/ (fork ou dépôt) est retiré. */
+export function mergeSource(s: string): string | null {
+  const m = parseMerge(s)
+  if (m) return m.from
+  const pr = /^Merge pull request #\d+ from (\S+)/.exec(s)
+  if (pr) return pr[1].includes("/") ? pr[1].slice(pr[1].indexOf("/") + 1) : pr[1]
+  return null
+}
+
 export const MAIN_TARGETS = /^(develop|master|main|release\/.+)$/
 
 /* Statuts `git diff --name-status`. Un statut à deux lettres est un conflit (UU, AA, DD…).
