@@ -241,9 +241,10 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
 
   /* Sujet et corps sont séparés par une ligne vide : c'est ce qui les distingue pour git. */
   const doCommit = useCallback(async () => {
+    const subj = subject.trim()
     const body = description.trim()
     try {
-      await api.commit(body ? `${subject.trim()}\n\n${body}` : subject, amend)
+      await api.commit(body ? `${subj}\n\n${body}` : subj, amend)
     } catch (e) {
       return showOp((e as Error).message, "danger")
     }

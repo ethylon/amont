@@ -149,6 +149,7 @@ export function createGraph(
   let exhausted = false
   let fetching: Promise<void> | null = null
   let gen = 0 // invalide les fetchs en vol après un reset
+  let destroyed = false // un reset en vol pendant destroy() (double montage StrictMode) ne doit plus toucher le DOM
   let S: LayoutState = createState(1)
   let selection = new Set<number>()
   let matches: Set<string> | null = null
@@ -485,22 +486,39 @@ export function createGraph(
     cb.onStats({ loaded: S.next, total: TOTAL, ms: S.ms })
   }
 
+  /* Ne rejette jamais : un `git log` qui échoue (timeout, verrou de gc) laisse DATA en l'état
+     et libère `fetching` pour que le prochain déclencheur retente — sinon la promesse rejetée
+     resterait en place et la pagination serait morte jusqu'au reset. Les boucles d'appel
+     détectent l'absence de progrès et abandonnent leur tour plutôt que de marteler git. */
   async function fetchMore() {
     if (exhausted) return
     if (!fetching) {
       const g = gen
-      fetching = api.log(rawLoaded, PAGE).then((page) => {
-        if (g !== gen) return // reset entre-temps : page obsolète
-        rawLoaded += page.length
-        DATA.push(...collapsePairs(page)) // fusionne les paires release/hotfix de la page
-        if (page.length < PAGE) exhausted = true
-        fetching = null
-      })
+      fetching = api.log(rawLoaded, PAGE).then(
+        (page) => {
+          if (g !== gen) return // reset entre-temps : page obsolète
+          rawLoaded += page.length
+          DATA.push(...collapsePairs(page)) // fusionne les paires release/hotfix de la page
+          if (page.length < PAGE) exhausted = true
+          fetching = null
+        },
+        () => {
+          if (g === gen) fetching = null
+        }
+      )
     }
     return fetching
   }
 
+  /** await fetchMore() avec détection de panne : `false` si rien n'est arrivé (échec de la page) */
+  async function fetchProgress() {
+    const before = DATA.length
+    await fetchMore()
+    return exhausted || DATA.length > before
+  }
+
   function sync() {
+    if (destroyed) return // l'overlay n'est plus dans le SVG : insertBefore échouerait
     const c0 = Math.max(0, Math.floor(board.scrollTop / (CHUNK * ROW)) - 1)
     const c1 = Math.min(NCHUNKS - 1, Math.floor((board.scrollTop + board.clientHeight) / (CHUNK * ROW)) + 1)
     const need = (c1 + 1) * CHUNK
@@ -508,7 +526,14 @@ export function createGraph(
       while (S.next < Math.min(need, DATA.length)) layoutChunk(S, DATA)
       refresh()
     }
-    if (need > DATA.length && !exhausted) fetchMore()!.then(sync)
+    /* on ne rechaîne sync() que si des données sont arrivées : en cas d'échec, pas de boucle
+       de retentative — le prochain scroll suffira à relancer */
+    if (need > DATA.length && !exhausted) {
+      const before = DATA.length
+      fetchMore()!.then(() => {
+        if (DATA.length > before || exhausted) sync()
+      })
+    }
     mountedG.forEach((g, ci) => {
       if (ci < c0 || ci > c1) {
         g.remove()
@@ -691,11 +716,12 @@ export function createGraph(
 
   return {
     async reset() {
-      gen++
+      const g = ++gen
       DATA = []
       rawLoaded = 0
       fetching = null
       TOTAL = await api.total()
+      if (g !== gen || destroyed) return // destroy() ou reset concurrent pendant l'attente
       exhausted = TOTAL === 0
       NCHUNKS = Math.max(1, Math.ceil(TOTAL / CHUNK))
       S = createState(NCHUNKS)
@@ -705,6 +731,7 @@ export function createGraph(
       clearHover()
       closeMore()
       await fetchMore()
+      if (g !== gen || destroyed) return
       layoutChunk(S, DATA)
       refresh()
       sync()
@@ -713,7 +740,7 @@ export function createGraph(
     async jumpTo(hash: string) {
       while (!S.rowOf.has(hash) && (S.next < DATA.length || !exhausted)) {
         if (S.next < DATA.length) layoutChunk(S, DATA)
-        else await fetchMore()
+        else if (!(await fetchProgress())) return // page en échec : on renonce au saut
       }
       const row = S.rowOf.get(hash)
       if (row === undefined) return
@@ -725,7 +752,7 @@ export function createGraph(
       for (const h of hashes) {
         while (!S.rowOf.has(h) && (S.next < DATA.length || !exhausted)) {
           if (S.next < DATA.length) layoutChunk(S, DATA)
-          else await fetchMore()
+          else if (!(await fetchProgress())) return rows // page en échec : résultat partiel
         }
         const r = S.rowOf.get(h)
         if (r !== undefined) rows.push(r)
@@ -749,7 +776,7 @@ export function createGraph(
       if (!matches?.size) return null
       const g = gen
       for (let i = from + dir; i >= 0; i += dir) {
-        while (i >= DATA.length && !exhausted) await fetchMore()
+        while (i >= DATA.length && !exhausted) if (!(await fetchProgress())) return null
         if (g !== gen || i >= DATA.length) return null
         if (!matches.has(DATA[i].h)) continue
         while (S.next <= i) layoutChunk(S, DATA)
@@ -771,6 +798,7 @@ export function createGraph(
     },
 
     destroy() {
+      destroyed = true
       gen++
       clearTimeout(moreTimer)
       board.removeEventListener("scroll", onScroll)
