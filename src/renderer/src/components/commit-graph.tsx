@@ -31,6 +31,7 @@ export function CommitGraph({ graphRef, api, callbacks, onReady }: Props) {
       onHover: (i) => cb.current.onHover(i),
       onStats: (s) => cb.current.onStats(s),
       onGraphWidth: (px) => cb.current.onGraphWidth(px),
+      onBranchWidth: (px) => cb.current.onBranchWidth(px),
     })
     graphRef.current = graph
     ready.current(graph)
@@ -43,7 +44,13 @@ export function CommitGraph({ graphRef, api, callbacks, onReady }: Props) {
   return (
     <div ref={board} className="relative overflow-auto">
       <div ref={inner} className="relative">
-        <svg ref={svg} className="gg-graph pointer-events-none absolute top-0 left-0 z-1" xmlns="http://www.w3.org/2000/svg" />
+        {/* décalé de la colonne branche : le métro commence après elle */}
+        <svg
+          ref={svg}
+          className="gg-graph pointer-events-none absolute top-0 z-1"
+          style={{ left: "var(--gg-branch, 0px)" }}
+          xmlns="http://www.w3.org/2000/svg"
+        />
       </div>
     </div>
   )
