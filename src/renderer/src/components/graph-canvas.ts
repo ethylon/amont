@@ -1,11 +1,11 @@
-import { CloudIcon } from "@hugeicons/core-free-icons"
+import { CloudIcon, GitMergeIcon } from "@hugeicons/core-free-icons"
 
 import { type Commit, type RepoApi } from "@/lib/git"
 import { avatarUrl, initials, tint } from "@/lib/avatar"
 import { iconEl } from "@/lib/utils"
 import { badgeSeparator, badgeVariants } from "@/components/ui/badge"
 import {
-  BACKUP_WIP, MAIN_TARGETS, parseMerge, parseRefs, parseSubject, refColor, typeColor,
+  BACKUP_WIP, MAIN_TARGETS, mergeSource, parseMerge, parseRefs, parseSubject, refColor, typeColor,
   type BadgeColor, type RefChip,
 } from "@/lib/commit-message"
 import {
@@ -20,23 +20,23 @@ import {
 
 const SVG_NS = "http://www.w3.org/2000/svg"
 
-/* Les tags ont leur colonne, à droite du sujet : leur nombre ne déplace plus le texte du commit.
-   Type et tags sont dimensionnés sur le contenu chargé (cf. `measureCols`) et tombent à 0 quand
-   le dépôt n'en a aucun. Leur gouttière est du vide en fin de piste, pas un `gap` ni un padding :
-   l'un survivrait à une piste nulle, l'autre lui imposerait un plancher (`box-sizing: border-box`).
-   Les colonnes qui ne s'effacent jamais, elles, portent la leur en `pe-2.5`. */
+/* La colonne branche est à gauche du métro : elle fusionne les anciens chips de branche (qui
+   précédaient le sujet) et la colonne des tags. Priorité au nom de branche ; les branches en trop
+   et les tags tombent derrière un "+N". Elle et la colonne type se dimensionnent sur le contenu
+   chargé (cf. `measureCols`) et tombent à 0 quand le dépôt n'a rien à y mettre. La colonne graphe
+   est un espaceur réservant `--graphw` sous le SVG, décalé de la largeur de la colonne branche. */
 const ROW_CLASS =
-  "gg-row grid h-7 cursor-pointer grid-cols-[var(--gg-type,0px)_1fr_var(--gg-tag,0px)_130px_84px_68px] " +
+  "gg-row grid h-7 cursor-pointer " +
+  "grid-cols-[var(--gg-branch,0px)_calc(var(--graphw,0px)+12px)_var(--gg-type,0px)_1fr_130px_84px_68px] " +
   "items-center border-l-2 border-l-transparent pr-4.5 text-xs hover:bg-muted/60 " +
   "data-selected:border-l-primary data-selected:bg-primary/20 data-selected:hover:bg-primary/25"
 
 /** gouttière d'une colonne, `pe-2.5` ou vide de fin de piste */
 const GAP = 10
-/** `gap-1.5` entre le dernier tag et son "+N" */
-const CHIP_GAP = 6
 const TYPE_MAX = "max-w-28"
-const TAG_MAX = "max-w-30"
-/** pl du graphe + sujet (min) + auteur + date + hash + pr-4.5, gouttières comprises */
+/** plafond du nom de branche : 96px, au-delà il défile au survol */
+const BRANCH_MAX = "max-w-24"
+/** graphe(12) + sujet (min) + auteur + date + hash + pr-4.5, gouttières comprises */
 const FIXED_W = 12 + 320 + 130 + 84 + 68 + 18
 
 const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
@@ -51,6 +51,17 @@ function marq(text: string) {
   inner.textContent = text
   clip.appendChild(inner)
   return clip
+}
+
+/* Chip fantôme du survol : le nom de la branche à laquelle appartient le commit survolé, posé dans
+   la colonne branche quand elle est vide. Contour pointillé, estompé — un rappel, pas une ref réelle. */
+function ghostChip(name: string, color: string) {
+  const el = document.createElement("span")
+  el.className =
+    badgeVariants({ color: "lane", shape: "squared", variant: "outline" }) + " border-dashed opacity-70 " + BRANCH_MAX
+  el.style.setProperty("--badge-color", color)
+  el.appendChild(marq(name))
+  return el
 }
 
 /* Jumeau impératif de `<Avatar>` : l'image recouvre le monogramme, un 404 la retire.
@@ -81,10 +92,10 @@ function avatarEl(name: string, email: string) {
    Le repli est décidé par le seul débordement, jamais par le contenu du chip : replier une ref
    isolée ne gagnerait pas un pixel, et un "+N" sans chip devant n'annonce rien. Ces seuils
    garantissent les deux — `slice(0, n>0)` d'une liste non vide ne l'est pas non plus. */
-const HEAD_BUDGET = 2
-/* ponytail: budget fixe à 1 — la colonne fait la largeur du tag le plus long, deux tags courts
-   y tiendraient donc, mais le savoir demanderait de mesurer chaque ligne. Compter, pas mesurer. */
-const TAG_BUDGET = 1
+/* ponytail: budget fixe à 1 — la colonne fait la largeur d'un chip, en afficher deux demanderait
+   de mesurer chaque ligne. Compter, pas mesurer. Les refs sont triées branche → tag (cf. parseRefs),
+   donc `slice(0, 1)` garde bien le nom de branche prioritaire. */
+const BRANCH_BUDGET = 1
 
 /** Surface flottante du projet (cf. `dialog`, `command`). */
 const MORE_CLASS =
@@ -99,6 +110,7 @@ export type GraphCallbacks = {
   onHover(info: string | null): void
   onStats(stats: Stats): void
   onGraphWidth(px: number): void
+  onBranchWidth(px: number): void
 }
 
 export type GraphHandle = {
@@ -135,12 +147,11 @@ export function createGraph(
   let S: LayoutState = createState(1)
   let selection = new Set<number>()
   let matches: Set<string> | null = null
-  let hoverChain: Set<number> | null = null
+  let hovered: number | null = null
+  let ghostEl: HTMLElement | null = null
 
   const overlay = document.createElementNS(SVG_NS, "g") // long + dangling, toujours monté
-  const hlG = document.createElementNS(SVG_NS, "g")
-  hlG.setAttribute("class", "gg-hl")
-  svg.append(overlay, hlG)
+  svg.append(overlay)
 
   /* Déplier une ligne coûterait sa hauteur : `Y(r) = r * ROW + ROW/2` place tous les nœuds et
      toutes les arêtes du SVG, et `ROW` sert aussi de pas au mapping scroll → chunk. Le panneau
@@ -161,12 +172,20 @@ export function createGraph(
     more.classList.replace("flex", "hidden")
   }
 
+  /* Ouverture au survol : la fermeture est différée pour franchir le vide de 4px entre le bouton
+     et le panneau — le survol du panneau, arrivé dans l'intervalle, annule la fermeture. */
+  let moreTimer = 0
+  const cancelClose = () => clearTimeout(moreTimer)
+  const scheduleClose = () => {
+    clearTimeout(moreTimer)
+    moreTimer = window.setTimeout(closeMore, 120)
+  }
+
   function openMore(btn: HTMLElement) {
     closeMore()
     const row = btn.closest<HTMLElement>(".gg-row")!
     const c = DATA[Number(row.dataset.i)]
-    const tags = btn.dataset.tags === "true"
-    const refs = parseRefs(c.r).filter((r) => (r.kind === "tag") === tags)
+    const refs = parseRefs(c.r).slice(Number(btn.dataset.n))
     more.replaceChildren(...refs.map((r) => refChip(r, "max-w-full")))
     /* le panneau flotte sous `inner`, pas sous la ligne : la teinte de lane ne peut pas hériter */
     more.style.setProperty("--badge-color", row.style.getPropertyValue("--badge-color"))
@@ -205,14 +224,14 @@ export function createGraph(
   }
 
   /** Les refs d'un groupe, tronquées à `budget`, le reste derrière un "+N" qui les déplie toutes. */
-  function refGroup(refs: RefChip[], budget: number, tags: boolean, maxw: string, parent: HTMLElement) {
+  function refGroup(refs: RefChip[], budget: number, maxw: string, parent: HTMLElement) {
     for (const r of refs.slice(0, budget)) parent.appendChild(refChip(r, maxw))
     const hidden = refs.slice(budget)
     if (!hidden.length) return
     const btn = document.createElement("button")
     btn.type = "button"
     btn.className = chip("neutral") + " gg-more-btn cursor-pointer" // un compteur, pas une ref : pas de teinte
-    btn.dataset.tags = String(tags)
+    btn.dataset.n = String(budget) // borne de slice pour openMore
     btn.textContent = `+${hidden.length}`
     btn.title = hidden.map((r) => r.name).join(", ")
     btn.setAttribute("aria-expanded", "false")
@@ -229,6 +248,16 @@ export function createGraph(
     /* hérité par les chips `lane` de la ligne — les noms de branche portent la couleur du trait */
     row.style.setProperty("--badge-color", laneColor(S.laneOf[i]))
 
+    /* Colonne branche, à gauche du métro : nom(s) de branche puis tags, repliés au budget.
+       Le survol y pose un chip fantôme quand la cellule est vide (cf. hoverRow). */
+    const refs = c.r ? parseRefs(c.r) : []
+    const branch = document.createElement("div")
+    branch.className = "gg-branchcell flex min-w-0 items-center gap-1.5 px-2.5"
+    refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, branch)
+    row.appendChild(branch)
+
+    row.appendChild(document.createElement("div")) // espaceur : la colonne graphe, sous le SVG
+
     const ps = parseSubject(c.s)
     const badge = document.createElement("div")
     badge.className = "flex min-w-0"
@@ -240,13 +269,9 @@ export function createGraph(
     }
     row.appendChild(badge)
 
-    /* Les branches restent devant le sujet : elles le qualifient, et sont peu nombreuses.
-       Les tags, eux, sont des marqueurs de release — ils partent dans leur colonne. */
-    const refs = c.r ? parseRefs(c.r) : []
     const subj = document.createElement("div")
     subj.className =
       "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " text-muted-foreground" : "")
-    refGroup(refs.filter((r) => r.kind !== "tag"), HEAD_BUDGET, false, "max-w-42", subj)
 
     const mg = c.p.length > 1 ? parseMerge(c.s) : null
     if (mg) {
@@ -257,9 +282,7 @@ export function createGraph(
         chip(mg.tag ? "warning" : !mg.noise && mg.to && MAIN_TARGETS.test(mg.to) ? "primary" : "neutral") + " max-w-42"
       from.appendChild(marq(mg.from))
       from.title = mg.from
-      const arrow = document.createElement("span")
-      arrow.className = "shrink-0 text-muted-foreground"
-      arrow.textContent = "→"
+      const arrow = iconEl(GitMergeIcon, "size-3.5 shrink-0 text-muted-foreground")
       const to = document.createElement("span")
       to.className = chip("neutral") + " max-w-42"
       to.appendChild(marq(mg.to || "HEAD"))
@@ -273,11 +296,6 @@ export function createGraph(
       subj.appendChild(s)
     }
     row.appendChild(subj)
-
-    const tags = document.createElement("div")
-    tags.className = "flex min-w-0 items-center gap-1.5"
-    refGroup(refs.filter((r) => r.kind === "tag"), TAG_BUDGET, true, TAG_MAX, tags)
-    row.appendChild(tags)
 
     const author = document.createElement("div")
     author.className = "flex min-w-0 items-center gap-1.5 pe-2.5 text-muted-foreground"
@@ -309,7 +327,7 @@ export function createGraph(
     return div
   }
 
-  /* --- Largeur des colonnes type et tags ---
+  /* --- Largeur des colonnes branche et type ---
      Une piste `auto` se dimensionnerait ligne par ligne (chaque ligne est sa propre grille) :
      les colonnes ne s'aligneraient plus. On mesure donc, une fois par chaîne distincte, dans un
      règle hors flux — écritures groupées puis lectures groupées, un seul reflow. Les maxima ne
@@ -317,12 +335,10 @@ export function createGraph(
   const ruler = document.createElement("div")
   ruler.className = "invisible absolute top-0 left-0 flex"
   const seenType = new Set<string>()
-  const seenTag = new Set<string>()
+  const seenCell = new Set<string>()
   let scanned = 0
   let typeW = 0
-  let tagW = 0
-  let plusN = 0
-  let plusW = 0
+  let cellW = 0 // largeur auto de la colonne branche : la cellule rendue la plus large
 
   function widest(texts: string[], maxw: string) {
     ruler.replaceChildren(
@@ -339,36 +355,43 @@ export function createGraph(
     return w
   }
 
-  /** Pose `--gg-type` / `--gg-tag` et renvoie la place que les deux colonnes prennent. */
+  /** signature d'une cellule branche : deux commits qui rendent les mêmes chips ont la même largeur */
+  const cellSig = (refs: RefChip[]) => refs.map((r) => r.kind + r.name + (r.remotes.length ? "~" : "")).join(",")
+
+  /** Pose `--gg-type`, remonte `--gg-branch` (cf. onBranchWidth) et renvoie la place des deux colonnes. */
   function measureCols() {
     const types: string[] = []
-    const tags: string[] = []
-    let plus = plusN
+    /* La colonne branche est en auto-width : on mesure la vraie cellule (chips réels + "+N", nuage
+       compris), pas une somme de maxima indépendants qui la gonflerait. Une signature par cellule
+       distincte suffit — mêmes chips, même largeur. */
+    const cells: HTMLElement[] = []
     for (; scanned < S.next; scanned++) {
       const c = DATA[scanned]
       const label = parseSubject(c.s).label
       if (label && !seenType.has(label)) seenType.add(label), types.push(label)
       if (!c.r) continue
-      let n = 0
-      for (const r of parseRefs(c.r)) {
-        if (r.kind !== "tag") continue
-        n++
-        if (!seenTag.has(r.name)) seenTag.add(r.name), tags.push(r.name)
-      }
-      plus = Math.max(plus, n - TAG_BUDGET)
+      const refs = parseRefs(c.r)
+      const sig = cellSig(refs)
+      if (seenCell.has(sig)) continue
+      seenCell.add(sig)
+      const cell = document.createElement("div")
+      cell.className = "flex items-center gap-1.5"
+      refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, cell)
+      cells.push(cell)
     }
     if (types.length) typeW = Math.max(typeW, widest(types, TYPE_MAX))
-    if (tags.length) tagW = Math.max(tagW, widest(tags, TAG_MAX))
-    if (plus > plusN) {
-      plusN = plus
-      plusW = CHIP_GAP + widest([`+${plusN}`], "")
+    if (cells.length) {
+      ruler.replaceChildren(...cells)
+      inner.appendChild(ruler)
+      cellW = Math.max(cellW, ...cells.map((el) => el.offsetWidth))
+      ruler.remove()
     }
 
     const type = typeW && typeW + GAP
-    const tag = tagW && tagW + plusW + GAP
+    const branch = cellW && cellW + 2 * GAP // px-2.5 de la cellule
     inner.style.setProperty("--gg-type", type + "px")
-    inner.style.setProperty("--gg-tag", tag + "px")
-    return type + tag
+    cb.onBranchWidth(branch)
+    return type + branch
   }
 
   /* Les chips sont mesurés à la police réelle. Tant que Geist n'a pas remplacé le fallback,
@@ -376,8 +399,8 @@ export function createGraph(
   document.fonts.ready.then(() => {
     if (!svg.isConnected) return
     seenType.clear()
-    seenTag.clear()
-    scanned = typeW = tagW = plusN = plusW = 0
+    seenCell.clear()
+    scanned = typeW = cellW = 0
     refresh()
   })
 
@@ -486,10 +509,14 @@ export function createGraph(
     }
   }
 
+  function clearGhost() {
+    ghostEl?.remove()
+    ghostEl = null
+  }
+
   function clearHover() {
-    hoverChain = null
-    hlG.innerHTML = ""
-    svg.classList.remove("dim")
+    hovered = null
+    clearGhost()
     cb.onHover(null)
   }
 
@@ -511,20 +538,31 @@ export function createGraph(
     }
   }
 
+  /* Nom de la branche à laquelle appartient le tip : sa ref si elle vit encore, sinon celle que
+     le commit de merge a absorbée (`mergedBy` → `from`). Sans ça, une branche mergée puis supprimée
+     — la majorité de l'historique — n'a plus aucun nom en local et le ghost ne s'afficherait jamais. */
+  function branchName(tip: number): string | null {
+    const ref = parseRefs(DATA[tip].r).find((r) => r.kind !== "tag")?.name
+    if (ref) return ref
+    const mrow = S.mergedBy.get(DATA[tip].h)
+    return mrow !== undefined ? mergeSource(DATA[mrow].s) : null
+  }
+
+  /* Le survol ne surligne plus la chaîne : il nomme la branche du commit. Le statut la décrit
+     (chainInfo), et la colonne branche reçoit un chip fantôme si elle est vide — sinon la ligne
+     est déjà un tip et porte son vrai chip. */
   function hoverRow(i: number) {
-    if (hoverChain?.has(i)) return
+    if (i === hovered) return
+    hovered = i
+    clearGhost()
     const rows = branchChain(S, DATA, i)
-    hoverChain = new Set(rows)
-    let sv = ""
-    const nodes = rows.map((r) => {
-      const e = S.fpEdge[r]
-      if (e && e.r2 !== undefined)
-        sv += `<path d="${edgePath(e)}" fill="none" stroke="${stroke(e)}" stroke-width="2.6"/>`
-      return { row: r, lane: S.laneOf[r], merge: DATA[r].p.length > 1 }
-    })
-    hlG.innerHTML = sv + nodesSvg(nodes)
-    svg.classList.add("dim")
     cb.onHover(chainInfo(S, DATA, rows))
+    const name = branchName(rows[0])
+    if (!name) return
+    const cell = inner.querySelector<HTMLElement>(`.gg-row[data-i="${i}"] .gg-branchcell`)
+    if (!cell || cell.childElementCount) return
+    ghostEl = ghostChip(name, laneColor(S.laneOf[rows[0]]))
+    cell.appendChild(ghostEl)
   }
 
   const rowIndex = (ev: Event) => {
@@ -536,25 +574,39 @@ export function createGraph(
   const onScroll = () => {
     closeMore()
     clearMarq()
+    clearHover() // le scroll démonte la ligne survolée : le chip fantôme part avec elle
     sync()
   }
   const onMouseOver = (ev: MouseEvent) => {
-    marqOver((ev.target as HTMLElement).closest<HTMLElement>(".gg-scroll"))
+    const t = ev.target as HTMLElement
+    marqOver(t.closest<HTMLElement>(".gg-scroll"))
+    const btn = t.closest<HTMLElement>(".gg-more-btn")
+    if (btn) {
+      cancelClose()
+      if (btn !== openBtn) openMore(btn)
+    } else if (t.closest(".gg-more")) cancelClose() // sur le panneau : on le garde ouvert
     const i = rowIndex(ev)
     if (i !== null) hoverRow(i)
+  }
+  /* Quitter le bouton ou le panneau vers l'extérieur arme la fermeture ; y revenir l'annule. */
+  const onMouseOut = (ev: MouseEvent) => {
+    if (!openBtn) return
+    const from = (ev.target as HTMLElement).closest(".gg-more-btn, .gg-more")
+    if (!from) return
+    const to = ev.relatedTarget as HTMLElement | null
+    if (!to || !to.closest(".gg-more-btn, .gg-more")) scheduleClose()
   }
   const onMouseLeave = () => {
     clearHover()
     clearMarq()
+    closeMore()
   }
   const onKeyDown = (ev: KeyboardEvent) => {
     if (ev.key === "Escape") closeMore()
   }
   const onClick = (ev: MouseEvent) => {
     const t = ev.target as HTMLElement
-    if (t.closest(".gg-more")) return
-    const btn = t.closest<HTMLElement>(".gg-more-btn")
-    if (btn) return void (btn === openBtn ? closeMore() : openMore(btn)) // et surtout : pas de sélection
+    if (t.closest(".gg-more, .gg-more-btn")) return // le panneau s'ouvre au survol : le clic ne sélectionne pas
     closeMore()
     const i = rowIndex(ev)
     if (i !== null) cb.onSelect(i, ev.ctrlKey || ev.metaKey)
@@ -570,6 +622,7 @@ export function createGraph(
   board.addEventListener("scroll", onScroll, { passive: true })
   board.addEventListener("mouseleave", onMouseLeave)
   inner.addEventListener("mouseover", onMouseOver)
+  inner.addEventListener("mouseout", onMouseOut)
   inner.addEventListener("click", onClick)
   inner.addEventListener("dblclick", onDblClick)
   document.addEventListener("keydown", onKeyDown)
@@ -643,9 +696,11 @@ export function createGraph(
 
     destroy() {
       gen++
+      clearTimeout(moreTimer)
       board.removeEventListener("scroll", onScroll)
       board.removeEventListener("mouseleave", onMouseLeave)
       inner.removeEventListener("mouseover", onMouseOver)
+      inner.removeEventListener("mouseout", onMouseOut)
       inner.removeEventListener("click", onClick)
       inner.removeEventListener("dblclick", onDblClick)
       document.removeEventListener("keydown", onKeyDown)
@@ -653,7 +708,6 @@ export function createGraph(
       mountedRows.forEach((d) => d.remove())
       more.remove()
       overlay.remove()
-      hlG.remove()
     },
   }
 }
