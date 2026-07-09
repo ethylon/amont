@@ -23,8 +23,8 @@ const DIFF_BODY = "gg-diffbody min-h-0 flex-auto overflow-auto rounded-md font-m
 const diffText = (api: RepoApi, ctx: DiffCtx, f: FileChange) =>
   "wt" in ctx ? api.wtdiff(f.path, ctx.wt) : api.diff(ctx.hash, ctx.parent, f.path, f.old || null)
 
-/* extensions maison -> grammaire shiki */
-const LANG_ALIASES: Record<string, string> = { jet: "sql" }
+/* extensions maison -> grammaire shiki ; les projets/props MSBuild sont du XML */
+const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
 
 /* Coloration shiki par-dessus le rendu diff2html.
    Les segments <ins>/<del> (word-diff) sont préservés en re-répartissant les tokens. */
