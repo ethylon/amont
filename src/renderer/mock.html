@@ -13,7 +13,12 @@
      branche + son remote + origin/HEAD (un seul chip), remote orphelin, tags en surnombre, tag isolé. */
   /* adresse `users.noreply.github.com` : avatar déduit de l'id, sans requête d'API */
   const ME = '17126477+ethylon@users.noreply.github.com';
+  /* Un stash arrive du log sous sa forme brute : le commit d'entrée (3 parents) suivi de sa
+     plomberie — index, non suivis — que le renderer doit replier (cf. foldStashes). */
   const C = [
+    { h: 'ee01aa02', p: ['a1b2c3d4', 'ee02bb03', 'ee03cc04'], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'On develop: calibrage des seuils du solver' },
+    { h: 'ee02bb03', p: ['a1b2c3d4'], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'index on develop: a1b2c3d4 Merge…' },
+    { h: 'ee03cc04', p: [], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'untracked files on develop: a1b2c3d4 Merge…' },
     { h: 'a1b2c3d4', p: ['9f8e7d6c', '5a6b7c8d'], d: '2026-07-07', a: 'Mathieu Guey', e: ME, r: 'HEAD -> refs/heads/develop, refs/remotes/origin/develop, refs/remotes/origin/HEAD', s: "Merge branch 'feature/optim-cout' into develop" },
     { h: '5a6b7c8d', p: ['9f8e7d6c'], d: '2026-07-07', a: 'Ada Lovelace', e: 'ada@analytical.engine', r: 'refs/remotes/origin/release/4.2', s: 'feat(solver): optimisation du coût de formulation' },
     { h: '9f8e7d6c', p: ['7e8f9a0b'], d: '2026-07-06', a: 'Mathieu Guey', e: ME, r: 'refs/heads/master, refs/heads/hotfix/matrice-vide, refs/heads/release/4.3, refs/remotes/origin/master, tag: refs/tags/v4.3.0', s: '[HOTFIX] plantage sur matrice vide' },
@@ -65,8 +70,12 @@
     chooseRoot: async () => '/mock',
     scanRoot: async () => RECENTS,
     log: async (_id, skip, count) => C.slice(skip, skip + count),
-    total: async () => C.length,
+    total: async () => C.length - 2, // moins la plomberie du stash, comme repo:total
     refs: async () => REFS,
+    stashes: async () => [
+      { name: 'stash@{0}', h: 'ee01aa02', p: ['a1b2c3d4', 'ee02bb03', 'ee03cc04'], d: '2026-07-08', a: 'Mathieu Guey', e: ME, s: 'On develop: calibrage des seuils du solver' },
+    ],
+    stash: async () => {},
     files: async () => [
       { st: 'M', path: 'src/solver/cost.ts', old: null },
       { st: 'A', path: 'src/solver/lp/simplex.ts', old: null },

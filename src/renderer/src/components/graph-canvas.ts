@@ -175,6 +175,10 @@ export function createGraph(
   let matches: Set<string> | null = null
   let hovered: number | null = null
   let ghostEl: HTMLElement | null = null
+  /* Stash : hash → nom d'entrée, et hashes de plomberie (index, non suivis) à replier.
+     Relus à chaque reset, comme le total — la liste bouge avec push/pop/drop. */
+  let stashOf = new Map<string, string>()
+  let plumbing = new Set<string>()
 
   const overlay = document.createElementNS(SVG_NS, "g") // long + dangling, toujours monté
   svg.append(overlay)
@@ -308,6 +312,7 @@ export function createGraph(
     const mg = c.p.length > 1 ? parseMerge(c.s) : null
     const flow = c.cap ? c.cap.flow : rowFlow(c, mg)
     if (flow) row.dataset.flow = flow
+    if (c.stash) row.dataset.stash = ""
 
     /* Colonne branche, à gauche du métro : nom(s) de branche puis tags, repliés au budget.
        Une capsule y met sa version en tête ; sinon le survol y pose un chip fantôme (cf. hoverRow). */
@@ -320,6 +325,14 @@ export function createGraph(
       v.appendChild(tagIcon())
       v.appendChild(scrollText(c.cap.version ?? c.cap.from))
       v.title = c.cap.version ?? c.cap.from
+      branch.appendChild(v)
+    } else if (c.stash) {
+      /* Contour pointillé plein régime : une vraie entrée, pas un fantôme de survol. */
+      const v = document.createElement("span")
+      v.className =
+        badgeVariants({ color: "lane", shape: "squared", variant: "outline" }) + " border-dashed " + BRANCH_MAX
+      v.appendChild(scrollText(c.stash.name))
+      v.title = c.stash.name
       branch.appendChild(v)
     } else {
       refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, branch, flow)
@@ -381,6 +394,8 @@ export function createGraph(
       subj.append(from, arrow, to)
     } else {
       const s = scrollText(ps.text)
+      /* l'italique dit le provisoire : ce sujet n'est pas un message de commit choisi */
+      if (c.stash) s.className += " italic text-muted-foreground"
       s.title = c.s
       subj.appendChild(s)
     }
@@ -458,6 +473,12 @@ export function createGraph(
       const c = DATA[scanned]
       const label = parseSubject(c.s).label
       if (label && !seenType.has(label)) seenType.add(label), types.push(label)
+      /* le chip de stash occupe la colonne branche sans passer par les refs : sans cette
+         mesure, un dépôt aux branches courtes le rognerait */
+      if (c.stash && !seenCell.has(c.stash.name)) {
+        seenCell.add(c.stash.name)
+        cellW = Math.max(cellW, widest([c.stash.name], BRANCH_MAX))
+      }
       if (!c.r) continue
       const refs = parseRefs(c.r)
       const sig = cellSig(refs)
@@ -513,6 +534,21 @@ export function createGraph(
     cb.onStats({ loaded: S.next, total: TOTAL, ms: S.ms })
   }
 
+  /* Un stash arrive du log avec ses 2-3 parents (base, index, non suivis). On ne garde que la
+     base : l'entrée devient un nœud simple accroché à son commit d'origine, et ses commits de
+     plomberie — invisibles ailleurs — sont retirés du flux. Le total du serveur les soustrait
+     déjà (cf. repo:total). */
+  function foldStashes(page: Commit[]) {
+    if (!stashOf.size) return page
+    const out: Commit[] = []
+    for (const c of page) {
+      if (plumbing.has(c.h)) continue
+      const name = stashOf.get(c.h)
+      out.push(name ? { ...c, p: c.p.slice(0, 1), stash: { name, untracked: c.p[2] ?? null } } : c)
+    }
+    return out
+  }
+
   /* Ne rejette jamais : un `git log` qui échoue (timeout, verrou de gc) laisse DATA en l'état
      et libère `fetching` pour que le prochain déclencheur retente — sinon la promesse rejetée
      resterait en place et la pagination serait morte jusqu'au reset. Les boucles d'appel
@@ -525,7 +561,7 @@ export function createGraph(
         (page) => {
           if (g !== gen) return // reset entre-temps : page obsolète
           rawLoaded += page.length
-          DATA.push(...collapsePairs(page)) // fusionne les paires release/hotfix de la page
+          DATA.push(...collapsePairs(foldStashes(page))) // fusionne les paires release/hotfix de la page
           if (page.length < PAGE) exhausted = true
           fetching = null
         },
@@ -658,6 +694,7 @@ export function createGraph(
     if (i === hovered) return
     hovered = i
     clearGhost()
+    if (DATA[i].stash) return // un stash porte déjà son chip : ni chaîne à remonter, ni ghost
     const rows = branchChain(S, DATA, i)
     const names = tipBranches(rows[0]).map((b) => b.name)
     if (!names.length) return
@@ -735,8 +772,13 @@ export function createGraph(
       DATA = []
       rawLoaded = 0
       fetching = null
-      TOTAL = await api.total()
+      /* la liste de stash et le total voyagent ensemble : les pages qui suivent replient
+         la plomberie que le total a déjà soustraite */
+      const [total, stashes] = await Promise.all([api.total(), api.stashes().catch(() => [])])
+      TOTAL = total
       if (g !== gen || destroyed) return // destroy() ou reset concurrent pendant l'attente
+      stashOf = new Map(stashes.map((s) => [s.h, s.name]))
+      plumbing = new Set(stashes.flatMap((s) => s.p.slice(1)))
       exhausted = TOTAL === 0
       NCHUNKS = Math.max(1, Math.ceil(TOTAL / CHUNK))
       S = createState(NCHUNKS)
@@ -805,6 +847,7 @@ export function createGraph(
     branchSegment: (row) => branchSegment(S, DATA, row),
     chainInfo: (rows) => chainInfo(S, DATA, rows),
     branchesOf: (row) => {
+      if (DATA[row].stash) return [] // un stash ne focalise aucune branche du sidebar
       const own = refChips(row)
       return own.length ? own : tipBranches(branchChain(S, DATA, row)[0])
     },
