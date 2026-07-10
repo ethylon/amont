@@ -77,6 +77,20 @@ export type GitRef = {
 /** Les préfixes de `git flow init`, ou `null` si le dépôt ignore git-flow. */
 export type FlowPrefixes = Partial<Record<"feature" | "bugfix" | "release" | "hotfix", string>>
 
+/** Contexte read-only de la branche de flow courante : cockpit et carte contexte. */
+export type FlowInfo = {
+  /** commits propres à la branche, absents de sa base */
+  commits: number
+  /** epoch (s) du premier commit propre, `null` tant que la branche n'a rien */
+  startedAt: number | null
+  /** point de départ affichable : dernier tag (release/hotfix) ou tronc (feature/bugfix) */
+  base: string | null
+  /** branches où le finish atterrira */
+  targets: string[]
+  /** tag que le finish posera — version du nom de branche, sinon bump du dernier tag */
+  nextTag: string | null
+}
+
 export type BranchAct = "merge" | "delete" | "pull" | "push" | "finish"
 
 export type WtSource = "staged" | "unstaged" | "untracked"
@@ -123,6 +137,7 @@ type Bridge = {
   search(id: number, q: string, content: boolean): Promise<string[]>
   refs(id: number): Promise<GitRef[]>
   flow(id: number): Promise<FlowPrefixes | null>
+  flowInfo(id: number, branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null>
   branch(id: number, action: BranchAct, name: string): Promise<void>
   files(id: number, hash: string, parent: string | null): Promise<FileChange[]>
   body(id: number, hash: string): Promise<string>
@@ -185,6 +200,8 @@ export type RepoApi = {
   refs(): Promise<GitRef[]>
   /** `null` : le dépôt n'a jamais vu `git flow init` */
   flow(): Promise<FlowPrefixes | null>
+  /** contexte de la branche de flow courante ; `null` si le tronc de référence manque */
+  flowInfo(branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null>
   /** merge dans HEAD, suppression, pull/push d'une branche donnée, ou `git flow <type> finish` */
   branch(action: BranchAct, name: string): Promise<void>
   files(hash: string, parent: string | null): Promise<FileChange[]>
@@ -214,6 +231,7 @@ export const repoApi = (id: number): RepoApi => ({
   search: (q, content) => bridge.search(id, q, content),
   refs: () => bridge.refs(id),
   flow: () => bridge.flow(id),
+  flowInfo: (branch, kind) => bridge.flowInfo(id, branch, kind),
   branch: (action, name) => bridge.branch(id, action, name),
   files: (hash, parent) => bridge.files(id, hash, parent),
   body: (hash) => bridge.body(id, hash),

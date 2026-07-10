@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   onChanged, onOp, repoApi, worktreeCount,
-  type BranchAct, type FileChange, type GitRef, type OpName, type Repo, type Status, type Worktree,
+  type BranchAct, type FileChange, type FlowInfo, type FlowPrefixes, type GitRef, type OpName, type Repo,
+  type Status, type Worktree,
 } from "@/lib/git"
+import { branchFlow } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Tip } from "@/components/ui/tip"
@@ -12,6 +14,7 @@ import { CommitGraph } from "@/components/commit-graph"
 import { CommitSearch } from "@/components/commit-search"
 import { DetailPanel, type SelMode } from "@/components/detail-panel"
 import { DiffView, type DiffCtx, type DiffView as DiffMode } from "@/components/diff-view"
+import { FlowBanner, FlowCard } from "@/components/flow-context"
 import { GitConsole } from "@/components/git-console"
 import type { GraphHandle, Stats } from "@/components/graph-canvas"
 import { RefsSidebar } from "@/components/refs-sidebar"
@@ -50,6 +53,8 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   const api = useMemo(() => repoApi(repo.id), [repo.id])
 
   const [status, setStatus] = useState<Status | null>(null)
+  const [flow, setFlow] = useState<FlowPrefixes | null>(null)
+  const [flowInfo, setFlowInfo] = useState<FlowInfo | null>(null)
   const [worktree, setWorktree] = useState<Worktree | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   /* git ne notifie rien : les refs sont relues à chaque fois que le statut l'a été */
@@ -120,6 +125,35 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   useEffect(() => {
     refreshStatus()
   }, [refreshStatus])
+
+  /* `git flow init` peut arriver après l'ouverture de l'onglet : relu au rythme des refs,
+     pas mis en cache. Un `git config` coûte moins que le `for-each-ref --merged` d'à côté. */
+  useEffect(() => {
+    let stale = false
+    api.flow().then((f) => !stale && setFlow(f), () => {})
+    return () => {
+      stale = true
+    }
+  }, [api, refsGen])
+
+  /* type de travail de la branche courante : statusbar, cockpit et carte contexte */
+  const workFlow = status?.branch ? branchFlow(status.branch, flow) : null
+
+  /* le contexte du cockpit et de la carte suit la branche et les refs ; hors flow, rien à mesurer */
+  useEffect(() => {
+    if (!workFlow || !status?.branch) {
+      setFlowInfo(null)
+      return
+    }
+    let stale = false
+    api.flowInfo(status.branch, workFlow).then(
+      (i) => !stale && setFlowInfo(i),
+      () => !stale && setFlowInfo(null)
+    )
+    return () => {
+      stale = true
+    }
+  }, [api, refsGen, status?.branch, workFlow])
 
   useEffect(() => {
     if (active) document.title = `git-graph — ${repo.name}`
@@ -413,12 +447,17 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
         <CommitSearch api={api} graph={graphRef} active={active} />
       </Toolbar>
 
+      {workFlow && flowInfo && status?.branch && (
+        <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />
+      )}
+
       {/* gg-tabbody : le bloc qui glisse au changement d'onglet, toolbar et statut restant fixes */}
       <div className="gg-tabbody flex min-h-0 flex-1">
         <RefsSidebar
           api={api}
           open={sidebarOpen}
           refreshKey={`refs:${repo.id}:${refsGen}`}
+          flow={flow}
           onCheckout={checkout}
           onBranch={runBranch}
           onFocusRef={focusRef}
@@ -516,6 +555,11 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                   onOpenDiff={openDiff}
                   onJump={(hash) => graphRef.current?.jumpTo(hash)}
                 />
+              ) : workFlow && flowInfo && status?.branch ? (
+                <>
+                  <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
+                  <p className="mt-3 shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
+                </>
               ) : (
                 <p className="shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
               )}
@@ -526,6 +570,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
 
       <StatusBar
         branch={status?.branch ?? null}
+        flow={workFlow}
         opState={opState}
         hoverInfo={hoverInfo}
         stats={stats}
