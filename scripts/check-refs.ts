@@ -1,7 +1,9 @@
 /* Auto-contrôle des parseurs de commit-message.ts : `node scripts/check-refs.ts`.
    Node ≥ 22.18 retire les types nativement, pas de runner à installer. */
 import assert from "node:assert/strict"
-import { parseBody, parseMarkdown, parseRefs, type MdToken } from "../src/renderer/src/lib/commit-message.ts"
+import {
+  mergeSource, parseBody, parseMarkdown, parseMerge, parseRefs, parseSubject, type MdToken,
+} from "../src/renderer/src/lib/commit-message.ts"
 
 /** "master*" = remote fusionné dans la branche locale */
 const fmt = (raw: string) => parseRefs(raw).map((r) => r.name + (r.remotes.length ? "*" : ""))
@@ -113,5 +115,38 @@ assert.deepEqual(md("* item"), ["ul(item)"])
 
 // pas de HTML : le markup source ressort en texte
 assert.deepEqual(md("<script>x</script>"), ["p(<script>x</script>)"])
+
+/* --- parseMerge : chips source → cible des sujets de merge --- */
+
+assert.deepEqual(parseMerge("Merge branch 'feature/x' into develop"), { from: "feature/x", to: "develop", noise: false })
+assert.deepEqual(parseMerge("Merge branch 'hotfix/1.2.1'"), { from: "hotfix/1.2.1", to: null, noise: false })
+
+// merges de synchro : remote-tracking ou 'x' of <url> vers la même branche = bruit
+assert.deepEqual(
+  parseMerge("Merge remote-tracking branch 'origin/develop' into develop"),
+  { from: "origin/develop", to: "develop", noise: true }
+)
+assert.deepEqual(
+  parseMerge("Merge branch 'master' of https://forge/depot.git into master"),
+  { from: "master", to: "master", noise: true }
+)
+
+assert.deepEqual(parseMerge("Merge tag 'v1.2.0' into develop"), { from: "v1.2.0", to: "develop", tag: true, noise: false })
+assert.equal(parseMerge("feat: pas un merge"), null)
+
+// source d'un merge de PR GitHub : le préfixe owner/ tombe, le nom de branche à slashes reste
+assert.equal(mergeSource("Merge pull request #12 from owner/feature/x"), "feature/x")
+assert.equal(mergeSource("Merge branch 'release/2.0'"), "release/2.0")
+assert.equal(mergeSource("chore: rien"), null)
+
+/* --- parseSubject : badge de type, alias internes (typos comprises) et Conventional Commits --- */
+
+assert.deepEqual(parseSubject("[FEATURE] ajout du graphe"), { type: "feat", label: "feat", text: "ajout du graphe" })
+assert.deepEqual(parseSubject("[HOFTIX] vite"), { type: "hotfix", label: "hotfix", text: "vite" }) // typo connue
+assert.deepEqual(parseSubject("[Machin] chose"), { type: "other", label: "machin", text: "chose" })
+assert.deepEqual(parseSubject("feat(graph): lanes"), { type: "feat", label: "feat · graph", text: "lanes" })
+assert.deepEqual(parseSubject("fix: débordement"), { type: "bugfix", label: "bugfix", text: "débordement" })
+// un "truc: machin" quelconque reste du texte
+assert.deepEqual(parseSubject("truc: machin"), { type: null, label: null, text: "truc: machin" })
 
 console.log("check-refs: ok")

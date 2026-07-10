@@ -40,12 +40,16 @@ const traceId = repo => { for (const r of repos.values()) if (r.path === repo) r
    (statut, pages de log) restent sans en-tête, ce qui les distingue à l'œil. */
 const traceGroup = (id, text) => emitTrace({ id, kind: 'group', text, ts: Date.now() });
 
-function git(repo, args, timeout = 0) {
+/* `input` part sur stdin (`--stdin` de rev-list) : des listes d'oids y passent sans buter
+   sur la limite de longueur de ligne de commande de Windows. */
+function git(repo, args, timeout = 0, input = '') {
   const id = traceId(repo);
   emitTrace({ id, kind: 'cmd', text: `git ${args.join(' ')}` });
   const started = Date.now();
   return new Promise((resolve, reject) => {
     const child = spawn('git', ['-C', repo, ...args], { env: GIT_ENV, windowsHide: true });
+    child.stdin.on('error', () => {}); // git peut se terminer sans lire : EPIPE sans conséquence
+    child.stdin.end(input);
     let out = '', errAll = '', pending = '', killed = false;
     /* setEncoding pose un StringDecoder : une séquence UTF-8 coupée entre deux chunks est
        recollée, là où `buf += chunk` la corromprait. */
@@ -101,7 +105,12 @@ async function loadState() {
   try {
     Object.assign(persisted, JSON.parse(await readFile(stateFile(), 'utf8')));
   } catch { /* premier lancement */ }
-  persisted.recents = persisted.recents.filter(isRepo);
+  /* un state.json corrompu (JSON valide, forme inattendue) ne doit pas empêcher la fenêtre
+     de s'ouvrir : on rabote vers la forme attendue au lieu de laisser le boot échouer */
+  const paths = list => (Array.isArray(list) ? list.filter(p => typeof p === 'string') : []);
+  persisted.tabs = paths(persisted.tabs);
+  persisted.recents = paths(persisted.recents).filter(isRepo);
+  if (typeof persisted.root !== 'string') persisted.root = null;
   persisted.tabs.forEach(p => openable.add(p));
   persisted.recents.forEach(p => openable.add(p));
 }
@@ -127,7 +136,7 @@ async function openRepo(path) {
   }
   /* pas de comptage de commits à l'ouverture : le renderer demandera `total` quand il en
      aura besoin, et restaurer N onglets ne doit pas coûter N `rev-list --all --count`. */
-  const r = { id: nextId++, path, name: basename(path), gitDir, running: null, muted: 0, dirty: false, timer: null, watcher: null };
+  const r = { id: nextId++, path, name: basename(path), gitDir, running: null, muted: 0, dirty: false, timer: null, watcher: null, trunk: null };
   r.timer = setInterval(() => runOp(r, 'fetch', true), AUTOFETCH_MS);
   watchGit(r);
   repos.set(r.id, r);
@@ -204,14 +213,17 @@ async function logPage(r, skip, count) {
     `--skip=${skip}`, `-n${count}`,
     '--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e',
   ]);
-  return out.split('\x1e').filter(row => row.includes('\x1f')).map(row => {
-    const f = row.split('\x1f');
-    return {
+  /* git ne filtre pas les octets de contrôle de `%s` : un sujet qui contiendrait nos
+     séparateurs fabriquerait des champs en trop (recollés au sujet, il est en dernier)
+     ou des lignes bancales (écartées par le compte de champs). */
+  return out.split('\x1e')
+    .map(row => row.split('\x1f'))
+    .filter(f => f.length >= 7)
+    .map(f => ({
       h: f[0].trim().slice(0, 8),
       p: f[1].split(' ').filter(Boolean).map(x => x.slice(0, 8)),
-      d: f[2], a: f[3], e: f[4], r: f[5], s: f[6],
-    };
-  });
+      d: f[2], a: f[3], e: f[4], r: f[5], s: f.slice(6).join(' '),
+    }));
 }
 
 /* --- Recherche ---
@@ -253,17 +265,36 @@ const OP_TIMEOUT = 90_000;
 const AUTOFETCH_MS = 5 * 60_000;
 
 const emit = payload => mainWindow?.webContents.send('git:op', payload);
-const countAll = r => git(r.path, ['rev-list', ...ALL_REFS, '--count']).then(o => parseInt(o, 10));
+
+/* Tips de toutes les refs, dédupliqués et triés : deux instantanés égaux = rien n'a bougé.
+   Bien moins cher que le `rev-list --all --count` intégral qu'on payait deux fois par fetch. */
+const refTips = r => git(r.path, ['for-each-ref', '--format=%(objectname)', 'refs/heads', 'refs/remotes', 'refs/tags'])
+  .then(o => [...new Set(o.split('\n').filter(Boolean))].sort());
+
+/* Commits joignables des refs actuelles mais pas des anciens tips : les « nouveaux » du fetch.
+   Plus juste que la différence de deux comptages, qu'un `--prune` faisait mentir. */
+const countNew = (r, before) =>
+  git(r.path, ['rev-list', '--count', ...ALL_REFS, '--stdin'], 0, before.map(h => `^${h}\n`).join(''))
+    .then(o => parseInt(o, 10));
 
 async function runOp(r, name, auto = false) {
-  if (r.running) return;
+  if (r.running) {
+    /* jamais en silence : la fenêtre entre le clic et l'état `busy` du renderer est réelle */
+    if (!auto) emit({ id: r.id, op: name, state: 'error', auto, message: 'Une opération est déjà en cours' });
+    return;
+  }
   r.running = name;
   traceGroup(r.id, auto ? 'Auto-fetch' : OP_GROUP[name]);
   emit({ id: r.id, op: name, state: 'start', auto });
   try {
-    const before = name === 'push' ? 0 : await countAll(r);
+    /* seul le fetch affiche un compteur ; pull recharge le graphe, push n'ajoute rien */
+    const before = name === 'fetch' ? await refTips(r) : null;
     await git(r.path, OPS[name], OP_TIMEOUT);
-    const added = name === 'push' ? 0 : (await countAll(r)) - before;
+    let added = 0;
+    if (before) {
+      const after = await refTips(r);
+      if (after.join() !== before.join()) added = await countNew(r, before);
+    }
     emit({ id: r.id, op: name, state: 'done', auto, added });
   } catch (e) {
     emit({ id: r.id, op: name, state: 'error', auto, message: e.message });
@@ -437,7 +468,8 @@ const WT_DIFF = { staged: ['diff', '--cached'], unstaged: ['diff'] };
 ipcMain.handle('repo:wtdiff', (_ev, id, path, source) => {
   const r = use(id);
   assertPaths([path]);
-  if (source === 'untracked') return diffUntracked(r.path, path);
+  /* `--no-index` lit n'importe quel chemin du disque : confiné au dépôt, comme fileIcon */
+  if (source === 'untracked') return diffUntracked(r.path, inRepo(r, path));
   if (!WT_DIFF[source]) throw new Error('bad source');
   return git(r.path, [...WT_DIFF[source], '--', path]);
 });
@@ -467,8 +499,9 @@ ipcMain.handle('repo:commit', (_ev, id, message, amend) => {
 });
 
 /* ponytail: filtre de sûreté, pas un parseur de refname — refuse surtout le nom qui
-   commencerait par `-` et se ferait passer pour une option de git. */
-const BRANCH = /^(?!-)(?!.*\.\.)[\w./+-]+$/;
+   commencerait par `-` et se ferait passer pour une option de git. Liste noire plutôt que
+   blanche : `[\w./+-]` refusait les lettres accentuées et `@`, pourtant légaux dans un refname. */
+const BRANCH = /^(?!-)(?!.*\.\.)(?!.*@\{)[^\x00-\x20\x7f~^:?*[\\]+$/;
 
 /* L'arbre sale part au stash et revient après la bascule. Bascule refusée : on repose l'arbre
    où on l'a trouvé. `pop` en conflit : git garde l'entrée de stash et pose ses marqueurs —
@@ -483,7 +516,9 @@ ipcMain.handle('repo:checkout', async (_ev, id, name) => {
   try {
     await git(r.path, ['checkout', name]);
   } catch (e) {
-    if (dirty) await git(r.path, ['stash', 'pop']);
+    /* le pop de rattrapage peut lui-même échouer (conflit) : l'entrée de stash survit,
+       et c'est l'échec du checkout — la cause — qu'on remonte, pas celui du pop */
+    if (dirty) await git(r.path, ['stash', 'pop']).catch(() => {});
     throw e;
   } finally {
     mute(r); // HEAD a bougé : le renderer recharge de lui-même, le watcher n'a rien à ajouter
@@ -638,8 +673,16 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
        commit du tronc, y figure sans rien avoir « fini ». Son tip est alors sur la chaîne
        first-parent de la base — un simple signet dans l'historique. Seule une branche dont le tip
        quitte le tronc (côté second parent d'un merge) a réellement été fusionnée : on écarte tout
-       ce qui pointe sur le tronc, tip courant comme commit ancien. */
-    const trunk = new Set((await git(r.path, ['rev-list', '--first-parent', base])).split('\n').filter(Boolean));
+       ce qui pointe sur le tronc, tip courant comme commit ancien.
+
+       La chaîne parcourt tout l'historique et les refs sont relues à chaque rafraîchissement :
+       on la met en cache tant que le tip de la base n'a pas bougé. */
+    const baseTip = (await git(r.path, ['rev-parse', base])).trim();
+    if (r.trunk?.key !== `${base} ${baseTip}`) {
+      const chain = (await git(r.path, ['rev-list', '--first-parent', base])).split('\n').filter(Boolean);
+      r.trunk = { key: `${base} ${baseTip}`, set: new Set(chain) };
+    }
+    const trunk = r.trunk.set;
     for (const ref of refs)
       ref.merged =
         ref.kind === 'head' &&
@@ -739,10 +782,13 @@ function createWindow() {
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#ffffff',
     icon: join(app.getAppPath(), 'resources/icon.png'),
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.mjs'),
+      /* le preload est bundlé en CJS (cf. electron.vite.config) : un preload ESM
+         exigerait sandbox: false, et l'app affiche du contenu de dépôt non maîtrisé —
+         le bac à sable Chromium est la dernière ligne de défense du renderer. */
+      preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
   mainWindow = win;
@@ -751,6 +797,11 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
+  });
+  /* la fenêtre ne navigue jamais (un fichier glissé dessus chargerait son file://) ;
+     seul le rechargement du serveur de dev garde le droit de passage */
+  win.webContents.on('will-navigate', (ev, url) => {
+    if (!process.env.ELECTRON_RENDERER_URL || !url.startsWith(process.env.ELECTRON_RENDERER_URL)) ev.preventDefault();
   });
   win.on('closed', () => {
     mainWindow = null;

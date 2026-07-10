@@ -24,6 +24,8 @@ jobs:
 
       - run: pnpm typecheck
 
+      - run: pnpm test
+
       # electron-builder lit `publish` dans electron-builder.yml : brouillon + installeur attaché
       - run: pnpm release
         env:
