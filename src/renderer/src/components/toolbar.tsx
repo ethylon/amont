@@ -37,7 +37,7 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
   }
 
   return (
-    <div className="flex h-11.5 shrink-0 items-center gap-2 border-b pr-3.5 pl-2.5">
+    <div className="flex h-11.5 shrink-0 items-center gap-2 overflow-x-auto border-b pr-3.5 pl-2.5">
       <IconButton
         label={sidebarOpen ? "Masquer le panneau latéral" : "Afficher le panneau latéral"}
         icon={sidebarOpen ? PanelLeftOpenIcon : PanelLeftCloseIcon}
@@ -82,12 +82,16 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
 
       {children}
 
-      {/* ponytail: filtres inertes — le shell fixe la forme, pas le comportement */}
+      {/* ponytail: filtres à venir — désactivés tant qu'inertes, le shell garde la forme */}
       {["Auteur", "Période"].map((label) => (
-        <Button key={label} variant="outline" size="sm" className="shrink-0">
-          {label}
-          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} data-icon="inline-end" className="size-2.5 text-muted-foreground" />
-        </Button>
+        <Tip key={label} text="Filtre à venir">
+          <span className="inline-flex shrink-0">
+            <Button variant="outline" size="sm" disabled className="shrink-0">
+              {label}
+              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} data-icon="inline-end" className="size-2.5 text-muted-foreground" />
+            </Button>
+          </span>
+        </Tip>
       ))}
 
       <span className="flex-1" />
