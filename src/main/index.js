@@ -512,7 +512,7 @@ ipcMain.handle('repo:checkout', async (_ev, id, name) => {
   if (typeof name !== 'string' || !BRANCH.test(name)) throw new Error('bad branch');
   traceGroup(r.id, `Checkout ${name}`);
   const dirty = !!(await git(r.path, ['status', '--porcelain', '-uall'])).trim();
-  if (dirty) await git(r.path, ['stash', 'push', '-u', '-m', `git-graph: ${name}`]);
+  if (dirty) await git(r.path, ['stash', 'push', '-u', '-m', `amont: ${name}`]);
   try {
     await git(r.path, ['checkout', name]);
   } catch (e) {
