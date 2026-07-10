@@ -5,7 +5,6 @@ import { ArrowRight01Icon, File01Icon, Folder01Icon, ListTreeIcon, Menu01Icon } 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { fileStatusColor } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
-import { Tip } from "@/components/ui/tip"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/primitives/toggle-group"
 
@@ -61,27 +60,25 @@ export type FileRowProps = {
 export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, action }: FileRowProps) {
   const cut = file.path.lastIndexOf("/")
   return (
-    <Tip text={file.path + (file.old ? `  ←  ${file.old}` : "")} align="start">
-      <div
-        onClick={onClick}
-        onDoubleClick={onDoubleClick}
-        className={cn(
-          "group/file flex cursor-pointer items-baseline gap-2 rounded-sm px-1.5 py-0.5 hover:bg-muted",
-          active && "bg-primary/10 ring-1 ring-primary/25 ring-inset"
-        )}
-      >
-        <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
-          {file.st}
-        </span>
-        {icon}
-        {/* à plat : le dossier se tronque, le nom de fichier reste entier */}
-        <span className="flex min-w-0 text-xs whitespace-nowrap">
-          {!nameOnly && cut >= 0 && <span className="truncate text-muted-foreground">{file.path.slice(0, cut + 1)}</span>}
-          <span className="shrink-0 truncate">{file.path.slice(cut + 1)}</span>
-        </span>
-        {action}
-      </div>
-    </Tip>
+    <div
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      className={cn(
+        "group/file flex cursor-pointer items-baseline gap-2 rounded-sm px-1.5 py-0.5 hover:bg-muted",
+        active && "bg-primary/10 ring-1 ring-primary/25 ring-inset"
+      )}
+    >
+      <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
+        {file.st}
+      </span>
+      {icon}
+      {/* à plat : le dossier se tronque, le nom de fichier reste entier */}
+      <span className="flex min-w-0 text-xs whitespace-nowrap">
+        {!nameOnly && cut >= 0 && <span className="truncate text-muted-foreground">{file.path.slice(0, cut + 1)}</span>}
+        <span className="shrink-0 truncate">{file.path.slice(cut + 1)}</span>
+      </span>
+      {action}
+    </div>
   )
 }
 
