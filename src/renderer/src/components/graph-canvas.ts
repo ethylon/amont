@@ -15,6 +15,7 @@ import {
   type LayoutState,
 } from "@/lib/graph-layout"
 import { createMinimap } from "@/components/flow-minimap"
+import { scrollText, scrollTextHover, scrollTextStop } from "@/components/scroll-text"
 
 /* Rendu impératif, délibérément : virtualisation par chunks de 500 lignes, montage et
    démontage direct des <g> SVG. React ne gagnerait rien à repasser par un VDOM ici, et
@@ -45,17 +46,6 @@ const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
 const cloud = () => iconEl(CloudIcon, "shrink-0")
 const tagIcon = () => iconEl(Tag01Icon, "shrink-0")
 
-/* Texte de chip défilable : `.gg-clip` rogne, `.gg-scroll` porte l'anim de survol (cf. app.css). */
-function marq(text: string) {
-  const clip = document.createElement("span")
-  clip.className = "gg-clip"
-  const inner = document.createElement("span")
-  inner.className = "gg-scroll"
-  inner.textContent = text
-  clip.appendChild(inner)
-  return clip
-}
-
 /* Chip fantôme du survol : le nom de la branche à laquelle appartient le commit survolé, posé dans
    la colonne branche quand elle est vide. Contour pointillé, estompé — un rappel, pas une ref réelle.
    Sans `color`, la teinte vient du porteur (le panneau "+N" pose la sienne). */
@@ -64,7 +54,7 @@ function ghostChip(name: string, color: string, maxw = BRANCH_MAX) {
   el.className =
     badgeVariants({ color: "lane", shape: "squared", variant: "outline" }) + " border-dashed opacity-70 " + maxw
   if (color) el.style.setProperty("--badge-color", color)
-  el.appendChild(marq(name))
+  el.appendChild(scrollText(name))
   return el
 }
 
@@ -269,7 +259,7 @@ export function createGraph(
       sep.className = badgeSeparator
       el.appendChild(sep)
     }
-    el.appendChild(marq(r.name))
+    el.appendChild(scrollText(r.name))
     return el
   }
 
@@ -327,7 +317,7 @@ export function createGraph(
       const v = document.createElement("span")
       v.className = chip(tagFlowColor(c.cap.flow)) + " " + BRANCH_MAX
       v.appendChild(tagIcon())
-      v.appendChild(marq(c.cap.version ?? c.cap.from))
+      v.appendChild(scrollText(c.cap.version ?? c.cap.from))
       v.title = c.cap.version ?? c.cap.from
       branch.appendChild(v)
     } else {
@@ -343,7 +333,7 @@ export function createGraph(
     if (ps.label) {
       const b = document.createElement("span")
       b.className = chip(typeColor(ps.type!)) + " " + TYPE_MAX
-      b.appendChild(marq(ps.label))
+      b.appendChild(scrollText(ps.label))
       badge.appendChild(b)
     }
     row.appendChild(badge)
@@ -358,7 +348,7 @@ export function createGraph(
       const from = document.createElement("span")
       from.className = chip(tagFlowColor(c.cap.flow)) + " max-w-42"
       from.appendChild(iconEl(c.cap.flow === "hotfix" ? Fire02Icon : RocketIcon, "shrink-0"))
-      from.appendChild(marq(c.cap.from))
+      from.appendChild(scrollText(c.cap.from))
       from.title = c.cap.from
       subj.append(from, iconEl(ArrowRight01Icon, "size-3.5 shrink-0 text-muted-foreground"))
       c.cap.targets.forEach((t, k) => {
@@ -370,7 +360,7 @@ export function createGraph(
         }
         const tc = document.createElement("span")
         tc.className = chip("neutral") + " max-w-42"
-        tc.appendChild(marq(t))
+        tc.appendChild(scrollText(t))
         tc.title = t
         subj.appendChild(tc)
       })
@@ -380,12 +370,12 @@ export function createGraph(
       const from = document.createElement("span")
       from.className = chip(flow ? tagFlowColor(flow) : mergeColor(mg)) + " max-w-42"
       if (flow) from.appendChild(iconEl(flow === "hotfix" ? Fire02Icon : RocketIcon, "shrink-0"))
-      from.appendChild(marq(mg.from))
+      from.appendChild(scrollText(mg.from))
       from.title = mg.from
       const arrow = iconEl(ArrowRight01Icon, "size-3.5 shrink-0 text-muted-foreground")
       const to = document.createElement("span")
       to.className = chip("neutral") + " max-w-42"
-      to.appendChild(marq(mg.to || "HEAD"))
+      to.appendChild(scrollText(mg.to || "HEAD"))
       to.title = mg.to || ""
       subj.append(from, arrow, to)
     } else {
@@ -674,24 +664,6 @@ export function createGraph(
     cb.onHover(null)
   }
 
-  /* Marquee de chip : mesuré une fois à l'entrée, avant que `gg-marqrun` ne libère la largeur. */
-  let marqEl: HTMLElement | null = null
-  function clearMarq() {
-    if (!marqEl) return
-    marqEl.classList.remove("gg-marqrun")
-    marqEl.style.removeProperty("--marq")
-    marqEl = null
-  }
-  function marqOver(el: HTMLElement | null) {
-    if (el === marqEl) return
-    clearMarq()
-    if (el && el.scrollWidth > el.clientWidth) {
-      el.style.setProperty("--marq", el.clientWidth - el.scrollWidth + "px")
-      el.classList.add("gg-marqrun")
-      marqEl = el
-    }
-  }
-
   /* Refs de branche posées sur une ligne, au rang parseRefs (HEAD, locales, distantes) ; la
      distante synchronisée est absorbée par sa locale. `kind` aligné sur GitRef pour que le
      sidebar retrouve sa ligne. */
@@ -737,13 +709,13 @@ export function createGraph(
   const onScroll = () => {
     if (board.scrollTop !== seekTop) seek++ // scroll utilisateur : annule la chasse minimap
     closeMore()
-    clearMarq()
+    scrollTextStop()
     clearHover() // le scroll démonte la ligne survolée : le chip fantôme part avec elle
     sync()
   }
   const onMouseOver = (ev: MouseEvent) => {
     const t = ev.target as HTMLElement
-    marqOver(t.closest<HTMLElement>(".gg-scroll"))
+    scrollTextHover(t.closest<HTMLElement>(".gg-scrolltext"))
     const btn = t.closest<HTMLElement>(".gg-more-btn")
     if (btn) {
       cancelClose()
@@ -762,7 +734,7 @@ export function createGraph(
   }
   const onMouseLeave = () => {
     clearHover()
-    clearMarq()
+    scrollTextStop()
     closeMore()
   }
   const onKeyDown = (ev: KeyboardEvent) => {
