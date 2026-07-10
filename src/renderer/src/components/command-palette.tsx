@@ -5,6 +5,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { OpName } from "@/lib/git"
+import { GitCmd } from "@/components/ui/git-cmd"
 import {
   Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput,
   CommandItem, CommandList, CommandShortcut,
@@ -20,9 +21,10 @@ type Props = {
   onToggleSidebar(): void
 }
 
-function Entry({ icon, children, shortcut, disabled, onSelect }: {
+function Entry({ icon, children, cmd, shortcut, disabled, onSelect }: {
   icon: IconSvgElement
   children: React.ReactNode
+  cmd?: string
   shortcut?: string
   disabled?: boolean
   onSelect(): void
@@ -30,7 +32,14 @@ function Entry({ icon, children, shortcut, disabled, onSelect }: {
   return (
     <CommandItem disabled={disabled} onSelect={onSelect}>
       <HugeiconsIcon icon={icon} strokeWidth={2} />
-      {children}
+      {cmd ? (
+        <span className="flex min-w-0 flex-col items-start">
+          <span>{children}</span>
+          <GitCmd cmd={cmd} />
+        </span>
+      ) : (
+        children
+      )}
       {shortcut && <CommandShortcut>{shortcut}</CommandShortcut>}
     </CommandItem>
   )
@@ -55,9 +64,9 @@ export function CommandPalette({
             <Entry icon={Folder01Icon} onSelect={run(onNewTab)}>
               Ouvrir un dépôt…
             </Entry>
-            <Entry icon={Refresh01Icon} onSelect={run(() => onRunOp("fetch"))}>Fetch</Entry>
-            <Entry icon={ArrowDown02Icon} onSelect={run(() => onRunOp("pull"))}>Pull (fast-forward)</Entry>
-            <Entry icon={ArrowUp02Icon} onSelect={run(() => onRunOp("push"))}>Push</Entry>
+            <Entry icon={Refresh01Icon} cmd="git fetch --all --prune" onSelect={run(() => onRunOp("fetch"))}>Fetch</Entry>
+            <Entry icon={ArrowDown02Icon} cmd="git pull --ff-only" onSelect={run(() => onRunOp("pull"))}>Pull (fast-forward)</Entry>
+            <Entry icon={ArrowUp02Icon} cmd="git push" onSelect={run(() => onRunOp("push"))}>Push</Entry>
           </CommandGroup>
 
           <CommandGroup heading="Vue">
