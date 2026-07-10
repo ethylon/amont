@@ -1,12 +1,11 @@
 import { useRef, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Search01Icon, Sun03Icon } from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@hugeicons/core-free-icons"
 
 import { isDark, setDark } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/mark"
 import { Button } from "@/components/ui/button"
-import { Kbd, KbdGroup } from "@/components/ui/primitives/kbd"
 import { IconButton } from "@/components/ui/icon-button"
 
 /** L'écran d'accueil vit dans un onglet épinglé, jamais fermé. Les autres portent l'id du repo. */
@@ -21,16 +20,14 @@ export type Tab = { key: number; name: string; path: string }
 type Props = {
   tabs: Tab[]
   active: number
-  hasRepo: boolean
   onSelect(key: number): void
   onClose(key: number): void
-  onOpenPalette(): void
 }
 
 const tabClass =
   "group/tab flex h-7.5 shrink-0 cursor-pointer items-center rounded-md border text-xs focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none aria-selected:border-border aria-selected:bg-muted aria-selected:font-medium aria-selected:text-foreground"
 
-export function TabStrip({ tabs, active, hasRepo, onSelect, onClose, onOpenPalette }: Props) {
+export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
   const [dark, setDarkState] = useState(isDark)
 
   const toggleTheme = () => {
@@ -118,21 +115,6 @@ export function TabStrip({ tabs, active, hasRepo, onSelect, onClose, onOpenPalet
 
         <IconButton label="Nouvel onglet" icon={PlusSignIcon} onClick={() => onSelect(HOME)} className="shrink-0" />
       </div>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={!hasRepo}
-        className="shrink-0 text-muted-foreground"
-        onClick={onOpenPalette}
-      >
-        <HugeiconsIcon icon={Search01Icon} strokeWidth={2} data-icon="inline-start" />
-        Rechercher
-        <KbdGroup className="ms-auto ps-2.5">
-          <Kbd>Ctrl</Kbd>
-          <Kbd>K</Kbd>
-        </KbdGroup>
-      </Button>
 
       <IconButton
         label={dark ? "Thème clair" : "Thème sombre"}

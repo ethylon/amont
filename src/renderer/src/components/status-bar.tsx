@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils"
 import { FLOW_META } from "@/components/flow-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/primitives/separator"
 
 export type OpState = {
   text: string
@@ -20,9 +19,7 @@ type Props = {
   /** type de travail de la branche courante, `null` hors flow (master, HEAD détachée…) */
   flow: BranchFlow | null
   opState: OpState | null
-  hoverInfo: string | null
   stats: Stats | null
-  /** console git, rendue à droite des infos de survol */
   console?: React.ReactNode
 }
 
@@ -32,7 +29,7 @@ const Num = ({ children }: { children: React.ReactNode }) => (
   <b className="font-medium text-foreground">{children}</b>
 )
 
-export function StatusBar({ branch, flow, opState, hoverInfo, stats, console }: Props) {
+export function StatusBar({ branch, flow, opState, stats, console }: Props) {
   /* le type de travail teinte le segment branche : signes partagés de flow-context */
   const f = flow && FLOW_META[flow]
   return (
@@ -44,7 +41,6 @@ export function StatusBar({ branch, flow, opState, hoverInfo, stats, console }: 
       <span className={cn("flex min-w-0 shrink items-center gap-1.5", f && `font-medium ${f.text}`)}>
         <HugeiconsIcon icon={f ? f.icon : GitBranchIcon} strokeWidth={2} className="size-3 shrink-0" />
         <span className="truncate">{branch ?? "—"}</span>
-        {f && <span className="shrink-0 font-normal text-muted-foreground">{flow} en cours</span>}
       </span>
 
       {opState && (
@@ -58,23 +54,12 @@ export function StatusBar({ branch, flow, opState, hoverInfo, stats, console }: 
         </Badge>
       )}
 
-      {hoverInfo && (
-        /* shrink (et non shrink-0 de la base) : la pastille cède la place aux stats */
-        <Badge color="primary" shape="squared" className="min-w-0 shrink">
-          <span className="truncate">{hoverInfo}</span>
-        </Badge>
-      )}
-
       {console}
 
       {stats && (
         <div className="ms-auto flex shrink-0 items-center gap-3 whitespace-nowrap tabular-nums">
           <span>
             <Num>{nf.format(stats.loaded)}</Num> / {nf.format(stats.total)} commits
-          </span>
-          <Separator orientation="vertical" />
-          <span>
-            layout <Num>{stats.ms.toFixed(0)} ms</Num>
           </span>
         </div>
       )}
