@@ -9,7 +9,6 @@ import { branchFlow } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { BootSkeleton } from "@/components/boot-skeleton"
-import { CommandPalette } from "@/components/command-palette"
 import { CommitGraph } from "@/components/commit-graph"
 import { CommitSearch } from "@/components/commit-search"
 import { DetailPanel, type SelMode } from "@/components/detail-panel"
@@ -22,27 +21,8 @@ import { StatusBar, type OpState } from "@/components/status-bar"
 import { Toolbar } from "@/components/toolbar"
 import { WorktreePanel, type WtAct } from "@/components/worktree-panel"
 
-const OP_LABEL: Record<OpName, string> = { fetch: "Fetch…", pull: "Pull…", push: "Push…" }
-
 /* Pièces du premier chargement, en bits ; le graphe, lui, est signalé par `stats`. */
 const B_STATUS = 1, B_FLOW = 2, B_WT = 4, B_FLOWINFO = 8, B_ALL = 15
-
-/** verbe en cours, puis participe : « Fusion de x… » → « x fusionnée » */
-const BRANCH_LABEL: Record<BranchAct, [string, string]> = {
-  merge: ["Fusion de", "fusionnée"],
-  delete: ["Suppression de", "supprimée"],
-  pull: ["Pull de", "à jour"],
-  push: ["Push de", "poussée"],
-  finish: ["Clôture de", "terminée"],
-}
-
-/** même grammaire que BRANCH_LABEL ; push n'a pas de nom, ses libellés sont complets */
-const STASH_LABEL: Record<StashAct, [string, string]> = {
-  push: ["Stash des modifications", "Modifications remisées"],
-  apply: ["Application de", "appliqué"],
-  pop: ["Application de", "appliqué et supprimé"],
-  drop: ["Suppression de", "supprimé"],
-}
 
 const WT_COUNTERS = [
   { key: "conflicts", color: "danger" },
@@ -55,12 +35,9 @@ type Props = {
   repo: Repo
   /** un onglet en arrière-plan reste monté : il ne prend ni le clavier, ni le titre de fenêtre */
   active: boolean
-  paletteOpen: boolean
-  onPaletteChange(open: boolean): void
-  onNewTab(): void
 }
 
-export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab }: Props) {
+export function RepoView({ repo, active }: Props) {
   const api = useMemo(() => repoApi(repo.id), [repo.id])
 
   const [status, setStatus] = useState<Status | null>(null)
@@ -77,7 +54,6 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
      la dérivation ambiguë — l'identité cliquée tranche. Ctrl accumule, comme pour les commits. */
   const [focusedKeys, setFocusedKeys] = useState<Set<string>>(() => new Set())
   const [view, setView] = useState<"commits" | "wt">("commits")
-  const [hoverInfo, setHoverInfo] = useState<string | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const [opState, setOpState] = useState<OpState | null>(null)
   const [busyOp, setBusyOp] = useState<OpName | null>(null)
@@ -107,10 +83,11 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   /* brouillon de message mis de côté le temps qu'un amend emprunte celui du dernier commit */
   const draftRef = useRef<{ subject: string; description: string } | null>(null)
 
+  /* la pastille s'efface d'elle-même ; seule une action (« Recharger ») la garde en place */
   const showOp = useCallback((text: string, color: OpState["color"], action?: OpState["action"]) => {
     clearTimeout(okTimer.current)
     setOpState({ text, color, action })
-    if (color === "success") okTimer.current = window.setTimeout(() => setOpState(null), 3000)
+    if (!action) okTimer.current = window.setTimeout(() => setOpState(null), 6000)
   }, [])
 
   const refreshStatus = useCallback(async () => {
@@ -138,10 +115,9 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     setSelection([])
     setFocusedKeys(new Set())
     setDiff(null)
-    setHoverInfo(null)
     setView("commits")
     await graphRef.current?.reset()
-    await refreshWorktree() // après le layout : le point de la ligne a besoin de la lane de HEAD
+    await refreshWorktree()
   }, [refreshWorktree])
 
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), [])
@@ -239,7 +215,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
       onOp(async (p) => {
         if (p.id !== repo.id) return
         setBusyOp(p.state === "start" ? p.op : null)
-        if (p.state === "start") return showOp(OP_LABEL[p.op], "neutral")
+        if (p.state === "start") return
         if (p.state === "error") {
           refreshStatus()
           return showOp(p.message, "danger")
@@ -247,9 +223,6 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
         await refreshStatus()
         if (p.op === "pull") {
           await resetAndLoad()
-          showOp("Branche à jour", "success")
-        } else if (p.op === "push") {
-          showOp("Poussé", "success")
         } else if (p.added > 0) {
           const s = p.added > 1 ? "s" : ""
           /* le graphe n'est pas rechargé d'office : ça perdrait le scroll et la sélection */
@@ -260,8 +233,6 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
               resetAndLoad()
             },
           })
-        } else if (!p.auto) {
-          showOp("Déjà à jour", "success")
         }
       }),
     [refreshStatus, repo.id, resetAndLoad, showOp]
@@ -426,11 +397,10 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   /* on recharge dans tous les cas : un `stash pop` en conflit échoue alors que HEAD a déjà bougé */
   const checkout = useCallback(
     async (name: string) => {
-      showOp(`Bascule sur ${name}…`, "neutral")
       const err = await api.checkout(name).then(() => null, (e: Error) => e.message)
       await refreshStatus()
       await resetAndLoad()
-      showOp(err ?? `Sur ${name}`, err ? "danger" : "success")
+      if (err) showOp(err, "danger")
     },
     [api, refreshStatus, resetAndLoad, showOp]
   )
@@ -440,13 +410,11 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
      consommé par le stash : le champ sujet se vide, le brouillon de description reste. */
   const runStash = useCallback(
     async (action: StashAct, name?: string) => {
-      const [pending, done] = STASH_LABEL[action]
-      showOp(action === "push" ? `${pending}…` : `${pending} ${name}…`, "neutral")
       const err = await api.stash(action, name).then(() => null, (e: Error) => e.message)
       if (!err && action === "push") setSubject("")
       await refreshStatus()
       await resetAndLoad()
-      showOp(err ?? (action === "push" ? done : `${name} ${done}`), err ? "danger" : "success")
+      if (err) showOp(err, "danger")
     },
     [api, refreshStatus, resetAndLoad, showOp]
   )
@@ -460,17 +428,15 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
      déplacés. On recharge dans tous les cas, comme pour le checkout. */
   const runBranch = useCallback(
     async (action: BranchAct, name: string) => {
-      const [pending, done] = BRANCH_LABEL[action]
-      showOp(`${pending} ${name}…`, "neutral")
       const err = await api.branch(action, name).then(() => null, (e: Error) => e.message)
       await refreshStatus()
       await resetAndLoad()
-      showOp(err ?? `${name} ${done}`, err ? "danger" : "success")
+      if (err) showOp(err, "danger")
     },
     [api, refreshStatus, resetAndLoad, showOp]
   )
 
-  /* --- Raccourcis --- (Ctrl+K est géré par le shell : il traverse les onglets) */
+  /* --- Raccourcis --- */
   useEffect(() => {
     if (!active) return
     const onKey = (ev: KeyboardEvent) => {
@@ -478,19 +444,13 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
       if (mod && ev.key.toLowerCase() === "b") {
         ev.preventDefault()
         toggleSidebar()
-      } else if (ev.key === "Escape" && !paletteOpen) {
+      } else if (ev.key === "Escape") {
         closeDiff()
       }
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [active, closeDiff, paletteOpen, toggleSidebar])
-
-  /* le point s'aligne sur la lane de HEAD ; tant qu'elle n'est pas posée, pas de point */
-  const headDot = useMemo(
-    () => (stats ? (graphRef.current?.headDot(status?.head ?? null) ?? null) : null),
-    [stats, status?.head]
-  )
+  }, [active, closeDiff, toggleSidebar])
 
   /* Un clic hors du sidebar, des panneaux détail/diff et des commits du graphe lève le focus.
      Les commits sont gérés par leur propre clic ; ici on ne traite que le « clic dans le vide ». */
@@ -566,13 +526,6 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                         view === "wt" && "border-l-primary bg-primary/10 text-foreground"
                       )}
                     >
-                      {headDot && (
-                        /* -2px : l'absolu se cale sur la padding-box, le SVG sur la border-box */
-                        <span
-                          className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed bg-background"
-                          style={{ left: `calc(var(--gg-branch, 0px) + ${headDot.left - 2}px)`, color: headDot.color }}
-                        />
-                      )}
                       <span className="font-medium">Modifications non validées</span>
                       <span className="ms-auto flex gap-1">
                         {WT_COUNTERS.map(({ key, color }) =>
@@ -596,7 +549,6 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                       callbacks={{
                         onSelect: selectRow,
                         onBranchSelect: selectBranch,
-                        onHover: setHoverInfo,
                         onStats: setStats,
                         onGraphWidth: setGraphW,
                         onBranchWidth: setBranchW,
@@ -661,20 +613,9 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
         branch={status?.branch ?? null}
         flow={workFlow}
         opState={opState}
-        hoverInfo={hoverInfo}
         stats={stats}
         console={<GitConsole repoId={repo.id} />}
       />
-
-      {active && (
-        <CommandPalette
-          open={paletteOpen}
-          onOpenChange={onPaletteChange}
-          onNewTab={onNewTab}
-          onRunOp={(op) => api.op(op)}
-          onToggleSidebar={toggleSidebar}
-        />
-      )}
     </>
   )
 }
