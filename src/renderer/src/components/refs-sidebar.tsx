@@ -274,11 +274,12 @@ export function RefsSidebar({
   api,
   open,
   refreshKey,
+  flow,
   onCheckout,
   onBranch,
   onFocusRef,
   focusedKeys,
-}: Pick<Ctx, "onCheckout" | "onBranch" | "onFocusRef" | "focusedKeys"> & {
+}: Pick<Ctx, "flow" | "onCheckout" | "onBranch" | "onFocusRef" | "focusedKeys"> & {
   api: RepoApi
   open: boolean
   refreshKey: string
@@ -286,7 +287,6 @@ export function RefsSidebar({
   /* pas `useAsync` : il vide ses données à chaque clé, et l'auto-fetch ferait clignoter
      l'arbre toutes les cinq minutes. Ici l'ancien rendu tient jusqu'à la réponse. */
   const [data, setData] = useState<GitRef[] | null>(null)
-  const [flow, setFlow] = useState<FlowPrefixes | null>(null)
   const [error, setError] = useState(false)
   const [filter, setFilter] = useState("")
   const navRef = useRef<HTMLElement>(null)
@@ -301,9 +301,6 @@ export function RefsSidebar({
       (r) => !stale && setData(r),
       () => !stale && setError(true)
     )
-    /* `git flow init` peut arriver après l'ouverture de l'onglet : relu avec les refs, pas mis
-       en cache. Un `git config` coûte moins que le `for-each-ref --merged` d'à côté. */
-    api.flow().then((f) => !stale && setFlow(f), () => {})
     return () => {
       stale = true
     }
