@@ -166,6 +166,15 @@ export const nodesSvg = (list: GraphNode[]) =>
     })
     .join("")
 
+/* Refs de branche d'une ligne, nom court côté remote : `origin/x` désigne la branche `x`.
+   Frontières de segment — la base d'une branche est souvent le tip d'une autre (develop sans
+   commit depuis le fork), qu'aucun fork topologique ne signale. Le marqueur HEAD détaché et
+   les tags n'en sont pas. */
+const branchRefs = (c: Commit) =>
+  parseRefs(c.r)
+    .filter((r) => r.kind !== "tag" && r.name !== "HEAD")
+    .map((r) => (r.kind === "remote" ? r.name.slice(r.name.indexOf("/") + 1) : r.name))
+
 /** Segment de branche : chaîne first-parent vers le bas, remontée le long du tronc vers le tip. */
 export function branchChain(S: LayoutState, data: Commit[], i: number) {
   const rows = [i]
@@ -178,6 +187,9 @@ export function branchChain(S: LayoutState, data: Commit[], i: number) {
   }
   r = i
   for (;;) {
+    /* on ne grimpe pas au-dessus d'un tip : ce qui est plus haut appartient à une descendante
+       (hover du tip de develop quand une feature est posée dessus, linéaire donc sans fork) */
+    if (branchRefs(data[r]).length) break
     const kids = S.fpChildren.get(data[r].h)
     if (!kids || !kids.length) break
     /* Fork (une release, un hotfix branchés ici) : plusieurs enfants ont ce commit pour first-parent.
@@ -191,22 +203,27 @@ export function branchChain(S: LayoutState, data: Commit[], i: number) {
   return rows
 }
 
-/** Comme branchChain, mais borné au fork point : sert au diff net d'une branche. */
+/** Comme branchChain, mais borné au fork point ou à la première ref étrangère :
+    sert au diff net d'une branche. */
 export function branchSegment(S: LayoutState, data: Commit[], i: number) {
   const rows = [i]
   let r = i
   for (;;) {
+    if (branchRefs(data[r]).length) break // on ne grimpe pas au-dessus d'un tip
     const kids = S.fpChildren.get(data[r].h)
     if (!kids || kids.length !== 1) break
     r = kids[0]
     rows.unshift(r)
   }
+  /* les refs du haut du segment : sa distante en retard (`origin/x` posé plus bas) ne coupe pas */
+  const own = new Set(branchRefs(data[rows[0]]))
   r = i
   for (;;) {
     const p = data[r].p[0]
     const pr = S.rowOf.get(p)
     if (pr === undefined) break
     if ((S.fpChildren.get(p) || []).length !== 1) break // le parent est un fork : tronc commun
+    if (branchRefs(data[pr]).some((n) => !own.has(n))) break // le parent est le tip d'une autre branche
     rows.push(pr)
     r = pr
   }
