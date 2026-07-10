@@ -10,7 +10,8 @@ export function Avatar({ name, email, className }: { name: string; email: string
       aria-hidden
       className={cn(
         "relative flex size-4.5 shrink-0 items-center justify-center overflow-hidden",
-        "rounded-full text-[0.5625rem] font-medium text-background",
+        /* liseré neutre (chroma 0 des deux thèmes) : un Gravatar pâle ne fond pas dans la surface */
+        "rounded-full text-[0.5625rem] font-medium text-background ring-1 ring-foreground/10",
         className
       )}
       style={{ background: tint(name, email) }}

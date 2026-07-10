@@ -34,14 +34,15 @@ export function StatusBar({ branch, opState, hoverInfo, stats, console }: Props)
       {/* issue des opérations git annoncée aux lecteurs d'écran ; le survol (hoverInfo) reste muet */}
       <span aria-live="polite" className="sr-only">{opState?.text ?? ""}</span>
 
-      <span className="flex shrink-0 items-center gap-1.5">
-        <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} className="size-3" />
-        {branch ?? "—"}
+      {/* min-w-0 + truncate : une branche longue s'ellipse au lieu de pousser stats hors champ */}
+      <span className="flex min-w-0 shrink items-center gap-1.5">
+        <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} className="size-3 shrink-0" />
+        <span className="truncate">{branch ?? "—"}</span>
       </span>
 
       {opState && (
         <Tip text={opState.text}>
-          <Badge color={opState.color} shape="squared" className="max-w-[46ch] gap-2 ps-2 pe-1">
+          <Badge color={opState.color} shape="squared" className="min-w-0 max-w-[46ch] shrink gap-2 ps-2 pe-1">
             <span className="truncate">{opState.text}</span>
             {opState.action && (
               <Button variant="ghost" size="xs" onClick={opState.action.run} className="text-(--badge-fg)">

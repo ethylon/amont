@@ -428,7 +428,9 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
         <main className="flex min-w-0 flex-1 flex-col">
           <div
             style={{ "--graphw": `${graphW}px`, "--gg-branch": `${branchW}px` } as React.CSSProperties}
-            className="grid min-h-0 flex-1 grid-cols-[1fr_320px] grid-rows-[minmax(0,1fr)]"
+            /* fenêtre étroite : le détail cède de 320 à 240px avant que le graphe (280px plancher)
+               ne se réduise à un ruban derrière son propre scrollbar */
+            className="grid min-h-0 flex-1 grid-cols-[minmax(280px,1fr)_minmax(240px,320px)] grid-rows-[minmax(0,1fr)]"
           >
             <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
               {worktree && (

@@ -107,7 +107,8 @@ export function TabStrip({ tabs, active, hasRepo, onSelect, onClose, onOpenPalet
                 variant="ghost"
                 size="icon-xs"
                 aria-label={`Fermer ${t.name}`}
-                className="-me-1.5 shrink-0 opacity-0 group-aria-selected/tab:opacity-100 group-hover/tab:opacity-100 focus-visible:opacity-100"
+                /* after : la cible de clic passe de 20 à 28px sans grossir l'icône (cf. checkbox) */
+                className="relative -me-1.5 shrink-0 opacity-0 group-aria-selected/tab:opacity-100 group-hover/tab:opacity-100 focus-visible:opacity-100 after:absolute after:-inset-1"
                 onClick={(e) => {
                   e.stopPropagation()
                   onClose(t.key)
@@ -139,7 +140,9 @@ export function TabStrip({ tabs, active, hasRepo, onSelect, onClose, onOpenPalet
 
       <IconButton
         label={dark ? "Thème clair" : "Thème sombre"}
-        icon={dark ? Sun03Icon : Moon02Icon}
+        icon={Moon02Icon}
+        swapIcon={Sun03Icon}
+        swapped={dark}
         onClick={toggleTheme}
         className="shrink-0"
       />
