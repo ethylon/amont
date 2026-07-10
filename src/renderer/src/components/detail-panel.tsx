@@ -217,7 +217,7 @@ function Branch({ api, graph, selection, activePath, onOpenDiff }: {
   const n = selection.length
   return (
     <>
-      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight">
+      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">
         Branche · {n} commit{n > 1 ? "s" : ""}
       </h2>
       <Hint>{graph.chainInfo(selection)}</Hint>
@@ -255,7 +255,7 @@ function Multi({ api, graph, selection, activePath, onOpenDiff }: {
 
   return (
     <>
-      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight">{selection.length} commits sélectionnés</h2>
+      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">{selection.length} commits sélectionnés</h2>
       {/* l'en-tête ne pousse pas la liste des fichiers hors de l'écran : au-delà, il scrolle */}
       <div className="mt-3 flex max-h-40 shrink-0 flex-col gap-0.5 overflow-y-auto">
         {selection.map((i) => {
