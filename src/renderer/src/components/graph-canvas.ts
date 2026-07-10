@@ -56,14 +56,37 @@ function marq(text: string) {
 }
 
 /* Chip fantôme du survol : le nom de la branche à laquelle appartient le commit survolé, posé dans
-   la colonne branche quand elle est vide. Contour pointillé, estompé — un rappel, pas une ref réelle. */
-function ghostChip(name: string, color: string) {
+   la colonne branche quand elle est vide. Contour pointillé, estompé — un rappel, pas une ref réelle.
+   Sans `color`, la teinte vient du porteur (le panneau "+N" pose la sienne). */
+function ghostChip(name: string, color: string, maxw = BRANCH_MAX) {
   const el = document.createElement("span")
   el.className =
-    badgeVariants({ color: "lane", shape: "squared", variant: "outline" }) + " border-dashed opacity-70 " + BRANCH_MAX
-  el.style.setProperty("--badge-color", color)
+    badgeVariants({ color: "lane", shape: "squared", variant: "outline" }) + " border-dashed opacity-70 " + maxw
+  if (color) el.style.setProperty("--badge-color", color)
   el.appendChild(marq(name))
   return el
+}
+
+/* Plusieurs branches peuvent se partager le tip (branche vide posée sur master : le commit
+   appartient aux deux) : la première en chip, les autres derrière un "+N" au même contour
+   pointillé. Il porte `gg-more-btn` : le survol le déplie dans le panneau flottant, comme les
+   vraies refs — `data-ghost` transporte les noms, un saut de ligne étant impossible dans une ref. */
+function ghostChips(names: string[], color: string) {
+  const wrap = document.createElement("span")
+  wrap.className = "flex min-w-0 items-center gap-1.5"
+  wrap.appendChild(ghostChip(names[0], color))
+  if (names.length > 1) {
+    const more = document.createElement("button")
+    more.type = "button"
+    more.className =
+      badgeVariants({ color: "neutral", shape: "squared", variant: "outline" }) +
+      " border-dashed opacity-70 gg-more-btn cursor-pointer"
+    more.textContent = `+${names.length - 1}`
+    more.dataset.ghost = names.slice(1).join("\n")
+    more.setAttribute("aria-expanded", "false")
+    wrap.appendChild(more)
+  }
+  return wrap
 }
 
 /* Jumeau impératif de `<Avatar>` : l'image recouvre le monogramme, un 404 la retire.
@@ -193,10 +216,15 @@ export function createGraph(
   function openMore(btn: HTMLElement) {
     closeMore()
     const row = btn.closest<HTMLElement>(".gg-row")!
-    const c = DATA[Number(row.dataset.i)]
-    const refs = parseRefs(c.r).slice(Number(btn.dataset.n))
-    const flow = (row.dataset.flow as FlowKind) || null
-    more.replaceChildren(...refs.map((r) => refChip(r, "max-w-full", flow)))
+    if (btn.dataset.ghost !== undefined) {
+      /* "+N" fantôme : les autres branches du tip, en chips fantômes — pas des refs de la ligne */
+      more.replaceChildren(...btn.dataset.ghost.split("\n").map((n) => ghostChip(n, "", "max-w-full")))
+    } else {
+      const c = DATA[Number(row.dataset.i)]
+      const refs = parseRefs(c.r).slice(Number(btn.dataset.n))
+      const flow = (row.dataset.flow as FlowKind) || null
+      more.replaceChildren(...refs.map((r) => refChip(r, "max-w-full", flow)))
+    }
     /* le panneau flotte sous `inner`, pas sous la ligne : la teinte de lane ne peut pas hériter */
     more.style.setProperty("--badge-color", row.style.getPropertyValue("--badge-color"))
 
@@ -656,11 +684,11 @@ export function createGraph(
     clearGhost()
     const rows = branchChain(S, DATA, i)
     cb.onHover(chainInfo(S, DATA, rows))
-    const name = tipBranches(rows[0])[0]?.name
-    if (!name) return
+    const names = tipBranches(rows[0]).map((b) => b.name)
+    if (!names.length) return
     const cell = inner.querySelector<HTMLElement>(`.gg-row[data-i="${i}"] .gg-branchcell`)
     if (!cell || cell.childElementCount) return
-    ghostEl = ghostChip(name, laneColor(S.laneOf[rows[0]]))
+    ghostEl = ghostChips(names, laneColor(S.laneOf[rows[0]]))
     cell.appendChild(ghostEl)
   }
 
