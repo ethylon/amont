@@ -40,7 +40,9 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
     <div className="flex h-11.5 shrink-0 items-center gap-2 overflow-x-auto border-b pr-3.5 pl-2.5">
       <IconButton
         label={sidebarOpen ? "Masquer le panneau latéral" : "Afficher le panneau latéral"}
-        icon={sidebarOpen ? PanelLeftOpenIcon : PanelLeftCloseIcon}
+        icon={PanelLeftCloseIcon}
+        swapIcon={PanelLeftOpenIcon}
+        swapped={sidebarOpen}
         onClick={onToggleSidebar}
       />
 
