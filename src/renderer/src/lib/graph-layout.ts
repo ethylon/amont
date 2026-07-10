@@ -1,7 +1,7 @@
 import type { Commit } from "@/lib/git"
 /* relatif avec extension, pas l'alias `@/` : scripts/check-graph.ts importe ce module sous
    Node (type stripping), qui ne connaît ni l'alias ni la résolution sans extension */
-import { mergeFlow, parseMerge, parseRefs, SEMVER, type FlowKind, type ParsedMerge } from "./commit-message.ts"
+import { mergeFlow, mergeSource, parseMerge, parseRefs, SEMVER, type FlowKind, type ParsedMerge } from "./commit-message.ts"
 
 export const ROW = 28
 export const LANE = 14
@@ -16,6 +16,12 @@ const LANES = 10
    présentation SVG suit le thème sans passer par une utility Tailwind. */
 export const laneColor = (i: number) => `var(--lane-${i % LANES})`
 
+/* Un hash court fait exactement 8 hex = 32 bits : la clé entière est bijective avec le string.
+   L'état de layout persiste pour tout l'historique — retenir un entier par commit plutôt qu'un
+   string divise par plusieurs fois la mémoire des index. */
+export const hkey = (h: string) => parseInt(h.slice(0, 8), 16)
+export const hstr = (k: number) => k.toString(16).padStart(8, "0")
+
 export type Edge = {
   r1: number; l1: number; travel: number; k: number; r2?: number; l2?: number
   /** arête de stash : tracée en pointillés — un instantané suspendu, pas de l'historique */
@@ -23,13 +29,19 @@ export type Edge = {
 }
 export type GraphNode = { row: number; lane: number; merge: boolean; cap?: FlowKind; stash?: boolean }
 
-/** État de layout persistant entre les pages — le graphe se construit en streaming. */
+/** État de layout persistant entre les pages — le graphe se construit en streaming.
+    Il persiste pour tout l'historique (la géométrie ne se recalcule pas) : tout y est compact —
+    clés entières, et les textes (refs, merges parsés) seulement pour les lignes qui en portent.
+    Les commits eux-mêmes vivent dans un cache de pages évincable (cf. graph-canvas). */
 export type LayoutState = {
   lanes: (string | null)[]
   meta: number[]
   pending: Map<string, Edge[]>
   next: number
-  rowOf: Map<string, number>
+  /** hkey -> ligne ; couvre aussi le hash absorbé d'une capsule */
+  rowOf: Map<number, number>
+  /** ligne -> hkey du hash survivant */
+  hashOf: number[]
   nodes: GraphNode[][]
   edges: Edge[][]
   long: Edge[]
@@ -38,23 +50,33 @@ export type LayoutState = {
   laneOf: number[]
   /** arête first-parent partant de chaque ligne */
   fpEdge: Edge[]
-  /** hash -> lignes des enfants dont il est le first-parent */
-  fpChildren: Map<string, number[]>
-  /** hash -> ligne du merge qui l'a absorbé (second parent) */
-  mergedBy: Map<string, number>
+  /** ligne -> ligne de son first-parent, absent tant qu'il n'est pas mis en page */
+  fpRow: number[]
+  /** ligne parent -> lignes des enfants dont il est le first-parent */
+  fpChildren: Map<number, number[]>
+  /** ligne du tip absorbé -> ligne du merge absorbeur */
+  mergedBy: Map<number, number>
+  /** refs brutes `%D`, lignes décorées seulement */
+  refsOf: Map<number, string>
+  /** sujet de merge parsé, lignes de merge seulement ; une PR GitHub y met sa branche source */
+  mergeOf: Map<number, ParsedMerge>
 }
 
 export function createState(nchunks: number): LayoutState {
   return {
     lanes: [], meta: [], pending: new Map(), next: 0,
     rowOf: new Map(),
+    hashOf: [],
     nodes: Array.from({ length: nchunks }, () => []),
     edges: Array.from({ length: nchunks }, () => []),
     long: [], ms: 0,
     laneOf: [],
     fpEdge: [],
+    fpRow: [],
     fpChildren: new Map(),
     mergedBy: new Map(),
+    refsOf: new Map(),
+    mergeOf: new Map(),
   }
 }
 
@@ -67,11 +89,11 @@ function alloc(S: LayoutState) {
   return i
 }
 
-export function layoutChunk(S: LayoutState, data: Commit[]) {
+export function layoutChunk(S: LayoutState, at: (row: number) => Commit, total: number) {
   const t0 = performance.now()
-  const end = Math.min(S.next + CHUNK, data.length)
+  const end = Math.min(S.next + CHUNK, total)
   for (let row = S.next; row < end; row++) {
-    const c = data[row]
+    const c = at(row)
     /* Une capsule répond pour deux hashes : le sien (côté develop) et le merge master absorbé.
        Fermer les deux lanes ici fait converger la lane master sur le nœud = le pont du métro. */
     const heads = c.cap ? [c.h, c.cap.absorbed] : [c.h]
@@ -87,14 +109,37 @@ export function layoutChunk(S: LayoutState, data: Commit[]) {
     })
 
     for (const hh of heads) {
+      /* Les chaînes de branche se consultent par le hash survivant : les enfants et merges
+         accrochés au hash absorbé d'une capsule restent hors des index de chaîne, comme quand
+         ils étaient clés par hash. Seule la géométrie (arêtes, fpRow) traverse la capsule. */
+      const own = hh === c.h
       ;(S.pending.get(hh) || []).forEach((e) => {
         e.r2 = row
         e.l2 = lane
         const c1 = Math.floor(e.r1 / CHUNK)
         ;(c1 === Math.floor(row / CHUNK) ? S.edges[c1] : S.long).push(e)
+        if (e.k === 0) {
+          S.fpRow[e.r1] = row
+          /* un stash n'est pas un enfant de branche : l'inscrire ici ferait passer son commit
+             de base pour un fork et couperait les segments (cf. branchSegment) */
+          if (own && !e.dash) {
+            if (!S.fpChildren.has(row)) S.fpChildren.set(row, [])
+            S.fpChildren.get(row)!.push(e.r1)
+          }
+        } else if (own) S.mergedBy.set(row, e.r1)
       })
       S.pending.delete(hh)
-      S.rowOf.set(hh, row)
+      S.rowOf.set(hkey(hh), row)
+    }
+    S.hashOf[row] = hkey(c.h)
+    if (c.r) S.refsOf.set(row, c.r)
+    if (c.p.length > 1) {
+      const mg = parseMerge(c.s)
+      if (mg) S.mergeOf.set(row, mg)
+      else {
+        const src = mergeSource(c.s) // PR GitHub : une source sans forme « Merge branch »
+        if (src) S.mergeOf.set(row, { from: src, to: null, noise: false })
+      }
     }
     S.laneOf[row] = lane
     S.nodes[Math.floor(row / CHUNK)].push({
@@ -119,17 +164,7 @@ export function layoutChunk(S: LayoutState, data: Commit[]) {
       const rec: Edge = { r1: row, l1: lane, travel, k }
       if (c.stash) rec.dash = true
       S.pending.get(p)!.push(rec)
-      if (k === 0) {
-        S.fpEdge[row] = rec
-        /* un stash n'est pas un enfant de branche : l'inscrire ici ferait passer son commit
-           de base pour un fork et couperait les segments (cf. branchSegment) */
-        if (!c.stash) {
-          if (!S.fpChildren.has(p)) S.fpChildren.set(p, [])
-          S.fpChildren.get(p)!.push(row)
-        }
-      } else {
-        S.mergedBy.set(p, row)
-      }
+      if (k === 0) S.fpEdge[row] = rec
     })
   }
   S.next = end
@@ -188,18 +223,19 @@ export const nodesSvg = (list: GraphNode[]) =>
 /* Refs de branche d'une ligne, nom court côté remote : `origin/x` désigne la branche `x`.
    Frontières de segment — la base d'une branche est souvent le tip d'une autre (develop sans
    commit depuis le fork), qu'aucun fork topologique ne signale. Le marqueur HEAD détaché et
-   les tags n'en sont pas. */
-const branchRefs = (c: Commit) =>
-  parseRefs(c.r)
+   les tags n'en sont pas. Lues dans l'état de layout : les chaînes se parcourent sans les
+   commits, dont la page a pu être évincée. */
+const branchRefs = (S: LayoutState, row: number) =>
+  parseRefs(S.refsOf.get(row) ?? "")
     .filter((r) => r.kind !== "tag" && r.name !== "HEAD")
     .map((r) => (r.kind === "remote" ? r.name.slice(r.name.indexOf("/") + 1) : r.name))
 
 /** Segment de branche : chaîne first-parent vers le bas, remontée le long du tronc vers le tip. */
-export function branchChain(S: LayoutState, data: Commit[], i: number) {
+export function branchChain(S: LayoutState, i: number) {
   const rows = [i]
   let r = i
   for (;;) {
-    const pr = S.rowOf.get(data[r].p[0])
+    const pr = S.fpRow[r]
     if (pr === undefined) break
     rows.push(pr)
     r = pr
@@ -208,8 +244,8 @@ export function branchChain(S: LayoutState, data: Commit[], i: number) {
   for (;;) {
     /* on ne grimpe pas au-dessus d'un tip : ce qui est plus haut appartient à une descendante
        (hover du tip de develop quand une feature est posée dessus, linéaire donc sans fork) */
-    if (branchRefs(data[r]).length) break
-    const kids = S.fpChildren.get(data[r].h)
+    if (branchRefs(S, r).length) break
+    const kids = S.fpChildren.get(r)
     if (!kids || !kids.length) break
     /* Fork (une release, un hotfix branchés ici) : plusieurs enfants ont ce commit pour first-parent.
        Le tronc est celui qui garde le couloir — même lane. Sans ça la remontée s'arrête au fork, et
@@ -224,39 +260,38 @@ export function branchChain(S: LayoutState, data: Commit[], i: number) {
 
 /** Comme branchChain, mais borné au fork point ou à la première ref étrangère :
     sert au diff net d'une branche. */
-export function branchSegment(S: LayoutState, data: Commit[], i: number) {
+export function branchSegment(S: LayoutState, i: number) {
   const rows = [i]
   let r = i
   for (;;) {
-    if (branchRefs(data[r]).length) break // on ne grimpe pas au-dessus d'un tip
-    const kids = S.fpChildren.get(data[r].h)
+    if (branchRefs(S, r).length) break // on ne grimpe pas au-dessus d'un tip
+    const kids = S.fpChildren.get(r)
     if (!kids || kids.length !== 1) break
     r = kids[0]
     rows.unshift(r)
   }
   /* les refs du haut du segment : sa distante en retard (`origin/x` posé plus bas) ne coupe pas */
-  const own = new Set(branchRefs(data[rows[0]]))
+  const own = new Set(branchRefs(S, rows[0]))
   r = i
   for (;;) {
-    const p = data[r].p[0]
-    const pr = S.rowOf.get(p)
+    const pr = S.fpRow[r]
     if (pr === undefined) break
-    if ((S.fpChildren.get(p) || []).length !== 1) break // le parent est un fork : tronc commun
-    if (branchRefs(data[pr]).some((n) => !own.has(n))) break // le parent est le tip d'une autre branche
+    if ((S.fpChildren.get(pr) || []).length !== 1) break // le parent est un fork : tronc commun
+    if (branchRefs(S, pr).some((n) => !own.has(n))) break // le parent est le tip d'une autre branche
     rows.push(pr)
     r = pr
   }
   return rows
 }
 
-export function chainInfo(S: LayoutState, data: Commit[], rows: number[]) {
-  const tip = data[rows[0]]
+export function chainInfo(S: LayoutState, rows: number[]) {
+  const tip = rows[0]
   /* toutes les branches du tip : une branche vide posée sur master partage ses commits */
-  const ref = parseRefs(tip.r).filter((r) => r.kind !== "tag").map((r) => r.name).join(", ") || null
-  const mrow = S.mergedBy.get(tip.h)
+  const ref = parseRefs(S.refsOf.get(tip) ?? "").filter((r) => r.kind !== "tag").map((r) => r.name).join(", ") || null
+  const mrow = S.mergedBy.get(tip)
   if (mrow !== undefined) {
-    const to = parseMerge(data[mrow].s)?.to
-    return `${ref ? ref + " · " : ""}mergée${to ? " dans " + to : ""} (${data[mrow].h})`
+    const to = S.mergeOf.get(mrow)?.to
+    return `${ref ? ref + " · " : ""}mergée${to ? " dans " + to : ""} (${hstr(S.hashOf[mrow])})`
   }
   return ref ? `${ref} · non mergée` : "segment non mergé"
 }

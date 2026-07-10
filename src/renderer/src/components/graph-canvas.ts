@@ -5,20 +5,25 @@ import { avatarUrl, initials, tint } from "@/lib/avatar"
 import { iconEl } from "@/lib/utils"
 import { badgeSeparator, badgeVariants } from "@/components/ui/badge"
 import {
-  BACKUP_WIP, mergeColor, mergeFlow, mergeSource, parseMerge, parseRefs, parseSubject, refColor,
+  BACKUP_WIP, mergeColor, mergeFlow, parseMerge, parseRefs, parseSubject, refColor,
   SEMVER, tagFlowColor, typeColor,
   type BadgeColor, type FlowKind, type ParsedMerge, type RefChip,
 } from "@/lib/commit-message"
 import {
-  branchChain, branchSegment, chainInfo, collapsePairs, createState, edgePath, edgesSvg, laneColor,
-  layoutChunk, nodesSvg, stroke, CHUNK, PAGE, ROW, PAD, LANE, X,
+  branchChain, branchSegment, chainInfo, collapsePairs, createState, edgePath, edgesSvg, hkey,
+  laneColor, layoutChunk, nodesSvg, stroke, CHUNK, PAGE, ROW, PAD, LANE, X,
   type LayoutState,
 } from "@/lib/graph-layout"
 import { scrollText, scrollTextHover, scrollTextStop } from "@/components/scroll-text"
 
-/* Rendu impératif, délibérément : virtualisation par chunks de 500 lignes, montage et
-   démontage direct des <g> SVG. React ne gagnerait rien à repasser par un VDOM ici, et
-   perdrait le contrôle fin du scroll. React possède la coquille, pas ce canvas. */
+/* Rendu impératif, délibérément : montage et démontage direct des <g> SVG par chunks de
+   500 lignes. React ne gagnerait rien à repasser par un VDOM ici, et perdrait le contrôle
+   fin du scroll. React possède la coquille, pas ce canvas.
+
+   Virtualisation à deux étages : le DOM ne monte que les chunks visibles, et les commits
+   eux-mêmes vivent dans un cache de pages borné (RESIDENT) — une page évincée se recharge
+   par le même `git log --skip` qui l'a produite. Seul l'état de layout persiste pour tout
+   l'historique, sous forme compacte (cf. graph-layout). */
 
 const SVG_NS = "http://www.w3.org/2000/svg"
 
@@ -44,6 +49,11 @@ const FIXED_W = 12 + 320 + 130 + 84 + 68 + 18
 /* ponytail: plafond de la colonne métro — au-delà, les lanes profondes sont rognées par le
    viewport du SVG plutôt que de pousser le sujet hors champ */
 const MAX_LANES = 12
+
+/* Fenêtre résidente du cache de commits : au-delà, les pages les moins récemment touchées sont
+   libérées — hors pages sous le viewport ou sous la sélection, que le panneau de détail lit en
+   synchrone. La géométrie (layout) persiste, elle : seuls les textes se rechargent. */
+const RESIDENT = 12
 
 const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
 const cloud = () => iconEl(CloudIcon, "shrink-0")
@@ -142,6 +152,10 @@ export type GraphHandle = {
   nextMatch(from: number, dir: 1 | -1): Promise<number | null>
   /** lignes des commits donnés, chargées à la demande ; les hash introuvables sont omis */
   rowsOf(hashes: string[]): Promise<number[]>
+  /** ramène en résidence les pages de commits couvrant ces lignes — à appeler avant de poser
+      une sélection étendue, dont le détail lira `commit(row)` en synchrone */
+  pin(rows: number[]): Promise<void>
+  /** commit d'une ligne, `undefined` si sa page de cache a été évincée (cf. `pin`) */
   commit(row: number): Commit | undefined
   branchSegment(row: number): number[]
   chainInfo(rows: number[]): string
@@ -162,8 +176,16 @@ export function createGraph(
   api: RepoApi,
   cb: GraphCallbacks
 ): GraphHandle {
-  let DATA: Commit[] = []
-  let rawLoaded = 0 // commits bruts consommés (skip de `api.log`) : le collapse rend DATA plus court
+  /* Cache de pages de commits — la « vraie » virtualisation. Une page = une page brute de
+     `api.log` (PAGE commits), repliée puis collapsée ; `rowStart` ancre ses lignes dans le
+     graphe. L'ordre d'insertion de la Map sert de LRU : `touch` réinsère. */
+  type Page = { commits: Commit[]; rowStart: number }
+  let pages = new Map<number, Page>()
+  /* rowStart de chaque page brute consommée, croissant (une page vidée par le repli duplique
+     celui de la suivante — la recherche prend la plus à droite) */
+  let pageRows: number[] = []
+  let nPages = 0
+  let refetching = new Map<number, Promise<boolean>>()
   let TOTAL = 0
   let NCHUNKS = 0
   let exhausted = false
@@ -172,7 +194,7 @@ export function createGraph(
   let destroyed = false // un reset en vol pendant destroy() (double montage StrictMode) ne doit plus toucher le DOM
   let S: LayoutState = createState(1)
   let selection = new Set<number>()
-  let matches: Set<string> | null = null
+  let matches: Set<number> | null = null // hkeys des commits en surbrillance de recherche
   let hovered: number | null = null
   let ghostEl: HTMLElement | null = null
   /* Stash : hash → nom d'entrée, et hashes de plomberie (index, non suivis) à replier.
@@ -218,7 +240,8 @@ export function createGraph(
       /* "+N" fantôme : les autres branches du tip, en chips fantômes — pas des refs de la ligne */
       more.replaceChildren(...btn.dataset.ghost.split("\n").map((n) => ghostChip(n, "", "max-w-full")))
     } else {
-      const c = DATA[Number(row.dataset.i)]
+      const c = commitAt(Number(row.dataset.i))
+      if (!c) return // la ligne est montée donc résidente ; pure défense
       const refs = parseRefs(c.r).slice(Number(btn.dataset.n))
       const flow = (row.dataset.flow as FlowKind) || null
       more.replaceChildren(...refs.map((r) => refChip(r, "max-w-full", flow)))
@@ -291,19 +314,19 @@ export function createGraph(
     if (!mg) return null
     const own = mergeFlow(mg)
     if (!mg.tag) return own
-    const pr = S.rowOf.get(c.p[1])
-    const parent = pr !== undefined ? DATA[pr] : undefined
-    const pmg = parent && parent.p.length > 1 ? parseMerge(parent.s) : null
+    /* le merge parsé du parent vit dans l'état de layout : pas besoin que sa page soit résidente */
+    const pr = S.rowOf.get(hkey(c.p[1]))
+    const pmg = pr !== undefined ? S.mergeOf.get(pr) : undefined
     return pmg && mergeFlow(pmg) === "hotfix" ? "hotfix" : own
   }
 
   function rowDiv(i: number) {
-    const c = DATA[i]
+    const c = commitAt(i)! // sync ne monte un chunk de lignes que pages résidentes
     const row = document.createElement("div")
     row.className = ROW_CLASS
     row.dataset.i = String(i)
     row.dataset.selected = String(selection.has(i))
-    if (matches) row.dataset.match = String(matches.has(c.h))
+    if (matches) row.dataset.match = String(matches.has(S.hashOf[i]))
     /* hérité par les chips `lane` de la ligne — les noms de branche portent la couleur du trait */
     row.style.setProperty("--badge-color", laneColor(S.laneOf[i]))
 
@@ -440,9 +463,16 @@ export function createGraph(
   ruler.className = "invisible absolute top-0 left-0 flex"
   const seenType = new Set<string>()
   const seenCell = new Set<string>()
-  let scanned = 0
   let typeW = 0
   let cellW = 0 // largeur auto de la colonne branche : la cellule rendue la plus large
+  /* files de mesure, consommées par measureCols ; les sources distinctes persistent (petites :
+     types et cellules décorées uniques) pour re-mesurer quand la police réelle arrive —
+     les pages de commits, elles, ont pu être évincées entre-temps */
+  let queueTypes: string[] = []
+  let queueCells: RefChip[][] = []
+  let queueStash: string[] = []
+  const allTypes: string[] = []
+  const allCells: string[] = [] // refs brutes des cellules distinctes, re-parsées à la re-mesure
 
   function widest(texts: string[], maxw: string) {
     ruler.replaceChildren(
@@ -462,39 +492,52 @@ export function createGraph(
   /** signature d'une cellule branche : deux commits qui rendent les mêmes chips ont la même largeur */
   const cellSig = (refs: RefChip[]) => refs.map((r) => r.kind + r.name + (r.remotes.length ? "~" : "")).join(",")
 
-  /** Pose `--gg-type`, remonte `--gg-branch` (cf. onBranchWidth) et renvoie la place des deux colonnes. */
-  function measureCols() {
-    const types: string[] = []
-    /* La colonne branche est en auto-width : on mesure la vraie cellule (chips réels + "+N", nuage
-       compris), pas une somme de maxima indépendants qui la gonflerait. Une signature par cellule
-       distincte suffit — mêmes chips, même largeur. */
-    const cells: HTMLElement[] = []
-    for (; scanned < S.next; scanned++) {
-      const c = DATA[scanned]
+  /** Alimente les files de mesure avec ce que la page apporte de nouveau (types, cellules). */
+  function scanPage(commits: Commit[]) {
+    for (const c of commits) {
       const label = parseSubject(c.s).label
-      if (label && !seenType.has(label)) seenType.add(label), types.push(label)
-      /* le chip de stash occupe la colonne branche sans passer par les refs : sans cette
-         mesure, un dépôt aux branches courtes le rognerait */
-      if (c.stash && !seenCell.has(c.stash.name)) {
-        seenCell.add(c.stash.name)
-        cellW = Math.max(cellW, widest([c.stash.name], BRANCH_MAX))
+      if (label && !seenType.has(label)) {
+        seenType.add(label)
+        queueTypes.push(label)
+        allTypes.push(label)
       }
       if (!c.r) continue
       const refs = parseRefs(c.r)
       const sig = cellSig(refs)
       if (seenCell.has(sig)) continue
       seenCell.add(sig)
-      const cell = document.createElement("div")
-      cell.className = "flex items-center gap-1.5"
-      refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, cell)
-      cells.push(cell)
+      queueCells.push(refs)
+      allCells.push(c.r)
     }
-    if (types.length) typeW = Math.max(typeW, widest(types, TYPE_MAX))
-    if (cells.length) {
+  }
+
+  /** Pose `--gg-type`, remonte `--gg-branch` (cf. onBranchWidth) et renvoie la place des deux colonnes. */
+  function measureCols() {
+    if (queueTypes.length) {
+      typeW = Math.max(typeW, widest(queueTypes, TYPE_MAX))
+      queueTypes = []
+    }
+    /* le chip de stash occupe la colonne branche sans passer par les refs : sans cette
+       mesure, un dépôt aux branches courtes le rognerait */
+    if (queueStash.length) {
+      cellW = Math.max(cellW, widest(queueStash, BRANCH_MAX))
+      queueStash = []
+    }
+    /* La colonne branche est en auto-width : on mesure la vraie cellule (chips réels + "+N", nuage
+       compris), pas une somme de maxima indépendants qui la gonflerait. Une signature par cellule
+       distincte suffit — mêmes chips, même largeur. */
+    if (queueCells.length) {
+      const cells = queueCells.map((refs) => {
+        const cell = document.createElement("div")
+        cell.className = "flex items-center gap-1.5"
+        refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, cell)
+        return cell
+      })
       ruler.replaceChildren(...cells)
       inner.appendChild(ruler)
       cellW = Math.max(cellW, ...cells.map((el) => el.offsetWidth))
       ruler.remove()
+      queueCells = []
     }
 
     const type = typeW && typeW + GAP
@@ -505,12 +548,13 @@ export function createGraph(
   }
 
   /* Les chips sont mesurés à la police réelle. Tant que Geist n'a pas remplacé le fallback,
-     les largeurs sont fausses : une seule reprise suffit à les asseoir. */
+     les largeurs sont fausses : une seule reprise, depuis les sources persistées, suffit. */
   document.fonts.ready.then(() => {
     if (!svg.isConnected) return
-    seenType.clear()
-    seenCell.clear()
-    scanned = typeW = cellW = 0
+    typeW = cellW = 0
+    queueTypes = [...allTypes]
+    queueCells = allCells.map(parseRefs)
+    queueStash = [...new Set(stashOf.values())]
     refresh()
   })
 
@@ -549,20 +593,88 @@ export function createGraph(
     return out
   }
 
-  /* Ne rejette jamais : un `git log` qui échoue (timeout, verrou de gc) laisse DATA en l'état
+  /** page contenant la ligne : la plus à droite dont le rowStart ne dépasse pas `row` */
+  function pageOfRow(row: number) {
+    let lo = 0
+    let hi = pageRows.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (pageRows[mid] <= row) lo = mid
+      else hi = mid - 1
+    }
+    return lo
+  }
+
+  /** rafraîchit la position LRU d'une page résidente */
+  function touch(pi: number) {
+    const p = pages.get(pi)
+    if (p) {
+      pages.delete(pi)
+      pages.set(pi, p)
+    }
+  }
+
+  function commitAt(row: number): Commit | undefined {
+    const p = pages.get(pageOfRow(row))
+    return p && p.commits[row - p.rowStart]
+  }
+
+  /** toutes les pages couvrant [r0, r1] sont résidentes ; les touche au passage (LRU) */
+  function resident(r0: number, r1: number) {
+    for (let pi = pageOfRow(r0), last = pageOfRow(r1); pi <= last; pi++) {
+      if (!pages.has(pi)) return false
+      touch(pi)
+    }
+    return true
+  }
+
+  const viewChunks = (): [number, number] => [
+    Math.max(0, Math.floor(board.scrollTop / (CHUNK * ROW)) - 1),
+    Math.min(NCHUNKS - 1, Math.floor((board.scrollTop + board.clientHeight) / (CHUNK * ROW)) + 1),
+  ]
+
+  /* ponytail: une sélection étalée (segment de tronc entier) épingle toutes ses pages — la borne
+     RESIDENT est relâchée le temps de la sélection, elle se resserre quand elle se vide. */
+  function evict() {
+    if (pages.size <= RESIDENT || !pageRows.length) return
+    const pinned = new Set<number>()
+    if (S.next > 0) {
+      const [c0, c1] = viewChunks()
+      const last = Math.min(S.next - 1, (c1 + 1) * CHUNK - 1)
+      for (let pi = pageOfRow(c0 * CHUNK), end = pageOfRow(last); pi <= end; pi++) pinned.add(pi)
+    }
+    selection.forEach((r) => pinned.add(pageOfRow(r)))
+    for (const pi of [...pages.keys()]) {
+      if (pages.size <= RESIDENT) break
+      if (!pinned.has(pi)) pages.delete(pi)
+    }
+  }
+
+  /* Ne rejette jamais : un `git log` qui échoue (timeout, verrou de gc) laisse le cache en l'état
      et libère `fetching` pour que le prochain déclencheur retente — sinon la promesse rejetée
      resterait en place et la pagination serait morte jusqu'au reset. Les boucles d'appel
-     détectent l'absence de progrès et abandonnent leur tour plutôt que de marteler git. */
+     détectent l'absence de progrès et abandonnent leur tour plutôt que de marteler git.
+     La page arrivée est mise en page entière sur-le-champ : la géométrie n'attend jamais le
+     viewport, seuls les commits sont évincables. */
   async function fetchMore() {
     if (exhausted) return
     if (!fetching) {
       const g = gen
-      fetching = api.log(rawLoaded, PAGE).then(
-        (page) => {
+      const pi = nPages
+      fetching = api.log(pi * PAGE, PAGE).then(
+        (raw) => {
           if (g !== gen) return // reset entre-temps : page obsolète
-          rawLoaded += page.length
-          DATA.push(...collapsePairs(foldStashes(page))) // fusionne les paires release/hotfix de la page
-          if (page.length < PAGE) exhausted = true
+          const commits = collapsePairs(foldStashes(raw)) // fusionne les paires release/hotfix de la page
+          const rowStart = S.next
+          pages.set(pi, { commits, rowStart })
+          pageRows.push(rowStart)
+          nPages++
+          if (raw.length < PAGE) exhausted = true
+          const end = rowStart + commits.length
+          while (S.next < end) layoutChunk(S, (r) => commits[r - rowStart], end)
+          scanPage(commits)
+          evict()
+          refresh()
           fetching = null
         },
         () => {
@@ -575,26 +687,62 @@ export function createGraph(
 
   /** await fetchMore() avec détection de panne : `false` si rien n'est arrivé (échec de la page) */
   async function fetchProgress() {
-    const before = DATA.length
+    const before = S.next
     await fetchMore()
-    return exhausted || DATA.length > before
+    return exhausted || S.next > before
+  }
+
+  /* Recharge les pages évincées couvrant [r0, r1] (lignes déjà mises en page). Le repli et le
+     collapse sont déterministes par page brute : la page revient identique et la géométrie ne
+     bouge pas — on ne fait que regarnir les textes. Si le dépôt a bougé sous la page (premier
+     hash différent), on ne monte rien de faux : le reset arrive par l'évènement de changement.
+     Résout `false` dans ce cas, pour que l'appelant ne reboucle pas. */
+  async function ensureRows(r0: number, r1: number): Promise<boolean> {
+    let ok = true
+    /* séquentiel : un `pin` de segment étalé ne doit pas lancer des dizaines de git en parallèle */
+    for (let pi = pageOfRow(r0), last = pageOfRow(r1); pi <= last; pi++) {
+      touch(pi)
+      if (pages.has(pi)) continue
+      let p = refetching.get(pi)
+      if (!p) {
+        const g = gen
+        const rf = refetching // un reset remplace la map : un delete périmé ne doit pas toucher la neuve
+        p = api.log(pi * PAGE, PAGE).then(
+          (raw) => {
+            rf.delete(pi)
+            if (g !== gen) return false
+            const commits = collapsePairs(foldStashes(raw))
+            const rowStart = pageRows[pi]
+            const len = (pageRows[pi + 1] ?? S.next) - rowStart
+            if (rowStart === undefined || commits.length < len || hkey(commits[0].h) !== S.hashOf[rowStart])
+              return false
+            pages.set(pi, { commits, rowStart })
+            evict()
+            return true
+          },
+          () => {
+            rf.delete(pi)
+            return false
+          }
+        )
+        refetching.set(pi, p)
+      }
+      ok = (await p) && ok
+    }
+    return ok
   }
 
   function sync() {
     if (destroyed) return // l'overlay n'est plus dans le SVG : insertBefore échouerait
-    const c0 = Math.max(0, Math.floor(board.scrollTop / (CHUNK * ROW)) - 1)
-    const c1 = Math.min(NCHUNKS - 1, Math.floor((board.scrollTop + board.clientHeight) / (CHUNK * ROW)) + 1)
+    const [c0, c1] = viewChunks()
     const need = (c1 + 1) * CHUNK
-    if (S.next < Math.min(need, DATA.length)) {
-      while (S.next < Math.min(need, DATA.length)) layoutChunk(S, DATA)
-      refresh()
-    }
     /* on ne rechaîne sync() que si des données sont arrivées : en cas d'échec, pas de boucle
        de retentative — le prochain scroll suffira à relancer */
-    if (need > DATA.length && !exhausted) {
-      const before = DATA.length
+    if (need > S.next && !exhausted) {
+      const g = gen
+      const before = S.next
       fetchMore()!.then(() => {
-        if (DATA.length > before || exhausted) sync()
+        if (g === gen && (S.next > before || exhausted)) sync()
       })
     }
     mountedG.forEach((g, ci) => {
@@ -609,6 +757,10 @@ export function createGraph(
         mountedRows.delete(ci)
       }
     })
+    /* la géométrie (SVG) est toujours montable — le layout persiste ; les lignes HTML exigent
+       leurs commits : un trou de cache se recharge puis re-sync, le métro reste visible en
+       attendant les textes */
+    let missing: [number, number] | null = null
     for (let ci = c0; ci <= c1 && ci * CHUNK < S.next; ci++) {
       if (!mountedG.has(ci)) {
         const g = chunkG(ci)
@@ -616,10 +768,20 @@ export function createGraph(
         mountedG.set(ci, g)
       }
       if (!mountedRows.has(ci)) {
-        const d = chunkRows(ci)
-        inner.appendChild(d)
-        mountedRows.set(ci, d)
+        const r0 = ci * CHUNK
+        const r1 = Math.min((ci + 1) * CHUNK, S.next) - 1
+        if (resident(r0, r1)) {
+          const d = chunkRows(ci)
+          inner.appendChild(d)
+          mountedRows.set(ci, d)
+        } else missing = missing ? [missing[0], r1] : [r0, r1]
       }
+    }
+    if (missing) {
+      const g = gen
+      ensureRows(missing[0], missing[1]).then((ok) => {
+        if (ok && g === gen) sync()
+      })
     }
   }
 
@@ -640,15 +802,21 @@ export function createGraph(
   function applyMatches() {
     inner.toggleAttribute("data-search", matches !== null)
     inner.querySelectorAll<HTMLElement>(".gg-row").forEach((r) => {
-      if (matches) r.dataset.match = String(matches.has(DATA[Number(r.dataset.i)].h))
+      if (matches) r.dataset.match = String(matches.has(S.hashOf[Number(r.dataset.i)]))
       else delete r.dataset.match
     })
   }
 
-  /* amène une ligne déjà mise en page au centre de l'écran, la sélectionne et la fait clignoter */
-  function reveal(row: number) {
+  /* amène une ligne déjà mise en page au centre de l'écran, la sélectionne et la fait clignoter ;
+     attend le retour de sa page si elle a été évincée — la sélection lira le commit en synchrone */
+  async function reveal(row: number) {
     refresh()
     board.scrollTop = row * ROW - board.clientHeight / 2
+    const g = gen
+    /* tout le chunk de la ligne : sync ne monte les lignes que par chunk entier résident */
+    const ci = Math.floor(row / CHUNK)
+    await ensureRows(ci * CHUNK, Math.min((ci + 1) * CHUNK, S.next) - 1)
+    if (g !== gen || destroyed) return
     sync()
     cb.onSelect(row, false)
     const el = inner.querySelector<HTMLElement>(`.gg-row[data-i="${row}"]`)
@@ -669,11 +837,14 @@ export function createGraph(
     clearGhost()
   }
 
+  /** nœud d'une ligne : un par ligne, poussé dans l'ordre — l'offset dans son chunk suffit */
+  const nodeAt = (row: number) => S.nodes[Math.floor(row / CHUNK)][row % CHUNK]
+
   /* Refs de branche posées sur une ligne, au rang parseRefs (HEAD, locales, distantes) ; la
      distante synchronisée est absorbée par sa locale. `kind` aligné sur GitRef pour que le
-     sidebar retrouve sa ligne. */
+     sidebar retrouve sa ligne. Lues dans l'état de layout, indépendant du cache de pages. */
   const refChips = (row: number) =>
-    parseRefs(DATA[row].r)
+    parseRefs(S.refsOf.get(row) ?? "")
       .filter((c) => c.kind !== "tag")
       .map((c) => ({ name: c.name, kind: c.kind === "remote" ? ("remote" as const) : ("head" as const) }))
 
@@ -683,8 +854,8 @@ export function createGraph(
   function tipBranches(tip: number) {
     const own = refChips(tip)
     if (own.length) return own
-    const mrow = S.mergedBy.get(DATA[tip].h)
-    const src = mrow !== undefined ? mergeSource(DATA[mrow].s) : null
+    const mrow = S.mergedBy.get(tip)
+    const src = mrow !== undefined ? (S.mergeOf.get(mrow)?.from ?? null) : null
     return src ? [{ name: src, kind: "head" as const }] : []
   }
 
@@ -694,8 +865,8 @@ export function createGraph(
     if (i === hovered) return
     hovered = i
     clearGhost()
-    if (DATA[i].stash) return // un stash porte déjà son chip : ni chaîne à remonter, ni ghost
-    const rows = branchChain(S, DATA, i)
+    if (nodeAt(i).stash) return // un stash porte déjà son chip : ni chaîne à remonter, ni ghost
+    const rows = branchChain(S, i)
     const names = tipBranches(rows[0]).map((b) => b.name)
     if (!names.length) return
     const cell = inner.querySelector<HTMLElement>(`.gg-row[data-i="${i}"] .gg-branchcell`)
@@ -768,17 +939,30 @@ export function createGraph(
 
   return {
     async reset() {
-      const g = ++gen
-      DATA = []
-      rawLoaded = 0
-      fetching = null
+      ++gen // périme les fetchs en vol
       /* la liste de stash et le total voyagent ensemble : les pages qui suivent replient
          la plomberie que le total a déjà soustraite */
       const [total, stashes] = await Promise.all([api.total(), api.stashes().catch(() => [])])
+      if (destroyed) return
+      /* Ré-init d'un seul tenant, APRÈS l'attente, sous un gen re-bumpé : un scroll pendant
+         l'await peut relancer fetchMore — parti sur l'ancien état, il doit être jeté à
+         l'arrivée, pas semer une page dans l'état neuf (pageRows désordonné, page 0 sautée,
+         arêtes pending jamais résolues → SVG dégénéré à chaque refresh). */
+      const g = ++gen
+      pages = new Map()
+      pageRows = []
+      nPages = 0
+      fetching = null
+      refetching = new Map() // les refetchs en vol vérifient gen, leurs promesses expirent seules
       TOTAL = total
-      if (g !== gen || destroyed) return // destroy() ou reset concurrent pendant l'attente
       stashOf = new Map(stashes.map((s) => [s.h, s.name]))
       plumbing = new Set(stashes.flatMap((s) => s.p.slice(1)))
+      /* les noms d'entrée passent en colonne branche : mesurés d'emblée, la liste est connue */
+      for (const s of stashes) {
+        if (seenCell.has(s.name)) continue
+        seenCell.add(s.name)
+        queueStash.push(s.name)
+      }
       exhausted = TOTAL === 0
       NCHUNKS = Math.max(1, Math.ceil(TOTAL / CHUNK))
       S = createState(NCHUNKS)
@@ -787,34 +971,38 @@ export function createGraph(
       board.scrollTop = 0
       clearHover()
       closeMore()
-      await fetchMore()
+      await fetchMore() // met en page et rafraîchit ; sync monte le viewport
       if (g !== gen || destroyed) return
-      layoutChunk(S, DATA)
       refresh()
       sync()
     },
 
     async jumpTo(hash: string) {
-      while (!S.rowOf.has(hash) && (S.next < DATA.length || !exhausted)) {
-        if (S.next < DATA.length) layoutChunk(S, DATA)
-        else if (!(await fetchProgress())) return // page en échec : on renonce au saut
+      const k = hkey(hash)
+      while (!S.rowOf.has(k) && !exhausted) {
+        if (!(await fetchProgress())) return // page en échec : on renonce au saut
       }
-      const row = S.rowOf.get(hash)
+      const row = S.rowOf.get(k)
       if (row === undefined) return
-      reveal(row)
+      await reveal(row)
     },
 
     async rowsOf(hashes) {
       const rows: number[] = []
       for (const h of hashes) {
-        while (!S.rowOf.has(h) && (S.next < DATA.length || !exhausted)) {
-          if (S.next < DATA.length) layoutChunk(S, DATA)
-          else if (!(await fetchProgress())) return rows // page en échec : résultat partiel
+        const k = hkey(h)
+        while (!S.rowOf.has(k) && !exhausted) {
+          if (!(await fetchProgress())) return rows // page en échec : résultat partiel
         }
-        const r = S.rowOf.get(h)
+        const r = S.rowOf.get(k)
         if (r !== undefined) rows.push(r)
       }
       return rows
+    },
+
+    async pin(rows) {
+      if (!rows.length) return
+      await ensureRows(Math.min(...rows), Math.max(...rows))
     },
 
     setSelection(rows) {
@@ -823,38 +1011,37 @@ export function createGraph(
     },
 
     setMatches(hashes) {
-      matches = hashes && new Set(hashes)
+      matches = hashes && new Set(hashes.map(hkey))
       applyMatches()
     },
 
-    /* balaye DATA — l'ordre du graphe — en chargeant à la demande : le résultat suivant peut
-       vivre plusieurs pages plus bas. */
+    /* balaye les lignes — l'ordre du graphe — en chargeant à la demande : le résultat suivant
+       peut vivre plusieurs pages plus bas. Les hash comparés vivent dans l'état de layout. */
     async nextMatch(from, dir) {
       if (!matches?.size) return null
       const g = gen
       for (let i = from + dir; i >= 0; i += dir) {
-        while (i >= DATA.length && !exhausted) if (!(await fetchProgress())) return null
-        if (g !== gen || i >= DATA.length) return null
-        if (!matches.has(DATA[i].h)) continue
-        while (S.next <= i) layoutChunk(S, DATA)
-        reveal(i)
+        while (i >= S.next && !exhausted) if (!(await fetchProgress())) return null
+        if (g !== gen || i >= S.next) return null
+        if (!matches.has(S.hashOf[i])) continue
+        await reveal(i)
         return i
       }
       return null
     },
 
-    commit: (row) => DATA[row],
-    branchSegment: (row) => branchSegment(S, DATA, row),
-    chainInfo: (rows) => chainInfo(S, DATA, rows),
+    commit: (row) => commitAt(row),
+    branchSegment: (row) => branchSegment(S, row),
+    chainInfo: (rows) => chainInfo(S, rows),
     branchesOf: (row) => {
-      if (DATA[row].stash) return [] // un stash ne focalise aucune branche du sidebar
+      if (nodeAt(row).stash) return [] // un stash ne focalise aucune branche du sidebar
       const own = refChips(row)
-      return own.length ? own : tipBranches(branchChain(S, DATA, row)[0])
+      return own.length ? own : tipBranches(branchChain(S, row)[0])
     },
     laneColor: (row) => laneColor(S.laneOf[row]),
 
     headDot(headSha) {
-      const row = headSha === null ? undefined : S.rowOf.get(headSha)
+      const row = headSha === null ? undefined : S.rowOf.get(hkey(headSha))
       const lane = row === undefined ? undefined : S.laneOf[row]
       return lane === undefined ? null : { left: X(lane), color: laneColor(lane) }
     },
