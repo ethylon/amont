@@ -3,7 +3,9 @@ import { CloudIcon } from "@hugeicons/core-free-icons"
 
 import type { Commit, FileChange, RepoApi } from "@/lib/git"
 import { parseBody, parseMarkdown, parseRefs, parseSubject, refColor, typeColor, type MdToken, type RefChip } from "@/lib/commit-message"
+import { cn } from "@/lib/utils"
 import type { GraphHandle } from "@/components/graph-canvas"
+import { SCROLL_TEXT_CLASS, scrollTextHover, scrollTextStop } from "@/components/scroll-text"
 import { useAsync } from "@/hooks/use-async"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
@@ -45,15 +47,26 @@ function TypeChip({ commit }: { commit: Commit }) {
 
 const Cloud = () => <HugeiconsIcon icon={CloudIcon} strokeWidth={2} className="shrink-0" />
 
+/* jumeau React de scrollText() : le nom défile au survol au lieu de déborder du panneau */
+const ScrollName = ({ text }: { text: string }) => (
+  <span
+    className={SCROLL_TEXT_CLASS}
+    onMouseEnter={(e) => scrollTextHover(e.currentTarget)}
+    onMouseLeave={() => scrollTextStop()}
+  >
+    <span>{text}</span>
+  </span>
+)
+
 /* Même grammaire que le graphe : nuage détaché par un filet = la distante est sur ce commit ;
    nuage collé à `origin/develop` = la branche locale est ailleurs. */
 function RefBadge({ r }: { r: RefChip }) {
   const synced = r.remotes.length > 0
   const badge = (
-    <Badge shape="squared" color={refColor(r.kind)} className={r.kind === "remote" || synced ? "ps-1.5" : undefined}>
+    <Badge shape="squared" color={refColor(r.kind)} className={cn("max-w-full", (r.kind === "remote" || synced) && "ps-1.5")}>
       {(r.kind === "remote" || synced) && <Cloud />}
       {synced && <span className={badgeSeparator} />}
-      {r.name}
+      <ScrollName text={r.name} />
     </Badge>
   )
   return badge
