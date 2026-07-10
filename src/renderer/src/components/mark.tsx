@@ -1,27 +1,21 @@
 import { cn } from "@/lib/utils"
 
-/** Logo : une lane principale, un commit qui bifurque. Seul SVG maison restant. */
+/** Marque Amont : deux versants qui convergent, la source au sommet.
+    Couleurs de charte, volontairement hors tokens de thème — sauf la barre :
+    encre sur fond clair / écume sur fond sombre, soit le foreground courant. */
 export function Mark({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className={cn("shrink-0", className)}
-    >
-      <g stroke="var(--lane-0)">
-        <circle cx="5" cy="6" r="3" />
-        <path d="M5 9v6" />
-        <circle cx="5" cy="18" r="3" />
-        <path d="M12 3v18" />
-      </g>
-      <g stroke="var(--lane-4)">
-        <circle cx="19" cy="6" r="3" />
-        <path d="M16 15.7C16.9428 14.8567 17.6972 13.8242 18.2142 12.6698C18.7311 11.5153 18.9988 10.2649 19 9" />
-      </g>
+    <svg viewBox="0 0 240 240" aria-hidden className={cn("shrink-0", className)}>
+      <defs>
+        <linearGradient id="amont-courant" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="#6AA6E8" />
+          <stop offset="1" stopColor="#8F8FE8" />
+        </linearGradient>
+      </defs>
+      <path d="M62,192 C62,132 92,112 114,70" fill="none" stroke="url(#amont-courant)" strokeWidth="22" strokeLinecap="round" />
+      <path d="M178,192 C178,132 148,112 126,70" fill="none" stroke="url(#amont-courant)" strokeWidth="22" strokeLinecap="round" />
+      <path d="M94,148 H146" fill="none" stroke="currentColor" strokeWidth="16" strokeLinecap="round" />
+      <circle cx="120" cy="40" r="13" fill="#F272A8" />
     </svg>
   )
 }
