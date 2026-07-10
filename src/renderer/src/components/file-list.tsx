@@ -64,8 +64,8 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={cn(
-        "group/file flex cursor-pointer items-baseline gap-2 rounded-sm px-1.5 py-0.5 hover:bg-muted",
-        active && "bg-primary/10 ring-1 ring-primary/25 ring-inset"
+        "group/file flex cursor-pointer items-baseline gap-2 rounded-sm border border-transparent px-1.5 py-0.5 hover:bg-muted",
+        active && "border-primary bg-primary/30"
       )}
     >
       <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
