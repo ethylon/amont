@@ -6,15 +6,16 @@ import {
 
 import type { OpName, Repo, Status } from "@/lib/git"
 import { Badge } from "@/components/ui/badge"
+import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/primitives/button"
 import { Separator } from "@/components/ui/primitives/separator"
 import { Spinner } from "@/components/ui/primitives/spinner"
 
 const OPS = [
-  { op: "fetch", label: "Fetch", icon: Refresh01Icon },
-  { op: "pull", label: "Pull", icon: ArrowDown02Icon },
-  { op: "push", label: "Push", icon: ArrowUp02Icon },
+  { op: "fetch", label: "Fetch", icon: Refresh01Icon, cmd: "git fetch --all --prune" },
+  { op: "pull", label: "Pull", icon: ArrowDown02Icon, cmd: "git pull --ff-only" },
+  { op: "push", label: "Push", icon: ArrowUp02Icon, cmd: "git push" },
 ] as const
 
 type Props = {
@@ -55,21 +56,26 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
       <Separator orientation="vertical" className="mx-1 my-2" />
 
       <div className="flex shrink-0 items-center gap-1">
-        {OPS.map(({ op, label, icon }) => {
+        {OPS.map(({ op, label, icon, cmd }) => {
           const n = counts[op]
           return (
-            <Button key={op} variant="ghost" size="sm" disabled={n === 0 || busyOp !== null} onClick={() => onRunOp(op)}>
+            <Button key={op} variant="ghost" size="sm" className="h-auto py-0.5" disabled={n === 0 || busyOp !== null} onClick={() => onRunOp(op)}>
               {busyOp === op ? (
                 <Spinner data-icon="inline-start" className="size-3" />
               ) : (
                 <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />
               )}
-              {label}
-              {!!n && (
-                <Badge color="primary" shape="squared" className="tabular-nums">
-                  {n}
-                </Badge>
-              )}
+              <span className="flex flex-col items-start">
+                <span className="flex items-center gap-1">
+                  {label}
+                  {!!n && (
+                    <Badge color="primary" shape="squared" className="tabular-nums">
+                      {n}
+                    </Badge>
+                  )}
+                </span>
+                <GitCmd cmd={cmd} />
+              </span>
             </Button>
           )
         })}
