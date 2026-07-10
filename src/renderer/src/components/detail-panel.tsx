@@ -106,19 +106,21 @@ const spanCtx = (graph: GraphHandle, selection: number[]) => ({
 })
 
 function Files({
-  api, load, cacheKey, ctx, activePath, onOpenDiff,
+  api, load, cacheKey, ctx, ctxOf, activePath, onOpenDiff,
 }: {
   api: RepoApi
   load(): Promise<FileChange[]>
   cacheKey: string
   ctx: { hash: string; parent: string | null }
+  /** contexte de diff propre à un fichier : les non suivis d'un stash vivent dans un autre commit */
+  ctxOf?(f: FileChange): { hash: string; parent: string | null }
   activePath?: string
   onOpenDiff: Props["onOpenDiff"]
 }) {
   const { data, error } = useAsync(load, cacheKey)
   if (error) return <div className="mt-4 shrink-0 border-t pt-3"><Hint>Diff indisponible.</Hint></div>
   if (!data) return <div className="mt-4 shrink-0 border-t pt-3"><Loading /></div>
-  return <FileList files={data} api={api} activePath={activePath} onOpen={(f) => onOpenDiff(ctx, f)} />
+  return <FileList files={data} api={api} activePath={activePath} onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)} />
 }
 
 function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
@@ -131,6 +133,26 @@ function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
   /* le corps ne voyage pas avec le log : il est relu pour la seule ligne sélectionnée */
   const { data: raw } = useAsync(() => api.body(c.h), `body:${c.h}`)
   const body = raw === undefined ? null : parseBody(raw)
+
+  /* Un stash montre tout ce qu'il remise : les changements suivis (diff contre sa base) et
+     les fichiers non suivis, remisés dans un commit à part (3e parent), rendus en `?` comme
+     dans l'arbre de travail. Leur diff se lit dans ce commit-là, pas contre la base. */
+  const untracked = c.stash?.untracked ?? null
+  const loadFiles = untracked
+    ? async () => {
+        const [tracked, extra] = await Promise.all([
+          api.files(ctx.hash, ctx.parent),
+          api.files(untracked, null),
+        ])
+        /* un fichier supprimé puis recréé non suivi apparaîtrait deux fois : le `?` gagne,
+           c'est l'état que le stash restaurerait */
+        const seen = new Set(extra.map((f) => f.path))
+        return [...tracked.filter((f) => !seen.has(f.path)), ...extra.map((f) => ({ ...f, st: "?" }))]
+      }
+    : () => api.files(ctx.hash, ctx.parent)
+  const ctxFor = untracked
+    ? (f: FileChange) => (f.st === "?" ? { hash: untracked, parent: null } : ctx)
+    : undefined
 
   return (
     <>
@@ -148,6 +170,12 @@ function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
 
       {/* 76px : la piste tient "CO-AUTEURS" sur une ligne, interlettrage compris */}
       <dl className="mt-3.5 grid shrink-0 grid-cols-[76px_1fr] gap-x-3 gap-y-2">
+        {c.stash && (
+          <>
+            <Dt>stash</Dt>
+            <dd className="font-mono text-xs">{c.stash.name}</dd>
+          </>
+        )}
         <Dt>commit</Dt>
         <dd className="font-mono text-xs">{c.h}</dd>
         <Dt>auteur</Dt>
@@ -196,9 +224,10 @@ function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
 
       <Files
         api={api}
-        load={() => api.files(ctx.hash, ctx.parent)}
+        load={loadFiles}
         cacheKey={`single:${c.h}`}
         ctx={ctx}
+        ctxOf={ctxFor}
         activePath={activePath}
         onOpenDiff={onOpenDiff}
       />

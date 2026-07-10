@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
+  Archive02Icon,
+  ArchiveArrowUpIcon,
+  ArchiveRestoreIcon,
   ArrowDown02Icon,
   ArrowRight01Icon,
   ArrowUp02Icon,
@@ -13,7 +16,7 @@ import {
   Tag01Icon,
 } from "@hugeicons/core-free-icons"
 
-import type { BranchAct, FlowPrefixes, GitRef, RepoApi } from "@/lib/git"
+import type { BranchAct, FlowPrefixes, GitRef, RepoApi, Stash, StashAct } from "@/lib/git"
 import { typeColor, type BadgeColor } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -86,6 +89,54 @@ type Ctx = RowProps & {
 
 /** identité d'une ref, partagée avec RepoView : `master` local et `origin/master` cohabitent */
 const refKey = (r: GitRef) => `${r.kind}:${r.name}`
+
+/* Une entrée de stash n'est pas une ref : pas d'arbre, pas de checkout, pas de focus de
+   branche. Un clic saute à son nœud du graphe ; le menu porte les trois gestes de stash. */
+function StashRow({ s, onFocus, onStash }: {
+  s: Stash
+  onFocus(s: Stash): void
+  onStash(action: StashAct, name: string): void
+}) {
+  /* "WIP on develop: 1a2b3c4 sujet" → le préambule redit le nom : on ne garde que la suite */
+  const msg = s.s.replace(/^(?:WIP on|On) [^:]+:\s*/, "")
+  const item = (label: React.ReactNode, cmd: string) => (
+    <span className="flex min-w-0 flex-col items-start">
+      <span>{label}</span>
+      <GitCmd cmd={cmd} />
+    </span>
+  )
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={<li />}>
+        <button
+          type="button"
+          onClick={() => onFocus(s)}
+          title={`${s.name} · ${s.s}`}
+          className="gg-refrow -my-px flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs text-foreground select-none hover:bg-muted"
+        >
+          <HugeiconsIcon icon={Archive02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="shrink-0 font-medium">{s.name}</span>
+          <span className="truncate text-muted-foreground">{msg}</span>
+        </button>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="max-w-72">
+        <ContextMenuItem onClick={() => onStash("apply", s.name)}>
+          <HugeiconsIcon icon={ArchiveArrowUpIcon} strokeWidth={2} />
+          {item("Appliquer", `git stash apply ${s.name}`)}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onStash("pop", s.name)}>
+          <HugeiconsIcon icon={ArchiveRestoreIcon} strokeWidth={2} />
+          {item("Appliquer et supprimer", `git stash pop ${s.name}`)}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" onClick={() => onStash("drop", s.name)}>
+          <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+          {item("Supprimer", `git stash drop ${s.name}`)}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}
 
 function buildTree(refs: GitRef[]): Node {
   const root: Node = { dirs: new Map(), leaves: [] }
@@ -286,15 +337,20 @@ export function RefsSidebar({
   onCheckout,
   onBranch,
   onFocusRef,
+  onFocusStash,
+  onStash,
   focusedKeys,
 }: Pick<Ctx, "flow" | "onCheckout" | "onBranch" | "onFocusRef" | "focusedKeys"> & {
   api: RepoApi
   open: boolean
   refreshKey: string
+  onFocusStash(s: Stash): void
+  onStash(action: StashAct, name: string): void
 }) {
   /* pas `useAsync` : il vide ses données à chaque clé, et l'auto-fetch ferait clignoter
      l'arbre toutes les cinq minutes. Ici l'ancien rendu tient jusqu'à la réponse. */
   const [data, setData] = useState<GitRef[] | null>(null)
+  const [stashes, setStashes] = useState<Stash[]>([])
   const [error, setError] = useState(false)
   const [filter, setFilter] = useState("")
   const navRef = useRef<HTMLElement>(null)
@@ -302,12 +358,17 @@ export function RefsSidebar({
   /* filtre par sous-chaîne sur le nom complet, préfixe compris : `feat` attrape `feature/x` */
   const q = filter.trim().toLowerCase()
   const match = (r: GitRef) => !q || r.name.toLowerCase().includes(q)
+  const matchStash = (s: Stash) => !q || s.name.includes(q) || s.s.toLowerCase().includes(q)
 
   useEffect(() => {
     let stale = false
     api.refs().then(
       (r) => !stale && setData(r),
       () => !stale && setError(true)
+    )
+    api.stashes().then(
+      (s) => !stale && setStashes(s),
+      () => {} // liste indisponible : le groupe reste tel quel, les refs ont leur propre erreur
     )
     return () => {
       stale = true
@@ -397,7 +458,7 @@ export function RefsSidebar({
               <Spinner className="size-3" /> branches…
             </p>
           )}
-          {data && q && !data.some(match) && (
+          {data && q && !data.some(match) && !stashes.some(matchStash) && (
             <p className="px-1.5 text-xs text-muted-foreground">Aucune ref ne correspond.</p>
           )}
           {data &&
@@ -426,6 +487,26 @@ export function RefsSidebar({
                 </Collapsible>
               )
             })}
+          {data && stashes.some(matchStash) && (
+            <Collapsible key={`${q ? "f:" : ""}stash`} defaultOpen>
+              <CollapsibleTrigger className="group/trigger flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  strokeWidth={2}
+                  className="size-3 transition-transform group-data-[panel-open]/trigger:rotate-90 motion-reduce:transition-none"
+                />
+                Stash
+                <span className="ms-auto tabular-nums">{stashes.filter(matchStash).length}</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <ul role="list" className="mt-0.5 flex flex-col">
+                  {stashes.filter(matchStash).map((s) => (
+                    <StashRow key={s.name + s.h} s={s} onFocus={onFocusStash} onStash={onStash} />
+                  ))}
+                </ul>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
       </div>
     </nav>
