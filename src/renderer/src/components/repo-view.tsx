@@ -8,6 +8,7 @@ import {
 import { branchFlow } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { BootSkeleton } from "@/components/boot-skeleton"
 import { CommandPalette } from "@/components/command-palette"
 import { CommitGraph } from "@/components/commit-graph"
 import { CommitSearch } from "@/components/commit-search"
@@ -22,6 +23,9 @@ import { Toolbar } from "@/components/toolbar"
 import { WorktreePanel, type WtAct } from "@/components/worktree-panel"
 
 const OP_LABEL: Record<OpName, string> = { fetch: "Fetch…", pull: "Pull…", push: "Push…" }
+
+/* Pièces du premier chargement, en bits ; le graphe, lui, est signalé par `stats`. */
+const B_STATUS = 1, B_FLOW = 2, B_WT = 4, B_FLOWINFO = 8, B_ALL = 15
 
 /** verbe en cours, puis participe : « Fusion de x… » → « x fusionnée » */
 const BRANCH_LABEL: Record<BranchAct, [string, string]> = {
@@ -79,6 +83,17 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   const [graphW, setGraphW] = useState(0)
   const [branchW, setBranchW] = useState(0)
 
+  /* Boot de l'onglet : status, flow, flowInfo, worktree et graphe arrivent en ordre dispersé,
+     et chaque arrivée pousserait le layout. Tout reste masqué derrière BootSkeleton et se
+     révèle en une seule frame quand le dernier morceau est là. */
+  const [boot, setBoot] = useState(0)
+  const [skeleton, setSkeleton] = useState(true)
+  /* posé une frame après la révélation : les entrées animées (gg-drop, gg-fadein) ne jouent
+     que pour les insertions ultérieures, pas pour les éléments présents au boot */
+  const [settled, setSettled] = useState(false)
+  const mark = useCallback((bit: number) => setBoot((v) => v | bit), [])
+  const booted = !!stats && boot === B_ALL
+
   const graphRef = useRef<GraphHandle | null>(null)
   const okTimer = useRef<number>(0)
   /* brouillon de message mis de côté le temps qu'un amend emprunte celui du dernier commit */
@@ -93,8 +108,9 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   const refreshStatus = useCallback(async () => {
     const st = await api.status().catch(() => null)
     if (st) setStatus(st)
+    mark(B_STATUS)
     setRefsGen((g) => g + 1)
-  }, [api])
+  }, [api, mark])
 
   const refreshWorktree = useCallback(async () => {
     const wt = await api.worktree().catch(() => null)
@@ -107,7 +123,8 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
       setAmend(false)
       draftRef.current = null
     }
-  }, [api])
+    mark(B_WT)
+  }, [api, mark])
 
   const resetAndLoad = useCallback(async () => {
     setSelection([])
@@ -129,11 +146,17 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
      pas mis en cache. Un `git config` coûte moins que le `for-each-ref --merged` d'à côté. */
   useEffect(() => {
     let stale = false
-    api.flow().then((f) => !stale && setFlow(f), () => {})
+    api.flow().then(
+      (f) => {
+        if (!stale) setFlow(f)
+        mark(B_FLOW)
+      },
+      () => mark(B_FLOW)
+    )
     return () => {
       stale = true
     }
-  }, [api, refsGen])
+  }, [api, mark, refsGen])
 
   /* type de travail de la branche courante : statusbar, cockpit et carte contexte */
   const workFlow = status?.branch ? branchFlow(status.branch, flow) : null
@@ -146,13 +169,36 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     }
     let stale = false
     api.flowInfo(status.branch, workFlow).then(
-      (i) => !stale && setFlowInfo(i),
-      () => !stale && setFlowInfo(null)
+      (i) => {
+        if (!stale) setFlowInfo(i)
+        mark(B_FLOWINFO)
+      },
+      () => {
+        if (!stale) setFlowInfo(null)
+        mark(B_FLOWINFO)
+      }
     )
     return () => {
       stale = true
     }
-  }, [api, refsGen, status?.branch, workFlow])
+  }, [api, mark, refsGen, status?.branch, workFlow])
+
+  /* hors flow (tronc, HEAD détachée) : le boot n'a pas de flowInfo à attendre */
+  useEffect(() => {
+    if (status && !workFlow) mark(B_FLOWINFO)
+  }, [mark, status, workFlow])
+
+  /* Révélation : le squelette survit à son fondu de sortie avant d'être démonté, et
+     `data-settled` attend la frame suivante pour ne pas rejouer les entrées du boot. */
+  useEffect(() => {
+    if (!booted) return
+    const raf = requestAnimationFrame(() => setSettled(true))
+    const t = window.setTimeout(() => setSkeleton(false), 240)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(t)
+    }
+  }, [booted])
 
   useEffect(() => {
     if (active) document.title = `git-graph — ${repo.name}`
@@ -446,123 +492,137 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
         <CommitSearch api={api} graph={graphRef} active={active} />
       </Toolbar>
 
-      {workFlow && flowInfo && status?.branch && (
-        <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />
-      )}
+      {/* Boot : le contenu reste invisible tant que toutes les premières lectures ne sont pas
+          arrivées, puis tout se révèle dans la même frame — un fondu au lieu de quatre poussées.
+          `data-settled` arme ensuite les entrées animées des insertions tardives (cf. app.css). */}
+      <div data-settled={settled || undefined} className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 flex-col transition-opacity duration-200 ease-out motion-reduce:transition-none",
+            !booted && "opacity-0"
+          )}
+        >
+          {workFlow && flowInfo && status?.branch && (
+            <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />
+          )}
 
-      {/* gg-tabbody : le bloc qui glisse au changement d'onglet, toolbar et statut restant fixes */}
-      <div className="gg-tabbody flex min-h-0 flex-1">
-        <RefsSidebar
-          api={api}
-          open={sidebarOpen}
-          refreshKey={`refs:${repo.id}:${refsGen}`}
-          flow={flow}
-          onCheckout={checkout}
-          onBranch={runBranch}
-          onFocusRef={focusRef}
-          focusedKeys={focusedKeys}
-        />
+          {/* gg-tabbody : le bloc qui glisse au changement d'onglet, toolbar et statut restant fixes */}
+          <div className="gg-tabbody flex min-h-0 flex-1">
+            <RefsSidebar
+              api={api}
+              open={sidebarOpen}
+              refreshKey={`refs:${repo.id}:${refsGen}`}
+              flow={flow}
+              onCheckout={checkout}
+              onBranch={runBranch}
+              onFocusRef={focusRef}
+              focusedKeys={focusedKeys}
+            />
 
-        <main className="flex min-w-0 flex-1 flex-col">
-          <div
-            style={{ "--graphw": `${graphW}px`, "--gg-branch": `${branchW}px` } as React.CSSProperties}
-            /* fenêtre étroite : le détail cède de 320 à 240px avant que le graphe (280px plancher)
-               ne se réduise à un ruban derrière son propre scrollbar */
-            className="grid min-h-0 flex-1 grid-cols-[minmax(280px,1fr)_minmax(240px,320px)] grid-rows-[minmax(0,1fr)]"
-          >
-            <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
-              {worktree && (
-                <div
-                  onClick={showWorktree}
-                  className={cn(
-                    "gg-wtrow relative flex h-8.5 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
-                    view === "wt" && "border-l-primary bg-primary/10 text-foreground"
+            <main className="flex min-w-0 flex-1 flex-col">
+              <div
+                style={{ "--graphw": `${graphW}px`, "--gg-branch": `${branchW}px` } as React.CSSProperties}
+                /* fenêtre étroite : le détail cède de 320 à 240px avant que le graphe (280px plancher)
+                   ne se réduise à un ruban derrière son propre scrollbar */
+                className="grid min-h-0 flex-1 grid-cols-[minmax(280px,1fr)_minmax(240px,320px)] grid-rows-[minmax(0,1fr)]"
+              >
+                <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
+                  {worktree && (
+                    <div
+                      onClick={showWorktree}
+                      className={cn(
+                        "gg-wtrow gg-drop relative flex h-8.5 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
+                        view === "wt" && "border-l-primary bg-primary/10 text-foreground"
+                      )}
+                    >
+                      {headDot && (
+                        /* -2px : l'absolu se cale sur la padding-box, le SVG sur la border-box */
+                        <span
+                          className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed bg-background"
+                          style={{ left: `calc(var(--gg-branch, 0px) + ${headDot.left - 2}px)`, color: headDot.color }}
+                        />
+                      )}
+                      <span className="font-medium">Modifications non validées</span>
+                      <span className="ms-auto flex gap-1">
+                        {WT_COUNTERS.map(({ key, color }) =>
+                          worktree[key].length ? (
+                            <Badge key={key} color={color} shape="squared" className="tabular-nums">
+                              {worktree[key].length}
+                            </Badge>
+                          ) : null
+                        )}
+                      </span>
+                    </div>
                   )}
-                >
-                  {headDot && (
-                    /* -2px : l'absolu se cale sur la padding-box, le SVG sur la border-box */
-                    <span
-                      className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed bg-background"
-                      style={{ left: `calc(var(--gg-branch, 0px) + ${headDot.left - 2}px)`, color: headDot.color }}
+
+                  {/* le diff recouvre le graphe au lieu de le démonter : scroll, sélection et
+                      mise en page du canvas survivent à la fermeture */}
+                  <div className="relative grid min-h-0">
+                    <CommitGraph
+                      graphRef={graphRef}
+                      api={api}
+                      onReady={() => resetAndLoad()}
+                      callbacks={{
+                        onSelect: selectRow,
+                        onBranchSelect: selectBranch,
+                        onHover: setHoverInfo,
+                        onStats: setStats,
+                        onGraphWidth: setGraphW,
+                        onBranchWidth: setBranchW,
+                      }}
                     />
-                  )}
-                  <span className="font-medium">Modifications non validées</span>
-                  <span className="ms-auto flex gap-1">
-                    {WT_COUNTERS.map(({ key, color }) =>
-                      worktree[key].length ? (
-                        <Badge key={key} color={color} shape="squared" className="tabular-nums">
-                          {worktree[key].length}
-                        </Badge>
-                      ) : null
+                    {diff && (
+                      <div data-gg-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
+                        <DiffView api={api} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
+                      </div>
                     )}
-                  </span>
-                </div>
-              )}
-
-              {/* le diff recouvre le graphe au lieu de le démonter : scroll, sélection et
-                  mise en page du canvas survivent à la fermeture */}
-              <div className="relative grid min-h-0">
-                <CommitGraph
-                  graphRef={graphRef}
-                  api={api}
-                  onReady={() => resetAndLoad()}
-                  callbacks={{
-                    onSelect: selectRow,
-                    onBranchSelect: selectBranch,
-                    onHover: setHoverInfo,
-                    onStats: setStats,
-                    onGraphWidth: setGraphW,
-                    onBranchWidth: setBranchW,
-                  }}
-                />
-                {diff && (
-                  <div data-gg-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
-                    <DiffView api={api} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={changeDiffMode} onClose={closeDiff} />
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* colonne : l'en-tête du détail est figé, la liste et le diff scrollent chacun chez eux.
-                Les panneaux rendent des fragments — leurs enfants sont donc les items flex. */}
-            <aside data-gg-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l px-4.5 py-4">
-              {view === "wt" && worktree ? (
-                <WorktreePanel
-                  api={api}
-                  worktree={worktree}
-                  activePath={diff?.file.path}
-                  subject={subject}
-                  description={description}
-                  amend={amend}
-                  canAmend={canAmend}
-                  onSubjectChange={setSubject}
-                  onDescriptionChange={setDescription}
-                  onAmendChange={toggleAmend}
-                  onOpenDiff={openDiff}
-                  onRun={runWt}
-                  onCommit={doCommit}
-                />
-              ) : panelOpen && graphRef.current ? (
-                <DetailPanel
-                  api={api}
-                  graph={graphRef.current}
-                  selection={selection}
-                  selMode={selMode}
-                  activePath={diff?.file.path}
-                  onOpenDiff={openDiff}
-                  onJump={(hash) => graphRef.current?.jumpTo(hash)}
-                />
-              ) : workFlow && flowInfo && status?.branch ? (
-                <>
-                  <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
-                  <p className="mt-3 shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
-                </>
-              ) : (
-                <p className="shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
-              )}
-            </aside>
+                {/* colonne : l'en-tête du détail est figé, la liste et le diff scrollent chacun chez eux.
+                    Les panneaux rendent des fragments — leurs enfants sont donc les items flex. */}
+                <aside data-gg-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l px-4.5 py-4">
+                  {view === "wt" && worktree ? (
+                    <WorktreePanel
+                      api={api}
+                      worktree={worktree}
+                      activePath={diff?.file.path}
+                      subject={subject}
+                      description={description}
+                      amend={amend}
+                      canAmend={canAmend}
+                      onSubjectChange={setSubject}
+                      onDescriptionChange={setDescription}
+                      onAmendChange={toggleAmend}
+                      onOpenDiff={openDiff}
+                      onRun={runWt}
+                      onCommit={doCommit}
+                    />
+                  ) : panelOpen && graphRef.current ? (
+                    <DetailPanel
+                      api={api}
+                      graph={graphRef.current}
+                      selection={selection}
+                      selMode={selMode}
+                      activePath={diff?.file.path}
+                      onOpenDiff={openDiff}
+                      onJump={(hash) => graphRef.current?.jumpTo(hash)}
+                    />
+                  ) : workFlow && flowInfo && status?.branch ? (
+                    <>
+                      <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
+                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
+                    </>
+                  ) : (
+                    <p className="shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
+                  )}
+                </aside>
+              </div>
+            </main>
           </div>
-        </main>
+        </div>
+
+        {skeleton && <BootSkeleton out={booted} sidebar={sidebarOpen} />}
       </div>
 
       <StatusBar

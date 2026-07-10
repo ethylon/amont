@@ -300,6 +300,27 @@
   /* Palette de commandes : ouverte au clavier (Ctrl+K), une action clavier n'anime pas de
      déplacement. On neutralise le zoom (aucune origine d'où grandir) et on garde le seul fondu. */
   [data-slot="dialog-content"]:has([data-slot="command"]) { --tw-enter-scale: 1; --tw-exit-scale: 1; }
+
+  /* --- Boot d'un onglet : la révélation se fait en une seule frame (cf. RepoView) ; ces entrées
+     n'animent que les insertions ultérieures — l'arbre qui se salit, un checkout vers une branche
+     de flow. `data-settled` n'est posé qu'une frame après la révélation, les éléments présents au
+     boot ne rejouent donc pas leur entrée. La courbe de décélération est celle des onglets.
+     ponytail: pas d'animation de sortie — le démontage reste net, machinerie de rétention sinon. */
+  [data-settled] .gg-drop {
+    /* clip vertical seul : le bandeau flow garde son défilement horizontal (overflow-x-auto) */
+    overflow-y: clip;
+    transition: height 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease-out;
+    @starting-style { height: 0; opacity: 0; }
+  }
+  [data-settled] .gg-fadein {
+    transition: opacity 200ms ease-out, translate 200ms cubic-bezier(0.2, 0, 0, 1);
+    @starting-style { opacity: 0; translate: 0 4px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* le fondu reste, le mouvement (poussée, glissement) disparaît */
+    [data-settled] .gg-drop { transition: opacity 200ms ease-out; }
+    [data-settled] .gg-fadein { transition: opacity 200ms ease-out; }
+  }
 }
 
 /* Rail 2px du motif release/hotfix. Hors @layer, sinon la utility `border-l-transparent` de ROW_CLASS
