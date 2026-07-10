@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="%CSP%" />
-  <title>git-graph</title>
+  <title>Amont</title>
   <!-- Peint avant que le bundle n'existe. Sans ce fond, la fenêtre s'ouvre en blanc puis
        bascule en sombre à l'arrivée d'app.css. React vide #root à son premier commit :
        le splash s'en va sans une ligne de JS — et la CSP de prod interdit l'inline. -->
@@ -23,18 +23,17 @@
 <body>
   <div id="root">
     <div id="splash">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round"
-           stroke-linejoin="round" role="img" aria-label="Chargement">
-        <g stroke="light-dark(oklch(0.56 0.16 250), oklch(0.70 0.14 250))">
-          <circle cx="5" cy="6" r="3" />
-          <path d="M5 9v6" />
-          <circle cx="5" cy="18" r="3" />
-          <path d="M12 3v18" />
-        </g>
-        <g stroke="light-dark(oklch(0.55 0.19 322), oklch(0.70 0.17 322))">
-          <circle cx="19" cy="6" r="3" />
-          <path d="M16 15.7C16.9428 14.8567 17.6972 13.8242 18.2142 12.6698C18.7311 11.5153 18.9988 10.2649 19 9" />
-        </g>
+      <svg viewBox="0 0 240 240" role="img" aria-label="Chargement">
+        <defs>
+          <linearGradient id="splash-courant" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stop-color="#6AA6E8"/>
+            <stop offset="1" stop-color="#8F8FE8"/>
+          </linearGradient>
+        </defs>
+        <path d="M62,192 C62,132 92,112 114,70" fill="none" stroke="url(#splash-courant)" stroke-width="22" stroke-linecap="round"/>
+        <path d="M178,192 C178,132 148,112 126,70" fill="none" stroke="url(#splash-courant)" stroke-width="22" stroke-linecap="round"/>
+        <path d="M94,148 H146" fill="none" stroke="light-dark(#1C1C22, #ECECF2)" stroke-width="16" stroke-linecap="round"/>
+        <circle cx="120" cy="40" r="13" fill="#F272A8"/>
       </svg>
     </div>
   </div>
