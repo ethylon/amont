@@ -595,6 +595,64 @@ const BRANCH_OPS = {
 
 ipcMain.handle('repo:flow', (_ev, id) => flowPrefixes(use(id)));
 
+/* --- Contexte de flow de la branche courante ---
+   Lecture seule : ce que la branche a produit et où son finish atterrira. Le renderer classe
+   la branche (préfixes gitflow ou conventions) ; main ne fait que mesurer. */
+const SEMVER_RE = /^v?\d+\.\d+\.\d+/;
+const cfgOf = (r, key) => git(r.path, ['config', '--get', key]).then(o => o.trim(), () => '');
+
+async function flowInfo(r, branch, kind) {
+  const [headsOut, cfgMaster, cfgDevelop] = await Promise.all([
+    git(r.path, ['for-each-ref', '--format=%(refname:short)', 'refs/heads']),
+    cfgOf(r, 'gitflow.branch.master'),
+    cfgOf(r, 'gitflow.branch.develop'),
+  ]);
+  const heads = new Set(headsOut.split('\n').filter(Boolean));
+  const master = cfgMaster || ['master', 'main'].find(b => heads.has(b)) || null;
+  const develop = cfgDevelop || (heads.has('develop') ? 'develop' : null);
+  /* un hotfix part du tronc de production, tout le reste du tronc d'intégration */
+  const parent = kind === 'hotfix' ? master : develop ?? master;
+  if (!parent || !heads.has(parent) || parent === branch) return null;
+
+  const tagged = kind === 'release' || kind === 'hotfix';
+  /* ponytail: describe prend le tag le plus proche, semver ou non — le bump s'en protège par regex */
+  const [commits, lastTag] = await Promise.all([
+    git(r.path, ['rev-list', '--count', `${parent}..${branch}`]).then(o => parseInt(o, 10)),
+    tagged ? git(r.path, ['describe', '--tags', '--abbrev=0', branch]).then(o => o.trim(), () => null) : null,
+  ]);
+  const startedAt = commits
+    ? parseInt((await git(r.path, ['log', '--format=%ct', '--reverse', `${parent}..${branch}`])).split('\n', 1)[0], 10)
+    : null;
+
+  /* le tag du finish : gitflow nomme la branche par sa version ; sinon, bump du dernier tag —
+     patch pour un hotfix, minor pour une release */
+  let nextTag = null;
+  if (tagged) {
+    const prefixes = (await flowPrefixes(r)) ?? {};
+    const prefix = prefixes[kind] && branch.startsWith(prefixes[kind]) ? prefixes[kind] : `${kind}/`;
+    const suffix = branch.startsWith(prefix) ? branch.slice(prefix.length) : '';
+    const m = !SEMVER_RE.test(suffix) && lastTag && /^(v?)(\d+)\.(\d+)\.(\d+)/.exec(lastTag);
+    nextTag = SEMVER_RE.test(suffix) ? suffix
+      : m ? (kind === 'hotfix' ? `${m[1]}${m[2]}.${m[3]}.${+m[4] + 1}` : `${m[1]}${m[2]}.${+m[3] + 1}.0`)
+        : null;
+  }
+
+  return {
+    commits,
+    startedAt: Number.isFinite(startedAt) ? startedAt : null,
+    base: lastTag ?? parent,
+    targets: tagged ? [master, develop].filter(Boolean) : [parent],
+    nextTag,
+  };
+}
+
+ipcMain.handle('repo:flowInfo', (_ev, id, branch, kind) => {
+  const r = use(id);
+  if (typeof branch !== 'string' || !BRANCH.test(branch)) throw new Error('bad branch');
+  if (!FLOW_TYPES.includes(kind)) throw new Error('bad kind');
+  return flowInfo(r, branch, kind);
+});
+
 ipcMain.handle('repo:branch', async (_ev, id, action, name) => {
   const r = use(id);
   if (!Object.hasOwn(BRANCH_OPS, action)) throw new Error('bad action');
