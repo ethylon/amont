@@ -5,7 +5,7 @@ import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@
 import { isDark, setDark } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/mark"
-import { Button } from "@/components/ui/primitives/button"
+import { Button } from "@/components/ui/button"
 import { IconButton } from "@/components/ui/icon-button"
 
 /** L'écran d'accueil vit dans un onglet épinglé, jamais fermé. Les autres portent l'id du repo. */

@@ -6,7 +6,7 @@ import type { BranchFlow } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { FLOW_META } from "@/components/flow-context"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/primitives/button"
+import { Button } from "@/components/ui/button"
 
 export type OpState = {
   text: string

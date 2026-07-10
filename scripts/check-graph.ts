@@ -120,4 +120,22 @@ function c(h: string, p: string[], s: string, r = ""): Commit {
   assert.deepEqual(branchSegment(S, data, 0), [0, 1], "origin/feature/x en retard reste dans le segment")
 }
 
+/* --- Stash : nœud et arête pointillés, transparent pour les chaînes de branche --- */
+{
+  const data = [
+    c("t1", ["dv"], "wip", "HEAD -> refs/heads/feature/x"),
+    { ...c("s1", ["dv"], "WIP on develop: aaaa fix filters"), stash: { name: "stash@{0}", untracked: null } },
+    c("dv", ["c1"], "fix filters", "refs/heads/develop"),
+    c("c1", [], "init"),
+  ]
+  const S = createState(1)
+  layoutChunk(S, data)
+
+  assert.equal(S.nodes[0][1].stash, true, "la ligne de stash porte son marqueur de nœud")
+  assert.equal(S.fpEdge[1].dash, true, "l'arête du stash vers sa base est pointillée")
+  assert.equal(S.fpEdge[0].dash, undefined, "les arêtes ordinaires restent pleines")
+  assert.deepEqual(S.fpChildren.get("dv"), [0], "le stash n'est pas un enfant first-parent")
+  assert.deepEqual(branchSegment(S, data, 2), [2, 3], "le stash ne coupe pas le segment de develop")
+}
+
 console.log("check-graph: ok")
