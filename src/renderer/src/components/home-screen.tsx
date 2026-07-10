@@ -166,7 +166,7 @@ export function HomeScreen({ active, onOpened }: Props) {
             </Tip>
           )}
           {!root ? (
-            <p className="px-2.5 py-2 text-xs text-muted-foreground">
+            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">
               Aucun dossier racine. Choisis-en un pour lister ses dépôts.
             </p>
           ) : found === null ? (
@@ -174,7 +174,7 @@ export function HomeScreen({ active, onOpened }: Props) {
               <Spinner className="size-3" /> recherche des dépôts…
             </p>
           ) : !found.length ? (
-            <p className="px-2.5 py-2 text-xs text-muted-foreground">Aucun dépôt trouvé sous cette racine.</p>
+            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">Aucun dépôt trouvé sous cette racine.</p>
           ) : (
             found.map((r) => <RepoButton key={r.path} repo={r} onClick={() => openPath(r.path)} />)
           )}
