@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('gitgraph', {
   commit: (id, message, amend) => ipcRenderer.invoke('repo:commit', id, message, amend),
   headMessage: (id) => ipcRenderer.invoke('repo:headMessage', id),
   checkout: (id, name) => ipcRenderer.invoke('repo:checkout', id, name),
+  stashes: (id) => ipcRenderer.invoke('repo:stashes', id),
+  stash: (id, action, arg) => ipcRenderer.invoke('repo:stash', id, action, arg),
   fileIcon: (id, path) => ipcRenderer.invoke('repo:fileIcon', id, path),
   openFile: (id, path) => ipcRenderer.invoke('repo:openFile', id, path),
 });

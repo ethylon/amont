@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   onChanged, onOp, repoApi, worktreeCount,
   type BranchAct, type FileChange, type FlowInfo, type FlowPrefixes, type GitRef, type OpName, type Repo,
-  type Status, type Worktree,
+  type Stash, type StashAct, type Status, type Worktree,
 } from "@/lib/git"
 import { branchFlow } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
@@ -405,6 +405,25 @@ export function RepoView({ repo, active }: Props) {
     [api, refreshStatus, resetAndLoad, showOp]
   )
 
+  /* Un pop en conflit laisse l'entrée en place et les marqueurs dans l'arbre : on recharge
+     dans tous les cas, l'erreur de git dit le reste. Le message d'un push réussi a été
+     consommé par le stash : le champ sujet se vide, le brouillon de description reste. */
+  const runStash = useCallback(
+    async (action: StashAct, name?: string) => {
+      const err = await api.stash(action, name).then(() => null, (e: Error) => e.message)
+      if (!err && action === "push") setSubject("")
+      await refreshStatus()
+      await resetAndLoad()
+      if (err) showOp(err, "danger")
+    },
+    [api, refreshStatus, resetAndLoad, showOp]
+  )
+
+  /* Clic d'une entrée du sidebar : on amène son nœud à l'écran ; reveal sélectionne la ligne. */
+  const focusStash = useCallback(async (s: Stash) => {
+    await graphRef.current?.jumpTo(s.h)
+  }, [])
+
   /* Un merge en conflit, un `flow finish` interrompu : l'échec laisse l'arbre et les refs
      déplacés. On recharge dans tous les cas, comme pour le checkout. */
   const runBranch = useCallback(
@@ -486,6 +505,8 @@ export function RepoView({ repo, active }: Props) {
               onCheckout={checkout}
               onBranch={runBranch}
               onFocusRef={focusRef}
+              onFocusStash={focusStash}
+              onStash={runStash}
               focusedKeys={focusedKeys}
             />
 
@@ -559,6 +580,7 @@ export function RepoView({ repo, active }: Props) {
                       onOpenDiff={openDiff}
                       onRun={runWt}
                       onCommit={doCommit}
+                      onStash={() => runStash("push", subject.trim() || undefined)}
                     />
                   ) : panelOpen && graphRef.current ? (
                     <DetailPanel

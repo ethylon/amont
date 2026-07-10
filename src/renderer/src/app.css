@@ -209,6 +209,9 @@
   .gg-row[data-flow="release"] { background: color-mix(in oklab, var(--release) 8%, transparent); }
   .gg-row[data-flow="hotfix"]  { background: color-mix(in oklab, var(--destructive) 9%, transparent); }
 
+  /* Stash : un voile neutre — l'entrée est en marge de l'historique, pas un jalon. */
+  .gg-row[data-stash] { background: color-mix(in oklab, var(--muted-foreground) 6%, transparent); }
+
   @keyframes gg-flash {
     0%, 40% { background: color-mix(in oklab, var(--primary) 22%, transparent); }
     100%    { background: transparent; }
