@@ -28,7 +28,6 @@ export function CommitGraph({ graphRef, api, callbacks, onReady }: Props) {
     const graph = createGraph(board.current!, inner.current!, svg.current!, api, {
       onSelect: (r, a) => cb.current.onSelect(r, a),
       onBranchSelect: (r) => cb.current.onBranchSelect(r),
-      onHover: (i) => cb.current.onHover(i),
       onStats: (s) => cb.current.onStats(s),
       onGraphWidth: (px) => cb.current.onGraphWidth(px),
       onBranchWidth: (px) => cb.current.onBranchWidth(px),
