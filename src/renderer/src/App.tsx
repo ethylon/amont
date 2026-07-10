@@ -40,6 +40,17 @@ export default function App() {
     [active, tabs]
   )
 
+  /* F5 : rechargement complet de la fenêtre — l'issue de secours quand l'UI se coince.
+     Un renderer mort ne reçoit plus de clavier : ce cas est couvert par le reload
+     automatique du main (render-process-gone). */
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "F5") window.location.reload()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
   /* restauration : pas d'animation, il n'y a pas d'état précédent à quitter */
   useEffect(() => {
     bootState.then((s) => {
