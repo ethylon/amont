@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import { execFile, spawn } from 'node:child_process';
 import { existsSync, watch } from 'node:fs';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 
 /* Repos ouverts, côté main uniquement : le renderer ne les désigne que par un id opaque.
@@ -9,6 +9,14 @@ import { join, resolve, sep } from 'node:path';
 const repos = new Map();
 let nextId = 1;
 let mainWindow = null;
+
+/* Journal d'incidents (crash renderer, erreurs console) : `incidents.log` sous userData.
+   En dev il double sur stderr. L'écriture est best-effort — un disque plein ne casse rien. */
+function report(...parts) {
+  const line = `${new Date().toISOString()} ${parts.join(' ')}`;
+  console.error(line);
+  appendFile(join(app.getPath('userData'), 'incidents.log'), line + '\n').catch(() => {});
+}
 
 if (process.env.GG_DEBUG) app.commandLine.appendSwitch('remote-debugging-port', process.env.GG_DEBUG);
 
@@ -915,6 +923,24 @@ function createWindow() {
     },
   });
   mainWindow = win;
+  /* Un renderer mort laisse une fenêtre noire et sourde (plus de clavier, F5 inopérant) :
+     on journalise l'incident puis on recharge d'office. Le journal survit au crash —
+     c'est lui qu'on lit après coup pour comprendre. */
+  win.webContents.on('render-process-gone', (_ev, d) => {
+    report('renderer gone:', d.reason, `(exit ${d.exitCode})`);
+    if (d.reason !== 'clean-exit') win.webContents.reload();
+  });
+  win.webContents.on('unresponsive', () => report('renderer unresponsive'));
+  win.webContents.on('responsive', () => report('renderer responsive again'));
+  win.webContents.on('console-message', (...a) => {
+    /* Electron ≥ 32 passe un objet évènement ; forme positionnelle (level 3 = error) en repli.
+       Les 404 de ressources (avatars) ne sont pas des incidents. */
+    const m = a[0] && a[0].message !== undefined ? a[0] : { level: a[1], message: a[2] };
+    const error = m.level === 'error' || Number(m.level) >= 3;
+    if (error && !String(m.message).includes('Failed to load resource')) {
+      report('[renderer]', String(m.message).slice(0, 500));
+    }
+  });
   win.once('ready-to-show', () => win.show());
   /* liens des messages de commit : au navigateur, jamais dans la fenêtre de l'app */
   win.webContents.setWindowOpenHandler(({ url }) => {
