@@ -126,7 +126,7 @@ export function HomeScreen({ active, onOpened }: Props) {
         <div className="flex items-center gap-3 px-2.5">
           <Mark className="size-7" />
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold tracking-tight">git-graph</h2>
+            <h2 className="text-sm font-semibold tracking-tight">Amont</h2>
             <p className="text-xs text-muted-foreground">Ouvre un dépôt dans un nouvel onglet.</p>
           </div>
           <Button variant="outline" size="sm" onClick={openDialog}>
