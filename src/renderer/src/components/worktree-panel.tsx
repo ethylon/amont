@@ -1,5 +1,5 @@
 import { useId, useState } from "react"
-import { MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
+import { ArchiveArrowDownIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
 import type { DiffCtx } from "@/components/diff-view"
@@ -87,11 +87,13 @@ type Props = {
   onOpenDiff(ctx: DiffCtx, file: FileChange): void
   onRun(act: WtAct, paths: string[]): void
   onCommit(): Promise<void>
+  /** remise l'arbre entier (`git stash push -u`), le sujet saisi servant de message */
+  onStash(): void
 }
 
 export function WorktreePanel({
   api, worktree, activePath, subject, description, amend, canAmend,
-  onSubjectChange, onDescriptionChange, onAmendChange, onOpenDiff, onRun, onCommit,
+  onSubjectChange, onDescriptionChange, onAmendChange, onOpenDiff, onRun, onCommit, onStash,
 }: Props) {
   const [committing, setCommitting] = useState(false)
   const [view, setView] = useFileView()
@@ -169,7 +171,16 @@ export function WorktreePanel({
     <>
       <div className="flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-sm leading-snug font-semibold tracking-tight text-balance">Modifications non validées</h2>
-        <FileViewToggle view={view} onChange={setView} />
+        <div className="flex items-center gap-1">
+          <IconButton
+            label="Stasher les modifications (git stash push -u)"
+            title="Stasher les modifications (git stash push -u)"
+            icon={ArchiveArrowDownIcon}
+            size="icon-sm"
+            onClick={onStash}
+          />
+          <FileViewToggle view={view} onChange={setView} />
+        </div>
       </div>
 
       {/* deux blocs à parts égales, chacun avec son propre défilement, toujours visibles */}
