@@ -1,6 +1,6 @@
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 
-import { Button } from "@/components/ui/primitives/button"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 type Props = Omit<React.ComponentProps<typeof Button>, "children"> & {
