@@ -16,8 +16,12 @@ const LANES = 10
    présentation SVG suit le thème sans passer par une utility Tailwind. */
 export const laneColor = (i: number) => `var(--lane-${i % LANES})`
 
-export type Edge = { r1: number; l1: number; travel: number; k: number; r2?: number; l2?: number }
-export type GraphNode = { row: number; lane: number; merge: boolean; cap?: FlowKind }
+export type Edge = {
+  r1: number; l1: number; travel: number; k: number; r2?: number; l2?: number
+  /** arête de stash : tracée en pointillés — un instantané suspendu, pas de l'historique */
+  dash?: boolean
+}
+export type GraphNode = { row: number; lane: number; merge: boolean; cap?: FlowKind; stash?: boolean }
 
 /** État de layout persistant entre les pages — le graphe se construit en streaming. */
 export type LayoutState = {
@@ -93,7 +97,9 @@ export function layoutChunk(S: LayoutState, data: Commit[]) {
       S.rowOf.set(hh, row)
     }
     S.laneOf[row] = lane
-    S.nodes[Math.floor(row / CHUNK)].push({ row, lane, merge: c.p.length > 1, cap: c.cap?.flow })
+    S.nodes[Math.floor(row / CHUNK)].push({
+      row, lane, merge: c.p.length > 1, cap: c.cap?.flow, stash: !!c.stash,
+    })
 
     c.p.forEach((p, k) => {
       let travel: number
@@ -111,11 +117,16 @@ export function layoutChunk(S: LayoutState, data: Commit[]) {
       }
       if (!S.pending.has(p)) S.pending.set(p, [])
       const rec: Edge = { r1: row, l1: lane, travel, k }
+      if (c.stash) rec.dash = true
       S.pending.get(p)!.push(rec)
       if (k === 0) {
         S.fpEdge[row] = rec
-        if (!S.fpChildren.has(p)) S.fpChildren.set(p, [])
-        S.fpChildren.get(p)!.push(row)
+        /* un stash n'est pas un enfant de branche : l'inscrire ici ferait passer son commit
+           de base pour un fork et couperait les segments (cf. branchSegment) */
+        if (!c.stash) {
+          if (!S.fpChildren.has(p)) S.fpChildren.set(p, [])
+          S.fpChildren.get(p)!.push(row)
+        }
       } else {
         S.mergedBy.set(p, row)
       }
@@ -148,12 +159,20 @@ export function edgePath(e: Edge, yEnd?: number) {
 export const stroke = (e: Edge) => laneColor(e.travel)
 
 export const edgesSvg = (list: Edge[]) =>
-  list.map((e) => `<path d="${edgePath(e)}" fill="none" stroke="${stroke(e)}" stroke-width="1.6"/>`).join("")
+  list
+    .map((e) =>
+      `<path d="${edgePath(e)}" fill="none" stroke="${stroke(e)}" stroke-width="1.6"${e.dash ? ' stroke-dasharray="3 3"' : ""}/>`)
+    .join("")
 
 export const nodesSvg = (list: GraphNode[]) =>
   list
     .map((n) => {
       const c = laneColor(n.lane)
+      if (n.stash) {
+        /* Anneau pointillé, même grammaire que le point d'arbre de travail : un état
+           suspendu, pas un commit d'historique. */
+        return `<circle cx="${X(n.lane)}" cy="${Y(n.row)}" r="${R - 0.4}" fill="var(--background)" stroke="${c}" stroke-width="1.5" stroke-dasharray="2.4 2.2"/>`
+      }
       if (n.cap) {
         /* Losange du jalon : la release/hotfix atterrit ici, teinte du flow, pas de la lane. */
         const col = n.cap === "hotfix" ? "var(--destructive)" : "var(--release)"

@@ -26,7 +26,30 @@ export type Commit = {
     /** [cible master, cible develop] */
     targets: [string, string]
   }
+  /** posé par le repli des stash (cf. graph-canvas) : cette ligne est une entrée de stash,
+      ses parents de plomberie ont été retirés — seul le parent de base reste. */
+  stash?: {
+    /** nom d'entrée `stash@{N}`, la poignée des actions apply/pop/drop */
+    name: string
+    /** hash court du commit des fichiers non suivis (`stash push -u`), `null` sans eux */
+    untracked: string | null
+  }
 }
+
+/** Une entrée de `git stash list`. `p` garde tous les parents : base, index, non suivis. */
+export type Stash = {
+  name: string
+  /** hash court (8) du commit de stash, sa ligne dans le graphe */
+  h: string
+  p: string[]
+  d: string
+  a: string
+  e: string
+  /** sujet du reflog : "WIP on x: …" ou "On x: message" */
+  s: string
+}
+
+export type StashAct = "push" | "apply" | "pop" | "drop"
 
 export type FileChange = {
   /** A, M, D, R, C, ? ou un couple de conflit (UU, AA…) */
@@ -151,6 +174,8 @@ type Bridge = {
   commit(id: number, message: string, amend: boolean): Promise<void>
   headMessage(id: number): Promise<CommitMessage>
   checkout(id: number, name: string): Promise<void>
+  stashes(id: number): Promise<Stash[]>
+  stash(id: number, action: StashAct, arg?: string): Promise<void>
   fileIcon(id: number, path: string): Promise<string | null>
   openFile(id: number, path: string): Promise<string>
 }
@@ -220,6 +245,10 @@ export type RepoApi = {
   headMessage(): Promise<CommitMessage>
   /** bascule sur une branche locale ; l'arbre sale est stashé puis réappliqué */
   checkout(name: string): Promise<void>
+  /** entrées de `git stash list`, de la plus récente à la plus ancienne */
+  stashes(): Promise<Stash[]>
+  /** `push` remise l'arbre (message optionnel) ; les autres visent un nom `stash@{N}` */
+  stash(action: StashAct, arg?: string): Promise<void>
   /** icône Windows du fichier, `null` s'il n'existe pas sur le disque */
   fileIcon(path: string): Promise<string | null>
   openFile(path: string): Promise<string>
@@ -245,6 +274,8 @@ export const repoApi = (id: number): RepoApi => ({
   commit: (message, amend) => bridge.commit(id, message, amend),
   headMessage: () => bridge.headMessage(id),
   checkout: (name) => bridge.checkout(id, name),
+  stashes: () => bridge.stashes(id),
+  stash: (action, arg) => bridge.stash(id, action, arg),
   fileIcon: (path) => bridge.fileIcon(id, path),
   openFile: (path) => bridge.openFile(id, path),
 })
