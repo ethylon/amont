@@ -200,8 +200,31 @@ function diffUntracked(repo, path) {
 
 /* `--all` embarque `refs/stash`, dont les commits de plomberie (« On x », « index on x »,
    « untracked files on x ») n'ont rien à faire dans le graphe. `--exclude` s'applique au
-   `--all` qui suit. ponytail: idem pour `refs/notes/*` le jour où quelqu'un en pose. */
+   `--all` qui suit. Les stash reviennent quand même dans le log : chaque entrée est passée en
+   tip explicite (cf. stashTips), et le renderer replie sa plomberie (cf. graph-canvas).
+   ponytail: idem pour `refs/notes/*` le jour où quelqu'un en pose. */
 const ALL_REFS = ['--exclude=refs/stash', '--all'];
+
+/* --- Stash ---
+   `refs/stash` ne pointe que la dernière entrée : les autres vivent dans le reflog, d'où
+   `stash list`. `%as` plutôt que `--date=short` : ce dernier daterait aussi `%gd`, et
+   « stash@{2026-07-08} » n'est plus un nom d'entrée exploitable. */
+async function stashList(r) {
+  const out = await git(r.path, [
+    'stash', 'list', '--format=%H%x1f%P%x1f%gd%x1f%as%x1f%an%x1f%ae%x1f%gs%x1e',
+  ]).catch(() => '');
+  return out.split('\x1e')
+    .map(row => row.split('\x1f'))
+    .filter(f => f.length >= 7)
+    .map(f => ({
+      h: f[0].trim().slice(0, 8),
+      p: f[1].split(' ').filter(Boolean).map(x => x.slice(0, 8)),
+      name: f[2], d: f[3], a: f[4], e: f[5], s: f.slice(6).join(' '),
+    }));
+}
+
+const stashTips = r => git(r.path, ['stash', 'list', '--format=%H']).catch(() => '')
+  .then(o => o.split('\n').filter(Boolean));
 
 /* ponytail: git log --skip re-parcourt l'historique à chaque page — OK jusqu'à ~100k commits,
    passer à un stream spawn persistant si un jour ça rame. */
@@ -209,7 +232,7 @@ async function logPage(r, skip, count) {
   /* --decorate=full : `%D` sort alors `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
      Sous sa forme courte, `origin/x` et une branche locale `origin/x` sont indistinguables. */
   const out = await git(r.path, [
-    'log', ...ALL_REFS, '--date-order', '--date=short', '--decorate=full',
+    'log', ...ALL_REFS, ...await stashTips(r), '--date-order', '--date=short', '--decorate=full',
     `--skip=${skip}`, `-n${count}`,
     '--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e',
   ]);
@@ -317,7 +340,9 @@ async function runOp(r, name, auto = false) {
    mais pas les refs. Surveiller aussi `--git-common-dir` le jour où le cas se présente. */
 const WATCH_DEBOUNCE = 300;
 const MUTE_MS = 1500;
-const WATCHED = /^(?:HEAD|packed-refs)$|^refs[\\/](?:heads|tags)[\\/]/;
+/* `refs/stash` et son reflog : un `git stash` lancé d'un terminal change le graphe. Un drop
+   d'une entrée ancienne ne touche que `logs/refs/stash`, d'où la surveillance des deux. */
+const WATCHED = /^(?:HEAD|packed-refs)$|^refs[\\/](?:heads|tags)[\\/]|^(?:logs[\\/])?refs[\\/]stash$/;
 
 /* Nos propres commandes réveillent le watcher, alors que le renderer a déjà rechargé derrière
    elles. On ne sait pas distinguer ces événements des autres : on se tait un instant. */
@@ -824,8 +849,46 @@ ipcMain.handle('repo:search', (_ev, id, q, content) => {
   return searchCommits(r, q.trim(), content === true);
 });
 
-ipcMain.handle('repo:total', async (_ev, id) =>
-  parseInt(await git(use(id).path, ['rev-list', '--count', ...ALL_REFS]), 10));
+/* Le comptage embarque les tips de stash, comme le log. Chaque entrée traîne 1 à 2 commits
+   de plomberie (index, non suivis) que le renderer replie : on les soustrait pour que
+   `total` reste le nombre de lignes réellement affichables. Dédupliqués : deux stash créés
+   dans la même seconde partagent le même commit d'index (même arbre, même parent, même date). */
+ipcMain.handle('repo:total', async (_ev, id) => {
+  const r = use(id);
+  const stashes = await stashList(r);
+  const plumbing = new Set(stashes.flatMap(s => s.p.slice(1)));
+  const count = parseInt(await git(r.path,
+    ['rev-list', '--count', ...ALL_REFS, ...stashes.map(s => s.h)]), 10);
+  return count - plumbing.size;
+});
+
+ipcMain.handle('repo:stashes', (_ev, id) => stashList(use(id)));
+
+/* --- Actions de stash ---
+   apply/pop/drop visent une entrée par son nom `stash@{N}` — les indices glissent après un
+   drop, le renderer recharge la liste derrière chaque action. push remise l'arbre entier,
+   non suivis compris, avec le message fourni. */
+const STASH_NAME = /^stash@\{\d+\}$/;
+const STASH_GROUP = { push: 'Stash', apply: 'Stash apply', pop: 'Stash pop', drop: 'Stash drop' };
+
+ipcMain.handle('repo:stash', async (_ev, id, action, arg) => {
+  const r = use(id);
+  if (!Object.hasOwn(STASH_GROUP, action)) throw new Error('bad stash action');
+  let args;
+  if (action === 'push') {
+    const msg = typeof arg === 'string' && arg.trim() ? arg.trim() : null;
+    args = ['stash', 'push', '-u', ...(msg ? ['-m', msg] : [])];
+  } else {
+    if (typeof arg !== 'string' || !STASH_NAME.test(arg)) throw new Error('bad stash name');
+    args = ['stash', action, arg];
+  }
+  traceGroup(r.id, action === 'push' ? STASH_GROUP.push : `${STASH_GROUP[action]} ${arg}`);
+  try {
+    await git(r.path, args);
+  } finally {
+    mute(r);
+  }
+});
 
 function createWindow() {
   const win = new BrowserWindow({
