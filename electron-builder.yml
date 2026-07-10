@@ -1,5 +1,5 @@
-appId: fr.mathieuguey.gitgraph
-productName: Git Graph
+appId: fr.mathieuguey.amont
+productName: Amont
 
 # Le renderer et le main sont bundlés par electron-vite : `out/` se suffit,
 # `node_modules` n'a rien à faire dans l'asar.
@@ -7,7 +7,7 @@ files:
   - out/**
   - package.json
 
-# electron-builder y cherche l'icône de lui-même (icon.png, >= 256x256 → .ico généré).
+# electron-builder y cherche l'icône de lui-même (icon.ico multi-tailles, icon.png en secours).
 directories:
   buildResources: resources
 
