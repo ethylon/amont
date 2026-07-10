@@ -1,8 +1,10 @@
-/* Auto-contrôle du collapse release/hotfix de graph-layout.ts : `node scripts/check-graph.ts`.
-   Les deux motifs (paire de merges de branche, merge de tag) et les cas qui ne doivent PAS
-   fusionner — c'est la logique la plus délicate du rendu du graphe. */
+/* Auto-contrôle du collapse release/hotfix et des segments de branche de graph-layout.ts :
+   `node scripts/check-graph.ts`. Les deux motifs (paire de merges de branche, merge de tag),
+   les cas qui ne doivent PAS fusionner, et les frontières de segment. */
 import assert from "node:assert/strict"
-import { collapsePairs } from "../src/renderer/src/lib/graph-layout.ts"
+import {
+  branchChain, branchSegment, collapsePairs, createState, layoutChunk,
+} from "../src/renderer/src/lib/graph-layout.ts"
 import type { Commit } from "../src/renderer/src/lib/git.ts"
 
 /* fonction déclarée, pas fléchée : suivie d'un bloc nu, `=> ({…})` fait trébucher tsc */
@@ -81,6 +83,41 @@ function c(h: string, p: string[], s: string, r = ""): Commit {
   assert.deepEqual(out.map((x) => x.h), ["d2", "d1"])
   assert.equal(out[0].cap?.absorbed, "m2")
   assert.equal(out[1].cap?.absorbed, "m1")
+}
+
+/* --- Frontières de segment : une ref de branche coupe même sans fork topologique --- */
+
+// une branche posée sur le tip de develop (aucun commit develop depuis le fork) : le segment
+// s'arrête à develop, il ne descend pas dans le tronc (cas allix4, feature/business-refactor)
+{
+  const data = [
+    c("t2", ["t1"], "wip", "HEAD -> refs/heads/feature/x"),
+    c("t1", ["dv"], "refactor: étape 1"),
+    c("dv", ["c1"], "fix filters", "refs/heads/develop, refs/remotes/origin/develop"),
+    c("c1", ["c2"], "chore: bump"),
+    c("c2", [], "init"),
+  ]
+  const S = createState(1)
+  layoutChunk(S, data)
+
+  assert.deepEqual(branchSegment(S, data, 0), [0, 1], "le segment s'arrête au tip de develop")
+  assert.deepEqual(branchSegment(S, data, 2), [2, 3, 4], "le segment de develop descend le tronc")
+  assert.equal(branchSegment(S, data, 2)[0], 2, "on ne grimpe pas au-dessus du tip de develop")
+  assert.equal(branchChain(S, data, 3)[0], 2, "le survol du tronc remonte à develop, pas à la feature")
+}
+
+// la distante en retard de la même branche ne coupe pas ; celle d'une autre branche, si
+{
+  const data = [
+    c("t2", ["t1"], "wip", "HEAD -> refs/heads/feature/x"),
+    c("t1", ["dv"], "refactor: étape 1", "refs/remotes/origin/feature/x"),
+    c("dv", ["c1"], "fix filters", "refs/remotes/origin/develop"),
+    c("c1", [], "init"),
+  ]
+  const S = createState(1)
+  layoutChunk(S, data)
+
+  assert.deepEqual(branchSegment(S, data, 0), [0, 1], "origin/feature/x en retard reste dans le segment")
 }
 
 console.log("check-graph: ok")
