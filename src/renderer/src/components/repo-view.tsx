@@ -201,7 +201,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   }, [booted])
 
   useEffect(() => {
-    if (active) document.title = `git-graph — ${repo.name}`
+    if (active) document.title = `Amont — ${repo.name}`
   }, [active, repo.name])
 
   /* git ne notifie rien : l'arbre a pu bouger dans l'éditeur pendant qu'on regardait ailleurs */
