@@ -89,53 +89,54 @@ function c(h: string, p: string[], s: string, r = ""): Commit {
 
 // une branche posée sur le tip de develop (aucun commit develop depuis le fork) : le segment
 // s'arrête à develop, il ne descend pas dans le tronc (cas allix4, feature/business-refactor)
+// (hash factices en hex : l'état de layout les indexe par clé entière, cf. hkey)
 {
   const data = [
-    c("t2", ["t1"], "wip", "HEAD -> refs/heads/feature/x"),
-    c("t1", ["dv"], "refactor: étape 1"),
-    c("dv", ["c1"], "fix filters", "refs/heads/develop, refs/remotes/origin/develop"),
+    c("f2", ["f1"], "wip", "HEAD -> refs/heads/feature/x"),
+    c("f1", ["de"], "refactor: étape 1"),
+    c("de", ["c1"], "fix filters", "refs/heads/develop, refs/remotes/origin/develop"),
     c("c1", ["c2"], "chore: bump"),
     c("c2", [], "init"),
   ]
   const S = createState(1)
-  layoutChunk(S, data)
+  layoutChunk(S, (r) => data[r], data.length)
 
-  assert.deepEqual(branchSegment(S, data, 0), [0, 1], "le segment s'arrête au tip de develop")
-  assert.deepEqual(branchSegment(S, data, 2), [2, 3, 4], "le segment de develop descend le tronc")
-  assert.equal(branchSegment(S, data, 2)[0], 2, "on ne grimpe pas au-dessus du tip de develop")
-  assert.equal(branchChain(S, data, 3)[0], 2, "le survol du tronc remonte à develop, pas à la feature")
+  assert.deepEqual(branchSegment(S, 0), [0, 1], "le segment s'arrête au tip de develop")
+  assert.deepEqual(branchSegment(S, 2), [2, 3, 4], "le segment de develop descend le tronc")
+  assert.equal(branchSegment(S, 2)[0], 2, "on ne grimpe pas au-dessus du tip de develop")
+  assert.equal(branchChain(S, 3)[0], 2, "le survol du tronc remonte à develop, pas à la feature")
 }
 
 // la distante en retard de la même branche ne coupe pas ; celle d'une autre branche, si
 {
   const data = [
-    c("t2", ["t1"], "wip", "HEAD -> refs/heads/feature/x"),
-    c("t1", ["dv"], "refactor: étape 1", "refs/remotes/origin/feature/x"),
-    c("dv", ["c1"], "fix filters", "refs/remotes/origin/develop"),
+    c("f2", ["f1"], "wip", "HEAD -> refs/heads/feature/x"),
+    c("f1", ["de"], "refactor: étape 1", "refs/remotes/origin/feature/x"),
+    c("de", ["c1"], "fix filters", "refs/remotes/origin/develop"),
     c("c1", [], "init"),
   ]
   const S = createState(1)
-  layoutChunk(S, data)
+  layoutChunk(S, (r) => data[r], data.length)
 
-  assert.deepEqual(branchSegment(S, data, 0), [0, 1], "origin/feature/x en retard reste dans le segment")
+  assert.deepEqual(branchSegment(S, 0), [0, 1], "origin/feature/x en retard reste dans le segment")
 }
 
 /* --- Stash : nœud et arête pointillés, transparent pour les chaînes de branche --- */
 {
   const data = [
-    c("t1", ["dv"], "wip", "HEAD -> refs/heads/feature/x"),
-    { ...c("s1", ["dv"], "WIP on develop: aaaa fix filters"), stash: { name: "stash@{0}", untracked: null } },
-    c("dv", ["c1"], "fix filters", "refs/heads/develop"),
+    c("f1", ["de"], "wip", "HEAD -> refs/heads/feature/x"),
+    { ...c("5a", ["de"], "WIP on develop: aaaa fix filters"), stash: { name: "stash@{0}", untracked: null } },
+    c("de", ["c1"], "fix filters", "refs/heads/develop"),
     c("c1", [], "init"),
   ]
   const S = createState(1)
-  layoutChunk(S, data)
+  layoutChunk(S, (r) => data[r], data.length)
 
   assert.equal(S.nodes[0][1].stash, true, "la ligne de stash porte son marqueur de nœud")
   assert.equal(S.fpEdge[1].dash, true, "l'arête du stash vers sa base est pointillée")
   assert.equal(S.fpEdge[0].dash, undefined, "les arêtes ordinaires restent pleines")
-  assert.deepEqual(S.fpChildren.get("dv"), [0], "le stash n'est pas un enfant first-parent")
-  assert.deepEqual(branchSegment(S, data, 2), [2, 3], "le stash ne coupe pas le segment de develop")
+  assert.deepEqual(S.fpChildren.get(2), [0], "le stash n'est pas un enfant first-parent") // dv = ligne 2
+  assert.deepEqual(branchSegment(S, 2), [2, 3], "le stash ne coupe pas le segment de develop")
 }
 
 console.log("check-graph: ok")
