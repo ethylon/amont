@@ -77,10 +77,15 @@ type Ctx = RowProps & {
   current: string | null
   flow: FlowPrefixes | null
   onBranch(action: BranchAct, name: string): void
-  /** hashes des commits sélectionnés : une branche est allumée si son tip en fait partie */
-  selectedTips: Set<string>
-  onFocus(r: GitRef, additive: boolean): void
+  /** refs focalisées, `kind:name` — les identités cliquées, ou les branches dérivées des commits */
+  focusedKeys: Set<string>
+  /** focalise la ref dans le graphe : scroll au tip et sélection de la branche entière.
+      Ctrl (`additive`) ajoute ou retire ; le focus se lève d'un clic dans le vide */
+  onFocusRef(r: GitRef, additive: boolean): void
 }
+
+/** identité d'une ref, partagée avec RepoView : `master` local et `origin/master` cohabitent */
+const refKey = (r: GitRef) => `${r.kind}:${r.name}`
 
 function buildTree(refs: GitRef[]): Node {
   const root: Node = { dirs: new Map(), leaves: [] }
@@ -99,6 +104,10 @@ function buildTree(refs: GitRef[]): Node {
 /** Sous la racine, tout est replié au premier rendu sauf le chemin qui mène à HEAD. */
 const holdsHead = (n: Node): boolean =>
   n.leaves.some((l) => l.ref.head) || [...n.dirs.values()].some(holdsHead)
+
+/** un pli qui cache une ref focalisée doit s'ouvrir : le focus posé depuis le graphe se voit */
+const holdsFocused = (n: Node, keys: Set<string>): boolean =>
+  n.leaves.some((l) => keys.has(refKey(l.ref))) || [...n.dirs.values()].some((d) => holdsFocused(d, keys))
 
 const track = (r: GitRef) =>
   [r.ahead && `↑${r.ahead}`, r.behind && `↓${r.behind}`].filter(Boolean).join(" ")
@@ -161,15 +170,16 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
     switchable && "double-clic pour basculer",
   ].filter(Boolean)
 
-  /* « allumée » = son tip est sélectionné dans le graphe. Réservé aux branches locales : la passe DOM
-     (cf. RefsSidebar) lit `data-lit` pour tracer le contour et fusionner les runs contigus. */
-  const lit = r.kind === "head" && ctx.selectedTips.has(r.tip)
+  /* « allumée » = cette ref est focalisée — à l'identité, `kind` compris : la locale et sa
+     distante ne s'allument jamais ensemble. La passe DOM (cf. RefsSidebar) lit `data-lit`
+     pour tracer le contour et fusionner les runs contigus. */
+  const lit = ctx.focusedKeys.has(refKey(r))
   const row = (
     <Tip text={[r.name, ...notes].join(" — ")} side="right">
       <button
         type="button"
         data-lit={lit ? "1" : undefined}
-        onClick={(e) => ctx.onFocus(r, e.ctrlKey || e.metaKey)}
+        onClick={(e) => ctx.onFocusRef(r, e.ctrlKey || e.metaKey)}
         onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
         className={cn(
           "gg-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
@@ -211,7 +221,8 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
 /* `openDirs` : ouvre les dossiers de ce seul niveau (la récursion repasse à false). Sert aux
    distantes, où le remote (`origin`) resterait sinon replié faute de HEAD à l'intérieur.
    `forceOpen` : tout ouvert, à tous les niveaux — un résultat de filtre caché dans un pli
-   serait invisible. La clé change avec lui : `defaultOpen` ne vaut qu'au montage. */
+   serait invisible. La clé change avec lui : `defaultOpen` ne vaut qu'au montage. Un dossier
+   qui abrite une ref focalisée s'ouvre par le même remontage, ciblé sur son seul chemin. */
 function Tree({ node, icon, ctx, openDirs = false, forceOpen = false }: {
   node: Node; icon: IconSvgElement; ctx: Ctx; openDirs?: boolean; forceOpen?: boolean
 }) {
@@ -231,9 +242,13 @@ function Tree({ node, icon, ctx, openDirs = false, forceOpen = false }: {
       {dirs.map((k) => {
         const child = node.dirs.get(k)!
         const dot = DOT[typeColor(k.toLowerCase())]
+        const focused = ctx.focusedKeys.size > 0 && holdsFocused(child, ctx.focusedKeys)
         return (
           <li key={k}>
-            <Collapsible key={forceOpen ? `f:${k}` : k} defaultOpen={forceOpen || openDirs || holdsHead(child)}>
+            <Collapsible
+              key={forceOpen ? `f:${k}` : focused ? `o:${k}` : k}
+              defaultOpen={forceOpen || openDirs || focused || holdsHead(child)}
+            >
               <CollapsibleTrigger className="group/dir flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
                 <HugeiconsIcon
                   icon={ArrowRight01Icon}
@@ -261,16 +276,12 @@ export function RefsSidebar({
   refreshKey,
   onCheckout,
   onBranch,
-  onFocusHeads,
-  selectedTips,
-}: Pick<Ctx, "onCheckout" | "onBranch"> & {
+  onFocusRef,
+  focusedKeys,
+}: Pick<Ctx, "onCheckout" | "onBranch" | "onFocusRef" | "focusedKeys"> & {
   api: RepoApi
   open: boolean
   refreshKey: string
-  /** sélectionne dans le graphe les heads des branches focalisées et scrolle vers `scrollTo` */
-  onFocusHeads(tips: string[], scrollTo: string | null): void
-  /** hashes des commits sélectionnés dans le graphe : une branche s'allume si son tip en fait partie */
-  selectedTips: Set<string>
 }) {
   /* pas `useAsync` : il vide ses données à chaque clé, et l'auto-fetch ferait clignoter
      l'arbre toutes les cinq minutes. Ici l'ancien rendu tient jusqu'à la réponse. */
@@ -318,7 +329,13 @@ export function RefsSidebar({
     })
   }, [])
 
-  useLayoutEffect(paint, [paint, selectedTips, data, q]) // le filtre déplace les refs allumées
+  useLayoutEffect(paint, [paint, focusedKeys, data, q]) // le filtre déplace les refs allumées
+  /* Un focus posé depuis le graphe peut viser une ref hors de la fenêtre du sidebar : une fois
+     les plis ouverts (remontage par clé, cf. Tree), on amène la première allumée en vue. */
+  useEffect(() => {
+    if (!focusedKeys.size) return
+    navRef.current?.querySelector(".gg-refrow[data-lit]")?.scrollIntoView({ block: "nearest" })
+  }, [focusedKeys])
   /* Un repli/dépli de dossier ne rerend pas le sidebar (état interne du Collapsible) : on repeint
      après chaque clic dans la nav, une fois le DOM stabilisé. */
   useEffect(() => {
@@ -329,21 +346,13 @@ export function RefsSidebar({
     return () => root.removeEventListener("click", onClick)
   }, [paint])
 
-  /* Focus = sélection du graphe. Cliquer une ref sélectionne son tip (Ctrl étend, reclic retire) ;
-     le graphe et le sidebar lisent la même vérité, un commit-tip sélectionné rallume donc sa branche. */
-  const onFocus = (r: GitRef, additive: boolean) => {
-    const tips = new Set(additive ? selectedTips : [])
-    tips.has(r.tip) ? tips.delete(r.tip) : tips.add(r.tip)
-    const arr = [...tips]
-    onFocusHeads(arr, tips.has(r.tip) ? r.tip : (arr[arr.length - 1] ?? null))
-  }
   const ctx: Ctx = {
     current: data?.find((r) => r.head)?.name ?? null,
     flow,
     onCheckout,
     onBranch,
-    selectedTips,
-    onFocus,
+    focusedKeys,
+    onFocusRef,
   }
 
   return (
@@ -390,10 +399,11 @@ export function RefsSidebar({
             GROUPS.map((g) => {
               const refs = data.filter((r) => r.kind === g.kind && match(r))
               if (!refs.length) return null
+              const focused = refs.some((r) => focusedKeys.has(refKey(r)))
               return (
-                /* la clé change avec le filtre : un groupe replié à la main se rouvre pour
-                   montrer les résultats, comme les dossiers */
-                <Collapsible key={q ? `f:${g.kind}` : g.kind} defaultOpen>
+                /* la clé change avec le filtre ou l'arrivée d'un focus : un groupe replié à la
+                   main se rouvre pour montrer les résultats, comme les dossiers */
+                <Collapsible key={`${q ? "f:" : ""}${focused ? "o:" : ""}${g.kind}`} defaultOpen>
                   <CollapsibleTrigger className="group/trigger flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
                     <HugeiconsIcon
                       icon={ArrowRight01Icon}
