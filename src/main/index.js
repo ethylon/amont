@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import { execFile, spawn } from 'node:child_process';
 import { existsSync, watch } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
@@ -20,11 +20,11 @@ const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true', 
 
 /* git noie ses erreurs sous des lignes `hint:` : on ne garde que les fatal/error. */
 function gitError(err, stderr) {
-  if (err.killed) return 'git timed out';
+  if (err.killed) return 'git ne répond pas (délai dépassé)';
   const lines = (stderr || err.message).split('\n').map(l => l.trim()).filter(Boolean);
   const fatal = lines.filter(l => /^(fatal|error):/.test(l)).slice(0, 2);
   const msg = (fatal.length ? fatal : lines.slice(-1)).map(l => l.replace(/^(fatal|error):\s*/, '')).join(' — ');
-  return msg || 'git failed';
+  return msg || 'échec de git';
 }
 
 /* --- Console (lecture seule) ---
@@ -132,7 +132,7 @@ async function openRepo(path) {
   try {
     gitDir = (await git(path, ['rev-parse', '--absolute-git-dir'])).trim();
   } catch {
-    return { error: 'Not a git repository (or git not found)' };
+    return { error: 'Pas un dépôt git (ou git introuvable)' };
   }
   /* pas de comptage de commits à l'ouverture : le renderer demandera `total` quand il en
      aura besoin, et restaurer N onglets ne doit pas coûter N `rev-list --all --count`. */
@@ -828,6 +828,8 @@ ipcMain.handle('repo:total', async (_ev, id) =>
   parseInt(await git(use(id).path, ['rev-list', '--count', ...ALL_REFS]), 10));
 
 function createWindow() {
+  /* pas de menu File|Edit|View : l'app n'en expose aucun, les raccourcis vivent dans le renderer */
+  Menu.setApplicationMenu(null);
   const win = new BrowserWindow({
     width: 1300,
     height: 850,
