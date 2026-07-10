@@ -25,15 +25,6 @@ function duration(epoch: number): string {
 const count = (info: FlowInfo) =>
   info.commits ? `${info.commits} commit${info.commits > 1 ? "s" : ""}` : "aucun commit"
 
-/* le genre suit le mot français, comme FLOW_LABEL du sidebar ; la phase médiane nomme
-   ce qui se passe entre start et finish */
-const STARTED: Record<BranchFlow, string> = {
-  feature: "démarrée",
-  bugfix: "démarré",
-  release: "démarrée",
-  hotfix: "démarré",
-}
-
 /* Cockpit : bandeau sous la toolbar dès qu'une branche de flow est sortie — masqué sur les
    troncs (master, develop) et HEAD détachée. À droite, où le travail atterrira une fois
    terminé (merge du finish, tag posé). */
@@ -52,10 +43,7 @@ export function FlowBanner({ kind, branch, info }: { kind: BranchFlow; branch: s
         <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
         {branch}
       </span>
-      <span className="opacity-80">
-        {count(info)}
-        {info.startedAt && ` · ${STARTED[kind]} il y a ${duration(info.startedAt)}`}
-      </span>
+      <span className="opacity-80">{count(info)}</span>
       <span className="flex-1" />
       <span className="flex items-center gap-1.5 opacity-80">
         <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} className="size-3.5 shrink-0" />
