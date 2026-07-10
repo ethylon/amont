@@ -7,7 +7,6 @@ import type { GraphHandle } from "@/components/graph-canvas"
 import { useAsync } from "@/hooks/use-async"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
-import { Tip } from "@/components/ui/tip"
 import { FileList } from "@/components/file-list"
 import { Spinner } from "@/components/ui/primitives/spinner"
 
@@ -57,18 +56,15 @@ function RefBadge({ r }: { r: RefChip }) {
       {r.name}
     </Badge>
   )
-  return synced ? <Tip text={r.remotes.join(", ")}>{badge}</Tip> : badge
+  return badge
 }
 
-/** Auteur ou co-auteur : même grammaire, l'e-mail n'apparaît qu'au survol. */
 function PersonChip({ name, email }: { name: string; email: string }) {
   return (
-    <Tip text={email || name}>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <Avatar name={name} email={email} />
-        <span className="truncate">{name}</span>
-      </span>
-    </Tip>
+    <span className="flex min-w-0 items-center gap-1.5">
+      <Avatar name={name} email={email} />
+      <span className="truncate">{name}</span>
+    </span>
   )
 }
 
@@ -263,9 +259,7 @@ function Multi({ api, graph, selection, activePath, onOpenDiff }: {
           return (
             <div key={c.h} className="flex min-w-0 items-baseline gap-2 text-xs">
               <span className="shrink-0 font-mono text-muted-foreground">{c.h}</span>
-              <Tip text={c.s}>
-                <span className="truncate">{parseSubject(c.s).text}</span>
-              </Tip>
+              <span className="truncate">{parseSubject(c.s).text}</span>
             </div>
           )
         })}

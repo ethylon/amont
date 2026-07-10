@@ -6,7 +6,6 @@ import type { BranchFlow } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { FLOW_META } from "@/components/flow-context"
 import { Badge } from "@/components/ui/badge"
-import { Tip } from "@/components/ui/tip"
 import { Button } from "@/components/ui/primitives/button"
 import { Separator } from "@/components/ui/primitives/separator"
 
@@ -49,16 +48,14 @@ export function StatusBar({ branch, flow, opState, hoverInfo, stats, console }: 
       </span>
 
       {opState && (
-        <Tip text={opState.text}>
-          <Badge color={opState.color} shape="squared" className="min-w-0 max-w-[46ch] shrink gap-2 ps-2 pe-1">
-            <span className="truncate">{opState.text}</span>
-            {opState.action && (
-              <Button variant="ghost" size="xs" onClick={opState.action.run} className="text-(--badge-fg)">
-                {opState.action.label}
-              </Button>
-            )}
-          </Badge>
-        </Tip>
+        <Badge color={opState.color} shape="squared" className="min-w-0 max-w-[46ch] shrink gap-2 ps-2 pe-1">
+          <span className="truncate">{opState.text}</span>
+          {opState.action && (
+            <Button variant="ghost" size="xs" onClick={opState.action.run} className="text-(--badge-fg)">
+              {opState.action.label}
+            </Button>
+          )}
+        </Badge>
       )}
 
       {hoverInfo && (
