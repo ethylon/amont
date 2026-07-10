@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   onChanged, onOp, repoApi, worktreeCount,
-  type BranchAct, type FileChange, type OpName, type Repo, type Status, type Worktree,
+  type BranchAct, type FileChange, type GitRef, type OpName, type Repo, type Status, type Worktree,
 } from "@/lib/git"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -56,6 +56,10 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
   const [refsGen, setRefsGen] = useState(0)
   const [selection, setSelection] = useState<number[]>([])
   const [selMode, setSelMode] = useState<SelMode>("multi")
+  /* Refs focalisées dans le sidebar, `kind:name`. Posées à chaque interaction plutôt que dérivées
+     de la sélection : deux branches sur le même commit (master et une branche fraîche) rendraient
+     la dérivation ambiguë — l'identité cliquée tranche. Ctrl accumule, comme pour les commits. */
+  const [focusedKeys, setFocusedKeys] = useState<Set<string>>(() => new Set())
   const [view, setView] = useState<"commits" | "wt">("commits")
   const [hoverInfo, setHoverInfo] = useState<string | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
@@ -103,6 +107,7 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
 
   const resetAndLoad = useCallback(async () => {
     setSelection([])
+    setFocusedKeys(new Set())
     setDiff(null)
     setHoverInfo(null)
     setView("commits")
@@ -180,37 +185,89 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     graphRef.current?.setSelection(selection)
   }, [selection])
 
-  const selectRow = useCallback((row: number, additive: boolean) => {
-    setSelMode("multi")
-    setView("commits")
-    setDiff(null)
-    setSelection((prev) => {
-      if (!additive) return [row]
-      const s = new Set(prev)
-      s.has(row) ? s.delete(row) : s.add(row)
-      return [...s].sort((a, b) => a - b)
-    })
+  /* Clé de focus d'une ligne : la branche du commit — la première de `branchesOf` (HEAD, puis
+     locales, puis distantes) quand plusieurs se partagent le commit. */
+  const keyOfRow = useCallback((row: number) => {
+    const b = graphRef.current?.branchesOf(row)[0]
+    return b ? `${b.kind}:${b.name}` : null
   }, [])
 
-  const selectBranch = useCallback((row: number) => {
-    const rows = graphRef.current!.branchSegment(row).sort((a, b) => a - b)
-    setSelMode("branch")
-    setView("commits")
-    setDiff(null)
-    setSelection(rows)
-  }, [])
+  const selectRow = useCallback(
+    (row: number, additive: boolean) => {
+      setSelMode("multi")
+      setView("commits")
+      setDiff(null)
+      const key = keyOfRow(row)
+      if (!additive) {
+        setSelection([row])
+        setFocusedKeys(new Set(key ? [key] : []))
+        return
+      }
+      /* Ctrl : la ligne et sa branche suivent le même toggle. Si un autre commit de la même
+         branche reste sélectionné, elle s'éteint quand même — dernier geste gagnant. */
+      const rows = new Set(selection)
+      const removing = rows.has(row)
+      removing ? rows.delete(row) : rows.add(row)
+      setSelection([...rows].sort((a, b) => a - b))
+      if (!key) return
+      const keys = new Set(focusedKeys)
+      removing ? keys.delete(key) : keys.add(key)
+      setFocusedKeys(keys)
+    },
+    [focusedKeys, keyOfRow, selection]
+  )
 
-  /* Focus de branches dans le sidebar : leurs heads deviennent la sélection du graphe (donc le diff),
-     et on scrolle vers la dernière ref touchée. Sélection vide = focus levé, le panneau se ferme. */
-  const focusHeads = useCallback(async (tips: string[], scrollTo: string | null) => {
-    const g = graphRef.current
-    if (!g) return
-    if (scrollTo) await g.jumpTo(scrollTo)
-    const rows = await g.rowsOf(tips)
-    setSelMode("multi")
-    setView("commits")
+  const selectBranch = useCallback(
+    (row: number) => {
+      const rows = graphRef.current!.branchSegment(row).sort((a, b) => a - b)
+      setSelMode("branch")
+      setView("commits")
+      setDiff(null)
+      const key = keyOfRow(row)
+      setFocusedKeys(new Set(key ? [key] : []))
+      setSelection(rows)
+    },
+    [keyOfRow]
+  )
+
+  /* Focus d'une ref du sidebar. Clic : scroll au tip, la branche entière (le commit seul pour un
+     tag) remplace la sélection — même geste que le double-clic d'une ligne du graphe. Ctrl :
+     ajoute la ref au focus, ou l'en retire si elle y est déjà ; le panneau passe en multi, deux
+     segments disjoints n'ayant pas de diff de branche. Les états sont posés après le jumpTo,
+     qui sélectionne et dérive au passage : l'identité réellement cliquée a le dernier mot. */
+  const focusRef = useCallback(
+    async (r: GitRef, additive: boolean) => {
+      const g = graphRef.current
+      if (!g) return
+      const key = `${r.kind}:${r.name}`
+      const removing = additive && focusedKeys.has(key)
+      if (!removing) await g.jumpTo(r.tip)
+      const row = (await g.rowsOf([r.tip]))[0]
+      if (row === undefined) return
+      const seg = r.kind === "tag" ? [row] : g.branchSegment(row)
+      setView("commits")
+      setDiff(null)
+      if (!additive) {
+        setSelMode(r.kind === "tag" ? "multi" : "branch")
+        setSelection([...seg].sort((a, b) => a - b))
+        setFocusedKeys(new Set([key]))
+        return
+      }
+      setSelMode("multi")
+      const keys = new Set(focusedKeys)
+      const rows = new Set(selection)
+      removing ? keys.delete(key) : keys.add(key)
+      for (const x of seg) removing ? rows.delete(x) : rows.add(x)
+      setFocusedKeys(keys)
+      setSelection([...rows].sort((a, b) => a - b))
+    },
+    [focusedKeys, selection]
+  )
+
+  const clearFocus = useCallback(() => {
+    setSelection([])
     setDiff(null)
-    setSelection([...new Set(rows)].sort((a, b) => a - b))
+    setFocusedKeys(new Set())
   }, [])
 
   const openDiff = useCallback((ctx: DiffCtx, file: FileChange) => setDiff({ ctx, file }), [])
@@ -327,6 +384,18 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
     [stats, status?.head]
   )
 
+  /* Un clic hors du sidebar, des panneaux détail/diff et des commits du graphe lève le focus.
+     Les commits sont gérés par leur propre clic ; ici on ne traite que le « clic dans le vide ». */
+  useEffect(() => {
+    if (!active || !selection.length) return
+    const onDown = (ev: MouseEvent) => {
+      if ((ev.target as HTMLElement).closest("[data-gg-keep-focus], .gg-row, .gg-wtrow")) return
+      clearFocus()
+    }
+    document.addEventListener("mousedown", onDown)
+    return () => document.removeEventListener("mousedown", onDown)
+  }, [active, clearFocus, selection.length])
+
   const panelOpen = view === "wt" || selection.length > 0
   /* rien à amender tant qu'aucun commit n'existe */
   const canAmend = !!status?.head
@@ -352,7 +421,8 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
           refreshKey={`refs:${repo.id}:${refsGen}`}
           onCheckout={checkout}
           onBranch={runBranch}
-          onFocusHeads={focusHeads}
+          onFocusRef={focusRef}
+          focusedKeys={focusedKeys}
         />
 
         <main className="flex min-w-0 flex-1 flex-col">

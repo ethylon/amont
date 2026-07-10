@@ -128,6 +128,9 @@ export type GraphHandle = {
   commit(row: number): Commit | undefined
   branchSegment(row: number): number[]
   chainInfo(rows: number[]): string
+  /** branches de la ligne : ses refs propres, sinon celles du tip de sa chaîne, sinon la
+      branche absorbée par son merge ; ordonnées HEAD, locales, distantes — vide faute de nom */
+  branchesOf(row: number): { name: string; kind: "head" | "remote" }[]
   /** teinte du trait de la ligne, à poser en `--badge-color` sur les chips de branche */
   laneColor(row: number): string
   /** position et teinte du point d'arbre de travail, aligné sur la lane de HEAD */
@@ -625,14 +628,23 @@ export function createGraph(
     }
   }
 
-  /* Nom de la branche à laquelle appartient le tip : sa ref si elle vit encore, sinon celle que
-     le commit de merge a absorbée (`mergedBy` → `from`). Sans ça, une branche mergée puis supprimée
-     — la majorité de l'historique — n'a plus aucun nom en local et le ghost ne s'afficherait jamais. */
-  function branchName(tip: number): string | null {
-    const ref = parseRefs(DATA[tip].r).find((r) => r.kind !== "tag")?.name
-    if (ref) return ref
+  /* Refs de branche posées sur une ligne, au rang parseRefs (HEAD, locales, distantes) ; la
+     distante synchronisée est absorbée par sa locale. `kind` aligné sur GitRef pour que le
+     sidebar retrouve sa ligne. */
+  const refChips = (row: number) =>
+    parseRefs(DATA[row].r)
+      .filter((c) => c.kind !== "tag")
+      .map((c) => ({ name: c.name, kind: c.kind === "remote" ? ("remote" as const) : ("head" as const) }))
+
+  /* Branches auxquelles appartient le tip : ses refs vivantes, sinon celle que le commit de merge
+     a absorbée (`mergedBy` → `from`). Sans ce repli, une branche mergée puis supprimée — la
+     majorité de l'historique — n'a plus aucun nom en local et le ghost ne s'afficherait jamais. */
+  function tipBranches(tip: number) {
+    const own = refChips(tip)
+    if (own.length) return own
     const mrow = S.mergedBy.get(DATA[tip].h)
-    return mrow !== undefined ? mergeSource(DATA[mrow].s) : null
+    const src = mrow !== undefined ? mergeSource(DATA[mrow].s) : null
+    return src ? [{ name: src, kind: "head" as const }] : []
   }
 
   /* Le survol ne surligne plus la chaîne : il nomme la branche du commit. Le statut la décrit
@@ -644,7 +656,7 @@ export function createGraph(
     clearGhost()
     const rows = branchChain(S, DATA, i)
     cb.onHover(chainInfo(S, DATA, rows))
-    const name = branchName(rows[0])
+    const name = tipBranches(rows[0])[0]?.name
     if (!name) return
     const cell = inner.querySelector<HTMLElement>(`.gg-row[data-i="${i}"] .gg-branchcell`)
     if (!cell || cell.childElementCount) return
@@ -789,6 +801,10 @@ export function createGraph(
     commit: (row) => DATA[row],
     branchSegment: (row) => branchSegment(S, DATA, row),
     chainInfo: (rows) => chainInfo(S, DATA, rows),
+    branchesOf: (row) => {
+      const own = refChips(row)
+      return own.length ? own : tipBranches(branchChain(S, DATA, row)[0])
+    },
     laneColor: (row) => laneColor(S.laneOf[row]),
 
     headDot(headSha) {

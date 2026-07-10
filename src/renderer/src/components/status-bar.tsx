@@ -31,6 +31,9 @@ const Num = ({ children }: { children: React.ReactNode }) => (
 export function StatusBar({ branch, opState, hoverInfo, stats, console }: Props) {
   return (
     <footer className="flex h-7 shrink-0 items-center gap-3 border-t pr-3 pl-3.5 text-[0.625rem] text-muted-foreground">
+      {/* issue des opérations git annoncée aux lecteurs d'écran ; le survol (hoverInfo) reste muet */}
+      <span aria-live="polite" className="sr-only">{opState?.text ?? ""}</span>
+
       <span className="flex shrink-0 items-center gap-1.5">
         <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} className="size-3" />
         {branch ?? "—"}
