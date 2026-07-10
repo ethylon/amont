@@ -1,6 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  ArrowDown01Icon, ArrowDown02Icon, ArrowUp02Icon, Folder01Icon,
+  ArrowDown02Icon, ArrowUp02Icon, Folder01Icon,
   PanelLeftCloseIcon, PanelLeftOpenIcon, Refresh01Icon,
 } from "@hugeicons/core-free-icons"
 
@@ -59,7 +59,7 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
         {OPS.map(({ op, label, icon, cmd }) => {
           const n = counts[op]
           return (
-            <Button key={op} variant="ghost" size="sm" className="h-auto py-0.5" disabled={n === 0 || busyOp !== null} onClick={() => onRunOp(op)}>
+            <Button key={op} variant="ghost" size="sm" className="h-auto gap-2 py-0.5" disabled={n === 0 || busyOp !== null} onClick={() => onRunOp(op)}>
               {busyOp === op ? (
                 <Spinner data-icon="inline-start" className="size-3" />
               ) : (
@@ -84,14 +84,6 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
       <Separator orientation="vertical" className="mx-1 my-2" />
 
       {children}
-
-      {/* ponytail: filtres à venir — désactivés tant qu'inertes, le shell garde la forme */}
-      {["Auteur", "Période"].map((label) => (
-        <Button key={label} variant="outline" size="sm" disabled className="shrink-0">
-          {label}
-          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} data-icon="inline-end" className="size-2.5 text-muted-foreground" />
-        </Button>
-      ))}
 
       <span className="flex-1" />
     </div>

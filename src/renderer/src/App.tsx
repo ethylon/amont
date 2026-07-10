@@ -21,7 +21,6 @@ export default function App() {
   const [active, setActive] = useState(HOME)
   /* un onglet visité reste monté : y revenir ne recharge pas son graphe, ne perd pas son scroll */
   const [mounted, setMounted] = useState<number[]>([])
-  const [paletteOpen, setPaletteOpen] = useState(false)
   const [booted, setBooted] = useState(false)
 
   /* Le sens du glissement suit la barre d'onglets, l'accueil en position 0. Un dépôt qui n'y
@@ -82,30 +81,13 @@ export default function App() {
     [active, select, tabs]
   )
 
-  const activeRepo = tabs.find((r) => r.id === active) ?? null
-
-  useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => {
-      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
-        ev.preventDefault()
-        if (activeRepo) setPaletteOpen(true)
-      }
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [activeRepo])
-
-  const goHome = useCallback(() => select(HOME), [select])
-
   return (
     <div className="flex h-full flex-col">
       <TabStrip
         tabs={tabs.map((r) => ({ key: r.id, name: r.name, path: r.path }))}
         active={active}
-        hasRepo={!!activeRepo}
         onSelect={select}
         onClose={closeTab}
-        onOpenPalette={() => setPaletteOpen(true)}
       />
 
       {/* `data-tab-active` porte les noms de view-transition sur le seul onglet visible (cf. app.css) */}
@@ -133,13 +115,7 @@ export default function App() {
               data-tab-active={r.id === active || undefined}
               className={cn("absolute inset-0 flex flex-col", r.id !== active && "invisible")}
             >
-              <RepoView
-                repo={r}
-                active={r.id === active}
-                paletteOpen={paletteOpen}
-                onPaletteChange={setPaletteOpen}
-                onNewTab={goHome}
-              />
+              <RepoView repo={r} active={r.id === active} />
             </div>
           ))}
       </div>

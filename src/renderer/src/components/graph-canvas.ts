@@ -41,6 +41,10 @@ const BRANCH_MAX = "max-w-24"
 /** graphe(12) + sujet (min) + auteur + date + hash + pr-4.5, gouttières comprises */
 const FIXED_W = 12 + 320 + 130 + 84 + 68 + 18
 
+/* ponytail: plafond de la colonne métro — au-delà, les lanes profondes sont rognées par le
+   viewport du SVG plutôt que de pousser le sujet hors champ */
+const MAX_LANES = 12
+
 const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
 const cloud = () => iconEl(CloudIcon, "shrink-0")
 const tagIcon = () => iconEl(Tag01Icon, "shrink-0")
@@ -123,7 +127,6 @@ export type Stats = { loaded: number; total: number; ms: number }
 export type GraphCallbacks = {
   onSelect(row: number, additive: boolean): void
   onBranchSelect(row: number): void
-  onHover(info: string | null): void
   onStats(stats: Stats): void
   onGraphWidth(px: number): void
   onBranchWidth(px: number): void
@@ -377,9 +380,7 @@ export function createGraph(
       to.title = mg.to || ""
       subj.append(from, arrow, to)
     } else {
-      const s = document.createElement("span")
-      s.className = "truncate"
-      s.textContent = ps.text
+      const s = scrollText(ps.text)
       s.title = c.s
       subj.appendChild(s)
     }
@@ -493,7 +494,7 @@ export function createGraph(
   })
 
   function refresh() {
-    const graphW = PAD * 2 + S.lanes.length * LANE
+    const graphW = PAD * 2 + Math.min(S.lanes.length, MAX_LANES) * LANE
     const h = S.next * ROW
     svg.setAttribute("width", String(graphW))
     svg.setAttribute("height", String(h))
@@ -630,7 +631,6 @@ export function createGraph(
   function clearHover() {
     hovered = null
     clearGhost()
-    cb.onHover(null)
   }
 
   /* Refs de branche posées sur une ligne, au rang parseRefs (HEAD, locales, distantes) ; la
@@ -652,15 +652,13 @@ export function createGraph(
     return src ? [{ name: src, kind: "head" as const }] : []
   }
 
-  /* Le survol ne surligne plus la chaîne : il nomme la branche du commit. Le statut la décrit
-     (chainInfo), et la colonne branche reçoit un chip fantôme si elle est vide — sinon la ligne
-     est déjà un tip et porte son vrai chip. */
+  /* Le survol nomme la branche du commit : la colonne branche reçoit un chip fantôme si elle
+     est vide — sinon la ligne est déjà un tip et porte son vrai chip. */
   function hoverRow(i: number) {
     if (i === hovered) return
     hovered = i
     clearGhost()
     const rows = branchChain(S, DATA, i)
-    cb.onHover(chainInfo(S, DATA, rows))
     const names = tipBranches(rows[0]).map((b) => b.name)
     if (!names.length) return
     const cell = inner.querySelector<HTMLElement>(`.gg-row[data-i="${i}"] .gg-branchcell`)
