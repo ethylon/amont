@@ -6,7 +6,7 @@ import type { RepoApi } from "@/lib/git"
 import type { GraphHandle } from "@/components/graph-canvas"
 import {
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
-} from "@/components/ui/primitives/input-group"
+} from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/primitives/spinner"
 
 /* Sous ce seuil, `git log -S` balaierait l'historique entier pour rien. */

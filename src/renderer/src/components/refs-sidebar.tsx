@@ -25,8 +25,8 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-} from "@/components/ui/primitives/context-menu"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/primitives/input-group"
+} from "@/components/ui/context-menu"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/primitives/spinner"
 
 const GROUPS = [

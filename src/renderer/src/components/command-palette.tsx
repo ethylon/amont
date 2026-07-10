@@ -9,7 +9,7 @@ import { GitCmd } from "@/components/ui/git-cmd"
 import {
   Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput,
   CommandItem, CommandList, CommandShortcut,
-} from "@/components/ui/primitives/command"
+} from "@/components/ui/command"
 
 /* Rendue par la vue du repo actif : la palette n'existe donc jamais sans repo. */
 type Props = {
