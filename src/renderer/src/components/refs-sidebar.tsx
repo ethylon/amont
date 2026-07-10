@@ -17,7 +17,6 @@ import type { BranchAct, FlowPrefixes, GitRef, RepoApi } from "@/lib/git"
 import { typeColor, type BadgeColor } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Tip } from "@/components/ui/tip"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
 import {
   ContextMenu,
@@ -164,48 +163,41 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
   const switchable = (r.kind === "head" && !r.head) || r.kind === "remote"
   /* ponytail: strip du premier segment ; git refuse de lui-même si le nom est ambigu entre remotes */
   const target = r.kind === "remote" ? r.name.split("/").slice(1).join("/") : r.name
-  const notes = [
-    r.merged && "fusionnée",
-    r.gone && "distante supprimée",
-    switchable && "double-clic pour basculer",
-  ].filter(Boolean)
 
   /* « allumée » = cette ref est focalisée — à l'identité, `kind` compris : la locale et sa
      distante ne s'allument jamais ensemble. La passe DOM (cf. RefsSidebar) lit `data-lit`
      pour tracer le contour et fusionner les runs contigus. */
   const lit = ctx.focusedKeys.has(refKey(r))
   const row = (
-    <Tip text={[r.name, ...notes].join(" — ")} side="right">
-      <button
-        type="button"
-        data-lit={lit ? "1" : undefined}
-        onClick={(e) => ctx.onFocusRef(r, e.ctrlKey || e.metaKey)}
-        onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
-        className={cn(
-          "gg-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
-          "text-foreground hover:bg-muted -my-px",
-          r.head && "bg-primary/30 hover:bg-primary/45"
-        )}
-      >
-        <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-        {/* une branche dont la distante a disparu n'est plus une destination : elle se lit comme un reliquat */}
-        <span className={cn("truncate font-medium", r.gone && "text-muted-foreground line-through")}>{label}</span>
-        {/* badge, pas du texte nu : en bout de ligne, un nombre nu se lit comme le compteur de
-            refs du groupe. h-4 pour que la ligne garde la hauteur des branches sans suivi. */}
-        {t && (
-          <Badge shape="squared" className="ms-auto h-4 px-1.5 tabular-nums">
-            {t}
-          </Badge>
-        )}
-        {r.merged && (
-          <HugeiconsIcon
-            icon={GitMergeIcon}
-            strokeWidth={2}
-            className={cn("size-3.5 shrink-0 text-muted-foreground", !t && "ms-auto")}
-          />
-        )}
-      </button>
-    </Tip>
+    <button
+      type="button"
+      data-lit={lit ? "1" : undefined}
+      onClick={(e) => ctx.onFocusRef(r, e.ctrlKey || e.metaKey)}
+      onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
+      className={cn(
+        "gg-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
+        "text-foreground hover:bg-muted -my-px",
+        r.head && "bg-primary/30 hover:bg-primary/45"
+      )}
+    >
+      <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+      {/* une branche dont la distante a disparu n'est plus une destination : elle se lit comme un reliquat */}
+      <span className={cn("truncate font-medium", r.gone && "text-muted-foreground line-through")}>{label}</span>
+      {/* badge, pas du texte nu : en bout de ligne, un nombre nu se lit comme le compteur de
+          refs du groupe. h-4 pour que la ligne garde la hauteur des branches sans suivi. */}
+      {t && (
+        <Badge shape="squared" className="ms-auto h-4 px-1.5 tabular-nums">
+          {t}
+        </Badge>
+      )}
+      {r.merged && (
+        <HugeiconsIcon
+          icon={GitMergeIcon}
+          strokeWidth={2}
+          className={cn("size-3.5 shrink-0 text-muted-foreground", !t && "ms-auto")}
+        />
+      )}
+    </button>
   )
 
   if (r.kind !== "head") return <li>{row}</li>

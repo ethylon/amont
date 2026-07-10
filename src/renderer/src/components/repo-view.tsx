@@ -8,7 +8,6 @@ import {
 import { branchFlow } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Tip } from "@/components/ui/tip"
 import { CommandPalette } from "@/components/command-palette"
 import { CommitGraph } from "@/components/commit-graph"
 import { CommitSearch } from "@/components/commit-search"
@@ -34,10 +33,10 @@ const BRANCH_LABEL: Record<BranchAct, [string, string]> = {
 }
 
 const WT_COUNTERS = [
-  { key: "conflicts", color: "danger", label: "conflits" },
-  { key: "staged", color: "success", label: "indexés" },
-  { key: "unstaged", color: "warning", label: "modifiés" },
-  { key: "untracked", color: "neutral", label: "non suivis" },
+  { key: "conflicts", color: "danger" },
+  { key: "staged", color: "success" },
+  { key: "unstaged", color: "warning" },
+  { key: "untracked", color: "neutral" },
 ] as const
 
 type Props = {
@@ -489,13 +488,11 @@ export function RepoView({ repo, active, paletteOpen, onPaletteChange, onNewTab 
                   )}
                   <span className="font-medium">Modifications non validées</span>
                   <span className="ms-auto flex gap-1">
-                    {WT_COUNTERS.map(({ key, color, label }) =>
+                    {WT_COUNTERS.map(({ key, color }) =>
                       worktree[key].length ? (
-                        <Tip key={key} text={label}>
-                          <Badge color={color} shape="squared" className="tabular-nums">
-                            {worktree[key].length}
-                          </Badge>
-                        </Tip>
+                        <Badge key={key} color={color} shape="squared" className="tabular-nums">
+                          {worktree[key].length}
+                        </Badge>
                       ) : null
                     )}
                   </span>

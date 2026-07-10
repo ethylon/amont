@@ -3,7 +3,6 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowDown01Icon, ArrowUp01Icon, FileSearchIcon, Search01Icon } from "@hugeicons/core-free-icons"
 
 import type { RepoApi } from "@/lib/git"
-import { Tip } from "@/components/ui/tip"
 import type { GraphHandle } from "@/components/graph-canvas"
 import {
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
@@ -126,34 +125,37 @@ export function CommitSearch({ api, graph, active }: Props) {
         {busy ? (
           <Spinner className="size-3" />
         ) : error ? (
-          <Tip text={error}>
-            <InputGroupText className="text-destructive">erreur</InputGroupText>
-          </Tip>
+          <InputGroupText className="text-destructive">erreur</InputGroupText>
         ) : (
           hits && <InputGroupText className="tabular-nums">{hits.length}</InputGroupText>
         )}
 
-        <Tip text="Chercher aussi dans le contenu des diffs — plus lent">
-          <InputGroupButton
-            size="icon-xs"
-            aria-pressed={content}
-            className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
-            onClick={() => setContent((v) => !v)}
-          >
-            <HugeiconsIcon icon={FileSearchIcon} strokeWidth={2} />
-          </InputGroupButton>
-        </Tip>
+        <InputGroupButton
+          size="icon-xs"
+          aria-label="Chercher aussi dans le contenu des diffs"
+          aria-pressed={content}
+          className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+          onClick={() => setContent((v) => !v)}
+        >
+          <HugeiconsIcon icon={FileSearchIcon} strokeWidth={2} />
+        </InputGroupButton>
 
-        <Tip text="Résultat précédent — Maj+F3">
-          <InputGroupButton size="icon-xs" disabled={!hits?.length} onClick={() => jump(-1)}>
-            <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
-          </InputGroupButton>
-        </Tip>
-        <Tip text="Résultat suivant — F3">
-          <InputGroupButton size="icon-xs" disabled={!hits?.length} onClick={() => jump(1)}>
-            <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
-          </InputGroupButton>
-        </Tip>
+        <InputGroupButton
+          size="icon-xs"
+          aria-label="Résultat précédent"
+          disabled={!hits?.length}
+          onClick={() => jump(-1)}
+        >
+          <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
+        </InputGroupButton>
+        <InputGroupButton
+          size="icon-xs"
+          aria-label="Résultat suivant"
+          disabled={!hits?.length}
+          onClick={() => jump(1)}
+        >
+          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
+        </InputGroupButton>
       </InputGroupAddon>
     </InputGroup>
   )
