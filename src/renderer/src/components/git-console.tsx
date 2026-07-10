@@ -4,7 +4,7 @@ import { TerminalIcon, Delete02Icon, Cancel01Icon } from "@hugeicons/core-free-i
 
 import { onTrace, type TraceLine } from "@/lib/git"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/primitives/button"
+import { Button } from "@/components/ui/button"
 
 /* `key` : les lignes n'ont pas d'identité propre côté main ; un compteur local suffit à React. */
 type Entry = TraceLine & { key: number }
