@@ -6,7 +6,6 @@ import type { DiffCtx } from "@/components/diff-view"
 import { cn } from "@/lib/utils"
 import { FileEntries, FileListHeader, FileViewToggle, useFileView, type FileView } from "@/components/file-list"
 import { IconButton } from "@/components/ui/icon-button"
-import { Tip } from "@/components/ui/tip"
 import { Button } from "@/components/ui/primitives/button"
 import { Checkbox } from "@/components/ui/primitives/checkbox"
 import { Field, FieldError, FieldGroup } from "@/components/ui/primitives/field"
@@ -233,19 +232,17 @@ export function WorktreePanel({
             >
               {caption}
             </Button>
-            <Tip text="Reprendre le dernier commit — son message et les fichiers indexés">
-              <div
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5",
-                  !canAmend && "pointer-events-none opacity-50"
-                )}
-              >
-                <Checkbox id={amendId} checked={amend} disabled={!canAmend} onCheckedChange={(v) => onAmendChange(v)} />
-                <label htmlFor={amendId} className="cursor-pointer text-xs text-muted-foreground select-none">
-                  Amender
-                </label>
-              </div>
-            </Tip>
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-1.5",
+                !canAmend && "pointer-events-none opacity-50"
+              )}
+            >
+              <Checkbox id={amendId} checked={amend} disabled={!canAmend} onCheckedChange={(v) => onAmendChange(v)} />
+              <label htmlFor={amendId} className="cursor-pointer text-xs text-muted-foreground select-none">
+                Amender
+              </label>
+            </div>
           </div>
         </Field>
       </FieldGroup>
