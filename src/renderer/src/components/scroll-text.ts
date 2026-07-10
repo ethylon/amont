@@ -7,9 +7,12 @@
 
 const SPEED = 30 // px/s, indépendant de la longueur du texte
 
+/** classes du conteneur, partagées avec les rendus React (cf. detail-panel) */
+export const SCROLL_TEXT_CLASS = "gg-scrolltext scroll-fade-x flex min-w-0 max-w-full gap-3 overflow-hidden whitespace-nowrap"
+
 export function scrollText(text: string) {
   const el = document.createElement("span")
-  el.className = "gg-scrolltext scroll-fade-x flex min-w-0 max-w-full gap-3 overflow-hidden whitespace-nowrap"
+  el.className = SCROLL_TEXT_CLASS
   const copy = document.createElement("span")
   copy.textContent = text
   el.appendChild(copy)
