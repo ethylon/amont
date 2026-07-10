@@ -5,6 +5,7 @@ import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
 import type { DiffCtx } from "@/components/diff-view"
 import { cn } from "@/lib/utils"
 import { FileEntries, FileListHeader, FileViewToggle, useFileView, type FileView } from "@/components/file-list"
+import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/primitives/button"
 import { Checkbox } from "@/components/ui/primitives/checkbox"
@@ -36,7 +37,7 @@ function WtBlock({ title, files, view, api, activePath, onOpen, action, dirActio
   onOpen(f: WtFile): void
   action(f: WtFile): React.ReactNode
   dirAction(files: WtFile[]): React.ReactNode
-  bulk?: { label: string; onClick(): void }
+  bulk?: { label: string; cmd: string; onClick(): void }
   empty: string
   className?: string
 }) {
@@ -46,8 +47,11 @@ function WtBlock({ title, files, view, api, activePath, onOpen, action, dirActio
         actions={
           files.length > 0 &&
           bulk && (
-            <Button variant="ghost" size="sm" className="normal-case tracking-normal" onClick={bulk.onClick}>
-              {bulk.label}
+            <Button variant="ghost" size="sm" className="h-auto py-0.5 normal-case tracking-normal" onClick={bulk.onClick}>
+              <span className="flex flex-col items-start">
+                <span>{bulk.label}</span>
+                <GitCmd cmd={bulk.cmd} />
+              </span>
             </Button>
           )
         }
@@ -180,7 +184,7 @@ export function WorktreePanel({
           action={stageBtn}
           dirAction={stageDir}
           bulk={
-            unindexed.length ? { label: "Tout indexer", onClick: () => onRun(STAGE, unindexed.map((f) => f.path)) } : undefined
+            unindexed.length ? { label: "Tout indexer", cmd: "git add -- …", onClick: () => onRun(STAGE, unindexed.map((f) => f.path)) } : undefined
           }
           empty="Aucun changement à indexer."
           className="pb-3"
@@ -195,7 +199,7 @@ export function WorktreePanel({
           action={unstageBtn}
           dirAction={unstageDir}
           bulk={
-            indexed.length ? { label: "Tout désindexer", onClick: () => onRun(UNSTAGE, indexed.map((f) => f.path)) } : undefined
+            indexed.length ? { label: "Tout désindexer", cmd: "git restore --staged -- …", onClick: () => onRun(UNSTAGE, indexed.map((f) => f.path)) } : undefined
           }
           empty="Aucun fichier indexé."
           className="border-t pt-3"
@@ -222,7 +226,7 @@ export function WorktreePanel({
           />
           <div className="flex items-center gap-3">
             <Button
-              className="flex-1"
+              className="h-auto flex-1 flex-col gap-0 py-1"
               disabled={!ready || committing}
               onClick={async () => {
                 setCommitting(true)
@@ -231,6 +235,7 @@ export function WorktreePanel({
               }}
             >
               {caption}
+              <GitCmd cmd={amend ? 'git commit --amend -m "…"' : 'git commit -m "…"'} className="text-primary-foreground/70" />
             </Button>
             <div
               className={cn(
