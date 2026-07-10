@@ -276,8 +276,11 @@ export function RepoView({ repo, active }: Props) {
   )
 
   const selectBranch = useCallback(
-    (row: number) => {
-      const rows = graphRef.current!.branchSegment(row).sort((a, b) => a - b)
+    async (row: number) => {
+      const g = graphRef.current!
+      const rows = g.branchSegment(row).sort((a, b) => a - b)
+      /* le détail lit `commit(row)` en synchrone sur toute la sélection : ses pages d'abord */
+      await g.pin(rows)
       setSelMode("branch")
       setView("commits")
       setDiff(null)
@@ -303,6 +306,7 @@ export function RepoView({ repo, active }: Props) {
       const row = (await g.rowsOf([r.tip]))[0]
       if (row === undefined) return
       const seg = r.kind === "tag" ? [row] : g.branchSegment(row)
+      await g.pin(seg) // le détail lit `commit(row)` en synchrone sur toute la sélection
       setView("commits")
       setDiff(null)
       if (!additive) {
