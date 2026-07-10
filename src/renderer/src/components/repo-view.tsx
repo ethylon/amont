@@ -522,11 +522,11 @@ export function RepoView({ repo, active }: Props) {
                     <div
                       onClick={showWorktree}
                       className={cn(
-                        "gg-wtrow gg-drop relative flex h-8.5 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
+                        "gg-wtrow gg-drop relative flex h-8.5 min-w-0 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
                         view === "wt" && "border-l-primary bg-primary/10 text-foreground"
                       )}
                     >
-                      <span className="font-medium">Modifications non validées</span>
+                      <span className="truncate font-medium">Modifications non validées</span>
                       <span className="ms-auto flex gap-1">
                         {WT_COUNTERS.map(({ key, color }) =>
                           worktree[key].length ? (
@@ -564,7 +564,8 @@ export function RepoView({ repo, active }: Props) {
 
                 {/* colonne : l'en-tête du détail est figé, la liste et le diff scrollent chacun chez eux.
                     Les panneaux rendent des fragments — leurs enfants sont donc les items flex. */}
-                <aside data-gg-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l px-4.5 py-4">
+                {/* fond opaque : si le graphe déborde de sa colonne, il passe dessous sans transparaître */}
+                <aside data-gg-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4">
                   {view === "wt" && worktree ? (
                     <WorktreePanel
                       api={api}
