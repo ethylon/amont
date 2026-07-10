@@ -89,11 +89,11 @@ const Markdown = ({ text }: { text: string }) => (
   <>
     {parseMarkdown(text).map((b, i) =>
       b.kind === "p" ? (
-        <p key={i} className="whitespace-pre-wrap">
+        <p key={i} className="whitespace-pre-wrap text-pretty">
           <Inline tokens={b.tokens} />
         </p>
       ) : (
-        <ul key={i} className="list-disc space-y-0.5 ps-4">
+        <ul key={i} className="list-disc space-y-0.5 ps-4 text-pretty">
           {b.items.map((it, j) => (
             <li key={j}><Inline tokens={it} /></li>
           ))}
@@ -138,7 +138,7 @@ function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
 
   return (
     <>
-      <h2 className="shrink-0 text-sm leading-snug tracking-tight [overflow-wrap:anywhere]">
+      <h2 className="shrink-0 text-sm leading-snug tracking-tight text-balance [overflow-wrap:anywhere]">
         <TypeChip commit={c} />
         {ps.text}
       </h2>

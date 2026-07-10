@@ -117,6 +117,11 @@ export function CommitSearch({ api, graph, active }: Props) {
         placeholder="Filtrer les commits — message, auteur, hash"
       />
 
+      {/* résultat de recherche annoncé aux lecteurs d'écran */}
+      <span aria-live="polite" className="sr-only">
+        {error ? `Erreur : ${error}` : empty ? "Aucun résultat" : hits ? `${hits.length} résultat${hits.length > 1 ? "s" : ""}` : ""}
+      </span>
+
       <InputGroupAddon align="inline-end">
         {busy ? (
           <Spinner className="size-3" />

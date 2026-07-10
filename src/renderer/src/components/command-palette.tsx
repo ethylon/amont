@@ -20,14 +20,15 @@ type Props = {
   onToggleSidebar(): void
 }
 
-function Entry({ icon, children, shortcut, onSelect }: {
+function Entry({ icon, children, shortcut, disabled, onSelect }: {
   icon: IconSvgElement
   children: React.ReactNode
   shortcut?: string
+  disabled?: boolean
   onSelect(): void
 }) {
   return (
-    <CommandItem onSelect={onSelect}>
+    <CommandItem disabled={disabled} onSelect={onSelect}>
       <HugeiconsIcon icon={icon} strokeWidth={2} />
       {children}
       {shortcut && <CommandShortcut>{shortcut}</CommandShortcut>}
@@ -65,9 +66,9 @@ export function CommandPalette({
             </Entry>
           </CommandGroup>
 
-          {/* ponytail: navigation par hash — pas de champ de saisie dédié tant que le filtre du toolbar est inerte */}
+          {/* ponytail: navigation par hash à venir — désactivée tant qu'inerte */}
           <CommandGroup heading="Navigation">
-            <Entry icon={GitCommitIcon} shortcut="Ctrl G" onSelect={run(() => {})}>Aller au commit…</Entry>
+            <Entry icon={GitCommitIcon} shortcut="Ctrl G" disabled onSelect={() => {}}>Aller au commit…</Entry>
           </CommandGroup>
         </CommandList>
       </Command>
