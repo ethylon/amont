@@ -282,21 +282,6 @@
     :root:active-view-transition-type(open)::view-transition-new(gg-tabbody) { animation-name: gg-tab-fade-in; }
   }
 
-  /* Chip trop long : au survol le texte défile au lieu de rester tronqué. `.gg-clip` borne et
-     rogne, `.gg-scroll` translate à l'intérieur. Le débordement est mesuré en JS (cf. graph-canvas),
-     qui pose `--marq` et la classe : l'anim est linéaire et fait l'aller-retour. */
-  .gg-clip { display: block; min-width: 0; max-width: 100%; overflow: hidden; }
-  .gg-scroll {
-    display: inline-block; max-width: 100%;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .gg-scroll.gg-marqrun {
-    max-width: none; overflow: visible;
-    animation: gg-marq 3s linear infinite alternate;
-  }
-  @keyframes gg-marq { from { transform: translateX(0); } to { transform: translateX(var(--marq, 0)); } }
-  @media (prefers-reduced-motion: reduce) { .gg-scroll.gg-marqrun { animation: none; } }
-
   /* Palette de commandes : ouverte au clavier (Ctrl+K), une action clavier n'anime pas de
      déplacement. On neutralise le zoom (aucune origine d'où grandir) et on garde le seul fondu. */
   [data-slot="dialog-content"]:has([data-slot="command"]) { --tw-enter-scale: 1; --tw-exit-scale: 1; }
