@@ -14,6 +14,7 @@ import {
   layoutChunk, nodesSvg, stroke, CHUNK, PAGE, ROW, PAD, LANE, X,
   type LayoutState,
 } from "@/lib/graph-layout"
+import { createMinimap } from "@/components/flow-minimap"
 
 /* Rendu impératif, délibérément : virtualisation par chunks de 500 lignes, montage et
    démontage direct des <g> SVG. React ne gagnerait rien à repasser par un VDOM ici, et
@@ -166,6 +167,7 @@ export function createGraph(
   board: HTMLDivElement,
   inner: HTMLDivElement,
   svg: SVGSVGElement,
+  map: HTMLCanvasElement,
   api: RepoApi,
   cb: GraphCallbacks
 ): GraphHandle {
@@ -519,6 +521,7 @@ export function createGraph(
       })
     )
     overlay.innerHTML = edgesSvg(S.long) + dangling
+    minimap.repaint()
     cb.onStats({ loaded: S.next, total: TOTAL, ms: S.ms })
   }
 
@@ -552,6 +555,34 @@ export function createGraph(
     await fetchMore()
     return exhausted || DATA.length > before
   }
+
+  /* --- Minimap : saut vers une ligne visée dans la gouttière, en chargeant ce qui manque.
+     Chaque appel annule le précédent (drag) ; un scroll utilisateur pendant la chasse
+     l'annule aussi (cf. onScroll). Assignation directe de scrollTop : jamais de scroll
+     animé, prefers-reduced-motion est respecté par construction. */
+  let seek = 0
+  let seekTop = -1
+  async function scrollToRow(row: number) {
+    const id = ++seek
+    const g = gen
+    for (;;) {
+      const before = S.next
+      while (S.next <= row && S.next < DATA.length) layoutChunk(S, DATA)
+      if (S.next > before) refresh()
+      board.scrollTop = Math.max(0, row * ROW - board.clientHeight / 2)
+      seekTop = board.scrollTop // le clamp du DOM a tranché : c'est la valeur à reconnaître
+      if (S.next > row || exhausted) return
+      if (!(await fetchProgress())) return
+      if (id !== seek || g !== gen || destroyed) return
+    }
+  }
+
+  const minimap = createMinimap(map, board, {
+    total: () => TOTAL,
+    known: () => DATA.length,
+    flowAt: (i) => DATA[i]?.cap?.flow,
+    scrollToRow,
+  })
 
   function sync() {
     if (destroyed) return // l'overlay n'est plus dans le SVG : insertBefore échouerait
@@ -704,6 +735,7 @@ export function createGraph(
 
   /* le panneau est ancré à une ligne : le scroll peut la démonter sous lui */
   const onScroll = () => {
+    if (board.scrollTop !== seekTop) seek++ // scroll utilisateur : annule la chasse minimap
     closeMore()
     clearMarq()
     clearHover() // le scroll démonte la ligne survolée : le chip fantôme part avec elle
@@ -849,6 +881,8 @@ export function createGraph(
     destroy() {
       destroyed = true
       gen++
+      seek++
+      minimap.destroy()
       clearTimeout(moreTimer)
       board.removeEventListener("scroll", onScroll)
       board.removeEventListener("mouseleave", onMouseLeave)
