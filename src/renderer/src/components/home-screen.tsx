@@ -5,7 +5,6 @@ import { Clock01Icon, Folder01Icon, FolderLibraryIcon } from "@hugeicons/core-fr
 import { host, type OpenResult, type Repo, type RepoRef } from "@/lib/git"
 import { Mark } from "@/components/mark"
 import { Badge } from "@/components/ui/badge"
-import { Tip } from "@/components/ui/tip"
 import { Button } from "@/components/ui/primitives/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/primitives/empty"
 import { Spinner } from "@/components/ui/primitives/spinner"
@@ -17,19 +16,17 @@ type Props = {
 
 function RepoButton({ repo, onClick }: { repo: RepoRef; onClick(): void }) {
   return (
-    <Tip text={repo.path}>
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 text-left hover:border-border hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
-      >
-        <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0">
-          <span className="block truncate text-xs font-medium">{repo.name}</span>
-          <span className="block truncate text-[0.625rem] text-muted-foreground">{repo.path}</span>
-        </span>
-      </button>
-    </Tip>
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-md border border-transparent px-2.5 py-2 text-left hover:border-border hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+    >
+      <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-medium">{repo.name}</span>
+        <span className="block truncate text-[0.625rem] text-muted-foreground">{repo.path}</span>
+      </span>
+    </button>
   )
 }
 
@@ -160,11 +157,7 @@ export function HomeScreen({ active, onOpened }: Props) {
             </Button>
           }
         >
-          {root && (
-            <Tip text={root} align="start">
-              <p className="truncate px-2.5 pb-1.5 text-[0.625rem] text-muted-foreground">{root}</p>
-            </Tip>
-          )}
+          {root && <p className="truncate px-2.5 pb-1.5 text-[0.625rem] text-muted-foreground">{root}</p>}
           {!root ? (
             <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">
               Aucun dossier racine. Choisis-en un pour lister ses dépôts.
