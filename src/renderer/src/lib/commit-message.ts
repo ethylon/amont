@@ -1,3 +1,5 @@
+import type { FlowPrefixes } from "@/lib/git"
+
 /* Teintes disponibles pour les chips : le preset n'expose que destructive, on lui adjoint
    success et warning (cf. @theme dans app.css). `lane` n'est pas une teinte mais un relais :
    le chip prend celle que son porteur lui pose — le trait de branche du graphe, ici. */
@@ -246,6 +248,29 @@ export function mergeColor(mg: ParsedMerge): BadgeColor {
 
 /** Teinte d'un tag semver posé sur une ligne : rouge si la ligne est un hotfix, violet sinon. */
 export const tagFlowColor = (flow: FlowKind | null): BadgeColor => (flow === "hotfix" ? "danger" : "release")
+
+/* --- Type de travail d'une branche --- */
+
+export type BranchFlow = keyof FlowPrefixes
+
+/* Conventions usuelles quand git-flow n'est pas configuré : ce dépôt même nomme ses
+   branches `fix/…` et `release/…` sans jamais avoir vu `git flow init`. */
+const BRANCH_PREFIX: [RegExp, BranchFlow][] = [
+  [/^(feature|feat)\//, "feature"],
+  [/^(bugfix|fix)\//, "bugfix"],
+  [RELEASE_BRANCH, "release"],
+  [HOTFIX_BRANCH, "hotfix"],
+]
+
+/* Type de travail porté par le nom d'une branche : préfixes gitflow s'ils sont configurés,
+   sinon les conventions usuelles. Nourrit les indicateurs de contexte (chip et rail de la
+   toolbar), pas le menu `flow finish` — lui exige un vrai gitflow, cf. refs-sidebar. */
+export function branchFlow(name: string, prefixes: FlowPrefixes | null): BranchFlow | null {
+  const flow =
+    prefixes &&
+    (Object.keys(prefixes) as BranchFlow[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]!))
+  return flow || (BRANCH_PREFIX.find(([re]) => re.test(name))?.[1] ?? null)
+}
 
 /* Statuts `git diff --name-status`. Un statut à deux lettres est un conflit (UU, AA, DD…).
    R et C n'ont plus de teinte propre : ce sont des déplacements, pas des changements de contenu. */
