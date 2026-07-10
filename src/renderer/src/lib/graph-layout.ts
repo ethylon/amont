@@ -232,7 +232,8 @@ export function branchSegment(S: LayoutState, data: Commit[], i: number) {
 
 export function chainInfo(S: LayoutState, data: Commit[], rows: number[]) {
   const tip = data[rows[0]]
-  const ref = parseRefs(tip.r).find((r) => r.kind !== "tag")?.name ?? null
+  /* toutes les branches du tip : une branche vide posée sur master partage ses commits */
+  const ref = parseRefs(tip.r).filter((r) => r.kind !== "tag").map((r) => r.name).join(", ") || null
   const mrow = S.mergedBy.get(tip.h)
   if (mrow !== undefined) {
     const to = parseMerge(data[mrow].s)?.to
