@@ -8,7 +8,7 @@ import type { OpName, Repo, Status } from "@/lib/git"
 import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
-import { Button } from "@/components/ui/primitives/button"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/primitives/separator"
 import { Spinner } from "@/components/ui/primitives/spinner"
 

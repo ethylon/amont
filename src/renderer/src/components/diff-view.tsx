@@ -10,7 +10,7 @@ import type { FileChange, RepoApi } from "@/lib/git"
 import { isDark, onThemeChange } from "@/lib/theme"
 import { IconButton } from "@/components/ui/icon-button"
 import { Spinner } from "@/components/ui/primitives/spinner"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/primitives/toggle-group"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export type DiffView = "unified" | "sbs"
 /** Un contexte porte soit un couple de commits, soit la source dans l'arbre de travail. */

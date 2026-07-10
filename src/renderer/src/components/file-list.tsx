@@ -6,7 +6,7 @@ import type { FileChange, RepoApi } from "@/lib/git"
 import { fileStatusColor } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/primitives/toggle-group"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export type FileView = "flat" | "tree"
 

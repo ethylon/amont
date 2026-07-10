@@ -5,7 +5,7 @@ import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Search01Icon, Sun03
 import { isDark, setDark } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/mark"
-import { Button } from "@/components/ui/primitives/button"
+import { Button } from "@/components/ui/button"
 import { Kbd, KbdGroup } from "@/components/ui/primitives/kbd"
 import { IconButton } from "@/components/ui/icon-button"
 
