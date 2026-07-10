@@ -21,9 +21,12 @@ export type WtAct = (api: RepoApi, paths: string[]) => Promise<void>
 const STAGE: WtAct = (a, p) => a.stage(p)
 const UNSTAGE: WtAct = (a, p) => a.unstage(p)
 
-/* Le bouton par ligne n'apparaît qu'au survol, mais reste atteignable au clavier. */
-const ACTION_CLS = "ms-auto shrink-0 self-center opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100"
-const DIR_ACTION_CLS = "shrink-0 self-center opacity-0 group-hover/dirrow:opacity-100 focus-visible:opacity-100"
+/* Le bouton par ligne n'apparaît qu'au survol, mais reste atteignable au clavier.
+   after : cible de clic élargie en largeur seulement — en hauteur elle mordrait sur le bouton
+   invisible de la ligne voisine. */
+const HIT_CLS = "relative after:absolute after:-inset-x-1 after:-inset-y-px"
+const ACTION_CLS = `ms-auto shrink-0 self-center opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
+const DIR_ACTION_CLS = `shrink-0 self-center opacity-0 group-hover/dirrow:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
 
 function WtBlock({ title, files, view, api, activePath, onOpen, action, dirAction, bulk, empty, className }: {
   title: string
@@ -162,7 +165,7 @@ export function WorktreePanel({
   return (
     <>
       <div className="flex shrink-0 items-center justify-between gap-2">
-        <h2 className="text-sm leading-snug font-semibold tracking-tight">Modifications non validées</h2>
+        <h2 className="text-sm leading-snug font-semibold tracking-tight text-balance">Modifications non validées</h2>
         <FileViewToggle view={view} onChange={setView} />
       </div>
 

@@ -72,7 +72,7 @@ function avatarEl(name: string, email: string) {
   const el = document.createElement("span")
   el.className =
     "relative flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-full " +
-    "text-[0.5rem] font-medium text-background"
+    "text-[0.5rem] font-medium text-background ring-1 ring-foreground/10"
   el.style.background = tint(name, email)
   el.textContent = initials(name)
 
@@ -99,10 +99,11 @@ function avatarEl(name: string, email: string) {
    donc `slice(0, 1)` garde bien le nom de branche prioritaire. */
 const BRANCH_BUDGET = 1
 
-/** Surface flottante du projet (cf. `dialog`, `command`). */
+/** Surface flottante du projet (cf. `dialog`, `command`). Bornée en hauteur : un commit très
+    décoré (dizaines de tags) scrolle dans le panneau au lieu de dépasser la fenêtre. */
 const MORE_CLASS =
-  "gg-more absolute z-20 hidden w-max max-w-72 flex-col items-start gap-1 rounded-xl " +
-  "bg-popover p-1.5 text-popover-foreground ring-1 ring-foreground/10"
+  "gg-more absolute z-20 hidden max-h-[min(50vh,20rem)] w-max max-w-72 flex-col items-start gap-1 overflow-y-auto " +
+  "rounded-xl bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-foreground/10"
 
 export type Stats = { loaded: number; total: number; ms: number }
 
@@ -205,6 +206,10 @@ export function createGraph(
     more.style.left = b.left - box.left + "px"
     more.style.top = b.bottom - box.top + 4 + "px"
     more.classList.replace("hidden", "flex")
+    /* mesuré une fois visible : un "+N" près du bord droit rabat le panneau dans la zone visible
+       du board au lieu d'étendre son scroll horizontal */
+    const maxLeft = board.scrollLeft + board.clientWidth - more.offsetWidth - 4
+    if (b.left - box.left > maxLeft) more.style.left = Math.max(0, maxLeft) + "px"
     btn.setAttribute("aria-expanded", "true")
     openBtn = btn
   }

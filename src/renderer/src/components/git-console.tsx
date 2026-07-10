@@ -98,7 +98,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
                   <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
                   Effacer
                 </Button>
-                <Button variant="ghost" size="icon-xs" onClick={() => setOpen(false)}>
+                <Button variant="ghost" size="icon-xs" className="relative after:absolute after:-inset-1" onClick={() => setOpen(false)}>
                   <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
                 </Button>
               </div>
