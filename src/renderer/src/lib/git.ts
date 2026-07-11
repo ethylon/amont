@@ -1,184 +1,19 @@
-/* Miroir typé de ce que le preload expose. Les opérations git sont liées à un repo par
-   `repoApi(id)` : un onglet ne peut pas parler au dépôt d'un autre onglet. */
+/* Client typé du bridge exposé par le preload. Les types du domaine vivent dans shared/ —
+   ce module les ré-exporte pour ne pas faire bouger tous les imports du renderer — et la
+   forme du bridge (Bridge) est dérivée du contrat IPC partagé (src/shared/ipc-contract.ts),
+   compilé identiquement côté main et préload. */
 
-export type Commit = {
-  /** hash court, 8 caractères */
-  h: string
-  /** parents, hashes courts ; le premier est le first-parent */
-  p: string[]
-  d: string
-  a: string
-  /** e-mail de l'auteur, seule clé d'avatar que git connaisse */
-  e: string
-  /** refs brutes de `%D --decorate=full` : "HEAD -> refs/heads/develop, tag: refs/tags/v4.2.0" */
-  r: string
-  s: string
-  /** posé par le collapse release/hotfix (cf. graph-layout) : cette ligne fusionne les deux merges
-      d'une version — côté master (absorbé) et côté develop (survivant). */
-  cap?: {
-    /** hash court du merge master fusionné ; reste résolu par la capsule dans layoutChunk */
-    absorbed: string
-    /** tag semver de la release, `null` si la paire n'en portait pas */
-    version: string | null
-    /** branche source : "release/1.6.2", "hotfix/1.6.3" */
-    from: string
-    flow: "release" | "hotfix"
-    /** [cible master, cible develop] */
-    targets: [string, string]
-  }
-  /** posé par le repli des stash (cf. graph-canvas) : cette ligne est une entrée de stash,
-      ses parents de plomberie ont été retirés — seul le parent de base reste. */
-  stash?: {
-    /** nom d'entrée `stash@{N}`, la poignée des actions apply/pop/drop */
-    name: string
-    /** hash court du commit des fichiers non suivis (`stash push -u`), `null` sans eux */
-    untracked: string | null
-  }
-}
+export type {
+  BootState, BranchAct, ChangeEvent, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes,
+  GitRef, OpEvent, OpName, OpenResult, Repo, RepoRef, Stash, StashAct, Status, TraceLine, Worktree,
+  WtSource,
+} from "../../../shared/types.ts"
 
-/** Une entrée de `git stash list`. `p` garde tous les parents : base, index, non suivis. */
-export type Stash = {
-  name: string
-  /** hash court (8) du commit de stash, sa ligne dans le graphe */
-  h: string
-  p: string[]
-  d: string
-  a: string
-  e: string
-  /** sujet du reflog : "WIP on x: …" ou "On x: message" */
-  s: string
-}
-
-export type StashAct = "push" | "apply" | "pop" | "drop"
-
-export type FileChange = {
-  /** A, M, D, R, C, ? ou un couple de conflit (UU, AA…) */
-  st: string
-  path: string
-  old?: string | null
-}
-
-/** Un dépôt ouvert. `id` est l'unique poignée acceptée par les appels git. */
-export type Repo = { id: number; path: string; name: string }
-/** Un dépôt connu mais pas ouvert : récent, ou trouvé sous la racine. */
-export type RepoRef = { path: string; name: string }
-export type OpenResult = Repo | { error: string } | null
-
-export type BootState = {
-  root: string | null
-  recents: RepoRef[]
-  /** onglets restaurés, déjà ouverts côté main */
-  tabs: Repo[]
-  active: number | null
-}
-
-export type Status = {
-  branch: string | null
-  head: string | null
-  ahead: number | null
-  behind: number | null
-}
-
-/** Une ref de `for-each-ref`. `ahead`/`behind` ne sont renseignés que pour une branche suivie. */
-export type GitRef = {
-  /** sans le préfixe `refs/…/` : "feature/x", "origin/master", "v4.2.0" */
-  name: string
-  kind: "head" | "remote" | "tag"
-  head: boolean
-  /** distante suivie, forme courte ("origin/master") ; vide si la branche n'en a pas */
-  upstream: string
-  ahead: number
-  behind: number
-  /** branche locale déjà fusionnée dans la branche d'intégration */
-  merged: boolean
-  /** branche locale dont la contrepartie distante a été supprimée */
-  gone: boolean
-  /** hash court (8) du commit pointé, pelé pour un tag annoté : la cible d'un focus dans le graphe */
-  tip: string
-}
-
-/** Les préfixes de `git flow init`, ou `null` si le dépôt ignore git-flow. */
-export type FlowPrefixes = Partial<Record<"feature" | "bugfix" | "release" | "hotfix", string>>
-
-/** Contexte read-only de la branche de flow courante : cockpit et carte contexte. */
-export type FlowInfo = {
-  /** commits propres à la branche, absents de sa base */
-  commits: number
-  /** epoch (s) du premier commit propre, `null` tant que la branche n'a rien */
-  startedAt: number | null
-  /** point de départ affichable : dernier tag (release/hotfix) ou tronc (feature/bugfix) */
-  base: string | null
-  /** branches où le finish atterrira */
-  targets: string[]
-  /** tag que le finish posera — version du nom de branche, sinon bump du dernier tag */
-  nextTag: string | null
-}
-
-export type BranchAct = "merge" | "delete" | "pull" | "push" | "finish"
-
-export type WtSource = "staged" | "unstaged" | "untracked"
-
-/** Sujet (première ligne) et description (corps) d'un message de commit, tels que saisis. */
-export type CommitMessage = { subject: string; body: string }
-
-export type Worktree = Record<"staged" | "unstaged" | "untracked" | "conflicts", FileChange[]>
-
-export type OpName = "fetch" | "pull" | "push"
-
-export type OpEvent = { id: number } & (
-  | { op: OpName; state: "start"; auto: boolean }
-  | { op: OpName; state: "done"; auto: boolean; added: number }
-  | { op: OpName; state: "error"; auto: boolean; message: string }
-)
-
-/** `.git` a bougé sous nos pieds. Main ne l'émet qu'application au premier plan. */
-export type ChangeEvent = { id: number }
-
-/** Une ligne de la console : en-tête d'opération, commande lancée, sortie stderr, ou issue. */
-export type TraceLine = { id: number } & (
-  | { kind: "group"; text: string; ts: number }
-  | { kind: "cmd"; text: string }
-  | { kind: "out"; text: string }
-  | { kind: "exit"; ok: boolean; ms: number }
-)
-
-type Bridge = {
-  state(): Promise<BootState>
-  repos(): Promise<{ root: string | null; recents: RepoRef[] }>
-  setTabs(paths: string[], active: string | null): Promise<void>
-  openDialog(): Promise<OpenResult>
-  openPath(path: string): Promise<Exclude<OpenResult, null>>
-  close(id: number): Promise<void>
-  chooseRoot(): Promise<string | null>
-  scanRoot(): Promise<RepoRef[]>
-  onOp(cb: (payload: OpEvent) => void): void
-  onChanged(cb: (payload: ChangeEvent) => void): void
-  onTrace(cb: (payload: TraceLine) => void): void
-
-  log(id: number, skip: number, count: number): Promise<Commit[]>
-  total(id: number): Promise<number>
-  search(id: number, q: string, content: boolean): Promise<string[]>
-  refs(id: number): Promise<GitRef[]>
-  flow(id: number): Promise<FlowPrefixes | null>
-  flowInfo(id: number, branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null>
-  branch(id: number, action: BranchAct, name: string): Promise<void>
-  files(id: number, hash: string, parent: string | null): Promise<FileChange[]>
-  body(id: number, hash: string): Promise<string>
-  diff(id: number, hash: string, parent: string | null, path: string, oldPath: string | null): Promise<string>
-  status(id: number): Promise<Status>
-  op(id: number, name: OpName): Promise<void>
-  worktree(id: number): Promise<Worktree>
-  wtdiff(id: number, path: string, source: WtSource): Promise<string>
-  stage(id: number, paths: string[]): Promise<void>
-  unstage(id: number, paths: string[]): Promise<void>
-  commit(id: number, message: string, amend: boolean): Promise<void>
-  headMessage(id: number): Promise<CommitMessage>
-  checkout(id: number, name: string): Promise<void>
-  stashes(id: number): Promise<Stash[]>
-  stash(id: number, action: StashAct, arg?: string): Promise<void>
-  fileIcon(id: number, path: string): Promise<string | null>
-  openFile(id: number, path: string): Promise<string>
-}
+import type { Bridge } from "../../../shared/ipc-contract.ts"
+import type {
+  BranchAct, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes, GitRef, OpName, Stash,
+  StashAct, Status, Worktree, WtSource,
+} from "../../../shared/types.ts"
 
 declare global {
   interface Window {
@@ -198,24 +33,18 @@ export const host = {
   scanRoot: bridge.scanRoot,
 }
 
-/* Un seul écouteur IPC par canal — le preload n'expose pas de désabonnement — redistribué aux
-   vues. Sans ça, StrictMode doublerait les événements et une vue démontée en recevrait encore. */
-function fanout<T>(listen: (cb: (p: T) => void) => void) {
-  const subscribers = new Set<(p: T) => void>()
-  listen((p) => subscribers.forEach((f) => f(p)))
-  return (cb: (p: T) => void) => {
-    subscribers.add(cb)
-    return () => void subscribers.delete(cb)
-  }
-}
+/* Le preload gère désormais lui-même le désabonnement (`ipcRenderer.off`, cf. src/preload) :
+   chaque appel à onOp/onChanged/onTrace pose son propre listener IPC et le retire à son tour,
+   plus besoin du singleton `fanout` qui multiplexait un unique listener jamais désinscrit. */
+export const onOp = bridge.onOp
+export const onChanged = bridge.onChanged
+export const onTrace = bridge.onTrace
 
-export const onOp = fanout<OpEvent>(bridge.onOp)
-export const onChanged = fanout<ChangeEvent>(bridge.onChanged)
-export const onTrace = fanout<TraceLine>(bridge.onTrace)
-
-/* Évalué à l'import, donc une seule fois : `app:state` ouvre les repos des onglets restaurés
-   et n'est pas idempotent vis-à-vis du double montage de StrictMode. */
-export const bootState = bridge.state()
+/* Ouvre les repos des onglets restaurés. Appelée une fois, explicitement, depuis main.tsx —
+   plutôt qu'un side-effect à l'import (l'ancien `bootState`, évalué dès que ce module était
+   importé, y compris par un test qui n'en a rien à faire). `app:state` reste idempotent côté
+   main : un second appel ne rouvrirait rien, il refléterait juste le registre courant. */
+export const boot = () => bridge.state()
 
 export type RepoApi = {
   log(skip: number, count: number): Promise<Commit[]>
