@@ -28,7 +28,7 @@ export async function repoStatus(r: RepoHandle): Promise<Status> {
      statut vide plutôt qu'un rejet, comme repo:unstage sait déjà le faire */
   const branch = (await r.git(["rev-parse", "--abbrev-ref", "HEAD"]).catch(() => "")).trim()
   if (!branch) return { branch: null, head: null, ahead: null, behind: null }
-  const head = (await r.git(["rev-parse", "HEAD"]).catch(() => "")).trim().slice(0, 8) || null
+  const head = (await r.git(["rev-parse", "HEAD"]).catch(() => "")).trim() || null
   if (branch === "HEAD") return { branch: null, head, ahead: null, behind: null }
   try {
     const [behind, ahead] = (await r.git(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]))
@@ -94,7 +94,7 @@ export async function searchCommits(r: RepoHandle, q: string, content: boolean, 
   if (content) runs.push(r.git([...base, `-S${q}`], { timeout: SEARCH_TIMEOUT, signal }))
 
   const outs = await Promise.all(runs)
-  return [...new Set(outs.join("\n").split("\n").filter(Boolean).map((h) => h.slice(0, 8)))]
+  return [...new Set(outs.join("\n").split("\n").filter(Boolean))]
 }
 
 /* Le comptage embarque les tips de stash, comme le log. Chaque entrée traîne 1 à 2 commits
@@ -155,8 +155,8 @@ export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
         !trunk.has(ref.tip) &&
         merged.has(ref.name)
   }
-  /* le graphe indexe les commits par hash court : `merged` s'est servi du SHA complet, on rabote */
-  for (const ref of refs) ref.tip = ref.tip.slice(0, 8)
+  /* le graphe interne les SHA complets en ids entiers à l'ingestion (fix B1) : le tip voyage
+     tel quel, plus de troncature ici — `merged` s'en sert déjà tel quel juste au-dessus */
 
   /* Une branche suivie annonce `gone` d'elle-même. Sans upstream — poussée sans `-u`, ou config
      jamais posée — la suppression distante emporte jusqu'au reflog de `refs/remotes/…` : ne

@@ -135,10 +135,10 @@ describe("parseForEachRef", () => {
 describe("parseStashList", () => {
   const E = "\x1e", F = "\x1f"
 
-  it("parse une entrée complète, hash tronqué à 8 caractères", () => {
+  it("parse une entrée complète, SHA complet conservé (fix B1)", () => {
     const row = ["aaaa000011112222333344445555666677778888", "p1 p2 p3", "stash@{0}", "2026-07-08", "Ada", "ada@x.io", "WIP on x"].join(F) + E
     const [s] = parseStashList(row)
-    assert.equal(s.h, "aaaa0000")
+    assert.equal(s.h, "aaaa000011112222333344445555666677778888")
     assert.deepEqual(s.p, ["p1", "p2", "p3"])
     assert.equal(s.name, "stash@{0}")
     assert.equal(s.s, "WIP on x")
@@ -149,7 +149,7 @@ describe("parseStashList", () => {
   })
 
   it("rejoint sur espace les champs excédentaires du sujet (au-delà du 7e séparateur)", () => {
-    const row = ["aaaa0000", "p1", "stash@{1}", "2026-07-08", "Ada", "ada@x.io", "On x:", "a"].join(F) + E
+    const row = ["aaaa000011112222333344445555666677778888", "p1", "stash@{1}", "2026-07-08", "Ada", "ada@x.io", "On x:", "a"].join(F) + E
     const [s] = parseStashList(row)
     assert.equal(s.s, "On x: a")
   })
