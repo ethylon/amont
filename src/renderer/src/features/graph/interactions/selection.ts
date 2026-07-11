@@ -16,7 +16,7 @@ export function createSelection(inner: HTMLDivElement) {
   let active: number | null = null
 
   function applySelection() {
-    inner.querySelectorAll<HTMLElement>(".gg-row").forEach((r) => {
+    inner.querySelectorAll<HTMLElement>(".amont-row").forEach((r) => {
       const i = Number(r.dataset.i)
       const sel = selection.has(i)
       const isActive = i === active
@@ -27,14 +27,14 @@ export function createSelection(inner: HTMLDivElement) {
          tabulation, cf. render/rows.ts) suit le même roving tabindex que sa ligne : sans ce
          second passage, il resterait figé sur le tabindex qu'il avait à son montage, périmé dès
          que la ligne active change sans que ce bucket ne remonte. */
-      const more = r.querySelector<HTMLElement>(".gg-more-btn:not([data-ghost])")
+      const more = r.querySelector<HTMLElement>(".amont-more-btn:not([data-ghost])")
       if (more) more.tabIndex = isActive ? 0 : -1
     })
   }
 
   function applyMatches(hashOf: number[]) {
     inner.toggleAttribute("data-search", matches !== null)
-    inner.querySelectorAll<HTMLElement>(".gg-row").forEach((r) => {
+    inner.querySelectorAll<HTMLElement>(".amont-row").forEach((r) => {
       if (matches) r.dataset.match = String(matches.has(hashOf[Number(r.dataset.i)]))
       else delete r.dataset.match
     })

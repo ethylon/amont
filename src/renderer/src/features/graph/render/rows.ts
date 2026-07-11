@@ -36,7 +36,7 @@ export function ghostChip(name: string, color: string, maxw = BRANCH_MAX) {
 
 /* Plusieurs branches peuvent se partager le tip (branche vide posée sur master : le commit
    appartient aux deux) : la première en chip, les autres derrière un "+N" au même contour
-   pointillé. Il porte `gg-more-btn` : le survol le déplie dans le panneau flottant, comme les
+   pointillé. Il porte `amont-more-btn` : le survol le déplie dans le panneau flottant, comme les
    vraies refs — `data-ghost` transporte les noms, un saut de ligne étant impossible dans une ref. */
 export function ghostChips(names: string[], color: string) {
   const wrap = document.createElement("span")
@@ -47,7 +47,7 @@ export function ghostChips(names: string[], color: string) {
     more.type = "button"
     more.className =
       badgeVariants({ color: "neutral", shape: "squared", variant: "outline" }) +
-      " border-dashed opacity-70 gg-more-btn cursor-pointer"
+      " border-dashed opacity-70 amont-more-btn cursor-pointer"
     more.textContent = `+${names.length - 1}`
     more.dataset.ghost = names.slice(1).join("\n")
     more.setAttribute("aria-expanded", "false")
@@ -117,7 +117,7 @@ export function refGroup(refs: RefChip[], budget: number, maxw: string, parent: 
   if (!hidden.length) return
   const btn = document.createElement("button")
   btn.type = "button"
-  btn.className = chip("neutral") + " gg-more-btn cursor-pointer" // un compteur, pas une ref : pas de teinte
+  btn.className = chip("neutral") + " amont-more-btn cursor-pointer" // un compteur, pas une ref : pas de teinte
   btn.dataset.n = String(budget) // borne de slice pour openMore
   btn.textContent = `+${hidden.length}`
   btn.title = hidden.map((r) => r.name).join(", ")
@@ -163,7 +163,7 @@ export function rowDiv(
 ): HTMLDivElement {
   const row = document.createElement("div")
   row.className = ROW_CLASS
-  row.style.setProperty("--gg-cols", GRID_COLS)
+  row.style.setProperty("--amont-cols", GRID_COLS)
   row.dataset.i = String(i)
   row.dataset.selected = String(selected)
   if (matched !== null) row.dataset.match = String(matched)
@@ -194,7 +194,7 @@ export function rowDiv(
      Une capsule y met sa version en tête ; sinon le survol y pose un chip fantôme (cf. hover.ts). */
   const refs = c.r ? parseRefs(c.r) : []
   const branch = document.createElement("div")
-  branch.className = "gg-branchcell flex min-w-0 items-center gap-1.5 px-2.5"
+  branch.className = "amont-branchcell flex min-w-0 items-center gap-1.5 px-2.5"
   if (c.cap) {
     const v = document.createElement("span")
     v.className = chip(tagFlowColor(c.cap.flow)) + " " + BRANCH_MAX

@@ -125,7 +125,7 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
       onClick={(e) => ctx.onFocusRef(r, e.ctrlKey || e.metaKey)}
       onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
       className={cn(
-        "gg-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
+        "amont-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
         "text-foreground hover:bg-muted -my-px",
         r.head && "bg-primary/30 hover:bg-primary/45"
       )}

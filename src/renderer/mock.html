@@ -8,7 +8,7 @@
 <div id="root"></div>
 <script type="module">
   /* Harnais de vérification : monte le vrai renderer avec une API git simulée.
-     window.gitgraph doit exister avant l'import — lib/git.ts le capture au chargement. */
+     window.amont doit exister avant l'import — lib/git.ts le capture au chargement. */
   /* `r` est au format `%D --decorate=full`. Les cas que la ligne doit tenir :
      branche + son remote + origin/HEAD (un seul chip), remote orphelin, tags en surnombre, tag isolé. */
   /* adresse `users.noreply.github.com` : avatar déduit de l'id, sans requête d'API */
@@ -85,7 +85,7 @@
     { name: 'v4.2.0', kind: 'tag', head: false, ahead: 0, behind: 0, tip: sha('3c4d5e6f') },
   ];
 
-  window.gitgraph = {
+  window.amont = {
     state: async () => ({ root: '/mock', recents: RECENTS, tabs: [REPO], active: REPO.id }),
     repos: async () => ({ root: '/mock', recents: RECENTS }),
     setTabs: async () => {},

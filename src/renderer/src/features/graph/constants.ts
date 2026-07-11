@@ -70,17 +70,17 @@ export const FIXED_W = COL_GRAPH_GUTTER + COL_SUBJECT_MIN + COL_AUTHOR + COL_DAT
    chargé (cf. render/measure.ts) et tombent à 0 quand le dépôt n'a rien à y mettre. La colonne
    graphe est un espaceur réservant `--graphw` sous le SVG, décalé de la largeur de la colonne
    branche. */
-/* Le grid-template dérive des mêmes constantes mais vit dans une variable CSS (`--gg-cols`, posée
+/* Le grid-template dérive des mêmes constantes mais vit dans une variable CSS (`--amont-cols`, posée
    par rowDiv) plutôt que dans la classe : `grid-cols-[…${COL}px…]` construit par interpolation
    n'est pas un littéral que le scanner Tailwind voit — il ne l'émettait jamais et la ligne
-   retombait sur une colonne unique (tout tassé à gauche). `grid-cols-(--gg-cols)` est une classe
+   retombait sur une colonne unique (tout tassé à gauche). `grid-cols-(--amont-cols)` est une classe
    statique, donc émise ; la valeur interpolée passe par la var. Les espaces autour du `+` du calc
    sont obligatoires — `calc(a+b)` est invalide. */
 export const GRID_COLS =
-  `var(--gg-branch,0px) calc(var(--graphw,0px) + ${COL_GRAPH_GUTTER}px) var(--gg-type,0px) 1fr ${COL_AUTHOR}px ${COL_DATE}px ${COL_HASH}px`
+  `var(--amont-branch,0px) calc(var(--graphw,0px) + ${COL_GRAPH_GUTTER}px) var(--amont-type,0px) 1fr ${COL_AUTHOR}px ${COL_DATE}px ${COL_HASH}px`
 
 export const ROW_CLASS =
-  "gg-row grid h-7 cursor-pointer grid-cols-(--gg-cols) " +
+  "amont-row grid h-7 cursor-pointer grid-cols-(--amont-cols) " +
   "items-center border-l-2 border-l-transparent pr-4.5 text-xs hover:bg-muted/60 " +
   "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:-ring-offset-2 focus-visible:ring-ring/30 " +
   "data-selected:border-l-primary data-selected:bg-primary/20 data-selected:hover:bg-primary/25"
@@ -88,7 +88,7 @@ export const ROW_CLASS =
 /** Surface flottante du projet (cf. `dialog`, `command`). Bornée en hauteur : un commit très
     décoré (dizaines de tags) scrolle dans le panneau au lieu de dépasser la fenêtre. */
 export const MORE_CLASS =
-  "gg-more absolute z-20 hidden max-h-[min(50vh,20rem)] w-max max-w-72 flex-col items-start gap-1 overflow-y-auto " +
+  "amont-more absolute z-20 hidden max-h-[min(50vh,20rem)] w-max max-w-72 flex-col items-start gap-1 overflow-y-auto " +
   "rounded-xl bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-foreground/10"
 
 /* --- Fenêtres de virtualisation découplées ---

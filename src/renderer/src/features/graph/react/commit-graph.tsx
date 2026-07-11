@@ -53,8 +53,8 @@ export function CommitGraph({ api, callbacks, onReady }: Props) {
         <svg
           ref={svg}
           aria-hidden="true"
-          className="gg-graph pointer-events-none absolute top-0 z-1"
-          style={{ left: "var(--gg-branch, 0px)" }}
+          className="amont-graph pointer-events-none absolute top-0 z-1"
+          style={{ left: "var(--amont-branch, 0px)" }}
           xmlns="http://www.w3.org/2000/svg"
         />
       </div>

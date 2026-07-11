@@ -51,7 +51,7 @@ export function createHover(inner: HTMLDivElement) {
     const tip = chainTip(S, i)
     const names = tipBranches(S, tip).map((b) => b.name)
     if (!names.length) return
-    const cell = inner.querySelector<HTMLElement>(`.gg-row[data-i="${i}"] .gg-branchcell`)
+    const cell = inner.querySelector<HTMLElement>(`.amont-row[data-i="${i}"] .amont-branchcell`)
     if (!cell || cell.childElementCount) return
     ghostEl = ghostChips(names, laneColor(S.laneOf[tip]))
     cell.appendChild(ghostEl)
