@@ -512,10 +512,15 @@ ipcMain.handle('repo:wtdiff', (_ev, id, path, source) => {
   return git(r.path, [...WT_DIFF[source], '--', path]);
 });
 
+/* Les chemins partent sur stdin, NUL-séparés, plutôt qu'en argv : « tout indexer » sur des
+   milliers de fichiers dépasserait la limite de ligne de commande de Windows (~32k car.).
+   `git()` sait déjà écrire stdin (cf. rev-list --stdin). */
+const PATHSPEC = ['--pathspec-from-file=-', '--pathspec-file-nul'];
+
 ipcMain.handle('repo:stage', (_ev, id, paths) => {
   const r = use(id);
   assertPaths(paths);
-  return git(r.path, ['add', '--', ...paths]).then(() => {});
+  return git(r.path, ['add', ...PATHSPEC], 0, paths.join('\0')).then(() => {});
 });
 
 ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
@@ -525,7 +530,7 @@ ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
      sortir le chemin de l'index le laisse non suivi, ce qui est le résultat attendu. */
   const cmd = await git(r.path, ['rev-parse', '--verify', '-q', 'HEAD'])
     .then(() => ['restore', '--staged'], () => ['rm', '--cached', '-q']);
-  await git(r.path, [...cmd, '--', ...paths]);
+  await git(r.path, [...cmd, ...PATHSPEC], 0, paths.join('\0'));
 });
 
 ipcMain.handle('repo:commit', (_ev, id, message, amend) => {
