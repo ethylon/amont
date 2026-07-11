@@ -13,9 +13,11 @@ import type { ErrorPayload } from "./errors.ts"
 export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 export type Commit = {
-  /** hash court, 8 caractères */
+  /** SHA complet (40 caractères) — fix B1 (AUDIT.md §2) : le renderer interne ces hash en ids
+      entiers séquentiels à l'ingestion (cf. renderer/features/graph/ids.ts), la troncature à
+      8 caractères redevient une affaire d'affichage. */
   h: string
-  /** parents, hashes courts ; le premier est le first-parent */
+  /** parents, SHA complets ; le premier est le first-parent */
   p: string[]
   d: string
   a: string
@@ -24,10 +26,10 @@ export type Commit = {
   /** refs brutes de `%D --decorate=full` : "HEAD -> refs/heads/develop, tag: refs/tags/v4.2.0" */
   r: string
   s: string
-  /** posé par le collapse release/hotfix (cf. graph-layout) : cette ligne fusionne les deux merges
+  /** posé par le collapse release/hotfix (cf. renderer/features/graph/layout/collapse.ts) : cette ligne fusionne les deux merges
       d'une version — côté master (absorbé) et côté develop (survivant). */
   cap?: {
-    /** hash court du merge master fusionné ; reste résolu par la capsule dans layoutChunk */
+    /** SHA complet du merge master fusionné ; reste résolu par la capsule dans layoutChunk */
     absorbed: string
     /** tag semver de la release, `null` si la paire n'en portait pas */
     version: string | null
@@ -37,12 +39,12 @@ export type Commit = {
     /** [cible master, cible develop] */
     targets: [string, string]
   }
-  /** posé par le repli des stash (cf. graph-canvas) : cette ligne est une entrée de stash,
+  /** posé par le repli des stash (cf. renderer/features/graph/layout/collapse.ts) : cette ligne est une entrée de stash,
       ses parents de plomberie ont été retirés — seul le parent de base reste. */
   stash?: {
     /** nom d'entrée `stash@{N}`, la poignée des actions apply/pop/drop */
     name: string
-    /** hash court du commit des fichiers non suivis (`stash push -u`), `null` sans eux */
+    /** SHA complet du commit des fichiers non suivis (`stash push -u`), `null` sans eux */
     untracked: string | null
   }
 }
@@ -50,7 +52,7 @@ export type Commit = {
 /** Une entrée de `git stash list`. `p` garde tous les parents : base, index, non suivis. */
 export type Stash = {
   name: string
-  /** hash court (8) du commit de stash, sa ligne dans le graphe */
+  /** SHA complet du commit de stash, sa ligne dans le graphe */
   h: string
   p: string[]
   d: string
@@ -107,7 +109,7 @@ export type GitRef = {
   merged: boolean
   /** branche locale dont la contrepartie distante a été supprimée */
   gone: boolean
-  /** hash court (8) du commit pointé, pelé pour un tag annoté : la cible d'un focus dans le graphe */
+  /** SHA complet du commit pointé, pelé pour un tag annoté : la cible d'un focus dans le graphe */
   tip: string
 }
 
