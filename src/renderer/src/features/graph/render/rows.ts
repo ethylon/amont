@@ -51,6 +51,12 @@ export function ghostChips(names: string[], color: string) {
     more.textContent = `+${names.length - 1}`
     more.dataset.ghost = names.slice(1).join("\n")
     more.setAttribute("aria-expanded", "false")
+    more.setAttribute("aria-haspopup", "true")
+    more.setAttribute("aria-label", `${names.length - 1} autre${names.length > 2 ? "s" : ""} branche${names.length > 2 ? "s" : ""} sur ce tip`)
+    /* fantôme de survol (AUDIT.md §8) : n'existe dans le DOM que pendant un hover souris — jamais
+       de curseur clavier dessus, donc hors de l'ordre de tabulation (contrairement au vrai "+N" de
+       `refGroup`, dont le tabindex suit la ligne active, cf. interactions/selection.ts). */
+    more.tabIndex = -1
     wrap.appendChild(more)
   }
   return wrap
@@ -101,8 +107,11 @@ export function refChip(r: RefChip, maxw: string, flow: FlowKind | null = null) 
   return el
 }
 
-/** Les refs d'un groupe, tronquées à `budget`, le reste derrière un "+N" qui les déplie toutes. */
-export function refGroup(refs: RefChip[], budget: number, maxw: string, parent: HTMLElement, flow: FlowKind | null = null) {
+/** Les refs d'un groupe, tronquées à `budget`, le reste derrière un "+N" qui les déplie toutes.
+    `active` : la ligne porteuse est la ligne active du roving tabindex (AUDIT.md §8) — seul son
+    "+N", s'il existe, entre dans l'ordre de tabulation ; les autres restent à `tabindex=-1`,
+    sinon ils polluraient Tab avec un arrêt par ligne montée au lieu d'un seul par ligne active. */
+export function refGroup(refs: RefChip[], budget: number, maxw: string, parent: HTMLElement, flow: FlowKind | null = null, active = false) {
   for (const r of refs.slice(0, budget)) parent.appendChild(refChip(r, maxw, flow))
   const hidden = refs.slice(budget)
   if (!hidden.length) return
@@ -113,6 +122,9 @@ export function refGroup(refs: RefChip[], budget: number, maxw: string, parent: 
   btn.textContent = `+${hidden.length}`
   btn.title = hidden.map((r) => r.name).join(", ")
   btn.setAttribute("aria-expanded", "false")
+  btn.setAttribute("aria-haspopup", "true")
+  btn.setAttribute("aria-label", `${hidden.length} référence${hidden.length > 1 ? "s" : ""} supplémentaire${hidden.length > 1 ? "s" : ""}`)
+  btn.tabIndex = active ? 0 : -1
   parent.appendChild(btn)
 }
 
@@ -133,13 +145,41 @@ function rowFlow(S: LayoutState, c: Commit, mg: ParsedMerge | null): FlowKind | 
   return pmg && mergeFlow(pmg) === "hotfix" ? "hotfix" : own
 }
 
-export function rowDiv(S: LayoutState, i: number, c: Commit, selected: boolean, matched: boolean | null): HTMLDivElement {
+/* Nom accessible d'une ligne : ses colonnes visuelles (chips tronqués, icônes muettes, hash
+   raccourci) ne font pas une phrase lisible bout à bout — un résumé explicite vaut mieux que la
+   concaténation du texte visible pour un lecteur d'écran (AUDIT.md §8). */
+function rowLabel(c: Commit): string {
+  return `${parseSubject(c.s).text} — ${c.a}, ${c.d}, ${shortHash(c.h)}`
+}
+
+export function rowDiv(
+  S: LayoutState,
+  i: number,
+  c: Commit,
+  selected: boolean,
+  matched: boolean | null,
+  active: boolean,
+  total: number
+): HTMLDivElement {
   const row = document.createElement("div")
   row.className = ROW_CLASS
   row.style.setProperty("--gg-cols", GRID_COLS)
   row.dataset.i = String(i)
   row.dataset.selected = String(selected)
   if (matched !== null) row.dataset.match = String(matched)
+
+  /* Grille ARIA (AUDIT.md §8) : chaque ligne est une "option" du listbox du board (cf.
+     react/commit-graph.tsx). `aria-selected`/`tabindex` sont pilotés par interactions/selection.ts
+     (roving tabindex) — posés ici à la création pour que la ligne soit correcte dès son premier
+     montage, avant tout passage de `applySelection()`. `aria-posinset`/`aria-setsize` donnent le
+     rang réel dans l'historique complet à un lecteur d'écran qui ne voit qu'une fenêtre virtualisée
+     de quelques dizaines de lignes montées. */
+  row.setAttribute("role", "option")
+  row.setAttribute("aria-selected", String(selected))
+  row.setAttribute("aria-posinset", String(i + 1))
+  row.setAttribute("aria-setsize", String(total || i + 1))
+  row.tabIndex = active ? 0 : -1
+  row.setAttribute("aria-label", rowLabel(c))
   /* hérité par les chips `lane` de la ligne — les noms de branche portent la couleur du trait */
   row.style.setProperty("--badge-color", laneColor(S.laneOf[i]))
 
@@ -171,7 +211,7 @@ export function rowDiv(S: LayoutState, i: number, c: Commit, selected: boolean, 
     v.title = c.stash.name
     branch.appendChild(v)
   } else {
-    refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, branch, flow)
+    refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, branch, flow, active)
   }
   row.appendChild(branch)
 
@@ -271,7 +311,9 @@ export function rowBucket(
   end: number,
   commitAt: (row: number) => Commit | undefined,
   selection: ReadonlySet<number>,
-  matches: ReadonlySet<number> | null
+  matches: ReadonlySet<number> | null,
+  active: number | null,
+  total: number
 ): HTMLDivElement {
   const div = document.createElement("div")
   div.className = "absolute inset-x-0"
@@ -280,7 +322,7 @@ export function rowBucket(
     const c = commitAt(i)
     if (!c) continue
     const matched = matches ? matches.has(S.hashOf[i]) : null
-    div.appendChild(rowDiv(S, i, c, selection.has(i), matched))
+    div.appendChild(rowDiv(S, i, c, selection.has(i), matched, i === active, total))
   }
   return div
 }
