@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowDown01Icon, ArrowUp01Icon, FileSearchIcon, Search01Icon } from "@hugeicons/core-free-icons"
 
 import type { RepoApi } from "@/lib/git"
+import { describeError } from "@/lib/errors"
 import type { GraphHandle } from "@/components/graph-canvas"
 import {
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
@@ -54,7 +55,7 @@ export function CommitSearch({ api, graph, active }: Props) {
       } catch (e) {
         if (!alive) return
         setHits(null)
-        setError((e as Error).message)
+        setError(describeError(e))
         graph.current?.setMatches(null)
       } finally {
         if (alive) setBusy(false)
