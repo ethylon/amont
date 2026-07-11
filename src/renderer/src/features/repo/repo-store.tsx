@@ -27,7 +27,7 @@ import { onChanged, onOp, type BranchAct, type FileChange, type GitRef, type OpN
 import { prefs } from "@/lib/prefs"
 import { invalidateRepo, queryKeys } from "@/lib/queries"
 import { queryClient } from "@/lib/query-client"
-import type { DiffCtx, DiffView as DiffViewMode } from "@/features/diff/diff-view"
+import type { DiffCtx, DiffViewMode } from "@/features/diff/diff-view"
 import type { GraphHandle, Stats } from "@/features/graph/controller"
 import type { OpState } from "@/features/repo/status-bar"
 import type { WtAct } from "@/features/worktree/worktree-panel"
@@ -37,8 +37,8 @@ export type SelMode = "multi" | "branch"
 export interface RepoStoreState {
   readonly repoId: number
   readonly api: RepoApi
-  /** ref non réactive, même forme qu'un `RefObject<GraphHandle | null>` — passée telle quelle
-      à `<CommitGraph graphRef={...}>` */
+  /** ref non réactive, même forme qu'un `RefObject<GraphHandle | null>` — remplie/vidée depuis
+      le seul canal `onReady` de `<CommitGraph>` (AUDIT.md §7, phase 5, item 6) */
   readonly graphRef: { current: GraphHandle | null }
 
   selection: {

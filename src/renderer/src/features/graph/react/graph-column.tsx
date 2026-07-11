@@ -87,10 +87,12 @@ export function GraphColumn() {
           page du canvas survivent à la fermeture */}
       <div className="relative grid min-h-0">
         <CommitGraph
-          graphRef={graphRef}
           api={api}
-          onReady={() => void storeApi.getState().resetAndLoad()}
           callbacks={callbacks}
+          onReady={(graph) => {
+            graphRef.current = graph
+            if (graph) void storeApi.getState().resetAndLoad()
+          }}
         />
         {diff && (
           <div data-gg-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">

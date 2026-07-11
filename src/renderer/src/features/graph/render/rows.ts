@@ -6,7 +6,7 @@ import { ArrowRight01Icon, CloudIcon, Fire02Icon, RocketIcon, Tag01Icon } from "
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { avatarUrl, initials, tint } from "@/lib/avatar"
-import { iconEl } from "@/lib/utils"
+import { iconEl } from "./icon-el.ts"
 import { badgeSeparator, badgeVariants, type BadgeColor } from "@/components/ui/badge"
 import {
   BACKUP_WIP, parseMerge, parseRefs, parseSubject, refColor, typeColor,

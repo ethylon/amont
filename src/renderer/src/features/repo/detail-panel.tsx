@@ -63,14 +63,13 @@ const ScrollName = ({ text }: { text: string }) => (
    nuage collé à `origin/develop` = la branche locale est ailleurs. */
 function RefBadge({ r }: { r: RefChip }) {
   const synced = r.remotes.length > 0
-  const badge = (
+  return (
     <Badge shape="squared" color={refColor(r.kind)} className={cn("max-w-full", (r.kind === "remote" || synced) && "ps-1.5")}>
       {(r.kind === "remote" || synced) && <Cloud />}
       {synced && <span className={badgeSeparator} />}
       <ScrollName text={r.name} />
     </Badge>
   )
-  return badge
 }
 
 function PersonChip({ name, email }: { name: string; email: string }) {
