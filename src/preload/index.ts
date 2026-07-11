@@ -62,6 +62,7 @@ const bridge: Bridge = {
   stash: invoke('repo:stash'),
   fileIcon: invoke('repo:fileIcon'),
   openFile: invoke('repo:openFile'),
+  cancel: invoke('repo:cancel'),
 };
 
 contextBridge.exposeInMainWorld('gitgraph', bridge);
