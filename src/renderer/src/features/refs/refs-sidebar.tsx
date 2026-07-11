@@ -18,8 +18,10 @@ import {
 
 import type { BranchAct, FlowPrefixes, GitRef, Stash, StashAct } from "@/lib/git"
 import { typeColor, type BadgeColor } from "@/lib/commit-message"
-import { useFlowQuery, useRefsQuery, useStashesQuery } from "@/lib/queries"
-import { useRepoStore } from "@/lib/repo-store"
+import { useFlowQuery } from "@/features/flow/flow-queries"
+import { useRefsQuery } from "@/features/refs/refs-queries"
+import { useStashesQuery } from "@/features/stash/stash-queries"
+import { useRepoStore } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"

@@ -4,7 +4,7 @@ import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@
 
 import { setDark, useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
-import { Mark } from "@/components/mark"
+import { Mark } from "@/components/ui/mark"
 import { Button } from "@/components/ui/button"
 import { IconButton } from "@/components/ui/icon-button"
 

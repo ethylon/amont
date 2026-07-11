@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from "react"
 import { flushSync } from "react-dom"
 
 import { host, type BootState, type Repo } from "@/lib/git"
-import { afterClose, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/lib/navigation"
-import { PRIORITY, useShortcut } from "@/lib/shortcuts"
+import { afterClose, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/app/navigation"
+import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
-import { ErrorBoundary } from "@/components/error-boundary"
-import { HomeScreen } from "@/components/home-screen"
-import { RepoView } from "@/components/repo-view"
-import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/components/tab-strip"
+import { ErrorBoundary } from "@/app/error-boundary"
+import { HomeScreen } from "@/features/home/home-screen"
+import { RepoView } from "@/features/repo/repo-view"
+import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-strip"
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
@@ -45,7 +45,7 @@ export default function App({ boot }: Props) {
      figure pas encore vient d'être ouvert : il arrive de face plutôt que par le côté.
      (`::view-transition-new` est un rendu vivant, pas une photo : un graphe encore en cours
      de pose finit de s'afficher pendant l'animation.) Transition pure et testée (cf.
-     lib/navigation.test.ts) : `select` ne fait plus que l'exécuter. */
+     navigation.test.ts) : `select` ne fait plus que l'exécuter. */
   const select = useCallback(
     (key: NavKey) => {
       if (navKeyEquals(key, active)) return

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import { worktreeCount } from "@/lib/git"
-import { useWorktreeQuery } from "@/lib/queries"
-import { useRepoStore, useRepoStoreApi } from "@/lib/repo-store"
+import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
+import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { DiffView } from "@/components/diff-view"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { DiffView } from "@/features/diff/diff-view"
+import { ErrorBoundary } from "@/app/error-boundary"
 import type { GraphCallbacks } from "@/features/graph/controller"
 import { CommitGraph } from "@/features/graph/react/commit-graph"
 

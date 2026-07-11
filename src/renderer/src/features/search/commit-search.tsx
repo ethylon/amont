@@ -4,8 +4,8 @@ import { ArrowDown01Icon, ArrowUp01Icon, FileSearchIcon, Search01Icon } from "@h
 
 import type { RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
-import { SEARCH_MIN, useSearchQuery } from "@/lib/queries"
-import { PRIORITY, useShortcut } from "@/lib/shortcuts"
+import { SEARCH_MIN, useSearchQuery } from "@/features/search/search-queries"
+import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import type { GraphHandle } from "@/features/graph/controller"
 import {
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
