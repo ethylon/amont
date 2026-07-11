@@ -59,7 +59,15 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
         {OPS.map(({ op, label, icon, cmd }) => {
           const n = counts[op]
           return (
-            <Button key={op} variant="ghost" size="sm" className="h-auto gap-2 py-0.5" disabled={n === 0 || busyOp !== null} onClick={() => onRunOp(op)}>
+            <Button
+              key={op}
+              variant="ghost"
+              size="sm"
+              className="h-auto gap-2 py-0.5"
+              disabled={n === 0 || busyOp !== null}
+              aria-busy={busyOp === op}
+              onClick={() => onRunOp(op)}
+            >
               {busyOp === op ? (
                 <Spinner data-icon="inline-start" className="size-3" />
               ) : (
