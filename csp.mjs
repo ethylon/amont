@@ -8,8 +8,11 @@ const IMG = "img-src 'self' data: https://*.gravatar.com https://avatars.githubu
    no legitimate <base> tag, no <form> in the app — closing these three doors costs
    nothing and reduces the surface of a compromised renderer (hostile diff content). */
 const HARDEN = "object-src 'none'; base-uri 'none'; form-action 'none'";
-const PROD = `default-src 'self'; ${IMG}; ${HARDEN}; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'`;
-const DEV = `default-src 'self'; ${IMG}; ${HARDEN}; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'`;
+/* No 'wasm-unsafe-eval': the diff view's syntax highlighting uses shiki's pure-JS regex engine
+   (features/diff/shiki-highlighter.ts), not the WASM oniguruma engine — dropping the full
+   `shiki` package for `shiki/core` removed the one thing that needed this directive. */
+const PROD = `default-src 'self'; ${IMG}; ${HARDEN}; style-src 'self' 'unsafe-inline'; script-src 'self'`;
+const DEV = `default-src 'self'; ${IMG}; ${HARDEN}; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'`;
 
 /** @returns {import('vite').Plugin} */
 export const csp = () => ({
