@@ -25,7 +25,7 @@ type Props = {
   consoleSlot?: React.ReactNode
 }
 
-const nf = new Intl.NumberFormat("fr")
+const nf = new Intl.NumberFormat()
 
 const Num = ({ children }: { children: React.ReactNode }) => (
   <b className="font-medium text-foreground">{children}</b>

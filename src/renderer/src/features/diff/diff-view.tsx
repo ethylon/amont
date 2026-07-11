@@ -116,7 +116,7 @@ function renderRaw(body: HTMLElement, text: string) {
   if (lines.length > MAX_LINES) {
     const more = document.createElement("div")
     more.className = "min-w-max px-2 text-muted-foreground"
-    more.textContent = `… ${(lines.length - MAX_LINES).toLocaleString("fr")} lignes tronquées`
+    more.textContent = `… ${(lines.length - MAX_LINES).toLocaleString()} lignes tronquées`
     body.appendChild(more)
   }
 }

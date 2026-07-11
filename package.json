@@ -3,7 +3,7 @@
   "version": "0.12.0",
   "private": true,
   "type": "module",
-  "description": "Visualiseur d'historique Git",
+  "description": "A Git history visualizer",
   "author": "Mathieu GUEY",
   "main": "./out/main/index.js",
   "packageManager": "pnpm@10.14.0",
