@@ -12,6 +12,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Alert02Icon } from "@hugeicons/core-free-icons"
 
+import { messages } from "@/lib/messages"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
@@ -42,18 +43,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.error) return this.props.children
-    const message = this.state.error instanceof Error ? this.state.error.message : "Erreur inattendue."
+    const message = this.state.error instanceof Error ? this.state.error.message : messages.app.unexpectedError
     return (
       <Empty className="flex-1">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           </EmptyMedia>
-          <EmptyTitle>Un problème est survenu</EmptyTitle>
+          <EmptyTitle>{messages.app.somethingWentWrong}</EmptyTitle>
           <EmptyDescription className="[overflow-wrap:anywhere]">{message}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button onClick={this.reset}>{this.props.label ?? "Recharger"}</Button>
+          <Button onClick={this.reset}>{this.props.label ?? messages.app.reload}</Button>
         </EmptyContent>
       </Empty>
     )

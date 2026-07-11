@@ -24,6 +24,7 @@ import { createStore, useStore, type StoreApi } from "zustand"
 
 import { describeError, describePayload } from "@/lib/errors"
 import { onChanged, onOp, type BranchAct, type FileChange, type GitRef, type OpName, type RepoApi, type Stash, type StashAct } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { prefs } from "@/lib/prefs"
 import { invalidateRepo, queryKeys } from "@/lib/queries"
 import { queryClient } from "@/lib/query-client"
@@ -380,7 +381,7 @@ export function RepoProvider({ repoId, api, children }: { repoId: number; api: R
     événements git, callbacks du graphe). Préférer `useRepoStore(selector)` dans le rendu. */
 export function useRepoStoreApi(): StoreApi<RepoStoreState> {
   const store = useContext(RepoStoreContext)
-  if (!store) throw new Error("useRepoStoreApi doit être utilisé sous <RepoProvider>")
+  if (!store) throw new Error("useRepoStoreApi must be used inside <RepoProvider>")
   return store
 }
 
@@ -425,10 +426,9 @@ export function useRepoEvents(): void {
         if (p.op === "pull") {
           await s.resetAndLoad()
         } else if (p.added > 0) {
-          const suffix = p.added > 1 ? "s" : ""
           /* le graphe n'est pas rechargé d'office : ça perdrait le scroll et la sélection */
-          s.showOp(`${p.added} nouveau${suffix} commit${suffix}`, "primary", {
-            label: "Recharger",
+          s.showOp(messages.app.newCommits(p.added), "primary", {
+            label: messages.app.reload,
             run: () => {
               s.clearOp()
               void s.resetAndLoad()

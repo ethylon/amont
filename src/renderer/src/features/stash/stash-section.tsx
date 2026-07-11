@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Archive02Icon, ArchiveArrowUpIcon, ArchiveRestoreIcon, Delete02Icon } from "@hugeicons/core-free-icons"
 
 import type { Stash, StashAct } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useStashesQuery } from "@/features/stash/stash-queries"
 import { useResettableOpen } from "@/features/refs/refs-tree"
@@ -49,16 +50,16 @@ function StashRow({ s, onFocus, onStash }: {
       <ContextMenuContent className="max-w-72">
         <ContextMenuItem onClick={() => onStash("apply", s.name)}>
           <HugeiconsIcon icon={ArchiveArrowUpIcon} strokeWidth={2} />
-          <MenuItemWithCmd label="Appliquer" cmd={`git stash apply ${s.name}`} />
+          <MenuItemWithCmd label={messages.stash.apply} cmd={`git stash apply ${s.name}`} />
         </ContextMenuItem>
         <ContextMenuItem onClick={() => onStash("pop", s.name)}>
           <HugeiconsIcon icon={ArchiveRestoreIcon} strokeWidth={2} />
-          <MenuItemWithCmd label="Appliquer et supprimer" cmd={`git stash pop ${s.name}`} />
+          <MenuItemWithCmd label={messages.stash.applyAndDrop} cmd={`git stash pop ${s.name}`} />
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => onStash("drop", s.name)}>
           <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-          <MenuItemWithCmd label="Supprimer" cmd={`git stash drop ${s.name}`} />
+          <MenuItemWithCmd label={messages.stash.drop} cmd={`git stash drop ${s.name}`} />
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

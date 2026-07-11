@@ -8,18 +8,18 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { FlowPrefixes, GitRef } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import {
   ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 } from "@/components/ui/context-menu"
 import type { Ctx } from "@/features/refs/refs-tree"
 
-/* `git flow feature finish` : le genre suit le mot français qu'on lui prête. */
 const FLOW_LABEL = {
-  feature: "Terminer la feature",
-  bugfix: "Terminer le bugfix",
-  release: "Terminer la release",
-  hotfix: "Terminer le hotfix",
+  feature: messages.refs.finishFeature,
+  bugfix: messages.refs.finishBugfix,
+  release: messages.refs.finishRelease,
+  hotfix: messages.refs.finishHotfix,
 } as const satisfies Record<keyof FlowPrefixes, string>
 
 const flowType = (name: string, prefixes: FlowPrefixes | null) =>
@@ -39,25 +39,25 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
     <ContextMenuContent className="max-w-72">
       <ContextMenuItem disabled={r.head} onClick={() => ctx.onCheckout(r.name)}>
         <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} />
-        <MenuItemWithCmd label="Checkout" cmd={`git checkout ${r.name}`} />
+        <MenuItemWithCmd label={messages.refs.checkout} cmd={`git checkout ${r.name}`} />
       </ContextMenuItem>
       <ContextMenuItem disabled={r.head || !ctx.current} onClick={() => ctx.onBranch("merge", r.name)}>
         <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} />
-        <MenuItemWithCmd label={<>Fusionner dans «&nbsp;{ctx.current ?? "HEAD"}&nbsp;»</>} cmd={`git merge ${r.name}`} />
+        <MenuItemWithCmd label={messages.refs.mergeInto(ctx.current ?? "HEAD")} cmd={`git merge ${r.name}`} />
       </ContextMenuItem>
 
       <ContextMenuSeparator />
       <ContextMenuItem disabled={!r.upstream} onClick={() => ctx.onBranch("pull", r.name)}>
         <HugeiconsIcon icon={ArrowDown02Icon} strokeWidth={2} />
         <MenuItemWithCmd
-          label="Pull"
+          label={messages.refs.pull}
           cmd={!r.upstream || r.head ? "git pull --ff-only" : `git fetch ${remote} ${upBranch}:${r.name}`}
         />
       </ContextMenuItem>
       <ContextMenuItem disabled={!r.upstream} onClick={() => ctx.onBranch("push", r.name)}>
         <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} />
         <MenuItemWithCmd
-          label={r.upstream ? <>Push vers «&nbsp;{r.upstream}&nbsp;»</> : "Push"}
+          label={r.upstream ? messages.refs.pushTo(r.upstream) : messages.refs.push}
           cmd={r.upstream ? `git push ${remote} ${r.name}:${upBranch}` : "git push"}
         />
       </ContextMenuItem>
@@ -79,7 +79,7 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
       {/* git refuse `-d` sur la branche sortie, mais un item qui ne peut qu'échouer n'a rien à faire là */}
       <ContextMenuItem variant="destructive" disabled={r.head} onClick={() => ctx.onBranch("delete", r.name)}>
         <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-        <MenuItemWithCmd label="Supprimer la branche" cmd={`git branch -d ${r.name}`} />
+        <MenuItemWithCmd label={messages.refs.deleteBranch} cmd={`git branch -d ${r.name}`} />
       </ContextMenuItem>
     </ContextMenuContent>
   )

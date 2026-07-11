@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { TerminalIcon, Delete02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 
 import { onTrace, type TraceLine } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -91,7 +92,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
   return (
     <div className="flex min-w-0">
       <span aria-live="polite" className="sr-only">
-        {lastFailure ? `Commande échouée : ${lastFailure}` : ""}
+        {lastFailure ? messages.console.commandFailed(lastFailure) : ""}
       </span>
 
       <Popover open={open} onOpenChange={setOpen} modal="trap-focus">
@@ -102,25 +103,25 @@ export function GitConsole({ repoId }: { repoId: number }) {
           )}
         >
           <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 shrink-0" />
-          <span className="max-w-[52ch] truncate">{last?.text ?? "Prêt"}</span>
+          <span className="max-w-[52ch] truncate">{last?.text ?? messages.console.ready}</span>
           {busy && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />}
         </PopoverTrigger>
 
-        <PopoverContent aria-label="Console git" className="flex w-[min(90vw,44rem)] flex-col">
+        <PopoverContent aria-label={messages.console.gitConsole} className="flex w-[min(90vw,44rem)] flex-col">
           <div className="flex shrink-0 items-center gap-2 border-b px-2.5 py-1.5">
             <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 text-muted-foreground" />
-            <span className="text-[0.6875rem] font-medium">Console git</span>
+            <span className="text-[0.6875rem] font-medium">{messages.console.gitConsole}</span>
             <span className="text-[0.625rem] text-muted-foreground tabular-nums">{lines.length}</span>
             <div className="ms-auto flex items-center gap-1">
               <Button variant="ghost" size="xs" onClick={clear} disabled={!lines.length}>
                 <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-                Effacer
+                {messages.console.clear}
               </Button>
               <PopoverClose
                 render={<Button variant="ghost" size="icon-xs" className="relative after:absolute after:-inset-1" />}
               >
                 <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-                <span className="sr-only">Fermer</span>
+                <span className="sr-only">{messages.console.close}</span>
               </PopoverClose>
             </div>
           </div>
@@ -130,7 +131,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
             className="min-h-0 max-h-[min(60vh,24rem)] flex-1 overflow-auto px-2.5 py-2 font-mono text-[0.6875rem] leading-relaxed"
           >
             {lines.length === 0 ? (
-              <p className="text-muted-foreground">Aucune commande pour l'instant.</p>
+              <p className="text-muted-foreground">{messages.console.noCommandsYet}</p>
             ) : (
               lines.map((l) => <Line key={l.key} line={l} />)
             )}
@@ -165,5 +166,5 @@ function Line({ line }: { line: Entry }) {
     return <div className="ps-3 break-all whitespace-pre-wrap text-muted-foreground">{line.text}</div>
   /* succès : la sortie parle d'elle-même, on ne marque que l'échec */
   if (line.ok) return null
-  return <div className="ps-3 text-destructive">✗ échec</div>
+  return <div className="ps-3 text-destructive">{messages.console.failed}</div>
 }

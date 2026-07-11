@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { worktreeCount } from "@/lib/git"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
+import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { DiffView } from "@/features/diff/diff-view"
@@ -70,7 +71,7 @@ export function GraphColumn() {
             view === "wt" && "border-l-primary bg-primary/10 text-foreground"
           )}
         >
-          <span className="truncate font-medium">Modifications non validées</span>
+          <span className="truncate font-medium">{messages.worktree.uncommittedChanges}</span>
           <span className="ms-auto flex gap-1">
             {WT_COUNTERS.map(({ key, color }) =>
               worktree[key].length ? (

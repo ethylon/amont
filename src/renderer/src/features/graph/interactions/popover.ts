@@ -15,6 +15,7 @@
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { parseRefs } from "@/lib/commit-parse"
+import { messages } from "@/lib/messages"
 import { MORE_CLASS } from "../constants.ts"
 import { ghostChip, refChip } from "../render/rows.ts"
 
@@ -64,7 +65,7 @@ export function createPopover(board: HTMLDivElement, inner: HTMLDivElement, comm
     el.style.setProperty("--badge-color", row.style.getPropertyValue("--badge-color"))
     /* même texte que le bouton qui l'ouvre (posé par render/rows.ts) : un lecteur d'écran qui
        atterrit dans le panneau entend ce qu'il déplie, pas un "groupe" muet. */
-    el.setAttribute("aria-label", btn.getAttribute("aria-label") || "Références supplémentaires")
+    el.setAttribute("aria-label", btn.getAttribute("aria-label") || messages.graph.extraRefs)
 
     const b = btn.getBoundingClientRect()
     const box = inner.getBoundingClientRect() // se déplace avec le scroll, comme `more`

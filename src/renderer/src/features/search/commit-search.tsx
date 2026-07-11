@@ -4,6 +4,7 @@ import { ArrowDown01Icon, ArrowUp01Icon, FileSearchIcon, Search01Icon } from "@h
 
 import type { RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
+import { messages } from "@/lib/messages"
 import { SEARCH_MIN, useSearchQuery } from "@/features/search/search-queries"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import type { GraphHandle } from "@/features/graph/controller"
@@ -100,26 +101,26 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={onKeyDown}
         aria-invalid={!!error || empty}
-        placeholder="Filtrer les commits — message, auteur, hash"
+        placeholder={messages.search.placeholder}
       />
 
       {/* résultat de recherche annoncé aux lecteurs d'écran */}
       <span aria-live="polite" className="sr-only">
-        {error ? `Erreur : ${error}` : empty ? "Aucun résultat" : hits ? `${hits.length} résultat${hits.length > 1 ? "s" : ""}` : ""}
+        {error ? messages.search.error(error) : empty ? messages.search.noResults : hits ? messages.search.results(hits.length) : ""}
       </span>
 
       <InputGroupAddon align="inline-end">
         {busy ? (
           <Spinner className="size-3" />
         ) : error ? (
-          <InputGroupText className="text-destructive">erreur</InputGroupText>
+          <InputGroupText className="text-destructive">{messages.search.errorShort}</InputGroupText>
         ) : (
           hits && <InputGroupText className="tabular-nums">{hits.length}</InputGroupText>
         )}
 
         <InputGroupButton
           size="icon-xs"
-          aria-label="Chercher aussi dans le contenu des diffs"
+          aria-label={messages.search.searchDiffContent}
           aria-pressed={content}
           className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
           onClick={() => setContent((v) => !v)}
@@ -129,7 +130,7 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
 
         <InputGroupButton
           size="icon-xs"
-          aria-label="Résultat précédent"
+          aria-label={messages.search.prevResult}
           disabled={!hits?.length}
           onClick={() => jump(-1)}
         >
@@ -137,7 +138,7 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
         </InputGroupButton>
         <InputGroupButton
           size="icon-xs"
-          aria-label="Résultat suivant"
+          aria-label={messages.search.nextResult}
           disabled={!hits?.length}
           onClick={() => jump(1)}
         >
