@@ -27,7 +27,7 @@ import { onChanged, onOp, type BranchAct, type FileChange, type GitRef, type OpN
 import { invalidateRepo, queryKeys } from "@/lib/queries"
 import { queryClient } from "@/lib/query-client"
 import type { DiffCtx, DiffView as DiffViewMode } from "@/components/diff-view"
-import type { GraphHandle, Stats } from "@/components/graph-canvas"
+import type { GraphHandle, Stats } from "@/features/graph/controller"
 import type { OpState } from "@/components/status-bar"
 import type { WtAct } from "@/components/worktree-panel"
 
