@@ -6,6 +6,7 @@ import { ArrowRight01Icon, CloudIcon, Fire02Icon, RocketIcon, Tag01Icon } from "
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { avatarUrl, initials, tint } from "@/lib/avatar"
+import { messages } from "@/lib/messages"
 import { iconEl } from "./icon-el.ts"
 import { badgeSeparator, badgeVariants, type BadgeColor } from "@/components/ui/badge"
 import {
@@ -52,7 +53,7 @@ export function ghostChips(names: string[], color: string) {
     more.dataset.ghost = names.slice(1).join("\n")
     more.setAttribute("aria-expanded", "false")
     more.setAttribute("aria-haspopup", "true")
-    more.setAttribute("aria-label", `${names.length - 1} autre${names.length > 2 ? "s" : ""} branche${names.length > 2 ? "s" : ""} sur ce tip`)
+    more.setAttribute("aria-label", messages.graph.extraBranchesOnTip(names.length - 1))
     /* fantôme de survol (AUDIT.md §8) : n'existe dans le DOM que pendant un hover souris — jamais
        de curseur clavier dessus, donc hors de l'ordre de tabulation (contrairement au vrai "+N" de
        `refGroup`, dont le tabindex suit la ligne active, cf. interactions/selection.ts). */
@@ -123,7 +124,7 @@ export function refGroup(refs: RefChip[], budget: number, maxw: string, parent: 
   btn.title = hidden.map((r) => r.name).join(", ")
   btn.setAttribute("aria-expanded", "false")
   btn.setAttribute("aria-haspopup", "true")
-  btn.setAttribute("aria-label", `${hidden.length} référence${hidden.length > 1 ? "s" : ""} supplémentaire${hidden.length > 1 ? "s" : ""}`)
+  btn.setAttribute("aria-label", messages.graph.extraRefsCount(hidden.length))
   btn.tabIndex = active ? 0 : -1
   parent.appendChild(btn)
 }

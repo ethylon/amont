@@ -3,6 +3,7 @@ import { GitBranchIcon } from "@hugeicons/core-free-icons"
 
 import type { Stats } from "@/features/graph/controller"
 import type { BranchFlow } from "@/lib/gitflow"
+import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { FLOW_META } from "@/features/flow/flow-context"
 import { Badge } from "@/components/ui/badge"
@@ -41,7 +42,7 @@ export function StatusBar({ branch, flow, opState, stats, consoleSlot }: Props) 
       {/* stats de chargement du graphe (AUDIT.md §8) : poli, pas assertif — ne coupe pas une
           annonce de sélection en cours pour un simple avancement de pagination. */}
       <span aria-live="polite" className="sr-only">
-        {stats ? `${nf.format(stats.loaded)} sur ${nf.format(stats.total)} commits chargés` : ""}
+        {stats ? messages.graph.commitsLoaded(nf.format(stats.loaded), nf.format(stats.total)) : ""}
       </span>
 
       {/* min-w-0 + truncate : une branche longue s'ellipse au lieu de pousser stats hors champ */}

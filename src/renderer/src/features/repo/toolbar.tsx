@@ -5,6 +5,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { OpName, Repo, Status } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
@@ -39,7 +40,7 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
   return (
     <div className="flex h-11.5 shrink-0 items-center gap-2 overflow-x-auto border-b pr-3.5 pl-2.5">
       <IconButton
-        label={sidebarOpen ? "Masquer le panneau latéral" : "Afficher le panneau latéral"}
+        label={sidebarOpen ? messages.repo.hideSidebar : messages.repo.showSidebar}
         icon={PanelLeftCloseIcon}
         swapIcon={PanelLeftOpenIcon}
         swapped={sidebarOpen}

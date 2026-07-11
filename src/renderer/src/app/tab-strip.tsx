@@ -5,6 +5,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import { setAvatarsEnabled, useAvatarsEnabled } from "@/lib/avatar"
+import { messages } from "@/lib/messages"
 import { setDark, useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/ui/mark"
@@ -76,7 +77,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
           aria-controls={panelId(HOME)}
           tabIndex={active === HOME ? 0 : -1}
           aria-selected={active === HOME}
-          aria-label="Accueil"
+          aria-label={messages.app.home}
           onClick={() => onSelect(HOME)}
           onKeyDown={(e) => onTabKey(e, HOME)}
           className={cn(tabClass, "w-9 justify-center border-transparent text-muted-foreground hover:bg-muted/60")}
@@ -103,7 +104,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label={`Fermer ${t.name}`}
+              aria-label={messages.app.closeTab(t.name)}
               /* after : la cible de clic passe de 20 à 28px sans grossir l'icône (cf. checkbox) */
               className="relative -me-1.5 shrink-0 opacity-0 group-aria-selected/tab:opacity-100 group-hover/tab:opacity-100 focus-visible:opacity-100 after:absolute after:-inset-1"
               onClick={(e) => {
@@ -116,15 +117,11 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
           </div>
         ))}
 
-        <IconButton label="Nouvel onglet" icon={PlusSignIcon} onClick={() => onSelect(HOME)} className="shrink-0" />
+        <IconButton label={messages.app.newTab} icon={PlusSignIcon} onClick={() => onSelect(HOME)} className="shrink-0" />
       </div>
 
       <IconButton
-        label={
-          avatarsOn
-            ? "Disable network avatars (Gravatar/GitHub)"
-            : "Enable network avatars (Gravatar/GitHub) — off by default for privacy"
-        }
+        label={avatarsOn ? messages.avatars.disable : messages.avatars.enable}
         icon={EyeOffIcon}
         swapIcon={EyeIcon}
         swapped={avatarsOn}
@@ -133,7 +130,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
       />
 
       <IconButton
-        label={dark ? "Light theme" : "Dark theme"}
+        label={dark ? messages.theme.light : messages.theme.dark}
         icon={Moon02Icon}
         swapIcon={Sun03Icon}
         swapped={dark}

@@ -3,6 +3,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { CloudIcon, GitBranchIcon, Search01Icon, Tag01Icon } from "@hugeicons/core-free-icons"
 
 import type { GitRef } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { useFlowQuery } from "@/features/flow/flow-queries"
 import { useRefsQuery } from "@/features/refs/refs-queries"
@@ -16,9 +17,9 @@ import { RefGroup } from "@/components/ui/ref-group"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 
 const GROUPS = [
-  { title: "Branches", kind: "head", icon: GitBranchIcon },
-  { title: "Distantes", kind: "remote", icon: CloudIcon },
-  { title: "Tags", kind: "tag", icon: Tag01Icon },
+  { title: messages.refs.branches, kind: "head", icon: GitBranchIcon },
+  { title: messages.refs.remotes, kind: "remote", icon: CloudIcon },
+  { title: messages.refs.tags, kind: "tag", icon: Tag01Icon },
 ] as const satisfies readonly { title: string; kind: GitRef["kind"]; icon: IconSvgElement }[]
 
 function RefGroupSection({ title, icon, refs, ctx, openDirs, forceOpen }: {
@@ -102,7 +103,7 @@ export function RefsSidebar() {
     <nav
       ref={navRef}
       data-amont-keep-focus
-      aria-label="Branches"
+      aria-label={messages.refs.branches}
       inert={!open}
       className={cn(
         /* min-w-0 : sans lui, le minimum automatique du flex item se cale sur le contenu (236px) */
@@ -118,7 +119,7 @@ export function RefsSidebar() {
             </InputGroupAddon>
             <InputGroupInput
               type="search"
-              placeholder="Filtrer les branches"
+              placeholder={messages.refs.filterBranches}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               onKeyDown={(e) => e.key === "Escape" && filter && (e.stopPropagation(), setFilter(""))}

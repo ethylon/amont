@@ -4,6 +4,7 @@ import { flushSync } from "react-dom"
 import { host, type BootState, type Repo } from "@/lib/git"
 import { afterClose, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/app/navigation"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
+import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { HomeScreen } from "@/features/home/home-screen"
@@ -155,7 +156,7 @@ export default function App({ boot }: Props) {
               >
                 <ErrorBoundary
                   key={resetNonce[r.id] ?? 0}
-                  label="Recharger l'onglet"
+                  label={messages.app.reloadTab}
                   onReset={() => bumpReset(r.id)}
                 >
                   <RepoView repo={r} active={tabActive} />

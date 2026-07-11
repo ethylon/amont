@@ -5,6 +5,7 @@ import { CloudIcon } from "@hugeicons/core-free-icons"
 import type { Commit, FileChange, RepoApi } from "@/lib/git"
 import { parseBody, parseRefs, parseSubject, refColor, typeColor, type RefChip } from "@/lib/commit-parse"
 import { parseMarkdown, type MdToken } from "@/lib/markdown"
+import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
 import { useBodyQuery } from "@/features/repo/repo-queries"
 import type { SelMode } from "@/features/repo/repo-store"
@@ -30,7 +31,7 @@ type Props = {
   onJump(hash: string): void
 }
 
-const Loading = () => <AsyncHint className="py-1">fichiers…</AsyncHint>
+const Loading = () => <AsyncHint className="py-1">{messages.detail.loadingFiles}</AsyncHint>
 
 const Hint = ({ children }: { children: React.ReactNode }) => (
   <p className="shrink-0 text-xs text-muted-foreground">{children}</p>
@@ -192,13 +193,13 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
             <dd className="font-mono text-xs">{c.stash.name}</dd>
           </>
         )}
-        <Dt>commit</Dt>
+        <Dt>{messages.detail.commit}</Dt>
         <dd className="font-mono text-xs" title={c.h}>{shortHash(c.h)}</dd>
-        <Dt>auteur</Dt>
+        <Dt>{messages.detail.author}</Dt>
         <dd className="text-xs"><PersonChip name={c.a} email={c.e} /></dd>
         {!!body?.coAuthors.length && (
           <>
-            <Dt>co-auteurs</Dt>
+            <Dt>{messages.detail.coAuthors}</Dt>
             <dd className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
               {body.coAuthors.map((a) => (
                 <PersonChip key={a.email + a.name} name={a.name} email={a.email} />
@@ -206,11 +207,11 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
             </dd>
           </>
         )}
-        <Dt>date</Dt>
+        <Dt>{messages.detail.date}</Dt>
         <dd className="text-xs tabular-nums">{c.d}</dd>
-        <Dt>{c.p.length > 1 ? "parents" : "parent"}</Dt>
+        <Dt>{c.p.length > 1 ? messages.detail.parents : messages.detail.parent}</Dt>
         <dd className="text-xs">
-          {!c.p.length && "(racine)"}
+          {!c.p.length && messages.detail.root}
           {c.p.map((p, k) => (
             <button
               key={p}
@@ -220,7 +221,7 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
               className="block cursor-pointer font-mono text-primary hover:underline"
             >
               {shortHash(p)}
-              {c.p.length > 1 && (k === 0 ? "  (first-parent)" : "  (mergé)")}
+              {c.p.length > 1 && (k === 0 ? messages.detail.firstParent : messages.detail.mergeParent)}
             </button>
           ))}
         </dd>
@@ -253,10 +254,10 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
 }
 
 /* Compose le texte affiché depuis les données structurées de `chainInfo` (AUDIT.md §6, item 3) :
-   les strings françaises « mergée dans… » sortent du module d'algorithme, React les forme ici. */
+   les strings de présentation sortent du module d'algorithme, React les forme ici. */
 function formatChainInfo(info: ChainInfo): string {
-  if (!info.merged) return info.refs ? `${info.refs} · non mergée` : "segment non mergé"
-  return `${info.refs ? info.refs + " · " : ""}mergée${info.mergedInto ? " dans " + info.mergedInto : ""} (${shortHash(info.mergeHash)})`
+  if (!info.merged) return info.refs ? messages.detail.unmergedSuffix(info.refs) : messages.detail.unmergedSegment
+  return messages.detail.merged(info.refs, info.mergedInto, shortHash(info.mergeHash))
 }
 
 function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
@@ -267,7 +268,7 @@ function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
   return (
     <>
       <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">
-        Branche · {n} commit{n > 1 ? "s" : ""}
+        {messages.detail.branchHeading(n)}
       </h2>
       <Hint>{formatChainInfo(graph.chainInfo(selection))}</Hint>
       {/* une seule commande git entre les extrémités */}
@@ -304,7 +305,7 @@ function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
 
   return (
     <>
-      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">{selection.length} commits sélectionnés</h2>
+      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">{messages.detail.commitsSelected(selection.length)}</h2>
       {/* l'en-tête ne pousse pas la liste des fichiers hors de l'écran : au-delà, il scrolle */}
       <div className="mt-3 flex max-h-40 shrink-0 flex-col gap-0.5 overflow-y-auto">
         {selection.map((i) => {
@@ -334,7 +335,7 @@ const Dt = ({ children }: { children: React.ReactNode }) => (
 )
 
 export function DetailPanel({ api, repoId, graph, selection, selMode, activePath, onOpenDiff, onJump }: Props) {
-  if (!selection.length) return <Hint>Clique un commit pour le détail.</Hint>
+  if (!selection.length) return <Hint>{messages.repo.clickCommitForDetail}</Hint>
 
   return selection.length === 1 ? (
     <Single api={api} repoId={repoId} graph={graph} row={selection[0]} activePath={activePath} onOpenDiff={onOpenDiff} onJump={onJump} />
