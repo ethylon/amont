@@ -49,6 +49,8 @@ const DOT: Partial<Record<BadgeColor, string>> = {
   warning: "bg-warning",
   danger: "bg-destructive",
   release: "bg-release",
+  info: "bg-info",
+  refactor: "bg-refactor",
 }
 
 /** Les branches d'intégration passent devant, dans cet ordre. */
