@@ -1,8 +1,8 @@
-import { useRef, useState } from "react"
+import { useRef, useSyncExternalStore } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@hugeicons/core-free-icons"
 
-import { isDark, setDark } from "@/lib/theme"
+import { isDark, onThemeChange, setDark } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/mark"
 import { Button } from "@/components/ui/button"
@@ -28,12 +28,11 @@ const tabClass =
   "group/tab flex h-7.5 shrink-0 cursor-pointer items-center rounded-md border text-xs focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none aria-selected:border-border aria-selected:bg-muted aria-selected:font-medium aria-selected:text-foreground"
 
 export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
-  const [dark, setDarkState] = useState(isDark)
+  /* abonné au thème plutôt qu'une copie locale : un flip de l'OS (sans choix explicite
+     enregistré) doit retourner l'icône aussi */
+  const dark = useSyncExternalStore(onThemeChange, isDark)
 
-  const toggleTheme = () => {
-    setDark(!dark)
-    setDarkState(!dark)
-  }
+  const toggleTheme = () => setDark(!dark)
 
   /* Pattern ARIA « tabs » : un seul onglet dans l'ordre de tabulation (roving tabindex), les
      flèches déplacent le focus d'onglet en onglet et l'activent au passage. */

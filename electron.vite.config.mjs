@@ -12,6 +12,16 @@ export default defineConfig({
   preload: { build: { rollupOptions: { output: { format: 'cjs' } } } },
   renderer: {
     resolve: { alias },
+    /* crash.html : la page de repli du plafond de crash-reload (cf. main). Entrée séparée
+       pour qu'elle sorte dans out/renderer — resources/ n'est pas embarqué dans l'asar. */
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(import.meta.dirname, 'src/renderer/index.html'),
+          crash: resolve(import.meta.dirname, 'src/renderer/crash.html'),
+        },
+      },
+    },
     plugins: [react(), tailwindcss(), csp()],
   },
 });

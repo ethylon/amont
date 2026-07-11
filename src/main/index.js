@@ -4,6 +4,8 @@ import { existsSync, watch } from 'node:fs';
 import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 
+import { parseNameStatus } from './name-status.js';
+
 /* Repos ouverts, côté main uniquement : le renderer ne les désigne que par un id opaque.
    Un onglet = un repo ouvert ; la fermeture d'onglet passe par repo:close. */
 const repos = new Map();
@@ -163,7 +165,10 @@ function closeRepo(id) {
 /* Branche courante + décalage avec sa distante. Absence d'upstream ou HEAD détachée
    ne sont pas des erreurs : le renderer affiche simplement des tirets. */
 async function repoStatus(r) {
-  const branch = (await git(r.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+  /* HEAD unborn (dépôt fraîchement init) : rev-parse échoue alors que rien n'est anormal —
+     statut vide plutôt qu'un rejet, comme repo:unstage sait déjà le faire */
+  const branch = (await git(r.path, ['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => '')).trim();
+  if (!branch) return { branch: null, head: null, ahead: null, behind: null };
   const head = (await git(r.path, ['rev-parse', 'HEAD']).catch(() => '')).trim().slice(0, 8) || null;
   if (branch === 'HEAD') return { branch: null, head, ahead: null, behind: null };
   try {
@@ -507,10 +512,15 @@ ipcMain.handle('repo:wtdiff', (_ev, id, path, source) => {
   return git(r.path, [...WT_DIFF[source], '--', path]);
 });
 
+/* Les chemins partent sur stdin, NUL-séparés, plutôt qu'en argv : « tout indexer » sur des
+   milliers de fichiers dépasserait la limite de ligne de commande de Windows (~32k car.).
+   `git()` sait déjà écrire stdin (cf. rev-list --stdin). */
+const PATHSPEC = ['--pathspec-from-file=-', '--pathspec-file-nul'];
+
 ipcMain.handle('repo:stage', (_ev, id, paths) => {
   const r = use(id);
   assertPaths(paths);
-  return git(r.path, ['add', '--', ...paths]).then(() => {});
+  return git(r.path, ['add', ...PATHSPEC], 0, paths.join('\0')).then(() => {});
 });
 
 ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
@@ -520,7 +530,7 @@ ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
      sortir le chemin de l'index le laisse non suivi, ce qui est le résultat attendu. */
   const cmd = await git(r.path, ['rev-parse', '--verify', '-q', 'HEAD'])
     .then(() => ['restore', '--staged'], () => ['rm', '--cached', '-q']);
-  await git(r.path, [...cmd, '--', ...paths]);
+  await git(r.path, [...cmd, ...PATHSPEC], 0, paths.join('\0'));
 });
 
 ipcMain.handle('repo:commit', (_ev, id, message, amend) => {
@@ -620,6 +630,9 @@ const BRANCH_OPS = {
     const type = FLOW_TYPES.find(t => prefixes[t] && name.startsWith(prefixes[t]));
     if (!type) throw new Error(`${name} n'est pas une branche git-flow`);
     const version = name.slice(prefixes[type].length);
+    /* BRANCH n'interdit le `-` qu'en tête du nom complet : `feature/-D` donnerait
+       version = '-D', que git-flow lirait comme une option (suppression forcée) */
+    if (version.startsWith('-')) throw new Error(`${name} : suffixe de branche invalide`);
     /* release et hotfix posent un tag annoté : sans `-m`, `git tag -a` réclamerait un éditeur */
     const tagged = type === 'release' || type === 'hotfix';
     await git(r.path, ['flow', type, 'finish', ...(tagged ? ['-m', version] : []), version], OP_TIMEOUT);
@@ -663,7 +676,9 @@ async function flowInfo(r, branch, kind) {
   if (tagged) {
     const prefixes = (await flowPrefixes(r)) ?? {};
     const prefix = prefixes[kind] && branch.startsWith(prefixes[kind]) ? prefixes[kind] : `${kind}/`;
-    const suffix = branch.startsWith(prefix) ? branch.slice(prefix.length) : '';
+    /* même garde que finish : un suffixe en `-…` n'est jamais une version */
+    const raw = branch.startsWith(prefix) ? branch.slice(prefix.length) : '';
+    const suffix = raw.startsWith('-') ? '' : raw;
     const m = !SEMVER_RE.test(suffix) && lastTag && /^(v?)(\d+)\.(\d+)\.(\d+)/.exec(lastTag);
     nextTag = SEMVER_RE.test(suffix) ? suffix
       : m ? (kind === 'hotfix' ? `${m[1]}${m[2]}.${m[3]}.${+m[4] + 1}` : `${m[1]}${m[2]}.${+m[3] + 1}.0`)
@@ -795,10 +810,18 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
   const present = new Set(remoteRefs.map(n => n.slice(n.indexOf('/') + 1)));
   const remoteNames = [...new Set(remoteRefs.map(n => n.slice(0, n.indexOf('/'))))];
 
-  await Promise.all(refs.map(async ref => {
-    if (ref.kind !== 'head' || ref.gone || !remoteNames.length || present.has(ref.name)) return;
-    const reflog = await git(r.path, ['reflog', 'show', '--format=%gs', ref.name]).catch(() => '');
-    ref.gone = remoteNames.some(remote => reflog.includes(`${remote}/${ref.name}`));
+  /* Un `git reflog` par branche candidate : en Promise.all nu, 200 branches locales sans
+     upstream = 200 process concurrents à chaque rafraîchissement. Petit pool de
+     travailleurs qui épuisent une file commune à la place. */
+  const REFLOG_POOL = 8;
+  const candidates = remoteNames.length
+    ? refs.filter(ref => ref.kind === 'head' && !ref.gone && !present.has(ref.name))
+    : [];
+  await Promise.all(Array.from({ length: Math.min(REFLOG_POOL, candidates.length) }, async () => {
+    for (let ref; (ref = candidates.shift()) !== undefined; ) {
+      const reflog = await git(r.path, ['reflog', 'show', '--format=%gs', ref.name]).catch(() => '');
+      ref.gone = remoteNames.some(remote => reflog.includes(`${remote}/${ref.name}`));
+    }
   }));
   return refs;
 });
@@ -810,13 +833,9 @@ ipcMain.handle('repo:files', async (_ev, id, hash, parent) => {
   if (!/^[0-9a-f]{7,40}$/.test(hash) || (parent != null && !/^[0-9a-f]{7,40}$/.test(parent)))
     throw new Error('bad hash');
   const args = parent
-    ? ['diff', '--name-status', parent, hash]
-    : ['diff-tree', '-r', '--root', '--no-commit-id', '--name-status', hash];
-  const out = await git(r.path, args);
-  return out.split('\n').filter(Boolean).map(l => {
-    const f = l.split('\t');
-    return { st: f[0][0], path: f[2] || f[1], old: f[2] ? f[1] : null };
-  });
+    ? ['diff', '--name-status', '-z', parent, hash]
+    : ['diff-tree', '-r', '--root', '--no-commit-id', '--name-status', '-z', hash];
+  return parseNameStatus(await git(r.path, args));
 });
 
 /* Corps du message, à la demande. Le joindre au log coûterait, pour n'en afficher qu'un,
@@ -925,10 +944,24 @@ function createWindow() {
   mainWindow = win;
   /* Un renderer mort laisse une fenêtre noire et sourde (plus de clavier, F5 inopérant) :
      on journalise l'incident puis on recharge d'office. Le journal survit au crash —
-     c'est lui qu'on lit après coup pour comprendre. */
+     c'est lui qu'on lit après coup pour comprendre.
+     Plafonné : un crash déterministe au chargement ferait boucler reload → crash sans fin
+     (CPU à fond, incidents.log qui enfle) — au-delà, une page statique explique la suite. */
+  const RELOAD_MAX = 3;
+  const RELOAD_WINDOW_MS = 60_000;
+  let reloads = [];
   win.webContents.on('render-process-gone', (_ev, d) => {
     report('renderer gone:', d.reason, `(exit ${d.exitCode})`);
-    if (d.reason !== 'clean-exit') win.webContents.reload();
+    if (d.reason === 'clean-exit') return;
+    const now = Date.now();
+    reloads = reloads.filter(t => now - t < RELOAD_WINDOW_MS);
+    if (reloads.length < RELOAD_MAX) {
+      reloads.push(now);
+      return win.webContents.reload();
+    }
+    report('renderer crash loop: reload suspendu, page d\'erreur statique');
+    if (process.env.ELECTRON_RENDERER_URL) win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/crash.html`);
+    else win.loadFile(join(import.meta.dirname, '../renderer/crash.html'));
   });
   win.webContents.on('unresponsive', () => report('renderer unresponsive'));
   win.webContents.on('responsive', () => report('renderer responsive again'));

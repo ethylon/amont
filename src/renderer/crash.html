@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="%CSP%" />
+  <title>Amont — erreur</title>
+  <!-- Page de repli du plafond de crash-reload (cf. main) : statique, zéro JS — si le
+       renderer plante en boucle, cette page ne doit dépendre de rien de ce qui plante. -->
+  <style>
+    :root { color-scheme: light dark; }
+    html { background: light-dark(#fff, #0a0a0a); color: light-dark(#1c1c22, #ececf2) }
+    body { margin: 0; font: 13px/1.6 system-ui, sans-serif }
+    main { position: fixed; inset: 0; display: grid; place-items: center }
+    section { display: grid; justify-items: center; gap: 12px; max-width: 34rem; padding: 0 24px; text-align: center }
+    svg { width: 44px; height: 44px; opacity: .8 }
+    h1 { font-size: 15px; margin: 0 }
+    p { margin: 0; color: light-dark(#6b6b76, #a0a0ab) }
+    code { font-family: ui-monospace, monospace; font-size: 12px }
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      <svg viewBox="0 0 240 240" aria-hidden="true">
+        <defs>
+          <linearGradient id="crash-courant" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stop-color="#6AA6E8"/>
+            <stop offset="1" stop-color="#8F8FE8"/>
+          </linearGradient>
+        </defs>
+        <path d="M62,192 C62,132 92,112 114,70" fill="none" stroke="url(#crash-courant)" stroke-width="22" stroke-linecap="round"/>
+        <path d="M178,192 C178,132 148,112 126,70" fill="none" stroke="url(#crash-courant)" stroke-width="22" stroke-linecap="round"/>
+        <path d="M94,148 H146" fill="none" stroke="light-dark(#1C1C22, #ECECF2)" stroke-width="16" stroke-linecap="round"/>
+        <circle cx="120" cy="40" r="13" fill="#F272A8"/>
+      </svg>
+      <h1>L'affichage a planté plusieurs fois d'affilée</h1>
+      <p>Le rechargement automatique a été suspendu pour ne pas boucler.
+         Relance l'application ; le détail des incidents est dans
+         <code>incidents.log</code> (dossier de données de l'application).</p>
+    </section>
+  </main>
+</body>
+</html>

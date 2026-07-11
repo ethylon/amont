@@ -241,8 +241,13 @@ export function WorktreePanel({
               disabled={!ready || committing}
               onClick={async () => {
                 setCommitting(true)
-                await onCommit()
-                setCommitting(false)
+                /* le contrat « onCommit ne rejette pas » n'est écrit nulle part : sans finally,
+                   un rejet laisserait le bouton désactivé pour toujours */
+                try {
+                  await onCommit()
+                } finally {
+                  setCommitting(false)
+                }
               }}
             >
               {caption}
