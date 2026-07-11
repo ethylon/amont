@@ -39,7 +39,7 @@ function StashRow({ s, onFocus, onStash }: {
           type="button"
           onClick={() => onFocus(s)}
           title={`${s.name} · ${s.s}`}
-          className="gg-refrow -my-px flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs text-foreground select-none hover:bg-muted"
+          className="amont-refrow -my-px flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs text-foreground select-none hover:bg-muted"
         >
           <HugeiconsIcon icon={Archive02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="shrink-0 font-medium">{s.name}</span>

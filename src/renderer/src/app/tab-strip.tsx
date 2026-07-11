@@ -12,8 +12,8 @@ import { IconButton } from "@/components/ui/icon-button"
 export const HOME = 0
 
 /** Lient l'onglet à son panneau (aria-controls / aria-labelledby), cf. `App`. */
-export const tabId = (key: number) => `gg-tab-${key}`
-export const panelId = (key: number) => `gg-panel-${key}`
+export const tabId = (key: number) => `amont-tab-${key}`
+export const panelId = (key: number) => `amont-panel-${key}`
 
 export type Tab = { key: number; name: string; path: string }
 

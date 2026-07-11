@@ -65,4 +65,4 @@ const bridge: Bridge = {
   cancel: invoke('repo:cancel'),
 };
 
-contextBridge.exposeInMainWorld('gitgraph', bridge);
+contextBridge.exposeInMainWorld('amont', bridge);

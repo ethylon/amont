@@ -74,7 +74,7 @@ export type EventChannels = {
 
 export type EventChannel = keyof EventChannels
 
-/** Ce que le preload expose en `window.gitgraph`. Les noms de méthode diffèrent des noms de
+/** Ce que le preload expose en `window.amont`. Les noms de méthode diffèrent des noms de
     canal (`state` ↔ `app:state`, `log` ↔ `repo:log`…) : ils restent ceux que le renderer
     consomme déjà, cette table est la seule correspondance entre les deux mondes. Les
     abonnements `on*` retournent un désabonnement (`ipcRenderer.off` côté preload) — un vrai

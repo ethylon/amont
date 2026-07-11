@@ -12,7 +12,7 @@ import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-stri
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
-/** Le contenu de l'onglet glisse ; le reste du châssis bascule net (cf. `.gg-tabview`). */
+/** Le contenu de l'onglet glisse ; le reste du châssis bascule net (cf. `.amont-tabview`). */
 function transition(type: "next" | "prev" | "open", update: () => void) {
   if (reduced.matches) return update()
   document.startViewTransition({ types: [type], update: () => flushSync(update) })
@@ -135,7 +135,7 @@ export default function App({ boot }: Props) {
           id={panelId(TAB_STRIP_HOME)}
           aria-labelledby={tabId(TAB_STRIP_HOME)}
           data-tab-active={homeActive || undefined}
-          className={cn("gg-tabbody absolute inset-0 flex flex-col", !homeActive && "invisible")}
+          className={cn("amont-tabbody absolute inset-0 flex flex-col", !homeActive && "invisible")}
         >
           <HomeScreen active={homeActive} onOpened={openTab} />
         </div>

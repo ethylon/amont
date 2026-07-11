@@ -75,7 +75,7 @@ export function RefsSidebar() {
      les plis ouverts (cf. refs-tree.tsx), on amène la première allumée en vue. */
   useEffect(() => {
     if (!focusedKeys.size) return
-    navRef.current?.querySelector(".gg-refrow[data-lit]")?.scrollIntoView({ block: "nearest" })
+    navRef.current?.querySelector(".amont-refrow[data-lit]")?.scrollIntoView({ block: "nearest" })
   }, [focusedKeys])
   /* Un repli/dépli de dossier ne rerend pas le sidebar (état interne du Collapsible) : on repeint
      après chaque clic dans la nav, une fois le DOM stabilisé. */
@@ -101,7 +101,7 @@ export function RefsSidebar() {
        sinon les champs et les libellés se tasseraient pendant l'animation. */
     <nav
       ref={navRef}
-      data-gg-keep-focus
+      data-amont-keep-focus
       aria-label="Branches"
       inert={!open}
       className={cn(

@@ -48,7 +48,7 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
 
       {/* largeur figée : sans elle, un nom plus long décalerait toute la barre au changement
           d'onglet — et le fondu croisé du nom se ferait à géométrie variable */}
-      <span className="gg-reponame flex w-42 shrink-0 items-center gap-1.5 text-xs">
+      <span className="amont-reponame flex w-42 shrink-0 items-center gap-1.5 text-xs">
         <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate font-medium">{repo.name}</span>
       </span>

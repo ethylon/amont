@@ -19,8 +19,8 @@ if (!gotLock) {
   app.on("second-instance", focusExisting)
 
   /* Port de debug distant : jamais dans un paquet publié (fix durcissement). */
-  if (process.env.GG_DEBUG && !app.isPackaged) {
-    app.commandLine.appendSwitch("remote-debugging-port", process.env.GG_DEBUG)
+  if (process.env.AMONT_DEBUG && !app.isPackaged) {
+    app.commandLine.appendSwitch("remote-debugging-port", process.env.AMONT_DEBUG)
   }
 
   registerIpc()

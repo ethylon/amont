@@ -33,8 +33,8 @@ export function FlowBanner({ kind, branch, info }: { kind: BranchFlow; branch: s
   return (
     <div
       className={cn(
-        /* gg-drop : après le boot, l'insertion pousse le contenu en douceur (cf. app.css) */
-        "gg-drop flex h-8 shrink-0 items-center gap-3 overflow-x-auto border-b px-3.5 text-xs whitespace-nowrap",
+        /* amont-drop : après le boot, l'insertion pousse le contenu en douceur (cf. app.css) */
+        "amont-drop flex h-8 shrink-0 items-center gap-3 overflow-x-auto border-b px-3.5 text-xs whitespace-nowrap",
         m.bg,
         m.text
       )}
@@ -65,7 +65,7 @@ export function FlowCard({ kind, branch, info }: { kind: BranchFlow; branch: str
     ...(info.nextTag ? [["tag attendu", info.nextTag]] : []),
   ]
   return (
-    <div className="gg-fadein shrink-0 rounded-md border p-3.5">
+    <div className="amont-fadein shrink-0 rounded-md border p-3.5">
       <div className="flex items-center gap-2.5">
         <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-md", m.bg, m.text)}>
           <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-4" />

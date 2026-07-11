@@ -47,7 +47,7 @@ const HTML = `<!doctype html><html>
 
 /* loadFile plutôt que loadURL('data:…') : Chromium refuse les navigations de premier niveau
    vers une URL data:. */
-const page = join(tmpdir(), 'gg-make-icon.html');
+const page = join(tmpdir(), 'amont-make-icon.html');
 writeFileSync(page, HTML);
 
 app.whenReady().then(async () => {
