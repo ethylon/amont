@@ -13,6 +13,7 @@ import { CommitGraph } from "@/components/commit-graph"
 import { CommitSearch } from "@/components/commit-search"
 import { DetailPanel } from "@/components/detail-panel"
 import { DiffView } from "@/components/diff-view"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { FlowBanner, FlowCard } from "@/components/flow-context"
 import { GitConsole } from "@/components/git-console"
 import type { GraphCallbacks } from "@/components/graph-canvas"
@@ -67,6 +68,7 @@ function GraphColumn() {
   const worktree = rawWt && worktreeCount(rawWt) ? rawWt : null
 
   const wrapRef = useRef<HTMLDivElement>(null)
+  const [diffNonce, setDiffNonce] = useState(0)
 
   /* --- Sélection : la source de vérité est le store, le canvas ne fait qu'appliquer les classes --- */
   useEffect(() => {
@@ -118,7 +120,9 @@ function GraphColumn() {
         />
         {diff && (
           <div data-gg-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
-            <DiffView api={api} repoId={repoId} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={setDiffMode} onClose={closeDiff} />
+            <ErrorBoundary key={`${diff.file.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
+              <DiffView api={api} repoId={repoId} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={setDiffMode} onClose={closeDiff} />
+            </ErrorBoundary>
           </div>
         )}
       </div>
@@ -182,6 +186,9 @@ function RepoViewContent({ repo, active }: Props) {
   const closeDiff = useRepoStore((s) => s.closeDiff)
   const openDiff = useRepoStore((s) => s.openDiff)
   const clearFocus = useRepoStore((s) => s.clearFocus)
+  /* clé de secours de l'ErrorBoundary du détail : la sélection change déjà la clé, ceci
+     couvre le cas d'une erreur qui persisterait sur la même sélection */
+  const [detailNonce, setDetailNonce] = useState(0)
 
   /* Boot de l'onglet : status, flow, flowInfo, worktree et graphe arrivent en ordre dispersé —
      l'union du `isLoading` des requêtes remplace le bitmask `B_STATUS…B_ALL` : une requête
@@ -310,16 +317,18 @@ function RepoViewContent({ repo, active }: Props) {
                   {view === "wt" && worktree ? (
                     <WorktreePanel />
                   ) : panelOpen && graphRef.current ? (
-                    <DetailPanel
-                      api={api}
-                      repoId={repoId}
-                      graph={graphRef.current}
-                      selection={selection}
-                      selMode={selMode}
-                      activePath={diff?.file.path}
-                      onOpenDiff={openDiff}
-                      onJump={(hash) => graphRef.current?.jumpTo(hash)}
-                    />
+                    <ErrorBoundary key={`${selection.join(",")}:${detailNonce}`} onReset={() => setDetailNonce((n) => n + 1)}>
+                      <DetailPanel
+                        api={api}
+                        repoId={repoId}
+                        graph={graphRef.current}
+                        selection={selection}
+                        selMode={selMode}
+                        activePath={diff?.file.path}
+                        onOpenDiff={openDiff}
+                        onJump={(hash) => graphRef.current?.jumpTo(hash)}
+                      />
+                    </ErrorBoundary>
                   ) : workFlow && flowInfo && status?.branch ? (
                     <>
                       <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
