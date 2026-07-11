@@ -2,7 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { GitBranchIcon } from "@hugeicons/core-free-icons"
 
 import type { Stats } from "@/features/graph/controller"
-import type { BranchFlow } from "@/lib/commit-message"
+import type { BranchFlow } from "@/lib/gitflow"
 import { cn } from "@/lib/utils"
 import { FLOW_META } from "@/features/flow/flow-context"
 import { Badge } from "@/components/ui/badge"

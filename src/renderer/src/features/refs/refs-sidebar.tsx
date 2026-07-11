@@ -17,7 +17,9 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { BranchAct, FlowPrefixes, GitRef, Stash, StashAct } from "@/lib/git"
-import { typeColor, type BadgeColor } from "@/lib/commit-message"
+import { typeColor } from "@/lib/commit-parse"
+import { PINNED, pinRank } from "@/lib/gitflow"
+import type { BadgeColor } from "@/components/ui/badge"
 import { useFlowQuery } from "@/features/flow/flow-queries"
 import { useRefsQuery } from "@/features/refs/refs-queries"
 import { useStashesQuery } from "@/features/stash/stash-queries"
@@ -53,13 +55,6 @@ const DOT: Partial<Record<BadgeColor, string>> = {
   release: "bg-release",
   info: "bg-info",
   refactor: "bg-refactor",
-}
-
-/** Les branches d'intégration passent devant, dans cet ordre. */
-const PINNED = ["master", "main", "develop"]
-const pinRank = (label: string) => {
-  const i = PINNED.indexOf(label)
-  return i < 0 ? PINNED.length : i
 }
 
 /* `git flow feature finish` : le genre suit le mot français qu'on lui prête. */

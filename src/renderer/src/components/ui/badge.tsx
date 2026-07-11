@@ -66,4 +66,9 @@ function Badge({
 /** Filet plein-pot entre deux contenus d'un même badge : `-my-0.5` annule le padding vertical. */
 const badgeSeparator = "-my-0.5 w-px self-stretch bg-(--badge-color)/20"
 
+/** Vocabulaire de teintes du badge, dérivé de `cva` (single source of truth) : le domaine décrit
+    ses couleurs avec le type que possède le composant qui les affiche, pas l'inverse (AUDIT.md
+    §7, phase 5 — `BadgeColor` vivait dans lib/commit-message.ts, sens de dépendance inversé). */
+export type BadgeColor = NonNullable<VariantProps<typeof badgeVariants>["color"]>
+
 export { Badge, badgeSeparator, badgeVariants }

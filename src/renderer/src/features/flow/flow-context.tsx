@@ -2,7 +2,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { Bug01Icon, Fire02Icon, GitBranchIcon, GitMergeIcon, RocketIcon } from "@hugeicons/core-free-icons"
 
 import type { FlowInfo } from "@/lib/git"
-import type { BranchFlow } from "@/lib/commit-message"
+import type { BranchFlow } from "@/lib/gitflow"
 import { cn } from "@/lib/utils"
 
 /* Signes et teintes de tous les indicateurs de flow (statusbar, cockpit, carte) : mêmes teintes

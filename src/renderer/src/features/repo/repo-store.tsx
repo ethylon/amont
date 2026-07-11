@@ -24,6 +24,7 @@ import { createStore, useStore, type StoreApi } from "zustand"
 
 import { describeError, describePayload } from "@/lib/errors"
 import { onChanged, onOp, type BranchAct, type FileChange, type GitRef, type OpName, type RepoApi, type Stash, type StashAct } from "@/lib/git"
+import { prefs } from "@/lib/prefs"
 import { invalidateRepo, queryKeys } from "@/lib/queries"
 import { queryClient } from "@/lib/query-client"
 import type { DiffCtx, DiffView as DiffViewMode } from "@/features/diff/diff-view"
@@ -134,7 +135,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       sidebarOpen: true,
       view: "commits",
       diff: null,
-      diffMode: (localStorage.getItem("gg.diffview") as DiffViewMode) || "unified",
+      diffMode: prefs.diffView.get() || "unified",
     },
     ops: { busyOp: null, opState: null },
     graph: { stats: null },
@@ -279,7 +280,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       set((s) => ({ ui: { ...s.ui, diff: null } }))
     },
     setDiffMode(v) {
-      localStorage.setItem("gg.diffview", v)
+      prefs.diffView.set(v)
       set((s) => ({ ui: { ...s.ui, diffMode: v } }))
     },
 
