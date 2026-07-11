@@ -52,13 +52,17 @@ export function parseStashList(out: string): Stash[] {
     .map((row) => row.split("\x1f"))
     .filter((f) => f.length >= 7)
     .map((f) => ({
-      h: f[0].trim().slice(0, 8),
-      p: f[1].split(" ").filter(Boolean).map((x) => x.slice(0, 8)),
+      h: f[0].trim(),
+      p: f[1].split(" ").filter(Boolean),
       name: f[2], d: f[3], a: f[4], e: f[5], s: f.slice(6).join(" "),
     }))
 }
 
-/* --- Log --- */
+/* --- Log ---
+   SHA complets (fix B1, AUDIT.md §2) : un hash tronqué à 8 caractères garantit
+   statistiquement des collisions passé quelques dizaines de milliers de commits — le
+   renderer interne ces SHA en ids entiers séquentiels à l'ingestion (cf. features/graph/ids.ts),
+   la troncature à 8 caractères redevient une affaire d'affichage. */
 export function parseLogPage(out: string): Commit[] {
   /* git ne filtre pas les octets de contrôle de `%s` : un sujet qui contiendrait nos
      séparateurs fabriquerait des champs en trop (recollés au sujet, il est en dernier)
@@ -67,8 +71,8 @@ export function parseLogPage(out: string): Commit[] {
     .map((row) => row.split("\x1f"))
     .filter((f) => f.length >= 7)
     .map((f) => ({
-      h: f[0].trim().slice(0, 8),
-      p: f[1].split(" ").filter(Boolean).map((x) => x.slice(0, 8)),
+      h: f[0].trim(),
+      p: f[1].split(" ").filter(Boolean),
       d: f[2], a: f[3], e: f[4], r: f[5], s: f.slice(6).join(" "),
     }))
 }
