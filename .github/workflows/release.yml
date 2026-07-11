@@ -30,12 +30,19 @@ jobs:
 
       - run: pnpm test
 
-      # electron-builder reads `publish` from electron-builder.yml: draft + installer attached
+      # Pre-create the draft release with auto-generated notes. electron-builder then uploads into
+      # this existing release instead of creating its own — which avoids the concurrent-create race
+      # that silently dropped the installer asset — and --generate-notes runs on `create`, the only
+      # command that supports it (`gh release edit --generate-notes` does not exist).
+      - run: gh release create ${{ github.ref_name }} --draft --title ${{ github.ref_name }} --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # electron-builder reads `publish` from electron-builder.yml: attaches the installer to the draft
       - run: pnpm release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # --generate-notes fills in the changelog from merged PRs since the previous tag
-      - run: gh release edit ${{ github.ref_name }} --draft=false --latest --generate-notes
+      - run: gh release edit ${{ github.ref_name }} --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
