@@ -672,6 +672,10 @@ export function createGraph(
           if (raw.length < PAGE) exhausted = true
           const end = rowStart + commits.length
           while (S.next < end) layoutChunk(S, (r) => commits[r - rowStart], end)
+          /* le total du serveur ignore les capsules du collapse (deux merges → une ligne) :
+             à l'épuisement de l'historique, le compte réel de lignes fait foi — sans ça,
+             « loaded/total » ne converge jamais sur un dépôt gitflow */
+          if (exhausted) TOTAL = S.next
           scanPage(commits)
           evict()
           refresh()
@@ -786,6 +790,7 @@ export function createGraph(
   }
 
   function remount() {
+    scrollTextStop() // les lignes partent sans mouseleave : la boucle rAF s'arrête avec elles
     mountedG.forEach((g) => g.remove())
     mountedG.clear()
     mountedRows.forEach((d) => d.remove())
@@ -1049,6 +1054,7 @@ export function createGraph(
     destroy() {
       destroyed = true
       gen++
+      scrollTextStop() // même raison qu'à remount : le texte survolé part sans mouseleave
       clearTimeout(moreTimer)
       board.removeEventListener("scroll", onScroll)
       board.removeEventListener("mouseleave", onMouseLeave)
