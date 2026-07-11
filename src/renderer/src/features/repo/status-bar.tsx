@@ -20,7 +20,9 @@ type Props = {
   flow: BranchFlow | null
   opState: OpState | null
   stats: Stats | null
-  console?: React.ReactNode
+  /** la console git, en slot — nommé pour ne pas ombrer le `console` global (AUDIT.md §7,
+      phase 5, item 6). */
+  consoleSlot?: React.ReactNode
 }
 
 const nf = new Intl.NumberFormat("fr")
@@ -29,7 +31,7 @@ const Num = ({ children }: { children: React.ReactNode }) => (
   <b className="font-medium text-foreground">{children}</b>
 )
 
-export function StatusBar({ branch, flow, opState, stats, console }: Props) {
+export function StatusBar({ branch, flow, opState, stats, consoleSlot }: Props) {
   /* le type de travail teinte le segment branche : signes partagés de flow-context */
   const f = flow && FLOW_META[flow]
   return (
@@ -54,7 +56,7 @@ export function StatusBar({ branch, flow, opState, stats, console }: Props) {
         </Badge>
       )}
 
-      {console}
+      {consoleSlot}
 
       {stats && (
         <div className="ms-auto flex shrink-0 items-center gap-3 whitespace-nowrap tabular-nums">

@@ -13,7 +13,9 @@ import { AsyncHint } from "@/components/ui/async-hint"
 import { IconButton } from "@/components/ui/icon-button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
-export type DiffView = "unified" | "sbs"
+/** Nommé `DiffViewMode` (pas `DiffView`) pour ne pas entrer en collision avec le composant
+    React homonyme ci-dessous (AUDIT.md §7, phase 5, item 6). */
+export type DiffViewMode = "unified" | "sbs"
 /** Un contexte porte soit un couple de commits, soit la source dans l'arbre de travail. */
 export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" | "unstaged" | "untracked" }
 
@@ -141,8 +143,8 @@ type Props = {
   repoId: number
   ctx: DiffCtx
   file: FileChange
-  view: DiffView
-  onViewChange(v: DiffView): void
+  view: DiffViewMode
+  onViewChange(v: DiffViewMode): void
   onClose(): void
 }
 
@@ -197,7 +199,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
             variant="outline"
             size="sm"
             value={[view]}
-            onValueChange={(v) => v[0] && onViewChange(v[0] as DiffView)}
+            onValueChange={(v) => v[0] && onViewChange(v[0] as DiffViewMode)}
           >
             <ToggleGroupItem value="unified" aria-label="Diff unifié">
               <HugeiconsIcon icon={MenuSquareIcon} strokeWidth={2} />
