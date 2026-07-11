@@ -810,10 +810,18 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
   const present = new Set(remoteRefs.map(n => n.slice(n.indexOf('/') + 1)));
   const remoteNames = [...new Set(remoteRefs.map(n => n.slice(0, n.indexOf('/'))))];
 
-  await Promise.all(refs.map(async ref => {
-    if (ref.kind !== 'head' || ref.gone || !remoteNames.length || present.has(ref.name)) return;
-    const reflog = await git(r.path, ['reflog', 'show', '--format=%gs', ref.name]).catch(() => '');
-    ref.gone = remoteNames.some(remote => reflog.includes(`${remote}/${ref.name}`));
+  /* Un `git reflog` par branche candidate : en Promise.all nu, 200 branches locales sans
+     upstream = 200 process concurrents à chaque rafraîchissement. Petit pool de
+     travailleurs qui épuisent une file commune à la place. */
+  const REFLOG_POOL = 8;
+  const candidates = remoteNames.length
+    ? refs.filter(ref => ref.kind === 'head' && !ref.gone && !present.has(ref.name))
+    : [];
+  await Promise.all(Array.from({ length: Math.min(REFLOG_POOL, candidates.length) }, async () => {
+    for (let ref; (ref = candidates.shift()) !== undefined; ) {
+      const reflog = await git(r.path, ['reflog', 'show', '--format=%gs', ref.name]).catch(() => '');
+      ref.gone = remoteNames.some(remote => reflog.includes(`${remote}/${ref.name}`));
+    }
   }));
   return refs;
 });
