@@ -59,6 +59,14 @@
   const REPO = { id: 1, path: '/mock/mock-repo', name: 'mock-repo' };
   const RECENTS = [{ path: '/mock/mock-repo', name: 'mock-repo' }];
 
+  /* Un jeu de listeners par canal d'événement, comme le vrai preload (cf. onOp/onChanged/onTrace
+     plus bas). `window.__changed` reste déclenchable à la main depuis la console pour simuler
+     un `.git` qui bouge (checkout/commit fait hors app) : il notifie tous les abonnés courants. */
+  const onOpListeners = new Set();
+  const onChangedListeners = new Set();
+  const onTraceListeners = new Set();
+  window.__changed = (payload = { id: REPO.id }) => onChangedListeners.forEach(cb => cb(payload));
+
   const REFS = [
     { name: 'develop', kind: 'head', head: true, ahead: 2, behind: 0, tip: 'a1b2c3d4' },
     { name: 'feature/optim-cout', kind: 'head', head: false, ahead: 0, behind: 0, tip: '5a6b7c8d' },
@@ -97,9 +105,12 @@
     status: async () => ({ branch: 'develop', head: C[0].h, ahead: 1, behind: 2 }),
     body: async (_id, hash) => BODIES[hash] ?? '',
     op: async () => {},
-    onOp: () => {},
-    onChanged: cb => { window.__changed = cb; }, // déclenchable à la main : simule un .git qui bouge
-    onTrace: () => {},
+    /* Le vrai bridge retourne un désabonnement par appel (ipcRenderer.off, cf. src/preload) :
+       un jeu de listeners par canal, plutôt qu'un unique callback, pour rester fidèle à la
+       forme réelle même si le harnais n'a qu'un seul onglet monté à la fois. */
+    onOp: cb => { onOpListeners.add(cb); return () => onOpListeners.delete(cb); },
+    onChanged: cb => { onChangedListeners.add(cb); return () => onChangedListeners.delete(cb); },
+    onTrace: cb => { onTraceListeners.add(cb); return () => onTraceListeners.delete(cb); },
     search: async () => [],
     flow: async () => null,
     branch: async () => {},
