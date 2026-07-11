@@ -1,9 +1,10 @@
 import type { FlowPrefixes } from "@/lib/git"
 
 /* Teintes disponibles pour les chips : le preset n'expose que destructive, on lui adjoint
-   success et warning (cf. @theme dans app.css). `lane` n'est pas une teinte mais un relais :
-   le chip prend celle que son porteur lui pose — le trait de branche du graphe, ici. */
-export type BadgeColor = "neutral" | "primary" | "success" | "warning" | "danger" | "release" | "lane"
+   success, warning, release, info et refactor (cf. @theme dans app.css). `lane` n'est pas une
+   teinte mais un relais : le chip prend celle que son porteur lui pose — le trait de branche. */
+export type BadgeColor =
+  | "neutral" | "primary" | "success" | "warning" | "danger" | "release" | "info" | "refactor" | "lane"
 
 /* Badges de type : conventions internes, typos incluses.
    ponytail: table d'alias explicite — passer en config si les conventions bougent. */
@@ -37,6 +38,9 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   perf: "warning",
   release: "release",
   beta: "primary",
+  test: "info",
+  refactor: "refactor",
+  /* chore/docs/style/ci/build restent neutres : du ménage, pas une intention à signaler */
 }
 
 export const typeColor = (type: string): BadgeColor => TYPE_COLOR[type] ?? "neutral"
