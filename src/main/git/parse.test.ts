@@ -1,6 +1,6 @@
-/* Tests des parseurs purs de git/parse.ts (AUDIT.md §4/§10, item tests). Le name-status -z
-   migre depuis scripts/check-files.ts (mêmes assertions, un `it()` par bloc) ; le reste est
-   nouveau — ces fonctions n'étaient pas testées avant leur extraction. */
+/* Tests for the pure parsers in git/parse.ts (AUDIT.md §4/§10, tests item). The name-status -z
+   tests migrate from scripts/check-files.ts (same assertions, one `it()` per block); the rest is
+   new — these functions weren't tested before their extraction. */
 import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
@@ -12,12 +12,12 @@ import {
 const NUL = "\0"
 
 describe("parseNameStatus (--name-status -z, fix B3)", () => {
-  it("rend un tableau vide sur une sortie vide (commit sans fichier)", () => {
+  it("returns an empty array for empty output (commit with no file)", () => {
     assert.deepEqual(parseNameStatus(""), [])
-    assert.deepEqual(parseNameStatus(NUL), []) // NUL final seul : pas de ligne fantôme
+    assert.deepEqual(parseNameStatus(NUL), []) // trailing NUL alone: no phantom line
   })
 
-  it("parse les entrées simples : un statut, un chemin", () => {
+  it("parses simple entries: a status, a path", () => {
     assert.deepEqual(parseNameStatus(`A${NUL}src/a.ts${NUL}M${NUL}b.md${NUL}D${NUL}c${NUL}`), [
       { st: "A", path: "src/a.ts", old: null },
       { st: "M", path: "b.md", old: null },
@@ -25,45 +25,45 @@ describe("parseNameStatus (--name-status -z, fix B3)", () => {
     ])
   })
 
-  it("fait tomber le score de similarité d'un rename, l'ancien chemin précède le nouveau", () => {
+  it("drops a rename's similarity score, the old path precedes the new one", () => {
     assert.deepEqual(parseNameStatus(`R100${NUL}old/name.ts${NUL}new/name.ts${NUL}`), [
       { st: "R", path: "new/name.ts", old: "old/name.ts" },
     ])
   })
 
-  it("traite une copy avec le même layout à trois champs qu'un rename", () => {
-    assert.deepEqual(parseNameStatus(`C75${NUL}src/base.ts${NUL}src/copie.ts${NUL}`), [
-      { st: "C", path: "src/copie.ts", old: "src/base.ts" },
+  it("handles a copy with the same three-field layout as a rename", () => {
+    assert.deepEqual(parseNameStatus(`C75${NUL}src/base.ts${NUL}src/copy.ts${NUL}`), [
+      { st: "C", path: "src/copy.ts", old: "src/base.ts" },
     ])
   })
 
-  it("sort les chemins bruts qui pulvérisaient l'ancien parse ligne/tab", () => {
-    assert.deepEqual(parseNameStatus(`M${NUL}café.txt${NUL}A${NUL}avec\ttab.txt${NUL}A${NUL}avec\nretour.txt${NUL}`), [
+  it("outputs the raw paths that used to shatter the old line/tab parse", () => {
+    assert.deepEqual(parseNameStatus(`M${NUL}café.txt${NUL}A${NUL}with\ttab.txt${NUL}A${NUL}with\nnewline.txt${NUL}`), [
       { st: "M", path: "café.txt", old: null },
-      { st: "A", path: "avec\ttab.txt", old: null },
-      { st: "A", path: "avec\nretour.txt", old: null },
+      { st: "A", path: "with\ttab.txt", old: null },
+      { st: "A", path: "with\nnewline.txt", old: null },
     ])
   })
 
-  it("garde les trois champs alignés pour un rename vers un nom exotique", () => {
-    assert.deepEqual(parseNameStatus(`R087${NUL}a b.txt${NUL}dossier accentué/é\tè.txt${NUL}M${NUL}suite.ts${NUL}`), [
-      { st: "R", path: "dossier accentué/é\tè.txt", old: "a b.txt" },
-      { st: "M", path: "suite.ts", old: null },
+  it("keeps the three fields aligned for a rename to an exotic name", () => {
+    assert.deepEqual(parseNameStatus(`R087${NUL}a b.txt${NUL}accented dir/é\tè.txt${NUL}M${NUL}next.ts${NUL}`), [
+      { st: "R", path: "accented dir/é\tè.txt", old: "a b.txt" },
+      { st: "M", path: "next.ts", old: null },
     ])
   })
 
-  it("rend les entrées complètes d'une sortie tronquée (process tué en vol), sans jeter", () => {
-    assert.deepEqual(parseNameStatus(`M${NUL}ok.ts${NUL}R100${NUL}orphelin`), [
+  it("returns the complete entries of a truncated output (process killed mid-flight), without throwing", () => {
+    assert.deepEqual(parseNameStatus(`M${NUL}ok.ts${NUL}R100${NUL}orphan`), [
       { st: "M", path: "ok.ts", old: null },
     ])
   })
 })
 
 describe("parsePorcelain (status --porcelain=v1 -z)", () => {
-  /* chaque entrée est `XY<espace>chemin` en un seul champ NUL — X = index, Y = arbre */
+  /* each entry is `XY<space>path` in a single NUL field — X = index, Y = tree */
   const entry = (xy: string, path: string) => `${xy} ${path}`
 
-  it("classe staged/unstaged/untracked/conflicts", () => {
+  it("classifies staged/unstaged/untracked/conflicts", () => {
     const out = [
       entry("A ", "staged.ts"),
       entry(" M", "unstaged.ts"),
@@ -77,13 +77,13 @@ describe("parsePorcelain (status --porcelain=v1 -z)", () => {
     assert.deepEqual(wt.conflicts, [{ st: "UU", path: "conflict.ts" }])
   })
 
-  it("gère un fichier à la fois staged et unstaged (MM)", () => {
+  it("handles a file that's both staged and unstaged (MM)", () => {
     const wt = parsePorcelain(entry("MM", "both.ts") + NUL)
     assert.deepEqual(wt.staged, [{ st: "M", path: "both.ts", old: null }])
     assert.deepEqual(wt.unstaged, [{ st: "M", path: "both.ts" }])
   })
 
-  it("consomme le champ NUL supplémentaire d'un rename (ancien chemin, après le nouveau)", () => {
+  it("consumes a rename's extra NUL field (old path, after the new one)", () => {
     const wt = parsePorcelain(entry("R ", "new.ts") + NUL + "old.ts" + NUL)
     assert.deepEqual(wt.staged, [{ st: "R", path: "new.ts", old: "old.ts" }])
   })
@@ -94,7 +94,7 @@ describe("parseForEachRef", () => {
   const line = (refname: string, head = "", track = "", symref = "", upstream = "", oid = "aaaa000011112222333344445555666677778888", peeled = "") =>
     [refname, head, track, symref, upstream, oid, peeled].join(F)
 
-  it("classe les refs par préfixe et retire origin/HEAD au profit de `base`", () => {
+  it("classifies refs by prefix and drops origin/HEAD in favor of `base`", () => {
     const out = [
       line("refs/heads/develop", "*"),
       line("refs/remotes/origin/develop"),
@@ -111,20 +111,20 @@ describe("parseForEachRef", () => {
     assert.equal(refs[0].head, true)
   })
 
-  it("extrait ahead/behind du champ de tracking", () => {
+  it("extracts ahead/behind from the tracking field", () => {
     const out = line("refs/heads/topic", "", "ahead 2, behind 1")
     const [ref] = parseForEachRef(out).refs
     assert.equal(ref.ahead, 2)
     assert.equal(ref.behind, 1)
   })
 
-  it("marque gone quand le tracking vaut 'gone'", () => {
+  it("flags gone when the tracking field is 'gone'", () => {
     const out = line("refs/heads/old", "", "gone")
     const [ref] = parseForEachRef(out).refs
     assert.equal(ref.gone, true)
   })
 
-  it("pèle un tag annoté vers son commit (*objectname)", () => {
+  it("peels an annotated tag to its commit (*objectname)", () => {
     const peeled = "9999888877776666555544443333222211110000"
     const out = line("refs/tags/v1.0.0", "", "", "", "", "aaaa000011112222333344445555666677778888", peeled)
     const [ref] = parseForEachRef(out).refs
@@ -135,7 +135,7 @@ describe("parseForEachRef", () => {
 describe("parseStashList", () => {
   const E = "\x1e", F = "\x1f"
 
-  it("parse une entrée complète, SHA complet conservé (fix B1)", () => {
+  it("parses a complete entry, full SHA kept (fix B1)", () => {
     const row = ["aaaa000011112222333344445555666677778888", "p1 p2 p3", "stash@{0}", "2026-07-08", "Ada", "ada@x.io", "WIP on x"].join(F) + E
     const [s] = parseStashList(row)
     assert.equal(s.h, "aaaa000011112222333344445555666677778888")
@@ -144,29 +144,29 @@ describe("parseStashList", () => {
     assert.equal(s.s, "WIP on x")
   })
 
-  it("rend un tableau vide sur une sortie vide", () => {
+  it("returns an empty array for empty output", () => {
     assert.deepEqual(parseStashList(""), [])
   })
 
-  it("rejoint sur espace les champs excédentaires du sujet (au-delà du 7e séparateur)", () => {
+  it("joins the subject's overflow fields with a space (past the 7th separator)", () => {
     const row = ["aaaa000011112222333344445555666677778888", "p1", "stash@{1}", "2026-07-08", "Ada", "ada@x.io", "On x:", "a"].join(F) + E
     const [s] = parseStashList(row)
     assert.equal(s.s, "On x: a")
   })
 })
 
-describe("BRANCH (fix B2 : rejette les suffixes de branche en `-`)", () => {
-  it("accepte les noms de branche usuels", () => {
-    for (const name of ["master", "feature/ui-graph", "release/1.2.0", "hotfix/matrice-vide", "développeur/été"])
+describe("BRANCH (fix B2: rejects branch suffixes starting with `-`)", () => {
+  it("accepts ordinary branch names, accented letters included", () => {
+    for (const name of ["master", "feature/ui-graph", "release/1.2.0", "hotfix/empty-matrix", "développeur/été"])
       assert.ok(BRANCH.test(name), name)
   })
 
-  it("rejette un nom commençant par `-` (injection d'option git-flow, B2)", () => {
+  it("rejects a name starting with `-` (git-flow option injection, B2)", () => {
     assert.ok(!BRANCH.test("-D"))
     assert.ok(!BRANCH.test("-force"))
   })
 
-  it("rejette les motifs interdits par git (.., @{, espace, tilde, caret, etc.)", () => {
+  it("rejects patterns forbidden by git (.., @{, space, tilde, caret, etc.)", () => {
     for (const name of ["a..b", "a@{b}", "a b", "a~b", "a^b", "a:b", "a?b", "a*b", "a[b", "a\\b"])
       assert.ok(!BRANCH.test(name), name)
   })
@@ -185,14 +185,14 @@ describe("classifyGitFailure", () => {
     assert.deepEqual(classifyGitFailure({ exitCode: null, stdout: "", stderr: "", killedBy: "limit" }), { code: "OUTPUT_LIMIT" })
   })
 
-  it("détecte un conflit de merge sur stdout (jamais stderr) et rend les fichiers touchés", () => {
+  it("detects a merge conflict on stdout (never stderr) and returns the touched files", () => {
     const stdout = "Auto-merging a.ts\nCONFLICT (content): Merge conflict in a.ts\nAutomatic merge failed; fix conflicts and then commit the result.\n"
     const r = classifyGitFailure({ exitCode: 1, stdout, stderr: "", killedBy: null })
     assert.equal(r.code, "MERGE_CONFLICT")
     assert.equal(r.detail, "a.ts")
   })
 
-  it("détecte un conflit de stash pop (mêmes lignes CONFLICT)", () => {
+  it("detects a stash pop conflict (same CONFLICT lines)", () => {
     const stdout = "Auto-merging b.ts\nCONFLICT (content): Merge conflict in b.ts\nThe stash entry is kept in case you need it again.\n"
     const r = classifyGitFailure({ exitCode: 1, stdout, stderr: "", killedBy: null })
     assert.equal(r.code, "MERGE_CONFLICT")
@@ -205,25 +205,25 @@ describe("classifyGitFailure", () => {
     assert.equal(r.detail, "not a git repository (exit 128)")
   })
 
-  it("garde au plus 2 lignes fatal:/error:, sinon la dernière ligne", () => {
-    const r = classifyGitFailure({ exitCode: 1, stdout: "", stderr: "hint: ignoré\nsomething went wrong\n", killedBy: null })
+  it("keeps at most 2 fatal:/error: lines, otherwise the last line", () => {
+    const r = classifyGitFailure({ exitCode: 1, stdout: "", stderr: "hint: ignored\nsomething went wrong\n", killedBy: null })
     assert.equal(r.code, "GIT_FAILED")
     assert.equal(r.detail, "something went wrong (exit 1)")
   })
 })
 
 describe("git-flow — parseFlowPrefixes / computeNextTag / flowVersionSuffix", () => {
-  it("parse les préfixes depuis `git config --get-regexp`", () => {
+  it("parses the prefixes from `git config --get-regexp`", () => {
     const out = "gitflow.prefix.feature feature/\ngitflow.prefix.release release/\ngitflow.prefix.versiontag v"
     assert.deepEqual(parseFlowPrefixes(out), { feature: "feature/", release: "release/" })
   })
 
-  it("garde un suffixe qui commence par `-` vide (fix B2, même garde que finish)", () => {
+  it("keeps a suffix starting with `-` empty (fix B2, same guard as finish)", () => {
     assert.equal(flowVersionSuffix("release/-D", "release/"), "")
     assert.equal(flowVersionSuffix("release/1.2.0", "release/"), "1.2.0")
   })
 
-  it("prend la version portée par le nom de branche si elle est semver", () => {
+  it("takes the version carried by the branch name if it's semver", () => {
     assert.equal(computeNextTag("release", "1.2.0", "v1.1.0"), "1.2.0")
   })
 

@@ -1,8 +1,11 @@
 import { cn } from "@/lib/utils"
 
-/** Marque Amont : deux versants qui convergent, la source au sommet.
-    Couleurs de charte, volontairement hors tokens de thème — sauf la barre :
-    encre sur fond clair / écume sur fond sombre, soit le foreground courant. */
+/** Amont mark: two slopes converging, the source at the top.
+    Brand colors, deliberately outside theme tokens — except the bar:
+    ink on light background / foam on dark background, i.e. the current foreground.
+    Keep in sync (same path data) with the 3 other copies of this mark: the app icon generator
+    (scripts/make-icon.mjs), and the two static no-JS splash/crash pages
+    (src/renderer/index.html, src/renderer/crash.html). */
 export function Mark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 240 240" aria-hidden className={cn("shrink-0", className)}>

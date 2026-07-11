@@ -13,40 +13,40 @@ import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-stri
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
-/** Le contenu de l'onglet glisse ; le reste du châssis bascule net (cf. `.amont-tabview`). */
+/** The tab content slides; the rest of the chrome switches instantly (see `.amont-tabview`). */
 function transition(type: "next" | "prev" | "open", update: () => void) {
   if (reduced.matches) return update()
   document.startViewTransition({ types: [type], update: () => flushSync(update) })
 }
 
-/** TabStrip garde son API numérique (0 = accueil, cf. tab-strip.tsx) — la frontière du composant
-    n'a pas bougé, seul l'état interne d'App adopte l'union discriminée `NavKey` (AUDIT.md §5,
-    item 6 : le sentinel `HOME = 0` partageait l'espace des ids de dépôt par pure convention). */
+/** TabStrip keeps its numeric API (0 = home, see tab-strip.tsx) — the component boundary
+    hasn't moved, only App's internal state adopts the discriminated union `NavKey` (AUDIT.md §5,
+    item 6: the `HOME = 0` sentinel shared the repo id space by pure convention). */
 const toTabKey = (k: NavKey): number => (k.kind === "home" ? TAB_STRIP_HOME : k.id)
 const fromTabKey = (n: number): NavKey => (n === TAB_STRIP_HOME ? HOME : repoKey(n))
 
 type Props = {
-  /** promesse posée une fois par main.tsx (cf. boot() dans lib/git.ts) */
+  /** promise set once by main.tsx (see boot() in lib/git.ts) */
   boot: Promise<BootState>
 }
 
 export default function App({ boot }: Props) {
-  /* l'accueil n'est pas dans `tabs` : il est épinglé, toujours là, jamais fermé */
+  /* home isn't in `tabs`: it's pinned, always there, never closed */
   const [tabs, setTabs] = useState<Repo[]>([])
   const [active, setActive] = useState<NavKey>(HOME)
-  /* un onglet visité reste monté : y revenir ne recharge pas son graphe, ne perd pas son scroll */
+  /* a visited tab stays mounted: returning to it doesn't reload its graph, doesn't lose its scroll */
   const [mounted, setMounted] = useState<number[]>([])
   const [booted, setBooted] = useState(false)
-  /* bump = démonte et remonte tout l'onglet (store compris) : le levier « recharger l'onglet »
-     de l'ErrorBoundary qui l'entoure (AUDIT.md §5, item 8). */
+  /* bump = unmounts and remounts the whole tab (store included): the "reload tab" lever
+     of the ErrorBoundary wrapping it (AUDIT.md §5, item 8). */
   const [resetNonce, setResetNonce] = useState<Record<number, number>>({})
   const bumpReset = useCallback((id: number) => setResetNonce((n) => ({ ...n, [id]: (n[id] ?? 0) + 1 })), [])
 
-  /* Le sens du glissement suit la barre d'onglets, l'accueil en position 0. Un dépôt qui n'y
-     figure pas encore vient d'être ouvert : il arrive de face plutôt que par le côté.
-     (`::view-transition-new` est un rendu vivant, pas une photo : un graphe encore en cours
-     de pose finit de s'afficher pendant l'animation.) Transition pure et testée (cf.
-     navigation.test.ts) : `select` ne fait plus que l'exécuter. */
+  /* The slide direction follows the tab strip, home at position 0. A repo not yet in it
+     was just opened: it arrives head-on rather than from the side.
+     (`::view-transition-new` is a live render, not a snapshot: a graph still being laid out
+     finishes rendering during the animation.) Pure, tested transition (see
+     navigation.test.ts): `select` now only executes it. */
   const select = useCallback(
     (key: NavKey) => {
       if (navKeyEquals(key, active)) return
@@ -58,23 +58,23 @@ export default function App({ boot }: Props) {
     [active, tabs]
   )
 
-  /* Le titre appartient à l'onglet actif — un seul effet ici, plutôt qu'un par RepoView
-     qui ne le réinitialisait jamais en revenant sur l'accueil. */
+  /* The title belongs to the active tab — a single effect here, rather than one per RepoView
+     which never reset it when returning to home. */
   useEffect(() => {
     const name = active.kind === "repo" ? tabs.find((r) => r.id === active.id)?.name : null
     document.title = name ? `Amont — ${name}` : "Amont"
   }, [active, tabs])
 
-  /* F5 : rechargement complet de la fenêtre — l'issue de secours quand l'UI se coince.
-     Un renderer mort ne reçoit plus de clavier : ce cas est couvert par le reload
-     automatique du main (render-process-gone). Toujours actif, quel que soit l'onglet. */
+  /* F5: full window reload — the fallback when the UI gets stuck.
+     A dead renderer no longer receives keyboard input: that case is covered by the
+     automatic reload from main (render-process-gone). Always active, regardless of the tab. */
   useShortcut(true, PRIORITY.GLOBAL, (ev) => {
     if (ev.key !== "F5") return false
     window.location.reload()
     return true
   })
 
-  /* restauration : pas d'animation, il n'y a pas d'état précédent à quitter */
+  /* restoration: no animation, there's no previous state to leave */
   useEffect(() => {
     boot.then((s) => {
       if (s.tabs.length) {
@@ -87,13 +87,13 @@ export default function App({ boot }: Props) {
     })
   }, [boot])
 
-  /* pas avant le boot : on écraserait les onglets persistés avec l'état initial vide */
+  /* not before boot: we'd overwrite the persisted tabs with the empty initial state */
   useEffect(() => {
     if (!booted) return
     host.setTabs(tabs.map((r) => r.path), tabs.find((r) => active.kind === "repo" && r.id === active.id)?.path ?? null)
   }, [booted, tabs, active])
 
-  /* déjà ouvert : on s'y rend au lieu d'en faire un doublon (main renvoie le même id) */
+  /* already open: we navigate to it instead of duplicating it (main returns the same id) */
   const openTab = useCallback(
     (repo: Repo) => {
       setTabs((prev) => (prev.some((r) => r.id === repo.id) ? prev : [...prev, repo]))
@@ -127,10 +127,10 @@ export default function App({ boot }: Props) {
         onClose={closeTab}
       />
 
-      {/* `data-tab-active` porte les noms de view-transition sur le seul onglet visible (cf. app.css) */}
+      {/* `data-tab-active` carries the view-transition names on the only visible tab (see app.css) */}
       <div className="relative min-h-0 flex-1">
-        {/* invisible plutôt que hidden : la boîte reste posée, donc le canvas garde sa taille
-            mesurée et son scroll. */}
+        {/* invisible rather than hidden: the box stays laid out, so the canvas keeps its
+            measured size and its scroll. */}
         <div
           role="tabpanel"
           id={panelId(TAB_STRIP_HOME)}

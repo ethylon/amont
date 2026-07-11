@@ -1,14 +1,14 @@
-/* Parseurs purs de sorties git — zéro import Electron, zéro appel `spawn` : exécutables sous
-   Node tels quels, c'est la surface de test unitaire du chantier main (AUDIT.md §4/§10, item 6).
-   Toute fonction d'ici prend une string (ou des champs déjà extraits) et rend des données ;
-   les appels git qui produisent ces strings vivent dans queries.ts / ops.ts / flow.ts. */
+/* Pure parsers for git output — zero Electron import, zero `spawn` call: runnable under
+   Node as-is, this is the unit-test surface of the main workstream (AUDIT.md §4/§10, item 6).
+   Every function here takes a string (or already-extracted fields) and returns data;
+   the git calls that produce these strings live in queries.ts / ops.ts / flow.ts. */
 
 import type { Commit, FileChange, FlowPrefixes, GitRef, Stash, Worktree } from "../../shared/types.ts"
 import type { ErrorPayload } from "../../shared/errors.ts"
 
-/* --- Arbre de travail ---
-   `status --porcelain=v1 -z` : chaque entrée est `XY<espace>chemin`, X = index, Y = arbre.
-   Pour un rename, l'ancien chemin occupe le champ NUL suivant — d'où le ++i. */
+/* --- Working tree ---
+   `status --porcelain=v1 -z`: each entry is `XY<space>path`, X = index, Y = tree.
+   For a rename, the old path occupies the next NUL field — hence the ++i. */
 const CONFLICT = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"])
 
 export function parsePorcelain(out: string): Worktree {
@@ -27,20 +27,20 @@ export function parsePorcelain(out: string): Worktree {
   return wt
 }
 
-/* Parseur de `--name-status -z` (fix B3), seul format sûr : sans `-z`, git C-quote les chemins
-   non-ASCII (`"caf\303\251.txt"`) et un nom contenant tab ou saut de ligne pulvérise un
-   split('\n')/split('\t'). En `-z`, chaque champ est terminé par NUL et les chemins sortent
-   bruts. Un rename/copy occupe trois champs : `Rnn NUL ancien NUL nouveau NUL`. */
+/* Parser for `--name-status -z` (fix B3), the only safe format: without `-z`, git C-quotes
+   non-ASCII paths (`"caf\303\251.txt"`) and a name containing a tab or newline breaks a
+   split('\n')/split('\t'). With `-z`, each field is NUL-terminated and paths come out raw.
+   A rename/copy occupies three fields: `Rnn NUL old NUL new NUL`. */
 export function parseNameStatus(out: string): FileChange[] {
   const files: FileChange[] = []
-  const parts = out.split("\0") // NUL final : dernier élément vide, jamais consommé comme statut
+  const parts = out.split("\0") // trailing NUL: last element is empty, never consumed as a status
   for (let i = 0; i < parts.length - 1;) {
     const st = parts[i++]
     if (!st) break
-    /* R et C portent un score de similarité (R100) et un champ de plus : l'ancien chemin */
+    /* R and C carry a similarity score (R100) and one extra field: the old path */
     const old = st[0] === "R" || st[0] === "C" ? parts[i++] : null
     const path = parts[i++]
-    if (path === undefined) break // sortie tronquée : on rend ce qui est complet
+    if (path === undefined) break // truncated output: return what's complete
     files.push({ st: st[0], path, old })
   }
   return files
@@ -59,14 +59,14 @@ export function parseStashList(out: string): Stash[] {
 }
 
 /* --- Log ---
-   SHA complets (fix B1, AUDIT.md §2) : un hash tronqué à 8 caractères garantit
-   statistiquement des collisions passé quelques dizaines de milliers de commits — le
-   renderer interne ces SHA en ids entiers séquentiels à l'ingestion (cf. features/graph/ids.ts),
-   la troncature à 8 caractères redevient une affaire d'affichage. */
+   Full SHAs (fix B1, AUDIT.md §2): a hash truncated to 8 characters statistically
+   guarantees collisions past a few tens of thousands of commits — the renderer interns
+   these SHAs into sequential integer ids at ingestion (cf. features/graph/ids.ts),
+   8-character truncation becomes a display-only concern again. */
 export function parseLogPage(out: string): Commit[] {
-  /* git ne filtre pas les octets de contrôle de `%s` : un sujet qui contiendrait nos
-     séparateurs fabriquerait des champs en trop (recollés au sujet, il est en dernier)
-     ou des lignes bancales (écartées par le compte de champs). */
+  /* git doesn't filter control bytes out of `%s`: a subject containing our
+     separators would manufacture extra fields (reattached to the subject, since it's last)
+     or lopsided lines (discarded by the field count check). */
   return out.split("\x1e")
     .map((row) => row.split("\x1f"))
     .filter((f) => f.length >= 7)
@@ -78,8 +78,8 @@ export function parseLogPage(out: string): Commit[] {
 }
 
 /* --- Refs ---
-   `origin/HEAD` est un alias d'affichage : il ferait doublon avec la branche par défaut de la
-   distante — on le retire du tableau et on récupère son symref pour le calcul de merge/gone. */
+   `origin/HEAD` is a display alias: it would duplicate the remote's default branch — we
+   strip it from the array and grab its symref for the merge/gone calculation. */
 const REF_KINDS: [string, GitRef["kind"]][] = [
   ["refs/heads/", "head"],
   ["refs/remotes/", "remote"],
@@ -88,7 +88,7 @@ const REF_KINDS: [string, GitRef["kind"]][] = [
 
 export interface ParsedRefs {
   refs: GitRef[]
-  /** symref de `<remote>/HEAD` (forme courte, ex. "origin/master"), vide si aucune distante */
+  /** symref of `<remote>/HEAD` (short form, e.g. "origin/master"), empty if no remote */
   base: string
 }
 
@@ -96,7 +96,7 @@ export function parseForEachRef(out: string): ParsedRefs {
   let base = ""
   const refs: GitRef[] = out.split("\n").filter(Boolean).flatMap((line): GitRef[] => {
     const [refname, head, track = "", symref = "", upstream = "", oid = "", peeled = ""] = line.split("\x1f")
-    /* `%(*objectname)` pèle un tag annoté vers son commit ; vide pour une branche ou un tag léger */
+    /* `%(*objectname)` peels an annotated tag to its commit; empty for a branch or lightweight tag */
     const tip = peeled || oid
     const kind = REF_KINDS.find(([prefix]) => refname.startsWith(prefix))
     if (!kind) return []
@@ -122,10 +122,10 @@ export function parseForEachRef(out: string): ParsedRefs {
   return { refs, base }
 }
 
-/* `--all` embarque `refs/stash`, dont les commits de plomberie (« On x », « index on x »,
-   « untracked files on x ») n'ont rien à faire dans le graphe. `--exclude` s'applique au
-   `--all` qui suit. Partagé par git/queries.ts (log, recherche, total) et git/ops.ts
-   (comptage des nouveaux commits après fetch). */
+/* `--all` pulls in `refs/stash`, whose plumbing commits ("On x", "index on x",
+   "untracked files on x") have no business in the graph. `--exclude` applies to the
+   `--all` that follows. Shared by git/queries.ts (log, search, total) and git/ops.ts
+   (counting new commits after fetch). */
 export const ALL_REFS = ["--exclude=refs/stash", "--all"]
 
 /* --- Branch name validation ---
@@ -134,11 +134,11 @@ export const ALL_REFS = ["--exclude=refs/stash", "--all"]
    accented letters and `@`, both legal in a refname. */
 export const BRANCH = /^(?!-)(?!.*\.\.)(?!.*@\{)[^\x00-\x20\x7f~^:?*[\\]+$/
 
-/* --- Échecs git (fix : conserve le code de sortie, inspecte stdout) ---
-   git noie ses erreurs sous des lignes `hint:` : on ne garde que fatal:/error:. Un conflit
-   (merge, ou stash pop qui rejoue un merge) s'annonce par des lignes `CONFLICT (...)` — sur
-   STDOUT, jamais stderr, d'où l'ancien bug (gitError ne lisait que stderr et perdait ce
-   signal, cf. AUDIT.md §2 B4/divers). */
+/* --- Git failures (fix: preserves the exit code, inspects stdout) ---
+   git drowns its errors under `hint:` lines: we only keep fatal:/error:. A conflict
+   (merge, or a stash pop replaying a merge) is announced by `CONFLICT (...)` lines — on
+   STDOUT, never stderr, hence the old bug (gitError only read stderr and lost this
+   signal, cf. AUDIT.md §2 B4/misc). */
 const CONFLICT_LINE = /^CONFLICT \([^)]*\):.*? in (.+)$/gm
 
 export interface GitFailureInput {
@@ -166,7 +166,7 @@ export function classifyGitFailure(input: GitFailureInput): ErrorPayload {
 }
 
 /* --- Git-flow ---
-   Préfixes posés par `git flow init`, lus depuis `git config --get-regexp ^gitflow\.prefix\.`. */
+   Prefixes set by `git flow init`, read from `git config --get-regexp ^gitflow\.prefix\.`. */
 export function parseFlowPrefixes(out: string): FlowPrefixes {
   const prefixes: FlowPrefixes = {}
   for (const line of out.split("\n").filter(Boolean)) {
@@ -179,17 +179,17 @@ export function parseFlowPrefixes(out: string): FlowPrefixes {
 
 const SEMVER_RE = /^v?\d+\.\d+\.\d+/
 
-/** Suffixe de version d'une branche de flow : le nom moins son préfixe, ou vide si le résultat
-    commencerait par `-` (même garde que `finish`, fix B2 : `feature/-D` ne doit jamais être lu
-    comme une version). */
+/** Version suffix of a flow branch: the name minus its prefix, or empty if the result
+    would start with `-` (same guard as `finish`, fix B2: `feature/-D` must never be read
+    as a version). */
 export function flowVersionSuffix(branch: string, prefix: string): string {
   const raw = branch.startsWith(prefix) ? branch.slice(prefix.length) : ""
   return raw.startsWith("-") ? "" : raw
 }
 
-/** Le tag que posera `finish` : la version portée par le nom de branche si elle en a une
-    (convention gitflow, "release/4.2.0"), sinon un bump du dernier tag — patch pour un
-    hotfix, minor pour une release. `null` si ni l'un ni l'autre ne donne de piste. */
+/** The tag that `finish` will create: the version carried by the branch name if it has
+    one (gitflow convention, "release/4.2.0"), otherwise a bump of the last tag — patch for a
+    hotfix, minor for a release. `null` if neither gives a lead. */
 export function computeNextTag(kind: "release" | "hotfix", suffix: string, lastTag: string | null): string | null {
   if (SEMVER_RE.test(suffix)) return suffix
   const m = lastTag && /^(v?)(\d+)\.(\d+)\.(\d+)/.exec(lastTag)

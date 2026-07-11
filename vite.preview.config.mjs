@@ -1,4 +1,4 @@
-/* Config jetable pour le harnais de preview — l'app réelle passe par electron.vite.config.mjs. */
+/* Disposable config for the preview harness — the real app goes through electron.vite.config.mjs. */
 import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';

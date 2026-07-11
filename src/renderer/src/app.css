@@ -7,8 +7,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    /* Palette Tailwind coupée : seuls les tokens du preset produisent des utilities, donc
-       `bg-slate-800` fait échouer le build. */
+    /* Tailwind's palette cut off: only the preset's tokens produce utilities, so
+       `bg-slate-800` fails the build. */
     --color-*: initial;
 
     --font-heading: var(--font-sans);
@@ -34,7 +34,7 @@
     --color-foreground: var(--foreground);
     --color-background: var(--background);
 
-    /* Hors charte shadcn, assumé : le preset ne connaît que destructive. */
+    /* Outside the shadcn palette, deliberately: the preset only knows destructive. */
     --color-success: var(--success);
     --color-warning: var(--warning);
     --color-release: var(--release);
@@ -73,15 +73,15 @@
 
     --success: oklch(0.52 0.14 150);
     --warning: oklch(0.56 0.13 70);
-    /* release : violet franc, distinct du teal de marque (primary) et des autres teintes de chip */
+    /* release: bold violet, distinct from the brand teal (primary) and the other chip hues */
     --release: oklch(0.53 0.22 300);
-    /* info : bleu (test) ; refactor : cyan — le chroma les écarte du teal primary (hue 223) */
+    /* info: blue (test); refactor: cyan — the chroma keeps them apart from the primary teal (hue 223) */
     --info: oklch(0.52 0.13 250);
     --refactor: oklch(0.52 0.10 195);
 
-    /* Lanes : hues espacées de 108° — deux lanes adjacentes ne se confondent jamais.
-       Chroma ajustée par teinte (le jaune et le cyan saturent moins que le rouge).
-       Hors @theme : consommées par var() dans des attributs SVG, jamais par une utility. */
+    /* Lanes: hues spaced 108° apart — two adjacent lanes are never confused for each other.
+       Chroma adjusted per hue (yellow and cyan saturate less than red).
+       Outside @theme: consumed via var() in SVG attributes, never through a utility. */
     --lane-0: oklch(0.56 0.16 250);
     --lane-1: oklch(0.58 0.18 358);
     --lane-2: oklch(0.56 0.14 106);
@@ -160,23 +160,23 @@
   ::-webkit-scrollbar-corner { background: transparent; }
 }
 
-/* Le strict nécessaire que les utilities n'expriment pas : une gouttière calculée au
-   runtime, l'estompage du graphe au survol, et le flash d'un commit ciblé. */
+/* The strict minimum that utilities don't express: a gutter computed at
+   runtime, the graph's hover dimming, and a targeted commit's flash. */
 @layer components {
-  /* La colonne branche tient à gauche du métro, l'arbre de travail garde son décalage total. */
+  /* The branch column sits left of the metro, the working tree keeps its full offset. */
   .amont-wtrow { padding-left: calc(var(--amont-branch, 0px) + var(--graphw, 0px) + 12px); }
 
-  /* Recherche en cours : les lignes hors résultat s'effacent, les autres se teintent. */
+  /* Search in progress: rows outside the results fade out, the others get tinted. */
   [data-search] .amont-row[data-match="false"] { opacity: 0.32; }
   [data-search] .amont-row[data-match="true"] { background: color-mix(in oklab, var(--warning) 14%, transparent); }
 
-  /* Motif release/hotfix : fond teinté pour repérer l'atterrissage d'une version d'un coup d'œil.
-     Le survol et la sélection (utilities) le recouvrent — leur couche gagne. Le rail 2px, lui, est
-     posé hors @layer plus bas (sinon `border-l-transparent` de ROW_CLASS gagnerait). */
+  /* Release/hotfix pattern: tinted background to spot a version landing at a glance.
+     Hover and selection (utilities) cover it — their layer wins. The 2px rail, though, is
+     set outside @layer further below (otherwise ROW_CLASS's `border-l-transparent` would win). */
   .amont-row[data-flow="release"] { background: color-mix(in oklab, var(--release) 8%, transparent); }
   .amont-row[data-flow="hotfix"]  { background: color-mix(in oklab, var(--destructive) 9%, transparent); }
 
-  /* Stash : un voile neutre — l'entrée est en marge de l'historique, pas un jalon. */
+  /* Stash: a neutral veil — the entry sits on the margin of history, not a milestone. */
   .amont-row[data-stash] { background: color-mix(in oklab, var(--muted-foreground) 6%, transparent); }
 
   @keyframes amont-flash {
@@ -185,13 +185,13 @@
   }
   .amont-flash { animation: amont-flash 1.6s ease-out; }
 
-  /* Changement d'onglet : seul le corps glisse (refs + graphe + détail). Le châssis — barre
-     d'onglets, toolbar, barre de statut — bascule net dans le snapshot `root`, le surlignage
-     de l'onglet étant l'accusé de réception du clic ; `new` est peint après `old`, donc sans
-     animation il le couvre d'emblée. Le nom du dépôt, lui, est un élément partagé qui passe
-     d'une toolbar à l'autre.
-     Les noms de transition ne vivent que sur l'onglet actif : `old` est capturé avant le commit
-     React, `new` après, donc chacun désigne le bon élément au bon moment. */
+  /* Tab change: only the body slides (refs + graph + detail). The chrome — tab bar,
+     toolbar, status bar — switches instantly in the `root` snapshot, the tab's highlight
+     being the click's acknowledgment; `new` is painted after `old`, so without an
+     animation it covers it right away. The repo name, though, is a shared element that moves
+     from one toolbar to the other.
+     The transition names only live on the active tab: `old` is captured before the React
+     commit, `new` after, so each one names the right element at the right time. */
   [data-tab-active].amont-tabbody,
   [data-tab-active] .amont-tabbody { view-transition-name: amont-tabbody; }
   [data-tab-active] .amont-reponame { view-transition-name: amont-reponame; }
@@ -200,9 +200,9 @@
   ::view-transition-old(root),
   ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 
-  /* Fondu enchaîné + déplacement, en deux animations parallèles : le fondu reste linéaire —
-     `plus-lighter` (le défaut de l'image-pair) n'additionne proprement que des opacités
-     complémentaires — pendant que le déplacement, lui, décélère. */
+  /* Cross-fade + translation, as two parallel animations: the fade stays linear —
+     `plus-lighter` (the image-pair's default) only adds up complementary opacities
+     cleanly — while the translation decelerates. */
   ::view-transition-old(amont-tabbody),
   ::view-transition-new(amont-tabbody) {
     animation-duration: 220ms;
@@ -212,29 +212,29 @@
   ::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out, amont-tab-out; }
   ::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in, amont-tab-in; }
 
-  /* Le corps de l'accueil part du haut du châssis, celui d'un dépôt sous la toolbar : le groupe
-     rattrape l'écart. Entre deux dépôts les boîtes coïncident, l'animation est un no-op. */
+  /* The home body starts at the top of the chrome, a repo's body sits below the toolbar: the
+     group bridges the gap. Between two repos the boxes coincide, the animation is a no-op. */
   ::view-transition-group(amont-tabbody) {
     animation-duration: 220ms;
     animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
   }
 
-  /* La boîte du nom est de taille fixe (cf. `Toolbar`) : le groupe ne bouge pas, reste le fondu. */
+  /* The name box has a fixed size (cf. `Toolbar`): the group doesn't move, only the fade remains. */
   ::view-transition-old(amont-reponame),
   ::view-transition-new(amont-reponame) { animation-duration: 220ms; }
 
   @keyframes amont-tab-fade-out { to   { opacity: 0; } }
   @keyframes amont-tab-fade-in  { from { opacity: 0; } }
 
-  /* --amont-slide : sens de marche dans la barre d'onglets. Les custom properties de :root
-     descendent dans l'arbre des pseudo-éléments de transition. */
+  /* --amont-slide: direction of travel in the tab bar. :root's custom properties
+     flow down into the transition pseudo-element tree. */
   :root:active-view-transition-type(next) { --amont-slide: 32px; }
   :root:active-view-transition-type(prev) { --amont-slide: -32px; }
 
   @keyframes amont-tab-in  { from { transform: translateX(var(--amont-slide, 0)); } }
   @keyframes amont-tab-out { to   { transform: translateX(calc(var(--amont-slide, 0) * -1)); } }
 
-  /* Ouverture d'un dépôt : rien à côté d'où venir, il monte du fond. */
+  /* Opening a repo: nothing beside it to come from, it rises from the background. */
   :root:active-view-transition-type(open)::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out, amont-tab-zoom-out; }
   :root:active-view-transition-type(open)::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in, amont-tab-zoom-in; }
 
@@ -244,7 +244,7 @@
   @media (prefers-reduced-motion: reduce) {
     .amont-flash { animation: none; background: color-mix(in oklab, var(--primary) 18%, transparent); }
 
-    /* Changement d'onglet : on garde le fondu, on retire le glissement et le zoom (motion vestibulaire). */
+    /* Tab change: keep the fade, drop the slide and the zoom (vestibular motion). */
     ::view-transition-group(amont-tabbody) { animation: none; }
     ::view-transition-old(amont-tabbody),
     :root:active-view-transition-type(open)::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out; }
@@ -252,14 +252,14 @@
     :root:active-view-transition-type(open)::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in; }
   }
 
-  /* --- Boot d'un onglet : la révélation se fait en une seule frame (cf. RepoView) ; ces entrées
-     n'animent que les insertions ultérieures — l'arbre qui se salit, un checkout vers une branche
-     de flow. `data-settled` n'est posé qu'une frame après la révélation, les éléments présents au
-     boot ne rejouent donc pas leur entrée. La courbe de décélération est celle des onglets.
+  /* --- Tab boot: the reveal happens in a single frame (cf. RepoView); these entries
+     only animate later insertions — the tree getting dirty, a checkout to a flow branch.
+     `data-settled` is only set one frame after the reveal, so elements present at
+     boot don't replay their entrance. The deceleration curve is the same as the tabs'.
      No exit animation: unmounting stays instant, an exit animation would need retention
      machinery (keep the DOM node alive until the animation finishes) for a purely cosmetic gain. */
   [data-settled] .amont-drop {
-    /* clip vertical seul : le bandeau flow garde son défilement horizontal (overflow-x-auto) */
+    /* vertical clip only: the flow banner keeps its horizontal scroll (overflow-x-auto) */
     overflow-y: clip;
     transition: height 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease-out;
     @starting-style { height: 0; opacity: 0; }
@@ -269,30 +269,30 @@
     @starting-style { opacity: 0; translate: 0 4px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    /* le fondu reste, le mouvement (poussée, glissement) disparaît */
+    /* the fade stays, the movement (push, slide) disappears */
     [data-settled] .amont-drop { transition: opacity 200ms ease-out; }
     [data-settled] .amont-fadein { transition: opacity 200ms ease-out; }
   }
 }
 
-/* Rail 2px du motif release/hotfix. Hors @layer, sinon la utility `border-l-transparent` de ROW_CLASS
-   primerait (une couche postérieure gagne sur la spécificité). `:not([data-selected])` laisse la
-   sélection poser son propre rail. La largeur (2px) vient de ROW_CLASS. */
+/* 2px rail of the release/hotfix pattern. Outside @layer, otherwise ROW_CLASS's
+   `border-l-transparent` utility would win (a later layer wins over specificity).
+   `:not([data-selected])` lets the selection set its own rail. The width (2px) comes from ROW_CLASS. */
 .amont-row[data-flow="release"]:not([data-selected="true"]) { border-left-color: var(--release); }
 .amont-row[data-flow="hotfix"]:not([data-selected="true"]) { border-left-color: var(--destructive); }
 
-/* Contour d'une ref focalisée (et de la branche courante). Hors @layer pour la même raison que le
-   rail ci-dessus : la utility `border-transparent` de la ligne primerait sinon. `data-run` est posé
-   par la passe DOM du sidebar ; des refs allumées contiguës se joignent en un seul cadre (bords
-   intérieurs effacés, seuls les coins extrêmes arrondis). */
+/* Outline of a focused ref (and the current branch). Outside @layer for the same reason as the
+   rail above: the row's `border-transparent` utility would otherwise win. `data-run` is set
+   by the sidebar's DOM pass; contiguous lit refs join into a single frame (inner
+   borders erased, only the outermost corners rounded). */
 .amont-refrow[data-run] { border-color: var(--primary); }
 .amont-refrow[data-run="start"] { border-bottom-color: transparent; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .amont-refrow[data-run="mid"]   { border-top-color: transparent; border-bottom-color: transparent; border-radius: 0; }
 .amont-refrow[data-run="end"]   { border-top-color: transparent; border-top-left-radius: 0; border-top-right-radius: 0; }
 
-/* --- diff2html / hljs : hors layer, obligatoirement ---
-   Le CSS de diff2html est importé sans layer par diff-view.tsx ; une règle @layer
-   perdrait contre lui quelle que soit sa spécificité. */
+/* --- diff2html / hljs: outside a layer, mandatorily ---
+   diff2html's CSS is imported without a layer by diff-view.tsx; an @layer rule
+   would lose against it regardless of its specificity. */
 .amont-diffbody .d2h-file-header { display: none; }
 .amont-diffbody .d2h-wrapper { text-align: left; }
 .amont-diffbody .d2h-file-wrapper {
@@ -300,7 +300,7 @@
   border-radius: calc(var(--radius) * 0.8);
   margin: 0;
 }
-/* la police et la taille viennent de .amont-diffbody (font-mono text-xs) */
+/* the font and size come from .amont-diffbody (font-mono text-xs) */
 .amont-diffbody .d2h-diff-table,
 .amont-diffbody .d2h-code-line,
 .amont-diffbody .d2h-code-side-line,
@@ -309,24 +309,24 @@
   font-family: inherit;
   font-size: inherit;
 }
-/* le thème hljs pose un background opaque qui écrase les fonds add/del de d2h */
+/* the hljs theme sets an opaque background that overrides d2h's add/del backgrounds */
 .amont-diffbody .hljs { background: transparent; padding: 0; }
-/* pas d'ambre "changement" en vue unifiée : une ligne modifiée = del rouge + ins vert */
+/* no amber "change" color in unified view: a modified line = red del + green ins */
 .amont-diffbody {
   --d2h-change-del-color: var(--d2h-del-bg-color);
   --d2h-change-ins-color: var(--d2h-ins-bg-color);
   --d2h-dark-change-del-color: var(--d2h-dark-del-bg-color);
   --d2h-dark-change-ins-color: var(--d2h-dark-ins-bg-color);
 }
-/* numéros de ligne collants au scroll horizontal (d2h les met en absolute) */
+/* line numbers sticky through horizontal scroll (d2h sets them to absolute) */
 .amont-diffbody .d2h-code-linenumber,
 .amont-diffbody .d2h-code-side-linenumber {
   position: sticky;
   left: 0;
   z-index: 2;
 }
-/* fond opaque sous le gutter sticky : ::before pose la surface, ::after re-peint
-   la teinte add/del semi-transparente de d2h par-dessus */
+/* opaque background under the sticky gutter: ::before lays the surface, ::after repaints
+   d2h's semi-transparent add/del tint on top */
 .amont-diffbody .d2h-code-linenumber::before,
 .amont-diffbody .d2h-code-side-linenumber::before {
   content: ''; position: absolute; inset: 0; z-index: -2;
@@ -337,7 +337,7 @@
   content: ''; position: absolute; inset: 0; z-index: -1;
   background: inherit;
 }
-/* la ligne s'étend au contenu (la table s'élargit et scrolle) au lieu de le déborder */
+/* the row grows to fit its content (the table widens and scrolls) instead of overflowing it */
 .amont-diffbody .d2h-code-line,
 .amont-diffbody .d2h-code-side-line {
   padding: 0 .5em; box-sizing: border-box;

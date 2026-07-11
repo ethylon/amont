@@ -1,5 +1,5 @@
-/* Géométrie pure du métro (AUDIT.md §6) : position pixel d'une lane/ligne et tracé SVG d'une
-   arête. Zéro DOM — ne fabrique que des nombres et des chaînes `d=`, testable par snapshot. */
+/* Pure metro geometry (AUDIT.md §6): pixel position of a lane/row and SVG path of an
+   edge. Zero DOM — only produces numbers and `d=` strings, snapshot-testable. */
 
 import { LANE, PAD, ROW } from "../constants.ts"
 import type { Edge } from "../layout/state.ts"
@@ -7,9 +7,9 @@ import type { Edge } from "../layout/state.ts"
 export const X = (l: number) => PAD + l * LANE + LANE / 2
 export const Y = (r: number) => r * ROW + ROW / 2
 
-/** Tracé SVG d'une arête. `yEnd` : hauteur totale du graphe, utilisée à la place de `Y(e.r2)`
-    pour les arêtes encore en attente (`e.r2 === undefined`) — l'overlay les prolonge jusqu'en
-    bas plutôt que de ne rien dessiner (cf. render/overlay.ts). */
+/** SVG path of an edge. `yEnd`: total height of the graph, used instead of `Y(e.r2)`
+    for edges still pending (`e.r2 === undefined`) — the overlay extends them all the way
+    down rather than drawing nothing (cf. render/overlay.ts). */
 export function edgePath(e: Edge, yEnd?: number) {
   const x1 = X(e.l1)
   const y1 = Y(e.r1)

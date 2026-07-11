@@ -1,6 +1,6 @@
-/* Menu contextuel d'une branche (AUDIT.md §7, phase 5) : une des cinq préoccupations de
-   l'ancien refs-sidebar.tsx monolithique. Le menu de stash vit désormais dans
-   features/stash/stash-section.tsx (extraction en feature verticale). */
+/* Context menu for a branch (AUDIT.md §7, phase 5): one of the five concerns of the
+   old monolithic refs-sidebar.tsx. The stash menu now lives in
+   features/stash/stash-section.tsx (extracted into a vertical feature). */
 
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -28,11 +28,11 @@ const flowType = (name: string, prefixes: FlowPrefixes | null) =>
     (t) => prefixes[t] && name.startsWith(prefixes[t]!)
   )
 
-/* Le menu ne s'ouvre que sur une branche locale : une distante ne se merge ni ne se pousse,
-   et un tag n'a rien de tout ça. `flow finish` connaît le nom complet, préfixe compris. */
+/* The menu only opens on a local branch: a remote is neither merged nor pushed,
+   and a tag has none of that. `flow finish` knows the full name, prefix included. */
 export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
   const flow = flowType(r.name, ctx.flow)
-  /* les commandes affichées répliquent BRANCH_OPS côté main : `origin/master` → remote + branche */
+  /* the displayed commands replicate BRANCH_OPS on the main side: `origin/master` → remote + branch */
   const [remote, ...up] = (r.upstream ?? "").split("/")
   const upBranch = up.join("/")
   return (
@@ -76,7 +76,7 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
       )}
 
       <ContextMenuSeparator />
-      {/* git refuse `-d` sur la branche sortie, mais un item qui ne peut qu'échouer n'a rien à faire là */}
+      {/* git refuses `-d` on the checked-out branch, but an item that can only fail has no place here */}
       <ContextMenuItem variant="destructive" disabled={r.head} onClick={() => ctx.onBranch("delete", r.name)}>
         <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
         <MenuItemWithCmd label={messages.refs.deleteBranch} cmd={`git branch -d ${r.name}`} />

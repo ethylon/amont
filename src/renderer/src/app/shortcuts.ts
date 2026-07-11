@@ -1,25 +1,25 @@
-/* Registre de raccourcis clavier (AUDIT.md §5, item 9) : un point de passage unique remplace
-   les listeners `document.addEventListener("keydown", …)` indépendants qui coexistaient (App
-   F5, RepoView Ctrl+B/Escape, CommitSearch Ctrl+F/F3, GitConsole Escape) et ne se coordonnaient
-   entre eux que par l'ordre de montage — deux listeners indépendants sur `document` pour la
-   même touche s'exécutaient tous les deux, sans qu'aucun ne le décide explicitement.
+/* Keyboard shortcut registry (AUDIT.md §5, item 9): a single choke point replaces the
+   independent `document.addEventListener("keydown", …)` listeners that used to coexist (App
+   F5, RepoView Ctrl+B/Escape, CommitSearch Ctrl+F/F3, GitConsole Escape) and only coordinated
+   with each other through mount order — two independent listeners on `document` for the
+   same key would both fire, with neither explicitly deciding it should.
 
-   Chaque consommateur reste scope-aware : son handler décide lui-même s'il s'applique (onglet
-   actif, popover ouvert…) et renvoie `true` s'il a traité l'événement — ce qui arrête la
-   descente vers les priorités plus basses. Escape a deux prétendants concurrents : la console
-   git (overlay flottant, priorité haute) et la fermeture du diff (priorité par défaut). Le
-   champ de recherche et le filtre du sidebar gardent leur propre gestion d'Escape en local, au
-   plus près de l'input (stopPropagation avant même d'atteindre ce registre) : c'est déjà la
-   scope la plus étroite qui puisse exister, un détour par ce module n'y ajouterait rien. */
+   Each consumer stays scope-aware: its handler decides for itself whether it applies (active
+   tab, popover open…) and returns `true` if it handled the event — which stops the descent
+   to lower priorities. Escape has two competing claimants: the git console (floating overlay,
+   high priority) and closing the diff (default priority). The search field and the sidebar
+   filter keep their own local Escape handling, as close to the input as possible
+   (stopPropagation before it even reaches this registry): that's already the narrowest scope
+   there could be, routing through this module wouldn't add anything. */
 
 import { useEffect } from "react"
 
 export const PRIORITY = {
-  /** popovers/dialogues flottants au-dessus du contenu (console git) */
+  /** floating popovers/dialogs above the content (git console) */
   OVERLAY: 100,
-  /** raccourcis d'onglet ordinaires (Ctrl+B, Ctrl+F, F3, Escape ferme le diff) */
+  /** ordinary tab shortcuts (Ctrl+B, Ctrl+F, F3, Escape closes the diff) */
   DEFAULT: 50,
-  /** raccourcis globaux à l'application (F5) */
+  /** application-wide global shortcuts (F5) */
   GLOBAL: 10,
 } as const
 
@@ -40,16 +40,16 @@ function dispatch(ev: KeyboardEvent): void {
 
 let installed = false
 
-/** À appeler une fois au démarrage (main.tsx) : un seul listener `document`, quel que soit le
-    nombre d'onglets/composants qui enregistrent des raccourcis ensuite. */
+/** Call once at startup (main.tsx): a single `document` listener, regardless of the
+    number of tabs/components that register shortcuts afterward. */
 export function installShortcuts(): void {
   if (installed) return
   installed = true
   document.addEventListener("keydown", dispatch)
 }
 
-/** Enregistre `handler` tant que `active` est vrai (onglet au premier plan, popover ouvert…).
-    Priorité haute = testé en premier ; `handler` renvoie `true` pour arrêter la descente. */
+/** Registers `handler` as long as `active` is true (tab in the foreground, popover open…).
+    High priority = tested first; `handler` returns `true` to stop the descent. */
 export function useShortcut(active: boolean, priority: number, handler: ShortcutHandler): void {
   useEffect(() => {
     if (!active) return

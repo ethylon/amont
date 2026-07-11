@@ -1,60 +1,60 @@
-/* Migré depuis scripts/check-refs.ts (AUDIT.md §10, item tests) : mêmes assertions, un `it()`
-   par bloc plutôt qu'un script qui s'arrête au premier échec. Éclaté depuis
-   commit-message.test.ts (AUDIT.md §7, phase 5) : ce fichier ne couvre que commit-parse.ts,
-   voir markdown.test.ts pour parseMarkdown. */
+/* Migrated from scripts/check-refs.ts (AUDIT.md §10, tests item): same assertions, one `it()`
+   per block rather than a script that stops at the first failure. Split off from
+   commit-message.test.ts (AUDIT.md §7, phase 5): this file only covers commit-parse.ts,
+   see markdown.test.ts for parseMarkdown. */
 import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import { mergeSource, parseBody, parseMerge, parseRefs, parseSubject } from "./commit-parse.ts"
 
-/** "master*" = remote fusionné dans la branche locale */
+/** "master*" = remote merged into the local branch */
 const fmt = (raw: string) => parseRefs(raw).map((r) => r.name + (r.remotes.length ? "*" : ""))
 const eq = (raw: string, expected: string[]) => assert.deepEqual(fmt(raw), expected, raw)
 
 describe("parseRefs", () => {
-  it("fusionne local + son remote en un seul chip ; origin/HEAD disparaît", () => {
+  it("merges local + its remote into a single chip; origin/HEAD disappears", () => {
     eq("HEAD -> refs/heads/master, refs/remotes/origin/master, refs/remotes/origin/HEAD", ["master*"])
   })
 
-  it("rend un remote sans branche locale en chip à part entière, nom complet", () => {
+  it("renders a remote with no local branch as a standalone chip, full name", () => {
     eq("refs/remotes/origin/topic", ["origin/topic"])
   })
 
-  it("distingue une locale nommée comme un remote de ce remote (deux chips homonymes)", () => {
-    /* Une locale littéralement nommée "origin/topic" n'est pas le remote "topic" de "origin" :
-       deux refs, deux chips, homonymes à l'écran — l'ambiguïté est celle de git. */
+  it("distinguishes a local named like a remote from that remote (two same-named chips)", () => {
+    /* A local literally named "origin/topic" is not the "topic" remote of "origin":
+       two refs, two chips, same-named on screen — the ambiguity is git's own. */
     eq("refs/heads/origin/topic, refs/remotes/origin/topic", ["origin/topic", "origin/topic"])
   })
 
-  it("aligne plusieurs remotes sur la même locale", () => {
+  it("aligns several remotes onto the same local", () => {
     eq("refs/heads/main, refs/remotes/origin/main, refs/remotes/upstream/main", ["main*"])
   })
 
-  it("ne fusionne pas une locale et le remote d'une branche absente du commit", () => {
+  it("does not merge a local and the remote of a branch absent from the commit", () => {
     eq("refs/heads/develop, refs/remotes/origin/master", ["develop", "origin/master"])
   })
 
-  it("range HEAD, branche, remote, tag quel que soit l'ordre de git", () => {
+  it("sorts HEAD, branch, remote, tag regardless of git's order", () => {
     eq("tag: refs/tags/v1, refs/remotes/origin/topic, refs/heads/develop", ["develop", "origin/topic", "v1"])
   })
 
-  it("garde l'ordre de git à teinte égale (rang stable)", () => {
+  it("keeps git's order at equal rank (stable sort)", () => {
     eq("tag: refs/tags/b, tag: refs/tags/a", ["b", "a"])
   })
 
-  it("affiche HEAD détachée", () => {
+  it("shows detached HEAD", () => {
     eq("HEAD, refs/heads/master", ["HEAD", "master"])
   })
 
-  it("reconnaît le remote au préfixe, pas au nombre de segments (branche à slashes)", () => {
+  it("recognizes the remote by prefix, not segment count (branch with slashes)", () => {
     eq("refs/heads/feature/ui/graph, refs/remotes/origin/feature/ui/graph", ["feature/ui/graph*"])
   })
 
-  it("rend un tableau vide pour un commit sans ref", () => {
+  it("renders an empty array for a commit with no ref", () => {
     eq("", [])
   })
 
-  it("ne déclenche le repli +N que sur débordement réel (invariant du budget)", () => {
+  it("only triggers the +N fallback on actual overflow (budget invariant)", () => {
     const BUDGET = 2
     for (const raw of [
       "",
@@ -65,8 +65,8 @@ describe("parseRefs", () => {
       const refs = parseRefs(raw)
       const shown = refs.slice(0, BUDGET)
       const hidden = refs.slice(BUDGET)
-      assert.ok(!hidden.length || shown.length, `"+N" orphelin : ${raw}`)
-      assert.ok(!hidden.length || refs.length > BUDGET, `repli sans débordement : ${raw}`)
+      assert.ok(!hidden.length || shown.length, `"+N" orphaned: ${raw}`)
+      assert.ok(!hidden.length || refs.length > BUDGET, `fallback without overflow: ${raw}`)
     }
   })
 })
@@ -77,39 +77,39 @@ describe("parseBody", () => {
     return [b.text, b.coAuthors.map((a) => `${a.name}|${a.email}`)] as const
   }
 
-  it("rend le corps tel quel sans trailer", () => {
+  it("renders the body as-is with no trailer", () => {
     assert.deepEqual(body("Corps.\n"), ["Corps.", []])
     assert.deepEqual(body(""), ["", []])
   })
 
-  it("extrait les trailers de co-auteur, insensible à la casse du champ", () => {
+  it("extracts co-author trailers, case-insensitive on the field name", () => {
     assert.deepEqual(
       body("Corps.\n\nCo-authored-by: Ada Lovelace <ada@x.io>\nCo-Authored-By: Alan <alan@x.io>\n"),
       ["Corps.", ["Ada Lovelace|ada@x.io", "Alan|alan@x.io"]]
     )
   })
 
-  it("accepte un trailer sans corps, et un trailer sans e-mail", () => {
+  it("accepts a trailer with no body, and a trailer with no email", () => {
     assert.deepEqual(body("Co-authored-by: Ada <ada@x.io>"), ["", ["Ada|ada@x.io"]])
     assert.deepEqual(body("Co-authored-by: Ada"), ["", ["Ada|"]])
   })
 
-  it("rend un trailer cassé au corps plutôt qu'un co-auteur anonyme", () => {
+  it("renders a malformed trailer back into the body rather than an anonymous co-author", () => {
     assert.deepEqual(body("Co-authored-by:"), ["Co-authored-by:", []])
   })
 
-  it("ne prend pas une mention en plein texte pour un trailer", () => {
+  it("does not mistake a plain-text mention for a trailer", () => {
     assert.deepEqual(body("Voir le Co-authored-by: du commit d'avant."), ["Voir le Co-authored-by: du commit d'avant.", []])
   })
 })
 
 describe("parseMerge / mergeSource", () => {
-  it("extrait source et cible d'un merge de branche", () => {
+  it("extracts source and target of a branch merge", () => {
     assert.deepEqual(parseMerge("Merge branch 'feature/x' into develop"), { from: "feature/x", to: "develop", noise: false })
     assert.deepEqual(parseMerge("Merge branch 'hotfix/1.2.1'"), { from: "hotfix/1.2.1", to: null, noise: false })
   })
 
-  it("signale les merges de synchro (remote-tracking, 'x' of <url>) comme bruit", () => {
+  it("flags sync merges (remote-tracking, 'x' of <url>) as noise", () => {
     assert.deepEqual(
       parseMerge("Merge remote-tracking branch 'origin/develop' into develop"),
       { from: "origin/develop", to: "develop", noise: true }
@@ -120,15 +120,15 @@ describe("parseMerge / mergeSource", () => {
     )
   })
 
-  it("reconnaît un merge de tag", () => {
+  it("recognizes a tag merge", () => {
     assert.deepEqual(parseMerge("Merge tag 'v1.2.0' into develop"), { from: "v1.2.0", to: "develop", tag: true, noise: false })
   })
 
-  it("rend null pour un sujet qui n'est pas un merge", () => {
+  it("renders null for a subject that isn't a merge", () => {
     assert.equal(parseMerge("feat: pas un merge"), null)
   })
 
-  it("extrait la branche source d'un merge de PR GitHub (le préfixe owner/ tombe)", () => {
+  it("extracts the source branch of a GitHub PR merge (the owner/ prefix is dropped)", () => {
     assert.equal(mergeSource("Merge pull request #12 from owner/feature/x"), "feature/x")
     assert.equal(mergeSource("Merge branch 'release/2.0'"), "release/2.0")
     assert.equal(mergeSource("chore: rien"), null)
@@ -136,7 +136,7 @@ describe("parseMerge / mergeSource", () => {
 })
 
 describe("parseSubject", () => {
-  it("reconnaît le badge de type, les alias de la table et Conventional Commits", () => {
+  it("recognizes the type badge, the alias table, and Conventional Commits", () => {
     assert.deepEqual(parseSubject("[FEATURE] ajout du graphe"), { type: "feat", label: "feat", text: "ajout du graphe" })
     assert.deepEqual(parseSubject("[HOTFIX] vite"), { type: "hotfix", label: "hotfix", text: "vite" })
     assert.deepEqual(parseSubject("[Machin] chose"), { type: "other", label: "machin", text: "chose" })
@@ -144,7 +144,7 @@ describe("parseSubject", () => {
     assert.deepEqual(parseSubject("fix: débordement"), { type: "bugfix", label: "bugfix", text: "débordement" })
   })
 
-  it("laisse un \"truc: machin\" quelconque en texte", () => {
+  it("leaves any random \"truc: machin\" as plain text", () => {
     assert.deepEqual(parseSubject("truc: machin"), { type: null, label: null, text: "truc: machin" })
   })
 })

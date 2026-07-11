@@ -1,5 +1,5 @@
-/* Parsing des messages de commit et des refs `%D` (AUDIT.md §7, phase 5 — anciennement
-   lib/commit-message.ts, éclaté en trois métiers : ce module, markdown.ts et gitflow.ts). */
+/* Parsing of commit messages and `%D` refs (AUDIT.md §7, phase 5 — formerly
+   lib/commit-message.ts, split into three concerns: this module, markdown.ts and gitflow.ts). */
 
 import type { BadgeColor } from "@/components/ui/badge"
 
@@ -16,8 +16,8 @@ Object.entries({
   wip: ["WIP"],
 }).forEach(([type, aliases]) => aliases.forEach((a) => (TYPE_OF[a] = type)))
 
-/* Conventional Commits : seuls les types connus donnent un badge,
-   un "truc: machin" quelconque reste du texte. */
+/* Conventional Commits: only known types get a badge,
+   any random "thing: stuff" stays plain text. */
 const CONVENTIONAL: Record<string, string> = {
   feat: "feat", fix: "bugfix", hotfix: "hotfix", perf: "perf",
   refactor: "refactor", chore: "chore", docs: "docs", test: "test",
@@ -27,7 +27,7 @@ const CONVENTIONAL: Record<string, string> = {
 
 const TYPE_COLOR: Record<string, BadgeColor> = {
   feat: "success",
-  feature: "success", // préfixe de branche `feature/…`, cf. gitflow.ts
+  feature: "success", // `feature/…` branch prefix, see gitflow.ts
   hotfix: "danger",
   revert: "danger",
   bugfix: "warning",
@@ -36,13 +36,13 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   beta: "primary",
   test: "info",
   refactor: "refactor",
-  /* chore/docs/style/ci/build restent neutres : du ménage, pas une intention à signaler */
+  /* chore/docs/style/ci/build stay neutral: housekeeping, not an intent worth flagging */
 }
 
 export const typeColor = (type: string): BadgeColor => TYPE_COLOR[type] ?? "neutral"
 
-/* Sauvegardes automatiques d'un outil tiers : présentes dans l'historique, jamais une intention.
-   Elles restent lisibles, mais cessent de disputer l'attention au reste de la colonne. */
+/* Automatic backups from a third-party tool: present in the history, never an intent.
+   They stay readable, but stop competing for attention with the rest of the column. */
 export const BACKUP_WIP = /^\s*\[(?:AUTO-)?BACKUP\]\s*WIP\b/i
 
 export type ParsedSubject = { type: string | null; label: string | null; text: string }
@@ -61,24 +61,24 @@ export function parseSubject(s: string): ParsedSubject {
   return { type: null, label: null, text: s }
 }
 
-/* --- Refs (`%D` avec --decorate=full) --- */
+/* --- Refs (`%D` with --decorate=full) --- */
 
 export type RefKind = "head" | "branch" | "remote" | "tag"
 
 export type RefChip = {
-  /** nom court : "master", "origin/topic", "helpers/v5.11.0" */
+  /** short name: "master", "origin/topic", "helpers/v5.11.0" */
   name: string
   kind: RefKind
-  /** remotes posés sur le même commit que cette branche locale */
+  /** remotes sitting on the same commit as this local branch */
   remotes: string[]
 }
 
-/* Un nom de branche porte la couleur de sa branche : le chip et le trait du graphe désignent la
-   même chose, autant qu'ils le disent pareil. Le tag n'est pas une branche — il garde sa teinte. */
+/* A branch name carries the color of its branch: the chip and the graph line refer to the
+   same thing, so they should say so alike. A tag isn't a branch — it keeps its own color. */
 export const refColor = (kind: RefKind): BadgeColor => (kind === "tag" ? "warning" : "lane")
 
-/* Une branche est un point de navigation, un tag un marqueur : il passe en dernier.
-   Ce rang décide seul de qui survit au budget de chips de la ligne. */
+/* A branch is a navigation point, a tag a marker: it comes last.
+   This rank alone decides who survives the row's chip budget. */
 const RANK: Record<RefKind, number> = { head: 0, branch: 1, remote: 2, tag: 3 }
 
 export function parseRefs(raw: string): RefChip[] {
@@ -95,7 +95,7 @@ export function parseRefs(raw: string): RefChip[] {
   for (const entry of raw.split(", ").filter(Boolean)) {
     const head = entry.startsWith("HEAD -> ")
     const ref = head ? entry.slice(8) : entry
-    if (ref === "HEAD") add("HEAD", "head") // détaché
+    if (ref === "HEAD") add("HEAD", "head") // detached
     else if (ref.startsWith("tag: refs/tags/")) add(ref.slice(15), "tag")
     else if (ref.startsWith("refs/heads/")) {
       const name = ref.slice(11)
@@ -103,8 +103,8 @@ export function parseRefs(raw: string): RefChip[] {
     } else if (ref.startsWith("refs/remotes/")) remotes.push(ref.slice(13))
   }
 
-  /* `origin/HEAD` est un alias symbolique, et `origin/master` collé à `master` un doublon :
-     aucun des deux ne mérite un chip. La branche locale porte alors un point de synchro. */
+  /* `origin/HEAD` is a symbolic alias, and `origin/master` glued to `master` is a duplicate:
+     neither deserves a chip. The local branch then carries a sync dot instead. */
   for (const r of remotes) {
     const short = r.slice(r.indexOf("/") + 1)
     if (short === "HEAD") continue
@@ -113,16 +113,17 @@ export function parseRefs(raw: string): RefChip[] {
     else add(r, "remote")
   }
 
-  return chips.sort((a, b) => RANK[a.kind] - RANK[b.kind]) // sort stable : ordre git conservé à rang égal
+  return chips.sort((a, b) => RANK[a.kind] - RANK[b.kind]) // stable sort: git order preserved at equal rank
 }
 
-/* --- Corps du message (`%b`) --- */
+/* --- Message body (`%b`) --- */
 
 export type CoAuthor = { name: string; email: string }
 export type CommitBody = { text: string; coAuthors: CoAuthor[] }
 
-/* Trailer git : `Co-authored-by: Nom <mail>`. Sorti du corps — sous cette forme il ne dit rien
-   au lecteur — pour être rendu à part. Un trailer sans nom est laissé au texte : il est cassé. */
+/* Git trailer: `Co-authored-by: Name <mail>`. Pulled out of the body — in this raw form it says
+   nothing to the reader — to be rendered separately. A trailer without a name is left in the
+   text: it's malformed. */
 const CO_AUTHORED = /^co-authored-by:\s*(.*?)\s*(?:<([^>]*)>)?\s*$/i
 
 export function parseBody(raw: string): CommitBody {
@@ -140,8 +141,8 @@ export function parseBody(raw: string): CommitBody {
 
 export type ParsedMerge = { from: string; to: string | null; tag?: boolean; noise: boolean }
 
-/* Merges gitflow : "Merge branch 'X' into Y" → chips X → Y.
-   Un merge de synchro (remote-tracking ou 'X' of <url> vers la même branche) est du bruit. */
+/* Gitflow merges: "Merge branch 'X' into Y" → chips X → Y.
+   A sync merge (remote-tracking, or 'X' of <url> into the same branch) is noise. */
 export function parseMerge(s: string): ParsedMerge | null {
   let m = /^Merge (remote-tracking )?branch '([^']+)'( of \S+)?(?: into '?(.+?)'?)?$/.exec(s)
   if (m) {
@@ -155,9 +156,9 @@ export function parseMerge(s: string): ParsedMerge | null {
   return null
 }
 
-/* Nom de la branche source d'un merge, tous formats : gitflow/tag (via parseMerge) et PR GitHub
-   « Merge pull request #N from owner/branche ». Sert à nommer une branche mergée puis supprimée,
-   dont il ne reste plus aucune ref locale. Le préfixe owner/ (fork ou dépôt) est retiré. */
+/* Name of a merge's source branch, all formats: gitflow/tag (via parseMerge) and GitHub PR
+   "Merge pull request #N from owner/branch". Used to name a branch that was merged then deleted,
+   with no local ref left for it. The owner/ prefix (fork or repo) is stripped. */
 export function mergeSource(s: string): string | null {
   const m = parseMerge(s)
   if (m) return m.from

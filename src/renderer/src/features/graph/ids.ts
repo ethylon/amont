@@ -1,20 +1,20 @@
-/* Interning des SHA (fix B1, AUDIT.md §2/§6) : le main transporte désormais des SHA complets
-   (40 caractères) de bout en bout — plus de `parseInt(h.slice(0, 8), 16)` dont le paradoxe des
-   anniversaires garantissait statistiquement des collisions passé quelques dizaines de milliers
-   de commits (~25% à 50k, ~69% à 100k).
+/* SHA interning (fix B1, AUDIT.md §2/§6): the main process now carries full SHAs
+   (40 characters) end to end — no more `parseInt(h.slice(0, 8), 16)`, whose birthday
+   paradox statistically guaranteed collisions past a few tens of thousands
+   of commits (~25% at 50k, ~69% at 100k).
 
-   Pour garder la compacité mémoire de l'ancien `hkey` (un entier plutôt qu'un string de 40
-   caractères dans chaque Map/tableau de layout), ce module interne chaque SHA en un id entier
-   séquentiel à l'ingestion — bijectif par construction (une Map, pas un hash tronqué). Toutes les
-   fonctions PURES de layout/ prennent et rendent des `HashId`, jamais des strings de hash bruts ;
-   seul l'ingestion (layout/lanes.ts) et l'affichage (React, cf. `shortHash`) traversent la
-   frontière string <-> id. */
+   To keep the memory compactness of the old `hkey` (an integer rather than a 40-character
+   string in every layout Map/array), this module interns each SHA into a sequential
+   integer id at ingestion time — bijective by construction (a Map, not a truncated hash). All
+   PURE functions in layout/ take and return `HashId`s, never raw hash strings;
+   only ingestion (layout/lanes.ts) and display (React, cf. `shortHash`) cross the
+   string <-> id boundary. */
 
 export type HashId = number
 
 export interface IdTable {
   readonly toId: Map<string, HashId>
-  /** id -> SHA complet, dans l'ordre d'interning */
+  /** id -> full SHA, in interning order */
   readonly toHash: string[]
 }
 
@@ -22,7 +22,7 @@ export function createIdTable(): IdTable {
   return { toId: new Map(), toHash: [] }
 }
 
-/** Rend l'id du SHA, en l'internant s'il est nouveau. */
+/** Returns the SHA's id, interning it if it's new. */
 export function internId(t: IdTable, hash: string): HashId {
   let id = t.toId.get(hash)
   if (id === undefined) {
@@ -33,7 +33,7 @@ export function internId(t: IdTable, hash: string): HashId {
   return id
 }
 
-/** Id d'un SHA déjà interné, `undefined` s'il est inconnu — ne crée jamais d'entrée. */
+/** Id of an already-interned SHA, `undefined` if unknown — never creates an entry. */
 export function idOf(t: IdTable, hash: string): HashId | undefined {
   return t.toId.get(hash)
 }
@@ -42,7 +42,7 @@ export function hashOfId(t: IdTable, id: HashId): string {
   return t.toHash[id]
 }
 
-/** Troncature d'affichage : la seule qui reste après le fix B1. L'identité du graphe (rowOf,
-    pending, matches, jumpTo) voyage toujours en SHA complet ou en `HashId` — jamais sous cette
-    forme raccourcie, purement cosmétique. */
+/** Display truncation: the only one left after fix B1. The graph's identity (rowOf,
+    pending, matches, jumpTo) always travels as a full SHA or `HashId` — never in this
+    shortened, purely cosmetic form. */
 export const shortHash = (hash: string): string => hash.slice(0, 8)
