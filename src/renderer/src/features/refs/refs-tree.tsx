@@ -53,15 +53,13 @@ const DOT: Partial<Record<BadgeColor, string>> = {
 export const buildTree = (refs: GitRef[]) => buildPathTree(refs, (r) => r.name)
 
 /** Under the root, everything is collapsed on first render except the path leading to HEAD. */
-const holdsHead = (n: PathTree<GitRef>): boolean =>
-  n.items.some((r) => r.head) || [...n.dirs.values()].some(holdsHead)
+const holdsHead = (n: PathTree<GitRef>): boolean => n.items.some((r) => r.head) || [...n.dirs.values()].some(holdsHead)
 
 /** a fold hiding a focused ref must open: focus set from the graph should be visible */
 const holdsFocused = (n: PathTree<GitRef>, keys: Set<string>): boolean =>
   n.items.some((r) => keys.has(refKey(r))) || [...n.dirs.values()].some((d) => holdsFocused(d, keys))
 
-const track = (r: GitRef) =>
-  [r.ahead && `↑${r.ahead}`, r.behind && `↓${r.behind}`].filter(Boolean).join(" ")
+const track = (r: GitRef) => [r.ahead && `↑${r.ahead}`, r.behind && `↓${r.behind}`].filter(Boolean).join(" ")
 
 /** Replaces the remount-by-key pattern (3 variants in the old monolithic refs-sidebar.tsx) with a
     controlled Collapsible: the open state is React state, reset to `defaultOpen` every
@@ -75,8 +73,20 @@ export function useResettableOpen(defaultOpen: boolean, ...resetDeps: unknown[])
   return { open, onOpenChange: setOpen }
 }
 
-function RefDir({ label, node, icon, ctx, openDirs, forceOpen }: {
-  label: string; node: PathTree<GitRef>; icon: IconSvgElement; ctx: Ctx; openDirs: boolean; forceOpen: boolean
+function RefDir({
+  label,
+  node,
+  icon,
+  ctx,
+  openDirs,
+  forceOpen,
+}: {
+  label: string
+  node: PathTree<GitRef>
+  icon: IconSvgElement
+  ctx: Ctx
+  openDirs: boolean
+  forceOpen: boolean
 }) {
   const dot = DOT[typeColor(label.toLowerCase())]
   const focused = ctx.focusedKeys.size > 0 && holdsFocused(node, ctx.focusedKeys)
@@ -182,8 +192,18 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
    `forceOpen`: everything open, at every level — a filter result hidden in a fold
    would be invisible. A folder holding a focused ref opens through the same mechanism,
    targeted to its single path (see `useResettableOpen` in RefDir). */
-export function Tree({ node, icon, ctx, openDirs = false, forceOpen = false }: {
-  node: PathTree<GitRef>; icon: IconSvgElement; ctx: Ctx; openDirs?: boolean; forceOpen?: boolean
+export function Tree({
+  node,
+  icon,
+  ctx,
+  openDirs = false,
+  forceOpen = false,
+}: {
+  node: PathTree<GitRef>
+  icon: IconSvgElement
+  ctx: Ctx
+  openDirs?: boolean
+  forceOpen?: boolean
 }) {
   const dirs = [...node.dirs.keys()].sort((a, b) => a.localeCompare(b))
   const leaves = [...node.items].sort(
@@ -198,7 +218,15 @@ export function Tree({ node, icon, ctx, openDirs = false, forceOpen = false }: {
     <ul role="list" className="flex flex-col">
       {pinned.map(row)}
       {dirs.map((k) => (
-        <RefDir key={k} label={k} node={node.dirs.get(k)!} icon={icon} ctx={ctx} openDirs={openDirs} forceOpen={forceOpen} />
+        <RefDir
+          key={k}
+          label={k}
+          node={node.dirs.get(k)!}
+          icon={icon}
+          ctx={ctx}
+          openDirs={openDirs}
+          forceOpen={forceOpen}
+        />
       ))}
       {leaves.slice(pinned.length).map(row)}
     </ul>

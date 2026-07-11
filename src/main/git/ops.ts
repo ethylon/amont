@@ -35,13 +35,15 @@ const groupTrace = (r: RepoHandle, text: string): void => r.events.trace({ kind:
 /* Tips of all refs, deduplicated and sorted: two equal snapshots = nothing moved.
    Much cheaper than the full `rev-list --all --count` we used to pay for twice per fetch. */
 const refTips = (r: RepoHandle): Promise<string[]> =>
-  r.git(["for-each-ref", "--format=%(objectname)", "refs/heads", "refs/remotes", "refs/tags"])
+  r
+    .git(["for-each-ref", "--format=%(objectname)", "refs/heads", "refs/remotes", "refs/tags"])
     .then((o) => [...new Set(o.split("\n").filter(Boolean))].sort())
 
 /* Commits reachable from the current refs but not from the old tips: the "new" ones from the
    fetch. More accurate than the difference of two counts, which a `--prune` could make lie. */
 const countNew = (r: RepoHandle, before: string[]): Promise<number> =>
-  r.git(["rev-list", "--count", ...ALL_REFS, "--stdin"], { input: before.map((h) => `^${h}\n`).join("") })
+  r
+    .git(["rev-list", "--count", ...ALL_REFS, "--stdin"], { input: before.map((h) => `^${h}\n`).join("") })
     .then((o) => parseInt(o, 10))
 
 function errorPayload(e: unknown): Pick<Extract<OpEvent, { state: "error" }>, "code" | "detail"> {
@@ -82,11 +84,21 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<
 
 /* --- Branch actions (context menu) ---
    No event: the renderer triggered the action, so it's the one that reloads and displays the error. */
-const BRANCH_GROUP: Record<BranchAct, string> = { merge: "Merge", delete: "Delete", pull: "Pull", push: "Push", finish: "Flow finish" }
+const BRANCH_GROUP: Record<BranchAct, string> = {
+  merge: "Merge",
+  delete: "Delete",
+  pull: "Pull",
+  push: "Push",
+  finish: "Flow finish",
+}
 
 /** The remote a branch tracks, as declared by its config. */
 async function upstreamOf(r: RepoHandle, name: string): Promise<{ remote: string; merge: string }> {
-  const read = (key: string) => r.git(["config", "--get", `branch.${name}.${key}`]).then((o) => o.trim(), () => "")
+  const read = (key: string) =>
+    r.git(["config", "--get", `branch.${name}.${key}`]).then(
+      (o) => o.trim(),
+      () => ""
+    )
   const [remote, merge] = await Promise.all([read("remote"), read("merge")])
   if (!remote || !merge) throw new AppError("NO_UPSTREAM", name)
   return { remote, merge }
@@ -104,9 +116,12 @@ const BRANCH_OPS: Record<BranchAct, (r: RepoHandle, name: string) => Promise<voi
   async pull(r, name) {
     const { remote, merge } = await upstreamOf(r, name)
     const current = (await r.git(["rev-parse", "--abbrev-ref", "HEAD"])).trim()
-    await r.git(name === current
-      ? ["pull", "--ff-only", "--progress"]
-      : ["fetch", remote, `${merge}:refs/heads/${name}`, "--progress"], { timeout: OP_TIMEOUT })
+    await r.git(
+      name === current
+        ? ["pull", "--ff-only", "--progress"]
+        : ["fetch", remote, `${merge}:refs/heads/${name}`, "--progress"],
+      { timeout: OP_TIMEOUT }
+    )
   },
 
   /* The refspec names both sides: `git push <remote> <branch>` would push to a branch
@@ -152,9 +167,10 @@ export async function checkout(r: RepoHandle, name: string): Promise<void> {
     } finally {
       mute(r) // HEAD moved: the renderer reloads on its own, the watcher has nothing to add
     }
-    if (dirty) await r.git(["stash", "pop"]).catch(() => {
-      throw new AppError("STASH_POP_CONFLICT", name)
-    })
+    if (dirty)
+      await r.git(["stash", "pop"]).catch(() => {
+        throw new AppError("STASH_POP_CONFLICT", name)
+      })
   })
 }
 
@@ -173,8 +189,10 @@ export async function unstage(r: RepoHandle, paths: string[]): Promise<void> {
   await withLock(r, "unstage", async () => {
     /* before the first commit there's no HEAD, so nothing to restore from:
        removing the path from the index leaves it untracked, which is the expected result. */
-    const cmd = await r.git(["rev-parse", "--verify", "-q", "HEAD"])
-      .then(() => ["restore", "--staged"], () => ["rm", "--cached", "-q"])
+    const cmd = await r.git(["rev-parse", "--verify", "-q", "HEAD"]).then(
+      () => ["restore", "--staged"],
+      () => ["rm", "--cached", "-q"]
+    )
     await r.git([...cmd, ...PATHSPEC], { input: paths.join("\0") })
   })
 }
@@ -194,7 +212,12 @@ export async function commit(r: RepoHandle, message: string, amend: boolean): Pr
    drop, the renderer reloads the list after each action. push stashes the entire tree,
    untracked files included, with the given message. */
 const STASH_NAME = /^stash@\{\d+\}$/
-const STASH_GROUP: Record<StashAct, string> = { push: "Stash", apply: "Stash apply", pop: "Stash pop", drop: "Stash drop" }
+const STASH_GROUP: Record<StashAct, string> = {
+  push: "Stash",
+  apply: "Stash apply",
+  pop: "Stash pop",
+  drop: "Stash drop",
+}
 
 export async function stashAction(r: RepoHandle, action: StashAct, arg?: string): Promise<void> {
   if (!Object.hasOwn(STASH_GROUP, action)) throw new AppError("BAD_ARG", "action")

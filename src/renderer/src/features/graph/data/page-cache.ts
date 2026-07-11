@@ -100,7 +100,16 @@ export function createPageCache(resident: number) {
   }
 
   return {
-    pageOfRow, touch, commitAt, isResident, appendPage, refill, pageRowStart, nextPageRowStart, evict, reset,
+    pageOfRow,
+    touch,
+    commitAt,
+    isResident,
+    appendPage,
+    refill,
+    pageRowStart,
+    nextPageRowStart,
+    evict,
+    reset,
     has: (pi: number) => pages.has(pi),
     get size() {
       return pages.size

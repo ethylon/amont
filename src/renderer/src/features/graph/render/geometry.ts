@@ -22,7 +22,6 @@ export function edgePath(e: Edge, yEnd?: number) {
   let d = `M${x1} ${y1}`
   d += x1 === xt ? `V${y1 + ROW}` : `C${x1} ${y1 + ROW * 0.9} ${xt} ${y1 + ROW * 0.1} ${xt} ${y1 + ROW}`
   d += `V${e.r2 !== undefined ? y2 - ROW : y2}`
-  if (e.r2 !== undefined)
-    d += xt === x2 ? `V${y2}` : `C${xt} ${y2 - ROW * 0.1} ${x2} ${y2 - ROW * 0.9} ${x2} ${y2}`
+  if (e.r2 !== undefined) d += xt === x2 ? `V${y2}` : `C${xt} ${y2 - ROW * 0.1} ${x2} ${y2 - ROW * 0.9} ${x2} ${y2}`
   return d
 }

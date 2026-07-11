@@ -27,13 +27,10 @@ export function setAvatarsEnabled(enabled: boolean): void {
 }
 
 export function useAvatarsEnabled(): boolean {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb)
-      return () => void listeners.delete(cb)
-    },
-    avatarsEnabled
-  )
+  return useSyncExternalStore((cb) => {
+    listeners.add(cb)
+    return () => void listeners.delete(cb)
+  }, avatarsEnabled)
 }
 
 /* Otherwise Gravatar, indexed by the sha256 of the normalized e-mail: the only source that needs
@@ -59,4 +56,9 @@ const hue = (s: string) => {
 export const tint = (name: string, email: string) => laneColor(hue(email || name))
 
 export const initials = (name: string) =>
-  name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("")
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("")

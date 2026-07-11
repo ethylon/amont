@@ -4,15 +4,43 @@
    compiled identically on the main and preload sides. */
 
 export type {
-  BootState, BranchAct, ChangeEvent, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes,
-  GitRef, OpEvent, OpName, OpenResult, Repo, RepoRef, Stash, StashAct, Status, TraceLine, Worktree,
+  BootState,
+  BranchAct,
+  ChangeEvent,
+  Commit,
+  CommitMessage,
+  FileChange,
+  FlowInfo,
+  FlowPrefixes,
+  GitRef,
+  OpEvent,
+  OpName,
+  OpenResult,
+  Repo,
+  RepoRef,
+  Stash,
+  StashAct,
+  Status,
+  TraceLine,
+  Worktree,
   WtSource,
 } from "../../../shared/types.ts"
 
 import type { Bridge } from "../../../shared/ipc-contract.ts"
 import type {
-  BranchAct, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes, GitRef, OpName, Stash,
-  StashAct, Status, Worktree, WtSource,
+  BranchAct,
+  Commit,
+  CommitMessage,
+  FileChange,
+  FlowInfo,
+  FlowPrefixes,
+  GitRef,
+  OpName,
+  Stash,
+  StashAct,
+  Status,
+  Worktree,
+  WtSource,
 } from "../../../shared/types.ts"
 
 declare global {

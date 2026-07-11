@@ -25,10 +25,13 @@ if (!gotLock) {
 
   registerIpc()
 
-  app.whenReady().then(loadState).then(() => {
-    hardenSession()
-    createWindow()
-  })
+  void app
+    .whenReady()
+    .then(loadState)
+    .then(() => {
+      hardenSession()
+      createWindow()
+    })
 
   app.on("window-all-closed", () => app.quit())
 }

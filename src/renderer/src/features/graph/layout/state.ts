@@ -9,7 +9,12 @@ import type { FlowKind } from "../../../lib/gitflow.ts"
 import { createIdTable, type HashId, type IdTable } from "../ids.ts"
 
 export type Edge = {
-  r1: number; l1: number; travel: number; k: number; r2?: number; l2?: number
+  r1: number
+  l1: number
+  travel: number
+  k: number
+  r2?: number
+  l2?: number
   /** stash edge: drawn dashed — a suspended snapshot, not history */
   dash?: boolean
 }
@@ -51,12 +56,16 @@ export type LayoutState = {
 export function createState(): LayoutState {
   return {
     ids: createIdTable(),
-    lanes: [], meta: [], pending: new Map(), next: 0,
+    lanes: [],
+    meta: [],
+    pending: new Map(),
+    next: 0,
     rowOf: new Map(),
     hashOf: [],
     nodes: [],
     edges: [],
-    long: [], ms: 0,
+    long: [],
+    ms: 0,
     laneOf: [],
     fpEdge: [],
     fpRow: [],

@@ -76,7 +76,7 @@ export default function App({ boot }: Props) {
 
   /* restoration: no animation, there's no previous state to leave */
   useEffect(() => {
-    boot.then((s) => {
+    void boot.then((s) => {
       if (s.tabs.length) {
         const key = s.active ?? s.tabs[0].id
         setTabs(s.tabs)
@@ -90,7 +90,10 @@ export default function App({ boot }: Props) {
   /* not before boot: we'd overwrite the persisted tabs with the empty initial state */
   useEffect(() => {
     if (!booted) return
-    host.setTabs(tabs.map((r) => r.path), tabs.find((r) => active.kind === "repo" && r.id === active.id)?.path ?? null)
+    void host.setTabs(
+      tabs.map((r) => r.path),
+      tabs.find((r) => active.kind === "repo" && r.id === active.id)?.path ?? null
+    )
   }, [booted, tabs, active])
 
   /* already open: we navigate to it instead of duplicating it (main returns the same id) */
@@ -106,7 +109,7 @@ export default function App({ boot }: Props) {
     (key: number) => {
       const i = tabs.findIndex((r) => r.id === key)
       if (i < 0) return
-      host.close(key)
+      void host.close(key)
       const wasActive = active.kind === "repo" && active.id === key
       const next = afterClose(tabs, active, key)
       setTabs((prev) => prev.filter((r) => r.id !== key))

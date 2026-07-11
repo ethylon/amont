@@ -9,9 +9,7 @@
 import type { Commit, RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
 import { scrollTextHover, scrollTextStop } from "./interactions/scroll-text.ts"
-import {
-  CHUNK, FIXED_W, LANE, laneColor, MAX_LANES, PAD, PAGE, RESIDENT, ROW, ROW_BUCKET,
-} from "./constants.ts"
+import { CHUNK, FIXED_W, LANE, laneColor, MAX_LANES, PAD, PAGE, RESIDENT, ROW, ROW_BUCKET } from "./constants.ts"
 import { idOf } from "./ids.ts"
 import { branchSegment, chainInfo, chainTip, type ChainInfo } from "./layout/chains.ts"
 
@@ -162,7 +160,7 @@ export function createGraph(
     if (need > S.next && !loader.exhausted) {
       const token = loader.token
       const before = S.next
-      loader.fetchMore().then(() => {
+      void loader.fetchMore().then(() => {
         if (token === loader.token && (loader.state.next > before || loader.exhausted)) sync()
       })
     }
@@ -205,7 +203,16 @@ export function createGraph(
         const start = bi * ROW_BUCKET
         const end = Math.min((bi + 1) * ROW_BUCKET, S.next)
         if (loader.isResident(start, end - 1)) {
-          const d = rowBucket(S, start, end, loader.commitAt, selectionCtl.selection, selectionCtl.matches, selectionCtl.active, loader.total)
+          const d = rowBucket(
+            S,
+            start,
+            end,
+            loader.commitAt,
+            selectionCtl.selection,
+            selectionCtl.matches,
+            selectionCtl.active,
+            loader.total
+          )
           inner.appendChild(d)
           mountedRows.set(bi, d)
         } else missing = missing ? [Math.min(missing[0], start), Math.max(missing[1], end - 1)] : [start, end - 1]
@@ -213,7 +220,7 @@ export function createGraph(
     }
     if (missing) {
       const token = loader.token
-      loader.ensureRows(missing[0], missing[1]).then((ok) => {
+      void loader.ensureRows(missing[0], missing[1]).then((ok) => {
         evictNow()
         if (ok && token === loader.token) sync()
       })
@@ -360,16 +367,31 @@ export function createGraph(
     const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey
     let target: number
     switch (ev.key) {
-      case "ArrowDown": target = cur + 1; break
-      case "ArrowUp": target = cur - 1; break
-      case "PageDown": target = cur + pageRows(); break
-      case "PageUp": target = cur - pageRows(); break
-      case "Home": target = 0; break
+      case "ArrowDown":
+        target = cur + 1
+        break
+      case "ArrowUp":
+        target = cur - 1
+        break
+      case "PageDown":
+        target = cur + pageRows()
+        break
+      case "PageUp":
+        target = cur - pageRows()
+        break
+      case "Home":
+        target = 0
+        break
       /* no known bound as long as history isn't exhausted: `moveActive` grows in
          batches until exhaustion then clamps — MAX_SAFE_INTEGER just means "as far as possible". */
-      case "End": target = loader.exhausted ? loader.state.next - 1 : Number.MAX_SAFE_INTEGER; break
-      case "Enter": target = cur; break
-      default: return
+      case "End":
+        target = loader.exhausted ? loader.state.next - 1 : Number.MAX_SAFE_INTEGER
+        break
+      case "Enter":
+        target = cur
+        break
+      default:
+        return
     }
     ev.preventDefault()
     void moveActive(target, additive)
@@ -394,7 +416,7 @@ export function createGraph(
   let stashNames: string[] = []
   /* Chips are measured against the actual font. As long as Geist hasn't replaced the fallback,
      widths are wrong: a single re-run, from the persisted sources, is enough. */
-  document.fonts.ready.then(() => {
+  void document.fonts.ready.then(() => {
     if (!svg.isConnected || destroyed) return
     measurer.requeueAll(stashNames)
     refresh()

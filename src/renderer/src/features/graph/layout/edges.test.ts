@@ -25,8 +25,16 @@ describe("layoutChunk — edge resolution and bucketing", () => {
   it("routes a short edge (r1/r2 in the same chunk) to edges[ci]", () => {
     const data = [c("m", ["root0", "root1"], "Merge"), c("root0", [], "racine 0"), c("root1", [], "racine 1")]
     const S = layoutAll(data)
-    assert.equal(S.edges[0]?.some((e) => e.r1 === 0 && e.r2 === 1), true, "edge to root0 (row 1)")
-    assert.equal(S.edges[0]?.some((e) => e.r1 === 0 && e.r2 === 2), true, "edge to root1 (row 2)")
+    assert.equal(
+      S.edges[0]?.some((e) => e.r1 === 0 && e.r2 === 1),
+      true,
+      "edge to root0 (row 1)"
+    )
+    assert.equal(
+      S.edges[0]?.some((e) => e.r1 === 0 && e.r2 === 2),
+      true,
+      "edge to root1 (row 2)"
+    )
     assert.equal(S.long.length, 0, "no long edge expected here")
   })
 
@@ -34,12 +42,25 @@ describe("layoutChunk — edge resolution and bucketing", () => {
     /* row0: merge whose second parent ("far") only appears after CHUNK filler rows
        — so in the next chunk. The first parent is an immediate root (current chunk). */
     const filler = Array.from({ length: CHUNK }, (_, k) => c(`f${k}`, [], `remplissage ${k}`))
-    const data = [c("m", ["root0", "far"], "Merge"), c("root0", [], "racine"), ...filler, c("far", [], "racine lointaine")]
+    const data = [
+      c("m", ["root0", "far"], "Merge"),
+      c("root0", [], "racine"),
+      ...filler,
+      c("far", [], "racine lointaine"),
+    ]
     const S = layoutAll(data)
     const farRow = data.length - 1
     assert.ok(Math.floor(farRow / CHUNK) > 0, "the far row does fall into another chunk")
-    assert.equal(S.long.some((e) => e.r1 === 0 && e.r2 === farRow), true, "the edge crosses chunks: S.long")
-    assert.equal((S.edges[0] ?? []).some((e) => e.r1 === 0 && e.r2 === farRow), false, "not in edges[0]")
+    assert.equal(
+      S.long.some((e) => e.r1 === 0 && e.r2 === farRow),
+      true,
+      "the edge crosses chunks: S.long"
+    )
+    assert.equal(
+      (S.edges[0] ?? []).some((e) => e.r1 === 0 && e.r2 === farRow),
+      false,
+      "not in edges[0]"
+    )
   })
 
   it("leaves a dangling edge pending when its parent never appears", () => {

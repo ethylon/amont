@@ -74,7 +74,11 @@ export type ChainInfo =
 export function chainInfo(S: LayoutState, rows: number[]): ChainInfo {
   const tip = rows[0]
   /* all of the tip's branches: an empty branch sitting on master shares its commits */
-  const refs = parseRefs(S.refsOf.get(tip) ?? "").filter((r) => r.kind !== "tag").map((r) => r.name).join(", ") || null
+  const refs =
+    parseRefs(S.refsOf.get(tip) ?? "")
+      .filter((r) => r.kind !== "tag")
+      .map((r) => r.name)
+      .join(", ") || null
   const mrow = S.mergedBy.get(tip)
   if (mrow !== undefined) {
     return {

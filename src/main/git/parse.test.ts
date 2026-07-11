@@ -5,8 +5,15 @@ import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import {
-  BRANCH, classifyGitFailure, computeNextTag, flowVersionSuffix, parseFlowPrefixes,
-  parseForEachRef, parseNameStatus, parsePorcelain, parseStashList,
+  BRANCH,
+  classifyGitFailure,
+  computeNextTag,
+  flowVersionSuffix,
+  parseFlowPrefixes,
+  parseForEachRef,
+  parseNameStatus,
+  parsePorcelain,
+  parseStashList,
 } from "./parse.ts"
 
 const NUL = "\0"
@@ -53,9 +60,7 @@ describe("parseNameStatus (--name-status -z, fix B3)", () => {
   })
 
   it("returns the complete entries of a truncated output (process killed mid-flight), without throwing", () => {
-    assert.deepEqual(parseNameStatus(`M${NUL}ok.ts${NUL}R100${NUL}orphan`), [
-      { st: "M", path: "ok.ts", old: null },
-    ])
+    assert.deepEqual(parseNameStatus(`M${NUL}ok.ts${NUL}R100${NUL}orphan`), [{ st: "M", path: "ok.ts", old: null }])
   })
 })
 
@@ -64,12 +69,13 @@ describe("parsePorcelain (status --porcelain=v1 -z)", () => {
   const entry = (xy: string, path: string) => `${xy} ${path}`
 
   it("classifies staged/unstaged/untracked/conflicts", () => {
-    const out = [
-      entry("A ", "staged.ts"),
-      entry(" M", "unstaged.ts"),
-      entry("??", "untracked.ts"),
-      entry("UU", "conflict.ts"),
-    ].join(NUL) + NUL
+    const out =
+      [
+        entry("A ", "staged.ts"),
+        entry(" M", "unstaged.ts"),
+        entry("??", "untracked.ts"),
+        entry("UU", "conflict.ts"),
+      ].join(NUL) + NUL
     const wt = parsePorcelain(out)
     assert.deepEqual(wt.staged, [{ st: "A", path: "staged.ts", old: null }])
     assert.deepEqual(wt.unstaged, [{ st: "M", path: "unstaged.ts" }])
@@ -91,8 +97,15 @@ describe("parsePorcelain (status --porcelain=v1 -z)", () => {
 
 describe("parseForEachRef", () => {
   const F = "\x1f"
-  const line = (refname: string, head = "", track = "", symref = "", upstream = "", oid = "aaaa000011112222333344445555666677778888", peeled = "") =>
-    [refname, head, track, symref, upstream, oid, peeled].join(F)
+  const line = (
+    refname: string,
+    head = "",
+    track = "",
+    symref = "",
+    upstream = "",
+    oid = "aaaa000011112222333344445555666677778888",
+    peeled = ""
+  ) => [refname, head, track, symref, upstream, oid, peeled].join(F)
 
   it("classifies refs by prefix and drops origin/HEAD in favor of `base`", () => {
     const out = [
@@ -103,11 +116,14 @@ describe("parseForEachRef", () => {
     ].join("\n")
     const { refs, base } = parseForEachRef(out)
     assert.equal(base, "refs/remotes/origin/develop")
-    assert.deepEqual(refs.map((r) => [r.kind, r.name]), [
-      ["head", "develop"],
-      ["remote", "origin/develop"],
-      ["tag", "v1.0.0"],
-    ])
+    assert.deepEqual(
+      refs.map((r) => [r.kind, r.name]),
+      [
+        ["head", "develop"],
+        ["remote", "origin/develop"],
+        ["tag", "v1.0.0"],
+      ]
+    )
     assert.equal(refs[0].head, true)
   })
 
@@ -133,10 +149,20 @@ describe("parseForEachRef", () => {
 })
 
 describe("parseStashList", () => {
-  const E = "\x1e", F = "\x1f"
+  const E = "\x1e",
+    F = "\x1f"
 
   it("parses a complete entry, full SHA kept (fix B1)", () => {
-    const row = ["aaaa000011112222333344445555666677778888", "p1 p2 p3", "stash@{0}", "2026-07-08", "Ada", "ada@x.io", "WIP on x"].join(F) + E
+    const row =
+      [
+        "aaaa000011112222333344445555666677778888",
+        "p1 p2 p3",
+        "stash@{0}",
+        "2026-07-08",
+        "Ada",
+        "ada@x.io",
+        "WIP on x",
+      ].join(F) + E
     const [s] = parseStashList(row)
     assert.equal(s.h, "aaaa000011112222333344445555666677778888")
     assert.deepEqual(s.p, ["p1", "p2", "p3"])
@@ -149,7 +175,17 @@ describe("parseStashList", () => {
   })
 
   it("joins the subject's overflow fields with a space (past the 7th separator)", () => {
-    const row = ["aaaa000011112222333344445555666677778888", "p1", "stash@{1}", "2026-07-08", "Ada", "ada@x.io", "On x:", "a"].join(F) + E
+    const row =
+      [
+        "aaaa000011112222333344445555666677778888",
+        "p1",
+        "stash@{1}",
+        "2026-07-08",
+        "Ada",
+        "ada@x.io",
+        "On x:",
+        "a",
+      ].join(F) + E
     const [s] = parseStashList(row)
     assert.equal(s.s, "On x: a")
   })
@@ -174,26 +210,34 @@ describe("BRANCH (fix B2: rejects branch suffixes starting with `-`)", () => {
 
 describe("classifyGitFailure", () => {
   it("classe un kill par timeout", () => {
-    assert.deepEqual(classifyGitFailure({ exitCode: null, stdout: "", stderr: "", killedBy: "timeout" }), { code: "TIMEOUT" })
+    assert.deepEqual(classifyGitFailure({ exitCode: null, stdout: "", stderr: "", killedBy: "timeout" }), {
+      code: "TIMEOUT",
+    })
   })
 
   it("classe un kill par annulation explicite", () => {
-    assert.deepEqual(classifyGitFailure({ exitCode: null, stdout: "", stderr: "", killedBy: "abort" }), { code: "ABORTED" })
+    assert.deepEqual(classifyGitFailure({ exitCode: null, stdout: "", stderr: "", killedBy: "abort" }), {
+      code: "ABORTED",
+    })
   })
 
   it("classe un kill par plafond de sortie", () => {
-    assert.deepEqual(classifyGitFailure({ exitCode: null, stdout: "", stderr: "", killedBy: "limit" }), { code: "OUTPUT_LIMIT" })
+    assert.deepEqual(classifyGitFailure({ exitCode: null, stdout: "", stderr: "", killedBy: "limit" }), {
+      code: "OUTPUT_LIMIT",
+    })
   })
 
   it("detects a merge conflict on stdout (never stderr) and returns the touched files", () => {
-    const stdout = "Auto-merging a.ts\nCONFLICT (content): Merge conflict in a.ts\nAutomatic merge failed; fix conflicts and then commit the result.\n"
+    const stdout =
+      "Auto-merging a.ts\nCONFLICT (content): Merge conflict in a.ts\nAutomatic merge failed; fix conflicts and then commit the result.\n"
     const r = classifyGitFailure({ exitCode: 1, stdout, stderr: "", killedBy: null })
     assert.equal(r.code, "MERGE_CONFLICT")
     assert.equal(r.detail, "a.ts")
   })
 
   it("detects a stash pop conflict (same CONFLICT lines)", () => {
-    const stdout = "Auto-merging b.ts\nCONFLICT (content): Merge conflict in b.ts\nThe stash entry is kept in case you need it again.\n"
+    const stdout =
+      "Auto-merging b.ts\nCONFLICT (content): Merge conflict in b.ts\nThe stash entry is kept in case you need it again.\n"
     const r = classifyGitFailure({ exitCode: 1, stdout, stderr: "", killedBy: null })
     assert.equal(r.code, "MERGE_CONFLICT")
     assert.equal(r.detail, "b.ts")
@@ -206,7 +250,12 @@ describe("classifyGitFailure", () => {
   })
 
   it("keeps at most 2 fatal:/error: lines, otherwise the last line", () => {
-    const r = classifyGitFailure({ exitCode: 1, stdout: "", stderr: "hint: ignored\nsomething went wrong\n", killedBy: null })
+    const r = classifyGitFailure({
+      exitCode: 1,
+      stdout: "",
+      stderr: "hint: ignored\nsomething went wrong\n",
+      killedBy: null,
+    })
     assert.equal(r.code, "GIT_FAILED")
     assert.equal(r.detail, "something went wrong (exit 1)")
   })

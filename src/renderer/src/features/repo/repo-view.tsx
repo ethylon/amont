@@ -170,7 +170,9 @@ function RepoViewContent({ repo, active }: Props) {
             !booted && "opacity-0"
           )}
         >
-          {workFlow && flowInfo && status?.branch && <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />}
+          {workFlow && flowInfo && status?.branch && (
+            <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />
+          )}
 
           {/* amont-tabbody: the block that slides on tab change, toolbar and status bar staying fixed */}
           <div className="amont-tabbody flex min-h-0 flex-1">
@@ -183,11 +185,17 @@ function RepoViewContent({ repo, active }: Props) {
                 {/* column: the detail header is fixed, the list and diff each scroll on their own.
                     The panels render fragments — so their children are the flex items. */}
                 {/* opaque background: if the graph overflows its column, it passes underneath without showing through */}
-                <aside data-amont-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4">
+                <aside
+                  data-amont-keep-focus
+                  className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4"
+                >
                   {view === "wt" && worktree ? (
                     <WorktreePanel />
                   ) : panelOpen && graphRef.current ? (
-                    <ErrorBoundary key={`${selection.join(",")}:${detailNonce}`} onReset={() => setDetailNonce((n) => n + 1)}>
+                    <ErrorBoundary
+                      key={`${selection.join(",")}:${detailNonce}`}
+                      onReset={() => setDetailNonce((n) => n + 1)}
+                    >
                       <DetailPanel
                         api={api}
                         repoId={repoId}
@@ -202,7 +210,9 @@ function RepoViewContent({ repo, active }: Props) {
                   ) : workFlow && flowInfo && status?.branch ? (
                     <>
                       <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
-                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">{messages.repo.clickCommitForDetail}</p>
+                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">
+                        {messages.repo.clickCommitForDetail}
+                      </p>
                     </>
                   ) : (
                     <p className="shrink-0 text-xs text-muted-foreground">{messages.repo.clickCommitForDetail}</p>

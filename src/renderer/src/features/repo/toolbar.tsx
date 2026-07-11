@@ -1,7 +1,11 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  ArrowDown02Icon, ArrowUp02Icon, Folder01Icon,
-  PanelLeftCloseIcon, PanelLeftOpenIcon, Refresh01Icon,
+  ArrowDown02Icon,
+  ArrowUp02Icon,
+  Folder01Icon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  Refresh01Icon,
 } from "@hugeicons/core-free-icons"
 
 import type { OpName, Repo, Status } from "@/lib/git"

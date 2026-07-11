@@ -11,12 +11,12 @@
 
    Only the win32 (nsis) target is packaged today (electron-builder.yml); the executable path
    below is Windows-specific. Adapt it if mac/linux ever join the release targets. */
-import { join } from 'node:path';
-import { flipFuses, FuseV1Options, FuseVersion } from '@electron/fuses';
+import { join } from "node:path";
+import { flipFuses, FuseV1Options, FuseVersion } from "@electron/fuses";
 
 /** @param {import('electron-builder').AfterPackContext} context */
 export default async function afterPack(context) {
-  if (context.electronPlatformName !== 'win32') return;
+  if (context.electronPlatformName !== "win32") return;
 
   const exePath = join(context.appOutDir, `${context.packager.appInfo.productFilename}.exe`);
   await flipFuses(exePath, {

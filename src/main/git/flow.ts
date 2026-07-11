@@ -19,7 +19,10 @@ export async function flowPrefixes(r: RepoHandle): Promise<FlowPrefixes | null> 
 }
 
 const cfgOf = (r: RepoHandle, key: string): Promise<string> =>
-  r.git(["config", "--get", key]).then((o) => o.trim(), () => "")
+  r.git(["config", "--get", key]).then(
+    (o) => o.trim(),
+    () => ""
+  )
 
 /* --- Flow context of the current branch ---
    Read-only: what the branch has produced and where its finish will land. The renderer
@@ -34,14 +37,19 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
   const master = cfgMaster || ["master", "main"].find((b) => heads.has(b)) || null
   const develop = cfgDevelop || (heads.has("develop") ? "develop" : null)
   /* a hotfix branches off the production trunk, everything else off the integration trunk */
-  const parent = kind === "hotfix" ? master : develop ?? master
+  const parent = kind === "hotfix" ? master : (develop ?? master)
   if (!parent || !heads.has(parent) || parent === branch) return null
 
   const tagged = kind === "release" || kind === "hotfix"
   /* describe returns the nearest tag, semver or not — the bump logic guards against that with a regex */
   const [commits, lastTag] = await Promise.all([
     r.git(["rev-list", "--count", `${parent}..${branch}`]).then((o) => parseInt(o, 10)),
-    tagged ? r.git(["describe", "--tags", "--abbrev=0", branch]).then((o) => o.trim(), () => null) : Promise.resolve(null),
+    tagged
+      ? r.git(["describe", "--tags", "--abbrev=0", branch]).then(
+          (o) => o.trim(),
+          () => null
+        )
+      : Promise.resolve(null),
   ])
   const startedAt = commits
     ? parseInt((await r.git(["log", "--format=%ct", "--reverse", `${parent}..${branch}`])).split("\n", 1)[0], 10)
@@ -71,7 +79,7 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
    installed, git's own error message will say so when the user clicks. */
 export async function finishFlow(r: RepoHandle, name: string): Promise<void> {
   const prefixes = (await flowPrefixes(r)) ?? {}
-  const type = FLOW_TYPES.find((t) => prefixes[t] && name.startsWith(prefixes[t]!))
+  const type = FLOW_TYPES.find((t) => prefixes[t] && name.startsWith(prefixes[t]))
   if (!type) throw new AppError("NOT_FLOW_BRANCH", name)
   const version = name.slice(prefixes[type]!.length)
   /* BRANCH only forbids `-` at the start of the full name: `feature/-D` would give

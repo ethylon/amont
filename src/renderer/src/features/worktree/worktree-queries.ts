@@ -9,5 +9,9 @@ import type { RepoApi } from "@/lib/git"
 import { queryKeys } from "@/lib/queries"
 
 export function useWorktreeQuery(api: RepoApi, id: number) {
-  return useQuery({ queryKey: queryKeys.worktree(id), queryFn: () => api.worktree(), placeholderData: keepPreviousData })
+  return useQuery({
+    queryKey: queryKeys.worktree(id),
+    queryFn: () => api.worktree(),
+    placeholderData: keepPreviousData,
+  })
 }

@@ -18,7 +18,9 @@ export async function scan(dir: string, depth: number, found: string[]): Promise
   }
   if (entries.some((e) => e.name === ".git")) return void found.push(dir)
   if (depth === DEPTH) return
-  await Promise.all(entries
-    .filter((e) => e.isDirectory() && !e.name.startsWith(".") && !SKIP.has(e.name))
-    .map((e) => scan(join(dir, e.name), depth + 1, found)))
+  await Promise.all(
+    entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith(".") && !SKIP.has(e.name))
+      .map((e) => scan(join(dir, e.name), depth + 1, found))
+  )
 }

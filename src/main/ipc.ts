@@ -50,7 +50,11 @@ const openRepoPub = (path: string): Promise<Repo> => repos.openRepo(path, makeHo
    real AbortSignal wouldn't survive IPC's structured clone (main workstream fix, AUDIT.md
    §2 B4). Channels that don't provide a `requestId` run without a signal, as
    before this refactor. */
-function withCancel<T>(r: repos.RepoHandle, requestId: string | undefined, fn: (signal?: AbortSignal) => Promise<T>): Promise<T> {
+function withCancel<T>(
+  r: repos.RepoHandle,
+  requestId: string | undefined,
+  fn: (signal?: AbortSignal) => Promise<T>
+): Promise<T> {
   if (!requestId) return fn()
   const controller = new AbortController()
   r.requests.set(requestId, controller)
@@ -58,7 +62,7 @@ function withCancel<T>(r: repos.RepoHandle, requestId: string | undefined, fn: (
 }
 
 export function registerIpc(): void {
-  repos.setAutofetch((r) => ops.runOp(r, "fetch", true))
+  repos.setAutofetch((r) => void ops.runOp(r, "fetch", true))
 
   /* --- Application state ---
      Called once at renderer startup (cf. boot() in lib/git.ts). Idempotent: a
@@ -89,10 +93,12 @@ export function registerIpc(): void {
   })
 
   /* What the home screen knows about the repos. Separate from app:state, which opens repos. */
-  handle("app:repos", () => Promise.resolve({
-    root: persisted.root,
-    recents: persisted.recents.map((path) => ({ path, name: basename(path) })),
-  }))
+  handle("app:repos", () =>
+    Promise.resolve({
+      root: persisted.root,
+      recents: persisted.recents.map((path) => ({ path, name: basename(path) })),
+    })
+  )
 
   handle("app:tabs", (_ev, paths, active) => {
     persisted.tabs = paths.filter((p) => openable.has(p))
@@ -112,7 +118,10 @@ export function registerIpc(): void {
     return openRepoPub(path)
   })
 
-  handle("repo:close", (_ev, id) => { repos.closeRepo(id); return Promise.resolve() })
+  handle("repo:close", (_ev, id) => {
+    repos.closeRepo(id)
+    return Promise.resolve()
+  })
 
   handle("root:choose", async () => {
     const win = getMainWindow()
@@ -128,9 +137,7 @@ export function registerIpc(): void {
     const found: string[] = []
     await scan(persisted.root, 0, found)
     found.forEach((p) => openable.add(p))
-    return found
-      .map((path) => ({ path, name: basename(path) }))
-      .sort((a, b) => a.name.localeCompare(b.name))
+    return found.map((path) => ({ path, name: basename(path) })).sort((a, b) => a.name.localeCompare(b.name))
   })
 
   /* --- Repo: operations, id as first argument --- */
@@ -201,4 +208,3 @@ export function registerIpc(): void {
     return Promise.resolve()
   })
 }
-

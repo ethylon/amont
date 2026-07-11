@@ -10,8 +10,14 @@ import { messages } from "@/lib/messages"
 import { iconEl } from "./icon-el.ts"
 import { badgeSeparator, badgeVariants, type BadgeColor } from "@/components/ui/badge"
 import {
-  BACKUP_WIP, parseMerge, parseRefs, parseSubject, refColor, typeColor,
-  type ParsedMerge, type RefChip,
+  BACKUP_WIP,
+  parseMerge,
+  parseRefs,
+  parseSubject,
+  refColor,
+  typeColor,
+  type ParsedMerge,
+  type RefChip,
 } from "@/lib/commit-parse"
 import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/lib/gitflow"
 import { scrollText } from "../interactions/scroll-text.ts"
@@ -94,7 +100,9 @@ export function refChip(r: RefChip, maxw: string, flow: FlowKind | null = null) 
   const version = r.kind === "tag" && SEMVER.test(r.name)
   const el = document.createElement("span")
   el.className =
-    chip(version ? tagFlowColor(flow) : refColor(r.kind)) + " " + maxw +
+    chip(version ? tagFlowColor(flow) : refColor(r.kind)) +
+    " " +
+    maxw +
     (!version && (r.kind === "remote" || synced) ? " ps-1.5" : "")
   el.title = synced ? r.remotes.join(", ") : r.name
   if (version) el.appendChild(tagIcon())
@@ -112,7 +120,14 @@ export function refChip(r: RefChip, maxw: string, flow: FlowKind | null = null) 
     `active`: the holding row is the roving tabindex's active row (AUDIT.md §8) — only its
     "+N", if it exists, enters the tab order; the others stay at `tabindex=-1`,
     otherwise they'd pollute Tab with one stop per mounted row instead of a single one per active row. */
-export function refGroup(refs: RefChip[], budget: number, maxw: string, parent: HTMLElement, flow: FlowKind | null = null, active = false) {
+export function refGroup(
+  refs: RefChip[],
+  budget: number,
+  maxw: string,
+  parent: HTMLElement,
+  flow: FlowKind | null = null,
+  active = false
+) {
   for (const r of refs.slice(0, budget)) parent.appendChild(refChip(r, maxw, flow))
   const hidden = refs.slice(budget)
   if (!hidden.length) return
@@ -230,8 +245,7 @@ export function rowDiv(
   row.appendChild(badge)
 
   const subj = document.createElement("div")
-  subj.className =
-    "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " opacity-30" : "")
+  subj.className = "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " opacity-30" : "")
 
   if (c.cap) {
     /* Capsule: the whole pattern on one row — `release/x →(rocket/flame) master · develop`. */

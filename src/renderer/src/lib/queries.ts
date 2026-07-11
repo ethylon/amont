@@ -38,10 +38,10 @@ export const queryKeys = {
 /** All keys of a repo that closely track its status: invalidated together on
     `onChanged` and at the end of any mutation (checkout, stash, branch, commit, network op). */
 export function invalidateRepo(client: QueryClient, id: number): void {
-  client.invalidateQueries({ queryKey: queryKeys.status(id) })
-  client.invalidateQueries({ queryKey: queryKeys.refs(id) })
-  client.invalidateQueries({ queryKey: queryKeys.flow(id) })
-  client.invalidateQueries({ queryKey: queryKeys.flowInfoAll(id) })
+  void client.invalidateQueries({ queryKey: queryKeys.status(id) })
+  void client.invalidateQueries({ queryKey: queryKeys.refs(id) })
+  void client.invalidateQueries({ queryKey: queryKeys.flow(id) })
+  void client.invalidateQueries({ queryKey: queryKeys.flowInfoAll(id) })
 }
 
 let seq = 0

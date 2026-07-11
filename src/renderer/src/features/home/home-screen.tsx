@@ -35,7 +35,12 @@ function RepoButton({ repo, onClick }: { repo: RepoRef; onClick(): void }) {
   )
 }
 
-function Section({ icon, title, action, children }: {
+function Section({
+  icon,
+  title,
+  action,
+  children,
+}: {
   icon: IconSvgElement
   title: string
   action?: React.ReactNode
@@ -67,7 +72,7 @@ export function HomeScreen({ active, onOpened }: Props) {
      of in-flight queries) without a `stale` flag to copy by hand. */
   const { data: repos } = useQuery({ queryKey: homeKeys.repos, queryFn: () => host.repos() })
   useEffect(() => {
-    if (active) queryClient.invalidateQueries({ queryKey: homeKeys.repos })
+    if (active) void queryClient.invalidateQueries({ queryKey: homeKeys.repos })
   }, [active, queryClient])
 
   const root = repos?.root ?? null
@@ -94,7 +99,9 @@ export function HomeScreen({ active, onOpened }: Props) {
 
   const chooseRoot = useCallback(async () => {
     const newRoot = await host.chooseRoot()
-    queryClient.setQueryData(homeKeys.repos, (prev) => (prev ? { ...prev, root: newRoot } : { root: newRoot, recents: [] }))
+    queryClient.setQueryData(homeKeys.repos, (prev) =>
+      prev ? { ...prev, root: newRoot } : { root: newRoot, recents: [] }
+    )
   }, [queryClient])
   const openPath = useCallback((path: string) => host.openPath(path).then(opened, failed), [failed, opened])
   const openDialog = useCallback(() => host.openDialog().then(opened, failed), [failed, opened])
@@ -109,9 +116,7 @@ export function HomeScreen({ active, onOpened }: Props) {
               <Mark className="size-11" />
             </EmptyMedia>
             <EmptyTitle className="text-base">{messages.home.noRepos}</EmptyTitle>
-            <EmptyDescription className="text-pretty">
-              {messages.home.chooseRootHint}
-            </EmptyDescription>
+            <EmptyDescription className="text-pretty">{messages.home.chooseRootHint}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button onClick={chooseRoot}>{messages.home.chooseRoot}</Button>
@@ -168,13 +173,13 @@ export function HomeScreen({ active, onOpened }: Props) {
         >
           {root && <p className="truncate px-2.5 pb-1.5 text-[0.625rem] text-muted-foreground">{root}</p>}
           {!root ? (
-            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">
-              {messages.home.noRootFolder}
-            </p>
+            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">{messages.home.noRootFolder}</p>
           ) : found === null ? (
             <AsyncHint className="px-2.5 py-2">{messages.home.scanningRepos}</AsyncHint>
           ) : !found.length ? (
-            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">{messages.home.noReposFoundUnderRoot}</p>
+            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">
+              {messages.home.noReposFoundUnderRoot}
+            </p>
           ) : (
             found.map((r) => <RepoButton key={r.path} repo={r} onClick={() => openPath(r.path)} />)
           )}

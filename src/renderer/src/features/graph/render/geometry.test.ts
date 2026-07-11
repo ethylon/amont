@@ -7,7 +7,7 @@ import { describe, it } from "vitest"
 import type { Edge } from "../layout/state.ts"
 import { edgePath, X, Y } from "./geometry.ts"
 
-const e = (partial: Partial<Edge> & Pick<Edge, "r1" | "l1" | "travel" | "k">): Edge => partial as Edge
+const e = (partial: Partial<Edge> & Pick<Edge, "r1" | "l1" | "travel" | "k">): Edge => partial
 
 describe("edgePath — SVG path snapshots", () => {
   it("pure vertical line: same lane from start to end", () => {

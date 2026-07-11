@@ -1,7 +1,13 @@
 import { useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  Cancel01Icon, EyeIcon, EyeOffIcon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon,
+  Cancel01Icon,
+  EyeIcon,
+  EyeOffIcon,
+  Home01Icon,
+  Moon02Icon,
+  PlusSignIcon,
+  Sun03Icon,
 } from "@hugeicons/core-free-icons"
 
 import { setAvatarsEnabled, useAvatarsEnabled } from "@/lib/avatar"
@@ -54,11 +60,15 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
     }
     const i = order.indexOf(active)
     const j =
-      e.key === "ArrowRight" ? (i + 1) % order.length
-      : e.key === "ArrowLeft" ? (i - 1 + order.length) % order.length
-      : e.key === "Home" ? 0
-      : e.key === "End" ? order.length - 1
-      : -1
+      e.key === "ArrowRight"
+        ? (i + 1) % order.length
+        : e.key === "ArrowLeft"
+          ? (i - 1 + order.length) % order.length
+          : e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? order.length - 1
+              : -1
     if (j < 0) return
     e.preventDefault()
     onSelect(order[j])
@@ -98,7 +108,10 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
             onKeyDown={(e) => onTabKey(e, t.key)}
             /* middle click: closes, like a browser */
             onAuxClick={(e) => e.button === 1 && onClose(t.key)}
-            className={cn(tabClass, "max-w-44 gap-1.5 border-transparent px-2.5 text-muted-foreground hover:bg-muted/60")}
+            className={cn(
+              tabClass,
+              "max-w-44 gap-1.5 border-transparent px-2.5 text-muted-foreground hover:bg-muted/60"
+            )}
           >
             <span className="truncate">{t.name}</span>
             <Button
@@ -117,7 +130,12 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
           </div>
         ))}
 
-        <IconButton label={messages.app.newTab} icon={PlusSignIcon} onClick={() => onSelect(HOME)} className="shrink-0" />
+        <IconButton
+          label={messages.app.newTab}
+          icon={PlusSignIcon}
+          onClick={() => onSelect(HOME)}
+          className="shrink-0"
+        />
       </div>
 
       <IconButton

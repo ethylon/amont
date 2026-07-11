@@ -17,9 +17,17 @@ export function parsePorcelain(out: string): Worktree {
   for (let i = 0; i < parts.length; i++) {
     const e = parts[i]
     if (e.length < 4) continue
-    const x = e[0], y = e[1], path = e.slice(3)
-    if (x === "?") { wt.untracked.push({ st: "?", path }); continue }
-    if (CONFLICT.has(x + y)) { wt.conflicts.push({ st: x + y, path }); continue }
+    const x = e[0],
+      y = e[1],
+      path = e.slice(3)
+    if (x === "?") {
+      wt.untracked.push({ st: "?", path })
+      continue
+    }
+    if (CONFLICT.has(x + y)) {
+      wt.conflicts.push({ st: x + y, path })
+      continue
+    }
     const old = x === "R" || x === "C" ? parts[++i] : null
     if (x !== " ") wt.staged.push({ st: x, path, old })
     if (y !== " ") wt.unstaged.push({ st: y, path })
@@ -48,13 +56,18 @@ export function parseNameStatus(out: string): FileChange[] {
 
 /* --- Stash --- */
 export function parseStashList(out: string): Stash[] {
-  return out.split("\x1e")
+  return out
+    .split("\x1e")
     .map((row) => row.split("\x1f"))
     .filter((f) => f.length >= 7)
     .map((f) => ({
       h: f[0].trim(),
       p: f[1].split(" ").filter(Boolean),
-      name: f[2], d: f[3], a: f[4], e: f[5], s: f.slice(6).join(" "),
+      name: f[2],
+      d: f[3],
+      a: f[4],
+      e: f[5],
+      s: f.slice(6).join(" "),
     }))
 }
 
@@ -67,13 +80,18 @@ export function parseLogPage(out: string): Commit[] {
   /* git doesn't filter control bytes out of `%s`: a subject containing our
      separators would manufacture extra fields (reattached to the subject, since it's last)
      or lopsided lines (discarded by the field count check). */
-  return out.split("\x1e")
+  return out
+    .split("\x1e")
     .map((row) => row.split("\x1f"))
     .filter((f) => f.length >= 7)
     .map((f) => ({
       h: f[0].trim(),
       p: f[1].split(" ").filter(Boolean),
-      d: f[2], a: f[3], e: f[4], r: f[5], s: f.slice(6).join(" "),
+      d: f[2],
+      a: f[3],
+      e: f[4],
+      r: f[5],
+      s: f.slice(6).join(" "),
     }))
 }
 
@@ -94,31 +112,36 @@ export interface ParsedRefs {
 
 export function parseForEachRef(out: string): ParsedRefs {
   let base = ""
-  const refs: GitRef[] = out.split("\n").filter(Boolean).flatMap((line): GitRef[] => {
-    const [refname, head, track = "", symref = "", upstream = "", oid = "", peeled = ""] = line.split("\x1f")
-    /* `%(*objectname)` peels an annotated tag to its commit; empty for a branch or lightweight tag */
-    const tip = peeled || oid
-    const kind = REF_KINDS.find(([prefix]) => refname.startsWith(prefix))
-    if (!kind) return []
-    const name = refname.slice(kind[0].length)
-    if (kind[1] === "remote" && name.endsWith("/HEAD")) {
-      base ||= symref
-      return []
-    }
-    const ahead = /ahead (\d+)/.exec(track)
-    const behind = /behind (\d+)/.exec(track)
-    return [{
-      name,
-      kind: kind[1],
-      head: head === "*",
-      upstream,
-      ahead: ahead ? +ahead[1] : 0,
-      behind: behind ? +behind[1] : 0,
-      merged: false,
-      gone: track === "gone",
-      tip,
-    }]
-  })
+  const refs: GitRef[] = out
+    .split("\n")
+    .filter(Boolean)
+    .flatMap((line): GitRef[] => {
+      const [refname, head, track = "", symref = "", upstream = "", oid = "", peeled = ""] = line.split("\x1f")
+      /* `%(*objectname)` peels an annotated tag to its commit; empty for a branch or lightweight tag */
+      const tip = peeled || oid
+      const kind = REF_KINDS.find(([prefix]) => refname.startsWith(prefix))
+      if (!kind) return []
+      const name = refname.slice(kind[0].length)
+      if (kind[1] === "remote" && name.endsWith("/HEAD")) {
+        base ||= symref
+        return []
+      }
+      const ahead = /ahead (\d+)/.exec(track)
+      const behind = /behind (\d+)/.exec(track)
+      return [
+        {
+          name,
+          kind: kind[1],
+          head: head === "*",
+          upstream,
+          ahead: ahead ? +ahead[1] : 0,
+          behind: behind ? +behind[1] : 0,
+          merged: false,
+          gone: track === "gone",
+          tip,
+        },
+      ]
+    })
   return { refs, base }
 }
 
@@ -132,6 +155,7 @@ export const ALL_REFS = ["--exclude=refs/stash", "--all"]
    Safety filter, not a refname parser — mainly rejects a name starting with `-` that would pass
    itself off as a git option (fix B2). Blacklist rather than whitelist: `[\w./+-]` would reject
    accented letters and `@`, both legal in a refname. */
+// eslint-disable-next-line no-control-regex -- \x00-\x20 deliberately rejects control/unprintable bytes, mirroring git's own refname rules
 export const BRANCH = /^(?!-)(?!.*\.\.)(?!.*@\{)[^\x00-\x20\x7f~^:?*[\\]+$/
 
 /* --- Git failures (fix: preserves the exit code, inspects stdout) ---
@@ -156,11 +180,12 @@ export function classifyGitFailure(input: GitFailureInput): ErrorPayload {
   const files = [...`${input.stdout}\n${input.stderr}`.matchAll(CONFLICT_LINE)].map((m) => m[1])
   if (files.length) return { code: "MERGE_CONFLICT", detail: files.join(", ") }
 
-  const lines = (input.stderr || input.stdout).split("\n").map((l) => l.trim()).filter(Boolean)
+  const lines = (input.stderr || input.stdout)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
   const fatal = lines.filter((l) => /^(fatal|error):/.test(l)).slice(0, 2)
-  const msg = (fatal.length ? fatal : lines.slice(-1))
-    .map((l) => l.replace(/^(fatal|error):\s*/, ""))
-    .join(" — ")
+  const msg = (fatal.length ? fatal : lines.slice(-1)).map((l) => l.replace(/^(fatal|error):\s*/, "")).join(" — ")
   const detail = input.exitCode == null ? msg : `${msg} (exit ${input.exitCode})`
   return { code: "GIT_FAILED", detail: detail || undefined }
 }

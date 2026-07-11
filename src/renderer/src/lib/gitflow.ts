@@ -64,7 +64,6 @@ const BRANCH_PREFIX: [RegExp, BranchFlow][] = [
    rail), not the `flow finish` menu — that one requires a real gitflow, see features/refs. */
 export function branchFlow(name: string, prefixes: FlowPrefixes | null): BranchFlow | null {
   const flow =
-    prefixes &&
-    (Object.keys(prefixes) as BranchFlow[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]!))
+    prefixes && (Object.keys(prefixes) as BranchFlow[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]))
   return flow || (BRANCH_PREFIX.find(([re]) => re.test(name))?.[1] ?? null)
 }
