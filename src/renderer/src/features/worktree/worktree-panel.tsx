@@ -11,10 +11,10 @@ import { FileEntries, FileListHeader, FileViewToggle, useFileView, type FileView
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/primitives/checkbox"
-import { Field, FieldError, FieldGroup } from "@/components/ui/primitives/field"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Field, FieldError, FieldGroup } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/primitives/textarea"
+import { Textarea } from "@/components/ui/textarea"
 
 /** Un fichier de l'arbre porte sa source : c'est elle qui choisit la commande de diff. */
 type WtFile = FileChange & { source: WtSource }

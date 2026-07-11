@@ -6,7 +6,7 @@ import type { FileChange, RepoApi } from "@/lib/git"
 import { buildPathTree, type PathTree } from "@/lib/path-tree"
 import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LABEL_CLS } from "@/components/ui/typography"
 

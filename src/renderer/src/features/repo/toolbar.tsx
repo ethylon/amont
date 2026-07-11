@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/primitives/separator"
-import { Spinner } from "@/components/ui/primitives/spinner"
+import { Separator } from "@/components/ui/separator"
+import { Spinner } from "@/components/ui/spinner"
 
 const OPS = [
   { op: "fetch", label: "Fetch", icon: Refresh01Icon, cmd: "git fetch --all --prune" },
