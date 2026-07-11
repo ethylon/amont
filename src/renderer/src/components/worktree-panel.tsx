@@ -2,7 +2,8 @@ import { useId, useState } from "react"
 import { ArchiveArrowDownIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
-import type { DiffCtx } from "@/components/diff-view"
+import { useStatusQuery, useWorktreeQuery } from "@/lib/queries"
+import { useRepoStore } from "@/lib/repo-store"
 import { cn } from "@/lib/utils"
 import { FileEntries, FileListHeader, FileViewToggle, useFileView, type FileView } from "@/components/file-list"
 import { GitCmd } from "@/components/ui/git-cmd"
@@ -70,31 +71,31 @@ function WtBlock({ title, files, view, api, activePath, onOpen, action, dirActio
   )
 }
 
-type Props = {
-  api: RepoApi
-  worktree: Worktree
-  activePath?: string
-  /** première ligne du message ; la description remplit le corps */
-  subject: string
-  description: string
-  /** l'amend est piloté par la vue parente : elle préremplit le message et restaure le brouillon */
-  amend: boolean
-  /** un dépôt sans commit n'a rien à amender */
-  canAmend: boolean
-  onSubjectChange(v: string): void
-  onDescriptionChange(v: string): void
-  onAmendChange(v: boolean): void
-  onOpenDiff(ctx: DiffCtx, file: FileChange): void
-  onRun(act: WtAct, paths: string[]): void
-  onCommit(): Promise<void>
-  /** remise l'arbre entier (`git stash push -u`), le sujet saisi servant de message */
-  onStash(): void
-}
+/** Rendu par le layout de slots quand `worktree` a des changements et que la vue est "wt" —
+    ce garde-fou reste côté RepoView, qui possède déjà la requête. */
+const EMPTY_WT: Worktree = { staged: [], unstaged: [], untracked: [], conflicts: [] }
 
-export function WorktreePanel({
-  api, worktree, activePath, subject, description, amend, canAmend,
-  onSubjectChange, onDescriptionChange, onAmendChange, onOpenDiff, onRun, onCommit, onStash,
-}: Props) {
+export function WorktreePanel() {
+  const api = useRepoStore((s) => s.api)
+  const repoId = useRepoStore((s) => s.repoId)
+  const { data: worktree = EMPTY_WT } = useWorktreeQuery(api, repoId)
+  const { data: status } = useStatusQuery(api, repoId)
+  const activePath = useRepoStore((s) => s.ui.diff?.file.path)
+  const subject = useRepoStore((s) => s.commitDraft.subject)
+  const description = useRepoStore((s) => s.commitDraft.description)
+  const amend = useRepoStore((s) => s.commitDraft.amend)
+  const onSubjectChange = useRepoStore((s) => s.setSubject)
+  const onDescriptionChange = useRepoStore((s) => s.setDescription)
+  const onAmendChange = useRepoStore((s) => s.toggleAmend)
+  const onOpenDiff = useRepoStore((s) => s.openDiff)
+  const onRun = useRepoStore((s) => s.runWt)
+  const onCommit = useRepoStore((s) => s.doCommit)
+  const runStash = useRepoStore((s) => s.runStash)
+  const onStash = () => runStash("push", subject.trim() || undefined)
+
+  /* un dépôt sans commit n'a rien à amender */
+  const canAmend = !!status?.head
+
   const [committing, setCommitting] = useState(false)
   const [view, setView] = useFileView()
   const amendId = useId()

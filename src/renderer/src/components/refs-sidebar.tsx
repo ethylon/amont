@@ -16,8 +16,10 @@ import {
   Tag01Icon,
 } from "@hugeicons/core-free-icons"
 
-import type { BranchAct, FlowPrefixes, GitRef, RepoApi, Stash, StashAct } from "@/lib/git"
+import type { BranchAct, FlowPrefixes, GitRef, Stash, StashAct } from "@/lib/git"
 import { typeColor, type BadgeColor } from "@/lib/commit-message"
+import { useFlowQuery, useRefsQuery, useStashesQuery } from "@/lib/queries"
+import { useRepoStore } from "@/lib/repo-store"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"
@@ -329,29 +331,26 @@ function Tree({ node, icon, ctx, openDirs = false, forceOpen = false }: {
   )
 }
 
-export function RefsSidebar({
-  api,
-  open,
-  refreshKey,
-  flow,
-  onCheckout,
-  onBranch,
-  onFocusRef,
-  onFocusStash,
-  onStash,
-  focusedKeys,
-}: Pick<Ctx, "flow" | "onCheckout" | "onBranch" | "onFocusRef" | "focusedKeys"> & {
-  api: RepoApi
-  open: boolean
-  refreshKey: string
-  onFocusStash(s: Stash): void
-  onStash(action: StashAct, name: string): void
-}) {
-  /* pas `useAsync` : il vide ses données à chaque clé, et l'auto-fetch ferait clignoter
-     l'arbre toutes les cinq minutes. Ici l'ancien rendu tient jusqu'à la réponse. */
-  const [data, setData] = useState<GitRef[] | null>(null)
-  const [stashes, setStashes] = useState<Stash[]>([])
-  const [error, setError] = useState(false)
+/** Store et requêtes plutôt que 10 props (AUDIT.md §5) : `open`/`focusedKeys` viennent du
+    store, `flow`/refs/stashes de TanStack Query — plus de `refreshKey` bricolé en chaîne, les
+    invalidations de la couche requêtes suffisent à faire relire l'arbre. */
+export function RefsSidebar() {
+  const api = useRepoStore((s) => s.api)
+  const repoId = useRepoStore((s) => s.repoId)
+  const open = useRepoStore((s) => s.ui.sidebarOpen)
+  const focusedKeys = useRepoStore((s) => s.selection.focusedKeys)
+  const onCheckout = useRepoStore((s) => s.checkout)
+  const onBranch = useRepoStore((s) => s.runBranch)
+  const onFocusRef = useRepoStore((s) => s.focusRef)
+  const onFocusStash = useRepoStore((s) => s.focusStash)
+  const onStash = useRepoStore((s) => s.runStash)
+
+  const { data: flow = null } = useFlowQuery(api, repoId)
+  /* pas de flag `stale` à recopier : `placeholderData: keepPreviousData` (cf. lib/queries.ts)
+     tient l'ancien rendu affiché pendant qu'une nouvelle réponse arrive, sans le clignotement
+     que `useAsync` (vidé à chaque clé) aurait produit toutes les cinq minutes (auto-fetch). */
+  const { data, isError: error } = useRefsQuery(api, repoId)
+  const { data: stashes = [] } = useStashesQuery(api, repoId)
   const [filter, setFilter] = useState("")
   const navRef = useRef<HTMLElement>(null)
 
@@ -359,23 +358,6 @@ export function RefsSidebar({
   const q = filter.trim().toLowerCase()
   const match = (r: GitRef) => !q || r.name.toLowerCase().includes(q)
   const matchStash = (s: Stash) => !q || s.name.includes(q) || s.s.toLowerCase().includes(q)
-
-  useEffect(() => {
-    let stale = false
-    api.refs().then(
-      (r) => !stale && setData(r),
-      () => !stale && setError(true)
-    )
-    api.stashes().then(
-      (s) => !stale && setStashes(s),
-      () => {} // liste indisponible : le groupe reste tel quel, les refs ont leur propre erreur
-    )
-    return () => {
-      stale = true
-    }
-    // `api` est stable pour un onglet donné : `refreshKey` porte déjà son identité.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey])
 
   /* Fusionne les contours des refs allumées visuellement contiguës : on lit l'ordre DOM réel
      (les dossiers repliés sont display:none → hors flux), pas l'ordre logique de l'arbre. */

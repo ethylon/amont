@@ -1,12 +1,13 @@
+import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { CloudIcon } from "@hugeicons/core-free-icons"
 
 import type { Commit, FileChange, RepoApi } from "@/lib/git"
 import { parseBody, parseMarkdown, parseRefs, parseSubject, refColor, typeColor, type MdToken, type RefChip } from "@/lib/commit-message"
+import { queryKeys, useBodyQuery } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import type { GraphHandle } from "@/components/graph-canvas"
 import { SCROLL_TEXT_CLASS, scrollTextHover, scrollTextStop } from "@/components/scroll-text"
-import { useAsync } from "@/hooks/use-async"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
 import { FileList } from "@/components/file-list"
@@ -16,6 +17,7 @@ export type SelMode = "multi" | "branch"
 
 type Props = {
   api: RepoApi
+  repoId: number
   graph: GraphHandle
   /** indices de lignes, triés croissant */
   selection: number[]
@@ -119,38 +121,41 @@ const spanCtx = (graph: GraphHandle, selection: number[]) => ({
 })
 
 function Files({
-  api, load, cacheKey, ctx, ctxOf, activePath, onOpenDiff,
+  api, queryKey, queryFn, ctx, ctxOf, activePath, onOpenDiff,
 }: {
   api: RepoApi
-  load(): Promise<FileChange[]>
-  cacheKey: string
+  queryKey: readonly unknown[]
+  queryFn(): Promise<FileChange[]>
   ctx: { hash: string; parent: string | null }
   /** contexte de diff propre à un fichier : les non suivis d'un stash vivent dans un autre commit */
   ctxOf?(f: FileChange): { hash: string; parent: string | null }
   activePath?: string
   onOpenDiff: Props["onOpenDiff"]
 }) {
-  const { data, error } = useAsync(load, cacheKey)
-  if (error) return <div className="mt-4 shrink-0 border-t pt-3"><Hint>Diff indisponible.</Hint></div>
+  const { data, isError } = useQuery({ queryKey, queryFn })
+  if (isError) return <div className="mt-4 shrink-0 border-t pt-3"><Hint>Diff indisponible.</Hint></div>
   if (!data) return <div className="mt-4 shrink-0 border-t pt-3"><Loading /></div>
   return <FileList files={data} api={api} activePath={activePath} onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)} />
 }
 
-function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
-  api: RepoApi; graph: GraphHandle; row: number; activePath?: string
+function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
+  api: RepoApi; repoId: number; graph: GraphHandle; row: number; activePath?: string
   onOpenDiff: Props["onOpenDiff"]; onJump(hash: string): void
 }) {
   const c = graph.commit(row)!
   const ps = parseSubject(c.s)
   const ctx = { hash: c.h, parent: c.p[0] || null }
   /* le corps ne voyage pas avec le log : il est relu pour la seule ligne sélectionnée */
-  const { data: raw } = useAsync(() => api.body(c.h), `body:${c.h}`)
+  const { data: raw } = useBodyQuery(api, repoId, c.h)
   const body = raw === undefined ? null : parseBody(raw)
 
   /* Un stash montre tout ce qu'il remise : les changements suivis (diff contre sa base) et
      les fichiers non suivis, remisés dans un commit à part (3e parent), rendus en `?` comme
      dans l'arbre de travail. Leur diff se lit dans ce commit-là, pas contre la base. */
   const untracked = c.stash?.untracked ?? null
+  const filesQueryKey = untracked
+    ? (["files", "stash", repoId, ctx.hash, untracked] as const)
+    : queryKeys.files(repoId, ctx.hash, ctx.parent)
   const loadFiles = untracked
     ? async () => {
         const [tracked, extra] = await Promise.all([
@@ -237,8 +242,8 @@ function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
 
       <Files
         api={api}
-        load={loadFiles}
-        cacheKey={`single:${c.h}`}
+        queryKey={filesQueryKey}
+        queryFn={loadFiles}
         ctx={ctx}
         ctxOf={ctxFor}
         activePath={activePath}
@@ -248,8 +253,8 @@ function Single({ api, graph, row, activePath, onOpenDiff, onJump }: {
   )
 }
 
-function Branch({ api, graph, selection, activePath, onOpenDiff }: {
-  api: RepoApi; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
+function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
+  api: RepoApi; repoId: number; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
 }) {
   const ctx = spanCtx(graph, selection)
   const n = selection.length
@@ -262,8 +267,8 @@ function Branch({ api, graph, selection, activePath, onOpenDiff }: {
       {/* une seule commande git entre les extrémités */}
       <Files
         api={api}
-        load={() => api.files(ctx.hash, ctx.parent)}
-        cacheKey={`branch:${ctx.hash}:${ctx.parent}`}
+        queryKey={queryKeys.files(repoId, ctx.hash, ctx.parent)}
+        queryFn={() => api.files(ctx.hash, ctx.parent)}
         ctx={ctx}
         activePath={activePath}
         onOpenDiff={onOpenDiff}
@@ -272,8 +277,8 @@ function Branch({ api, graph, selection, activePath, onOpenDiff }: {
   )
 }
 
-function Multi({ api, graph, selection, activePath, onOpenDiff }: {
-  api: RepoApi; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
+function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
+  api: RepoApi; repoId: number; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
 }) {
   const ctx = spanCtx(graph, selection)
 
@@ -308,8 +313,8 @@ function Multi({ api, graph, selection, activePath, onOpenDiff }: {
       </div>
       <Files
         api={api}
-        load={load}
-        cacheKey={`multi:${selection.join(",")}`}
+        queryKey={["files", "multi", repoId, selection.map((i) => graph.commit(i)!.h).join(",")]}
+        queryFn={load}
         ctx={ctx}
         activePath={activePath}
         onOpenDiff={onOpenDiff}
@@ -322,14 +327,14 @@ const Dt = ({ children }: { children: React.ReactNode }) => (
   <dt className="pt-0.5 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase">{children}</dt>
 )
 
-export function DetailPanel({ api, graph, selection, selMode, activePath, onOpenDiff, onJump }: Props) {
+export function DetailPanel({ api, repoId, graph, selection, selMode, activePath, onOpenDiff, onJump }: Props) {
   if (!selection.length) return <Hint>Clique un commit pour le détail.</Hint>
 
   return selection.length === 1 ? (
-    <Single api={api} graph={graph} row={selection[0]} activePath={activePath} onOpenDiff={onOpenDiff} onJump={onJump} />
+    <Single api={api} repoId={repoId} graph={graph} row={selection[0]} activePath={activePath} onOpenDiff={onOpenDiff} onJump={onJump} />
   ) : selMode === "branch" ? (
-    <Branch api={api} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
+    <Branch api={api} repoId={repoId} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
   ) : (
-    <Multi api={api} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
+    <Multi api={api} repoId={repoId} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
   )
 }
