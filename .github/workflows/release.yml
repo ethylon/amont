@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -26,11 +30,12 @@ jobs:
 
       - run: pnpm test
 
-      # electron-builder lit `publish` dans electron-builder.yml : brouillon + installeur attaché
+      # electron-builder reads `publish` from electron-builder.yml: draft + installer attached
       - run: pnpm release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: gh release edit ${{ github.ref_name }} --draft=false --latest
+      # --generate-notes fills in the changelog from merged PRs since the previous tag
+      - run: gh release edit ${{ github.ref_name }} --draft=false --latest --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
