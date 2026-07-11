@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { Clock01Icon, Folder01Icon, FolderLibraryIcon } from "@hugeicons/core-free-icons"
 
-import { host, type OpenResult, type Repo, type RepoRef } from "@/lib/git"
+import { host, type Repo, type RepoRef } from "@/lib/git"
+import { describeError } from "@/lib/errors"
 import { Mark } from "@/components/mark"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -74,20 +75,21 @@ export function HomeScreen({ active, onOpened }: Props) {
     }
   }, [root])
 
-  /* main renvoie null (dialogue annulé), {error} ou le repo ouvert */
+  /* main renvoie null (dialogue annulé) ou le repo ouvert ; un échec throw désormais une
+     erreur structurée (fix chantier « erreurs », AUDIT.md §4) plutôt qu'un `{ error }`. */
   const opened = useCallback(
-    (res: OpenResult) => {
+    (res: Repo | null) => {
       if (!res) return
-      if ("error" in res) return setError(res.error)
       setError(null)
       onOpened(res)
     },
     [onOpened]
   )
+  const failed = useCallback((e: unknown) => setError(describeError(e)), [])
 
   const chooseRoot = useCallback(() => host.chooseRoot().then(setRoot), [])
-  const openPath = useCallback((path: string) => host.openPath(path).then(opened), [opened])
-  const openDialog = useCallback(() => host.openDialog().then(opened), [opened])
+  const openPath = useCallback((path: string) => host.openPath(path).then(opened, failed), [failed, opened])
+  const openDialog = useCallback(() => host.openDialog().then(opened, failed), [failed, opened])
 
   if (!root && !recents.length) {
     return (
