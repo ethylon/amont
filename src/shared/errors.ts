@@ -1,22 +1,22 @@
-/* Erreurs structurées partagées par les trois process (AUDIT.md §4, chantier « main »).
+/* Structured errors shared by the three processes (AUDIT.md §4, "main" workstream).
 
-   Contrainte dure d'Electron (cf. electron.d.ts, `IpcMain.handle`) : « Errors thrown through
+   Hard constraint from Electron (cf. electron.d.ts, `IpcMain.handle`): "Errors thrown through
    `handle` in the main process are not transparent as they are serialized and only the
-   `message` property from the original error is provided to the renderer process. » Un throw
-   perd donc tout sauf `.message` en traversant l'IPC — impossible d'y accrocher `code`/`detail`
-   comme propriétés distinctes.
+   `message` property from the original error is provided to the renderer process." A throw
+   therefore loses everything except `.message` when crossing the IPC boundary — impossible to
+   attach `code`/`detail` as separate properties.
 
-   Le contournement : `AppError` encode son payload `{ code, detail }` en JSON DANS `.message`.
-   Ce qui traverse l'IPC est donc une string JSON ; `decodeError` la reconstitue de l'autre
-   côté. À l'intérieur du main (avant que l'erreur ne traverse l'IPC), `err instanceof AppError`
-   donne un accès direct à `.code`/`.detail` sans passer par le JSON — le detour n'existe que
-   pour le franchissement de frontière.
+   The workaround: `AppError` encodes its `{ code, detail }` payload as JSON INSIDE `.message`.
+   What crosses the IPC boundary is therefore a JSON string; `decodeError` reconstructs it on
+   the other side. Inside main (before the error crosses the IPC boundary), `err instanceof
+   AppError` gives direct access to `.code`/`.detail` without going through the JSON — the
+   detour only exists for crossing the boundary.
 
-   Convention unique retenue pour tout le contrat (AUDIT.md : « openRepo retourne { error },
-   le reste throw — UNE convention ») : THROW partout, y compris openRepo (qui retournait
-   `{ error }` avant ce refactor). Le payload JSON dans `.message` rend le throw aussi
-   « structuré » qu'un retour l'aurait été, sans la piètre ergonomie d'un Result<T> à dérouler
-   sur chaque canal — la majorité des canaux jetaient déjà. */
+   Single convention adopted for the whole contract (AUDIT.md: "openRepo returns { error },
+   everything else throws — ONE convention"): THROW everywhere, including openRepo (which used
+   to return `{ error }` before this refactor). The JSON payload in `.message` makes the throw
+   just as "structured" as a return value would have been, without the poor ergonomics of a
+   Result<T> to unwrap on every channel — most channels already threw. */
 
 export type ErrorCode =
   | "NOT_A_REPO"
@@ -34,8 +34,8 @@ export type ErrorCode =
   | "GIT_FAILED"
   | "UNKNOWN"
 
-/** Le detail reste factuel (nom de branche, ligne fatal: de git, code de sortie…), jamais une
-    phrase — c'est au renderer de composer le message affiché, dans sa langue. */
+/** The detail stays factual (branch name, git's fatal: line, exit code…), never a
+    sentence — it's up to the renderer to compose the displayed message, in its own language. */
 export interface ErrorPayload {
   code: ErrorCode
   detail?: string
@@ -57,16 +57,16 @@ function isErrorPayload(v: unknown): v is ErrorPayload {
   return !!v && typeof v === "object" && typeof (v as { code?: unknown }).code === "string"
 }
 
-/** Reconstitue `{ code, detail }` depuis n'importe quelle erreur — une `AppError` locale (main,
-    avant l'IPC), ou l'`Error` générique qu'Electron reconstruit côté renderer après une
-    traversée d'IPC. Vérifié empiriquement (Electron 43) : le `.message` reçu n'est PAS le JSON
-    nu que documente `electron.d.ts` (« only the message property... is provided ») — Electron y
-    ajoute un préfixe, `Error invoking remote method 'canal': AppError: {"code":…}`. On extrait
-    donc la sous-chaîne entre la première `{` et la dernière `}` plutôt que de parser le message
-    entier : robuste au préfixe exact (qui pourrait varier d'une version d'Electron à l'autre),
-    et sans risque vis-à-vis d'un `detail` qui contiendrait lui-même des accolades (il est
-    échappé à l'intérieur du JSON, donc avant la dernière accolade fermante). Toute erreur qui
-    ne colle pas à ce format (bug, exception non prévue) retombe sur `UNKNOWN`. */
+/** Reconstructs `{ code, detail }` from any error — a local `AppError` (main,
+    before IPC), or the generic `Error` that Electron reconstructs on the renderer side after
+    an IPC crossing. Verified empirically (Electron 43): the `.message` received is NOT the
+    bare JSON that `electron.d.ts` documents ("only the message property... is provided") —
+    Electron prepends a prefix to it, `Error invoking remote method 'channel': AppError: {"code":…}`.
+    We therefore extract the substring between the first `{` and the last `}` rather than
+    parsing the entire message: robust to the exact prefix (which could vary between Electron
+    versions), and safe regarding a `detail` that might itself contain braces (it's escaped
+    inside the JSON, so before the last closing brace). Any error that doesn't fit this format
+    (bug, unexpected exception) falls back to `UNKNOWN`. */
 export function decodeError(err: unknown): ErrorPayload {
   if (err instanceof AppError) return { code: err.code, detail: err.detail }
   if (err instanceof Error) {
@@ -77,7 +77,7 @@ export function decodeError(err: unknown): ErrorPayload {
         const parsed: unknown = JSON.parse(err.message.slice(start, end + 1))
         if (isErrorPayload(parsed)) return parsed
       } catch {
-        /* accolades présentes mais pas notre JSON : message brut d'une erreur non structurée */
+        /* braces present but not our JSON: raw message from an unstructured error */
       }
     }
     return { code: "UNKNOWN", detail: err.message }

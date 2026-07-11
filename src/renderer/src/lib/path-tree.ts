@@ -1,9 +1,9 @@
-/* Arbre de chemins générique (AUDIT.md §7, phase 5) : file-list.tsx et refs-sidebar.tsx
-   construisaient chacun leur propre `buildTree`, identiques à la forme de l'item près (un
-   `FileChange` avec son `.path`, une `GitRef` avec son `.name`) — un seul algorithme, `pathOf`
-   choisit le champ. Un nœud ne porte que ses enfants directs et les items qui s'arrêtent à ce
-   niveau ; le label d'affichage (dernier segment) se déduit du chemin complet de l'item côté
-   appelant, pas la peine de le dupliquer dans l'arbre. */
+/* Generic path tree (AUDIT.md §7, phase 5): file-list.tsx and refs-sidebar.tsx each
+   built their own `buildTree`, identical except for the shape of the item (a
+   `FileChange` with its `.path`, a `GitRef` with its `.name`) — a single algorithm, `pathOf`
+   picks the field. A node only carries its direct children and the items that stop at that
+   level; the display label (last segment) is derived from the item's full path on the
+   caller's side, no need to duplicate it in the tree. */
 
 export type PathTree<T> = { dirs: Map<string, PathTree<T>>; items: T[] }
 

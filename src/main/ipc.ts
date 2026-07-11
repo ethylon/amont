@@ -1,7 +1,7 @@
-/* Registrar IPC (AUDIT.md §4) : point unique par lequel tous les `ipcMain.handle` passent —
-   vérifie que l'appel vient de la fenêtre principale et type arguments/retour contre le
-   contrat partagé — puis câblage de chaque canal vers repos/state/scan/git. La logique métier
-   vit dans les modules dédiés ; ce fichier ne fait que la relier à l'IPC. */
+/* IPC registrar (AUDIT.md §4): the single point through which every `ipcMain.handle` passes —
+   verifies that the call comes from the main window and types arguments/return value against
+   the shared contract — then wires each channel to repos/state/scan/git. The business logic
+   lives in the dedicated modules; this file only connects it to IPC. */
 
 import { dialog, ipcMain, type IpcMainInvokeEvent } from "electron"
 
@@ -17,12 +17,12 @@ import { openable, persisted, saveState } from "./state.ts"
 import { basename } from "./util.ts"
 import { getMainWindow } from "./window.ts"
 
-/* --- Registrar générique ---
-   Un seul point de passage pour tous les `ipcMain.handle` : vérifie que l'appel vient de la
-   fenêtre principale (aucune autre webContents ne devrait jamais atteindre ces handlers — pas
-   de vue additionnelle dans cette app) et type les arguments/le retour contre le contrat
-   partagé. Un canal renommé ou un argument ajouté au contrat casse désormais à la compilation
-   dans les trois process, plus seulement à l'exécution. */
+/* --- Generic registrar ---
+   A single passage point for every `ipcMain.handle`: verifies that the call comes from the
+   main window (no other webContents should ever reach these handlers — there's no additional
+   view in this app) and types the arguments/return value against the shared contract. A
+   renamed channel or an argument added to the contract now breaks at compile time across all
+   three processes, not just at runtime. */
 function handle<K extends InvokeChannel>(
   channel: K,
   fn: (event: IpcMainInvokeEvent, ...args: Parameters<InvokeChannels[K]>) => ReturnType<InvokeChannels[K]>
@@ -33,9 +33,9 @@ function handle<K extends InvokeChannel>(
   })
 }
 
-/* --- Hooks par dépôt ---
-   Construits une fois par ouverture, injectés dans le RepoHandle (repos.ts) puis dans le
-   runner git (git/exec.ts) : aucun de ces modules ne lit `mainWindow` lui-même. */
+/* --- Per-repo hooks ---
+   Built once per opening, injected into the RepoHandle (repos.ts) then into the
+   git runner (git/exec.ts): none of these modules read `mainWindow` themselves. */
 const makeHooks = (id: number): repos.RepoHooks => ({
   trace: (line) => getMainWindow()?.webContents.send("git:trace", { id, ...line }),
   op: (payload) => getMainWindow()?.webContents.send("git:op", { id, ...payload }),
@@ -45,12 +45,16 @@ const makeHooks = (id: number): repos.RepoHooks => ({
 
 const openRepoPub = (path: string): Promise<Repo> => repos.openRepo(path, makeHooks)
 
-/* --- Annulation ciblée ---
-   `requestId` (une string du renderer) se résout en AbortController côté main ; un vrai
-   AbortSignal ne traverserait pas le clonage structuré de l'IPC (fix chantier main, AUDIT.md
-   §2 B4). Les canaux qui ne fournissent pas de `requestId` s'exécutent sans signal, comme
-   avant ce refactor. */
-function withCancel<T>(r: repos.RepoHandle, requestId: string | undefined, fn: (signal?: AbortSignal) => Promise<T>): Promise<T> {
+/* --- Targeted cancellation ---
+   `requestId` (a string from the renderer) resolves to an AbortController on the main side; a
+   real AbortSignal wouldn't survive IPC's structured clone (main workstream fix, AUDIT.md
+   §2 B4). Channels that don't provide a `requestId` run without a signal, as
+   before this refactor. */
+function withCancel<T>(
+  r: repos.RepoHandle,
+  requestId: string | undefined,
+  fn: (signal?: AbortSignal) => Promise<T>
+): Promise<T> {
   if (!requestId) return fn()
   const controller = new AbortController()
   r.requests.set(requestId, controller)
@@ -58,11 +62,11 @@ function withCancel<T>(r: repos.RepoHandle, requestId: string | undefined, fn: (
 }
 
 export function registerIpc(): void {
-  repos.setAutofetch((r) => ops.runOp(r, "fetch", true))
+  repos.setAutofetch((r) => void ops.runOp(r, "fetch", true))
 
-  /* --- État de l'application ---
-     Appelé une fois au démarrage du renderer (cf. boot() dans lib/git.ts). Idempotent : un
-     second appel ne rouvre rien, il reflète juste le registre courant. */
+  /* --- Application state ---
+     Called once at renderer startup (cf. boot() in lib/git.ts). Idempotent: a
+     second call doesn't reopen anything, it just reflects the current registry. */
   let booted = false
 
   handle("app:state", async (): Promise<BootState> => {
@@ -74,7 +78,7 @@ export function registerIpc(): void {
         try {
           tabs.push(await openRepoPub(path))
         } catch {
-          /* dépôt disparu depuis la dernière session : on l'ignore, ça ne doit pas bloquer le boot */
+          /* repo gone since the last session: ignore it, this must not block boot */
         }
       }
     } else {
@@ -88,11 +92,13 @@ export function registerIpc(): void {
     }
   })
 
-  /* Ce que l'écran d'accueil connaît des dépôts. Séparé de app:state, qui ouvre des repos. */
-  handle("app:repos", () => Promise.resolve({
-    root: persisted.root,
-    recents: persisted.recents.map((path) => ({ path, name: basename(path) })),
-  }))
+  /* What the home screen knows about the repos. Separate from app:state, which opens repos. */
+  handle("app:repos", () =>
+    Promise.resolve({
+      root: persisted.root,
+      recents: persisted.recents.map((path) => ({ path, name: basename(path) })),
+    })
+  )
 
   handle("app:tabs", (_ev, paths, active) => {
     persisted.tabs = paths.filter((p) => openable.has(p))
@@ -112,7 +118,10 @@ export function registerIpc(): void {
     return openRepoPub(path)
   })
 
-  handle("repo:close", (_ev, id) => { repos.closeRepo(id); return Promise.resolve() })
+  handle("repo:close", (_ev, id) => {
+    repos.closeRepo(id)
+    return Promise.resolve()
+  })
 
   handle("root:choose", async () => {
     const win = getMainWindow()
@@ -128,12 +137,10 @@ export function registerIpc(): void {
     const found: string[] = []
     await scan(persisted.root, 0, found)
     found.forEach((p) => openable.add(p))
-    return found
-      .map((path) => ({ path, name: basename(path) }))
-      .sort((a, b) => a.name.localeCompare(b.name))
+    return found.map((path) => ({ path, name: basename(path) })).sort((a, b) => a.name.localeCompare(b.name))
   })
 
-  /* --- Repo : opérations, id en premier argument --- */
+  /* --- Repo: operations, id as first argument --- */
 
   handle("repo:op", (_ev, id, name) => {
     if (!ops.isOpName(name)) throw new AppError("BAD_ARG", "name")
@@ -201,4 +208,3 @@ export function registerIpc(): void {
     return Promise.resolve()
   })
 }
-

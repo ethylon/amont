@@ -1,7 +1,7 @@
-/* Arbre des refs (AUDIT.md §7, phase 5) : une des cinq préoccupations de l'ancien
-   refs-sidebar.tsx (514 lignes) — construction de l'arbre par segments de nom, tri (branches
-   d'intégration en tête), et la ligne de ref elle-même (menu compris). Voir refs-menu.tsx pour
-   le contenu du menu contextuel et refs-focus-paint.ts pour la peinture des contours. */
+/* Refs tree (AUDIT.md §7, phase 5): one of the five concerns of the old
+   refs-sidebar.tsx (514 lines) — building the tree by name segments, sorting (integration
+   branches first), and the ref row itself (menu included). See refs-menu.tsx for
+   the context menu content and refs-focus-paint.ts for the outline painting. */
 
 import { useEffect, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
@@ -20,26 +20,26 @@ import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { BranchMenu } from "@/features/refs/refs-menu"
 
 type RowProps = { onCheckout(name: string): void }
-/* le contexte que le menu d'une branche a besoin de connaître, remis tel quel à chaque niveau
-   de l'arbre : quatre props traversant trois composants ne diraient rien de plus. */
+/* the context a branch's menu needs to know, passed down as-is at every level
+   of the tree: four props threading through three components wouldn't say anything more. */
 export type Ctx = RowProps & {
-  /** branche courante, `null` sur HEAD détachée */
+  /** current branch, `null` on detached HEAD */
   current: string | null
   flow: FlowPrefixes | null
   onBranch(action: BranchAct, name: string): void
-  /** refs focalisées, `kind:name` — les identités cliquées, ou les branches dérivées des commits */
+  /** focused refs, `kind:name` — the clicked identities, or branches derived from commits */
   focusedKeys: Set<string>
-  /** focalise la ref dans le graphe : scroll au tip et sélection de la branche entière.
-      Ctrl (`additive`) ajoute ou retire ; le focus se lève d'un clic dans le vide */
+  /** focuses the ref in the graph: scroll to the tip and select the whole branch.
+      Ctrl (`additive`) adds or removes; the focus clears on a click in empty space */
   onFocusRef(r: GitRef, additive: boolean): void
 }
 
-/** identité d'une ref, partagée avec RepoView : `master` local et `origin/master` cohabitent */
+/** identity of a ref, shared with RepoView: local `master` and `origin/master` coexist */
 export const refKey = (r: GitRef) => `${r.kind}:${r.name}`
 
-/* Le préfixe d'une branche porte la même sémantique que le badge de type d'un commit :
-   `feature/…` est vert comme `feat:`, `hotfix/…` rouge comme `[HOTFIX]`. Un préfixe
-   inconnu (`origin`, `ui`) n'a pas de teinte : pas de pastille. */
+/* A branch prefix carries the same semantics as a commit's type badge:
+   `feature/…` is green like `feat:`, `hotfix/…` red like `[HOTFIX]`. An unknown
+   prefix (`origin`, `ui`) has no tint: no dot. */
 const DOT: Partial<Record<BadgeColor, string>> = {
   primary: "bg-primary",
   success: "bg-success",
@@ -52,31 +52,41 @@ const DOT: Partial<Record<BadgeColor, string>> = {
 
 export const buildTree = (refs: GitRef[]) => buildPathTree(refs, (r) => r.name)
 
-/** Sous la racine, tout est replié au premier rendu sauf le chemin qui mène à HEAD. */
-const holdsHead = (n: PathTree<GitRef>): boolean =>
-  n.items.some((r) => r.head) || [...n.dirs.values()].some(holdsHead)
+/** Under the root, everything is collapsed on first render except the path leading to HEAD. */
+const holdsHead = (n: PathTree<GitRef>): boolean => n.items.some((r) => r.head) || [...n.dirs.values()].some(holdsHead)
 
-/** un pli qui cache une ref focalisée doit s'ouvrir : le focus posé depuis le graphe se voit */
+/** a fold hiding a focused ref must open: focus set from the graph should be visible */
 const holdsFocused = (n: PathTree<GitRef>, keys: Set<string>): boolean =>
   n.items.some((r) => keys.has(refKey(r))) || [...n.dirs.values()].some((d) => holdsFocused(d, keys))
 
-const track = (r: GitRef) =>
-  [r.ahead && `↑${r.ahead}`, r.behind && `↓${r.behind}`].filter(Boolean).join(" ")
+const track = (r: GitRef) => [r.ahead && `↑${r.ahead}`, r.behind && `↓${r.behind}`].filter(Boolean).join(" ")
 
-/** Remplace le remount-par-clé (3 variantes dans l'ancien refs-sidebar.tsx monolithique) par un
-    Collapsible contrôlé : l'ouverture est un state React, réinitialisé à `defaultOpen` chaque
-    fois qu'une dépendance de reset change (un focus posé depuis le graphe, un filtre qui
-    démarre/s'arrête) — exactement l'effet du remount-par-clé, sans démonter/remonter le
-    sous-arbre. Entre deux resets, l'utilisateur reste maître : un clic sur le trigger persiste
-    jusqu'au prochain reset. */
+/** Replaces the remount-by-key pattern (3 variants in the old monolithic refs-sidebar.tsx) with a
+    controlled Collapsible: the open state is React state, reset to `defaultOpen` every
+    time a reset dependency changes (a focus set from the graph, a filter starting/stopping)
+    — exactly the effect of remount-by-key, without unmounting/remounting the
+    subtree. Between two resets, the user stays in control: a click on the trigger persists
+    until the next reset. */
 export function useResettableOpen(defaultOpen: boolean, ...resetDeps: unknown[]) {
   const [open, setOpen] = useState(defaultOpen)
   useEffect(() => setOpen(defaultOpen), resetDeps) // eslint-disable-line react-hooks/exhaustive-deps
   return { open, onOpenChange: setOpen }
 }
 
-function RefDir({ label, node, icon, ctx, openDirs, forceOpen }: {
-  label: string; node: PathTree<GitRef>; icon: IconSvgElement; ctx: Ctx; openDirs: boolean; forceOpen: boolean
+function RefDir({
+  label,
+  node,
+  icon,
+  ctx,
+  openDirs,
+  forceOpen,
+}: {
+  label: string
+  node: PathTree<GitRef>
+  icon: IconSvgElement
+  ctx: Ctx
+  openDirs: boolean
+  forceOpen: boolean
 }) {
   const dot = DOT[typeColor(label.toLowerCase())]
   const focused = ctx.focusedKeys.size > 0 && holdsFocused(node, ctx.focusedKeys)
@@ -108,15 +118,16 @@ function RefDir({ label, node, icon, ctx, openDirs, forceOpen }: {
 
 function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconSvgElement; ctx: Ctx }) {
   const t = track(r)
-  /* un tag se checkout en HEAD détaché, ce qui ne s'annule pas d'un double-clic.
-     Une distante bascule sur la locale de suivi (DWIM de git checkout <nom>). */
+  /* a tag checks out to a detached HEAD, which a double-click can't undo.
+     A remote switches to its tracking local branch (git checkout <name>'s DWIM). */
   const switchable = (r.kind === "head" && !r.head) || r.kind === "remote"
-  /* ponytail: strip du premier segment ; git refuse de lui-même si le nom est ambigu entre remotes */
+  /* Strips the first segment (assumed to be the remote name); git itself refuses the checkout if
+     the resulting name is ambiguous across remotes. */
   const target = r.kind === "remote" ? r.name.split("/").slice(1).join("/") : r.name
 
-  /* « allumée » = cette ref est focalisée — à l'identité, `kind` compris : la locale et sa
-     distante ne s'allument jamais ensemble. La passe DOM (cf. refs-focus-paint.ts) lit `data-lit`
-     pour tracer le contour et fusionner les runs contigus. */
+  /* "lit" = this ref is focused — by identity, `kind` included: the local branch and its
+     remote never light up together. The DOM pass (see refs-focus-paint.ts) reads `data-lit`
+     to draw the outline and merge contiguous runs. */
   const lit = ctx.focusedKeys.has(refKey(r))
   const row = (
     <button
@@ -125,16 +136,16 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
       onClick={(e) => ctx.onFocusRef(r, e.ctrlKey || e.metaKey)}
       onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
       className={cn(
-        "gg-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
+        "amont-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
         "text-foreground hover:bg-muted -my-px",
         r.head && "bg-primary/30 hover:bg-primary/45"
       )}
     >
       <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-      {/* une branche dont la distante a disparu n'est plus une destination : elle se lit comme un reliquat */}
+      {/* a branch whose remote has vanished is no longer a destination: it reads as a leftover */}
       <span className={cn("truncate font-medium", r.gone && "text-muted-foreground line-through")}>{label}</span>
-      {/* badge, pas du texte nu : en bout de ligne, un nombre nu se lit comme le compteur de
-          refs du groupe. h-4 pour que la ligne garde la hauteur des branches sans suivi. */}
+      {/* badge, not bare text: at the end of a line, a bare number reads like the group's
+          ref counter. h-4 so the row keeps the height of branches without tracking. */}
       {t && (
         <Badge shape="squared" className="ms-auto h-4 px-1.5 tabular-nums">
           {t}
@@ -150,7 +161,7 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
     </button>
   )
 
-  /* le trigger porte le `li` : le clic droit prend toute la ligne, pas le seul bouton */
+  /* the trigger carries the `li`: right-click takes the whole row, not just the button */
   if (r.kind === "head")
     return (
       <ContextMenu>
@@ -159,10 +170,10 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
       </ContextMenu>
     )
 
-  /* Distante/tag (AUDIT.md §8) : pas de BranchMenu complet (merge/pull/push/flow n'ont pas de
-     sens hors d'une branche locale), mais le checkout — aujourd'hui double-clic-only pour les
-     distantes, absent pour les tags — doit rester atteignable au clavier (menu contextuel,
-     ouvrable aussi via Maj+F10/touche Menu sur la ligne focalisée). */
+  /* Remote/tag (AUDIT.md §8): no full BranchMenu (merge/pull/push/flow don't make
+     sense outside a local branch), but the checkout — today double-click-only for
+     remotes, absent for tags — must stay reachable from the keyboard (context menu,
+     also openable via Shift+F10/Menu key on the focused row). */
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<li />}>{row}</ContextMenuTrigger>
@@ -176,13 +187,23 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
   )
 }
 
-/* `openDirs` : ouvre les dossiers de ce seul niveau (la récursion repasse à false). Sert aux
-   distantes, où le remote (`origin`) resterait sinon replié faute de HEAD à l'intérieur.
-   `forceOpen` : tout ouvert, à tous les niveaux — un résultat de filtre caché dans un pli
-   serait invisible. Un dossier qui abrite une ref focalisée s'ouvre par le même mécanisme,
-   ciblé sur son seul chemin (cf. `useResettableOpen` dans RefDir). */
-export function Tree({ node, icon, ctx, openDirs = false, forceOpen = false }: {
-  node: PathTree<GitRef>; icon: IconSvgElement; ctx: Ctx; openDirs?: boolean; forceOpen?: boolean
+/* `openDirs`: opens the folders at this single level (the recursion resets to false). Used for
+   remotes, where the remote (`origin`) would otherwise stay collapsed for lack of a HEAD inside.
+   `forceOpen`: everything open, at every level — a filter result hidden in a fold
+   would be invisible. A folder holding a focused ref opens through the same mechanism,
+   targeted to its single path (see `useResettableOpen` in RefDir). */
+export function Tree({
+  node,
+  icon,
+  ctx,
+  openDirs = false,
+  forceOpen = false,
+}: {
+  node: PathTree<GitRef>
+  icon: IconSvgElement
+  ctx: Ctx
+  openDirs?: boolean
+  forceOpen?: boolean
 }) {
   const dirs = [...node.dirs.keys()].sort((a, b) => a.localeCompare(b))
   const leaves = [...node.items].sort(
@@ -197,7 +218,15 @@ export function Tree({ node, icon, ctx, openDirs = false, forceOpen = false }: {
     <ul role="list" className="flex flex-col">
       {pinned.map(row)}
       {dirs.map((k) => (
-        <RefDir key={k} label={k} node={node.dirs.get(k)!} icon={icon} ctx={ctx} openDirs={openDirs} forceOpen={forceOpen} />
+        <RefDir
+          key={k}
+          label={k}
+          node={node.dirs.get(k)!}
+          icon={icon}
+          ctx={ctx}
+          openDirs={openDirs}
+          forceOpen={forceOpen}
+        />
       ))}
       {leaves.slice(pinned.length).map(row)}
     </ul>

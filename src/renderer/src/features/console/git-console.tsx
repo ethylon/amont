@@ -3,23 +3,24 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { TerminalIcon, Delete02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 
 import { onTrace, type TraceLine } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-/* `key` : les lignes n'ont pas d'identité propre côté main ; un compteur local suffit à React. */
+/* `key`: lines have no identity of their own on the main side; a local counter is enough for React. */
 type Entry = TraceLine & { key: number }
 
-/* Tampon borné : une console de debug, pas un journal. Au-delà, les plus vieilles tombent. */
+/* Bounded buffer: a debug console, not a log. Beyond that, the oldest lines drop. */
 const CAP = 500
 
-/** Console git en lecture seule : dernière ligne dans la barre de statut, tout l'historique au clic.
+/** Read-only git console: last line in the status bar, full history on click.
 
-    Popover Base UI plutôt que popover fait main (AUDIT.md §8) : role="dialog" de la Popup posé par
-    la primitive, focus initial dans le panneau et rendu au déclencheur à la fermeture, Escape et
-    clic hors du panneau gérés nativement — l'ancien bouton `fixed inset-0` qui simulait un clic
-    hors-panneau disparaît avec. */
+    Base UI Popover rather than a hand-rolled popover (AUDIT.md §8): role="dialog" set on the Popup by
+    the primitive, initial focus in the panel and returned to the trigger on close, Escape and
+    click outside the panel handled natively — the old `fixed inset-0` button that simulated a click
+    outside the panel goes away with it. */
 export function GitConsole({ repoId }: { repoId: number }) {
   const [lines, setLines] = useState<Entry[]>([])
   const [open, setOpen] = useState(false)
@@ -38,21 +39,21 @@ export function GitConsole({ repoId }: { repoId: number }) {
     [repoId]
   )
 
-  /* priorité haute, en plus de l'Escape natif de la primitive : la console est un overlay flottant
-     au-dessus du reste, son Escape ne doit jamais descendre jusqu'à celui qui ferme le diff (cf.
-     app/shortcuts.ts) — garde explicite, quel que soit l'ordre des listeners internes de Base UI. */
+  /* high priority, in addition to the primitive's native Escape: the console is a floating overlay
+     above everything else, its Escape must never fall through to the one that closes the diff (see
+     app/shortcuts.ts) — explicit guard, regardless of the order of Base UI's internal listeners. */
   useShortcut(open, PRIORITY.OVERLAY, (e) => {
     if (e.key !== "Escape") return false
     setOpen(false)
     return true
   })
 
-  /* à l'ouverture : montrer le plus récent */
+  /* on open: show the most recent */
   useLayoutEffect(() => {
     if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [open])
 
-  /* nouvelle ligne : suivre le bas, sauf si l'utilisateur a remonté lire l'historique */
+  /* new line: follow the bottom, unless the user has scrolled up to read the history */
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (!open || !el) return
@@ -64,7 +65,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
     keyRef.current = 0
   }, [])
 
-  /* dernière ligne « dite » : ni l'issue (exit), ni un en-tête d'opération */
+  /* last "spoken" line: neither the outcome (exit) nor an operation header */
   let last: Extract<Entry, { kind: "cmd" | "out" }> | undefined
   for (let i = lines.length - 1; i >= 0 && !last; i--) {
     const l = lines[i]
@@ -72,8 +73,8 @@ export function GitConsole({ repoId }: { repoId: number }) {
   }
   const busy = lines.length > 0 && lines[lines.length - 1].kind !== "exit"
 
-  /* dernière commande en échec, annoncée aux lecteurs d'écran (AUDIT.md §8) — indépendant du
-     panneau ouvert ou non, comme le fil d'opérations de la barre de statut (opState). */
+  /* last failed command, announced to screen readers (AUDIT.md §8) — independent of
+     whether the panel is open or not, like the status bar's operation feed (opState). */
   let lastFailure: string | null = null
   for (let i = lines.length - 1; i >= 0 && lastFailure === null; i--) {
     const l = lines[i]
@@ -91,7 +92,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
   return (
     <div className="flex min-w-0">
       <span aria-live="polite" className="sr-only">
-        {lastFailure ? `Commande échouée : ${lastFailure}` : ""}
+        {lastFailure ? messages.console.commandFailed(lastFailure) : ""}
       </span>
 
       <Popover open={open} onOpenChange={setOpen} modal="trap-focus">
@@ -102,25 +103,25 @@ export function GitConsole({ repoId }: { repoId: number }) {
           )}
         >
           <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 shrink-0" />
-          <span className="max-w-[52ch] truncate">{last?.text ?? "Prêt"}</span>
+          <span className="max-w-[52ch] truncate">{last?.text ?? messages.console.ready}</span>
           {busy && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />}
         </PopoverTrigger>
 
-        <PopoverContent aria-label="Console git" className="flex w-[min(90vw,44rem)] flex-col">
+        <PopoverContent aria-label={messages.console.gitConsole} className="flex w-[min(90vw,44rem)] flex-col">
           <div className="flex shrink-0 items-center gap-2 border-b px-2.5 py-1.5">
             <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 text-muted-foreground" />
-            <span className="text-[0.6875rem] font-medium">Console git</span>
+            <span className="text-[0.6875rem] font-medium">{messages.console.gitConsole}</span>
             <span className="text-[0.625rem] text-muted-foreground tabular-nums">{lines.length}</span>
             <div className="ms-auto flex items-center gap-1">
               <Button variant="ghost" size="xs" onClick={clear} disabled={!lines.length}>
                 <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-                Effacer
+                {messages.console.clear}
               </Button>
               <PopoverClose
                 render={<Button variant="ghost" size="icon-xs" className="relative after:absolute after:-inset-1" />}
               >
                 <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-                <span className="sr-only">Fermer</span>
+                <span className="sr-only">{messages.console.close}</span>
               </PopoverClose>
             </div>
           </div>
@@ -130,7 +131,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
             className="min-h-0 max-h-[min(60vh,24rem)] flex-1 overflow-auto px-2.5 py-2 font-mono text-[0.6875rem] leading-relaxed"
           >
             {lines.length === 0 ? (
-              <p className="text-muted-foreground">Aucune commande pour l'instant.</p>
+              <p className="text-muted-foreground">{messages.console.noCommandsYet}</p>
             ) : (
               lines.map((l) => <Line key={l.key} line={l} />)
             )}
@@ -141,7 +142,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
   )
 }
 
-const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString("fr", { hour12: false })
+const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour12: false })
 
 function Line({ line }: { line: Entry }) {
   if (line.kind === "group")
@@ -163,7 +164,7 @@ function Line({ line }: { line: Entry }) {
     )
   if (line.kind === "out")
     return <div className="ps-3 break-all whitespace-pre-wrap text-muted-foreground">{line.text}</div>
-  /* succès : la sortie parle d'elle-même, on ne marque que l'échec */
+  /* success: the output speaks for itself, we only flag the failure */
   if (line.ok) return null
-  return <div className="ps-3 text-destructive">✗ échec</div>
+  return <div className="ps-3 text-destructive">{messages.console.failed}</div>
 }

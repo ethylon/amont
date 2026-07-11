@@ -1,6 +1,6 @@
-/* Config vitest (AUDIT.md §4/§10, item tests). Tous les modules testés ici sont des modules
-   purs, exécutables sous Node tel quel (parsers du main, algo de layout, sha256, parseur de
-   messages de commit) — un seul environnement suffit, pas besoin de jsdom. */
+/* Vitest config (AUDIT.md §4/§10, tests item). Every module tested here is a pure
+   module, runnable under Node as-is (main's parsers, layout algorithm, sha256, commit-message
+   parser) — a single environment is enough, no need for jsdom. */
 import { defineConfig } from "vitest/config"
 
 export default defineConfig({

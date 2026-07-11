@@ -1,30 +1,31 @@
 appId: fr.mathieuguey.amont
 productName: Amont
 
-# Le renderer et le main sont bundlés par electron-vite : `out/` se suffit,
-# `node_modules` n'a rien à faire dans l'asar.
+# The renderer and main are bundled by electron-vite: `out/` is enough,
+# `node_modules` has no business in the asar.
 files:
   - out/**
   - package.json
 
-# electron-builder y cherche l'icône de lui-même (icon.ico multi-tailles, icon.png en secours).
+# electron-builder finds the icon on its own (icon.ico multi-size, icon.png as fallback).
 directories:
   buildResources: resources
 
 win:
   target: nsis
 
-# ponytail: pas de signature de code. SmartScreen affichera « éditeur inconnu »
-# jusqu'à l'achat d'un certificat EV — renseigner alors `win.certificateSubjectName`.
+# No code signing for 1.0: SmartScreen will show "unknown publisher" until a certificate is
+# obtained (see README/CONTRIBUTING for the SignPath Foundation route) — set
+# `win.certificateSubjectName` once one is configured.
 
-# Fuses Electron (RunAsNode, inspect CLI, NODE_OPTIONS, intégrité asar) : basculées sur le
-# binaire packagé une fois les fichiers en place, avant toute signature (AUDIT.md §4).
+# Electron fuses (RunAsNode, inspect CLI, NODE_OPTIONS, asar integrity): flipped on the
+# packaged binary once the files are in place, before any signing (AUDIT.md §4).
 afterPack: scripts/after-pack.mjs
 
-# La release reste en brouillon le temps de l'upload : le workflow la publie ensuite.
-# `releaseType: release` fait re-créer la release à chaque artefact → 422 already_exists.
+# The release stays a draft for the duration of the upload: the workflow publishes it after.
+# `releaseType: release` would recreate the release on every artifact -> 422 already_exists.
 publish:
   provider: github
   owner: ethylon
-  repo: git-graph
+  repo: amont
   releaseType: draft

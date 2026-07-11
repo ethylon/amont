@@ -1,13 +1,14 @@
-/* Markdown du corps de commit (AUDIT.md §7, phase 5 — anciennement lib/commit-message.ts).
-   Sous-ensemble réellement écrit dans un message de commit : paragraphes, puces, `code`,
-   **gras**, *italique*, URLs nues. Le parseur ne rend que des données : aucun HTML n'est injecté.
-   ponytail: ni titres, ni tableaux, ni blocs fencés. Une dep markdown le jour où ça manque. */
+/* Markdown for the commit body (AUDIT.md §7, phase 5 — formerly lib/commit-message.ts).
+   The subset actually written in a commit message: paragraphs, bullets, `code`,
+   **bold**, *italic*, bare URLs. The parser only produces data: no HTML is ever injected.
+   No headings, no tables, no fenced code blocks — pull in a real markdown dependency the day
+   one of those is actually missing. */
 
 export type MdKind = "text" | "code" | "bold" | "em" | "link"
 export type MdToken = { t: MdKind; v: string }
 export type MdBlock = { kind: "p"; tokens: MdToken[] } | { kind: "ul"; items: MdToken[][] }
 
-/* `(?<![*\w])` : l'italique ne coupe pas un `a*b*c`. Un `*` en tête de ligne est déjà une puce. */
+/* `(?<![*\w])`: italics don't cut through an `a*b*c`. A `*` at the start of a line is already a bullet. */
 const INLINE = /`([^`]+)`|\*\*(.+?)\*\*|(?<![*\w])\*([^*]+)\*(?!\*)|(https?:\/\/[^\s<>()]+)/g
 const BULLET = /^\s*[-*+]\s+(.*)/
 
@@ -29,7 +30,7 @@ export function parseMarkdown(text: string): MdBlock[] {
   let para: string[] = []
   let items: string[] = []
 
-  /* une ligne vide, ou le passage puce ↔ paragraphe, ferme le bloc courant */
+  /* a blank line, or switching bullet ↔ paragraph, closes the current block */
   const flush = () => {
     if (para.length) blocks.push({ kind: "p", tokens: tokenize(para.join("\n")) })
     if (items.length) blocks.push({ kind: "ul", items: items.map(tokenize) })

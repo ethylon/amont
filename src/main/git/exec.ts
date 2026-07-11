@@ -1,14 +1,13 @@
-/* Le spawn wrapper : point unique par lequel toute commande git passe (AUDIT.md §4, chantier
-   « main », item `git/exec.ts`). Par rapport à l'ancien `git()` de main/index.js :
-   - AbortSignal de bout en bout (annulation ciblée, cf. shared/ipc-contract.ts `repo:cancel`) ;
-   - timeout par défaut pour les lectures (~60 s ; c'était infini), escalade SIGTERM → SIGKILL ;
-   - plafond d'accumulation stdout (un `repo:diff` pathologique pouvait approcher la limite de
-     string V8) ;
-   - l'émetteur de trace est injecté par l'appelant (RunnerContext.trace) plutôt que lu sur un
-     `mainWindow` global, et le tag d'onglet est fourni directement — fini le scan inverse
-     path→tab (l'ancien `traceId`) ;
-   - chaque enfant s'enregistre dans un `Set` fourni par l'appelant : `killAll()` les termine
-     tous d'un coup (closeRepo, fermeture de la fenêtre — fix B4). */
+/* The spawn wrapper: the single point through which every git command passes (AUDIT.md §4,
+   "main" workstream, item `git/exec.ts`). Compared to the old `git()` in main/index.js:
+   - end-to-end AbortSignal (targeted cancellation, cf. shared/ipc-contract.ts `repo:cancel`);
+   - default timeout for reads (~60s; it used to be infinite), SIGTERM → SIGKILL escalation;
+   - stdout accumulation cap (a pathological `repo:diff` could approach V8's string limit);
+   - the trace emitter is injected by the caller (RunnerContext.trace) rather than read from a
+     global `mainWindow`, and the tab tag is provided directly — no more reverse path→tab lookup
+     (the old `traceId`);
+   - each child registers itself in a `Set` provided by the caller: `killAll()` terminates them
+     all at once (closeRepo, window close — fix B4). */
 
 import { execFile, spawn, type ChildProcess } from "node:child_process"
 
@@ -16,46 +15,46 @@ import { AppError } from "../../shared/errors.ts"
 import type { DistributiveOmit, TraceLine } from "../../shared/types.ts"
 import { classifyGitFailure } from "./parse.ts"
 
-/* GIT_TERMINAL_PROMPT=0 : sans TTY, un git qui demande un mot de passe se bloquerait
-   indéfiniment. Les helpers de credentials graphiques (GCM) restent utilisables.
-   GIT_EDITOR : git n'ouvre pas d'éditeur sans TTY, mais `git flow` est un script shell qui,
-   lui, en réclame un pour son tag annoté. `true` le transforme en échec propre. */
+/* GIT_TERMINAL_PROMPT=0: without a TTY, a git command asking for a password would hang
+   indefinitely. Graphical credential helpers (GCM) remain usable.
+   GIT_EDITOR: git doesn't open an editor without a TTY, but `git flow` is a shell script that
+   does need one for its annotated tag. `true` turns that into a clean failure. */
 const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_EDITOR: "true", GIT_MERGE_AUTOEDIT: "no" }
 
-/** Lectures : 60 s. Les opérations réseau et la recherche pickaxe passent leur propre timeout
-    (plus long ou plus court), cf. git/ops.ts et git/queries.ts. */
+/** Reads: 60s. Network operations and pickaxe search pass their own timeout
+    (longer or shorter), cf. git/ops.ts and git/queries.ts. */
 export const DEFAULT_TIMEOUT = 60_000
-/** Opérations réseau, merges, actions de branche, `flow finish` : plus long que la lecture par
-    défaut — un fetch ou un push sur une connexion lente ne doit pas être coupé à 60 s. */
+/** Network operations, merges, branch actions, `flow finish`: longer than the default read
+    timeout — a fetch or push on a slow connection shouldn't be cut off at 60s. */
 export const OP_TIMEOUT = 90_000
-/** Un `repo:diff` ou un `log` pathologique ne doit pas viser la limite de string de V8. */
+/** A pathological `repo:diff` or `log` shouldn't approach V8's string limit. */
 const OUTPUT_CAP = 64 * 1024 * 1024
-/** Grâce laissée entre SIGTERM et SIGKILL : un git qui finit d'écrire son dernier chunk ne doit
-    pas être tué à la sauvage si une seconde suffit. */
+/** Grace period between SIGTERM and SIGKILL: a git process finishing its last chunk of output
+    shouldn't be brutally killed if one more second would do. */
 const KILL_GRACE_MS = 3_000
 
 export interface RunOpts {
-  /** 0 = pas de timeout (échappatoire rare ; par défaut DEFAULT_TIMEOUT). */
+  /** 0 = no timeout (rare escape hatch; defaults to DEFAULT_TIMEOUT). */
   timeout?: number
-  /** part sur stdin (ex. `--stdin` de rev-list, `--pathspec-from-file=-`) : des listes qui
-      dépasseraient la limite de ligne de commande de Windows y passent sans encombre. */
+  /** sent over stdin (e.g. rev-list's `--stdin`, `--pathspec-from-file=-`): lists that would
+      exceed Windows' command-line length limit go through without issue. */
   input?: string
   signal?: AbortSignal
 }
 
 export interface RunnerContext {
   path: string
-  /** émetteur de trace pour cet onglet, déjà tagué par son id — injecté par l'appelant
-      (repos.ts connaît l'id au moment où il construit le runner), jamais lu sur un global. */
+  /** trace emitter for this tab, already tagged with its id — injected by the caller
+      (repos.ts knows the id at the time it builds the runner), never read from a global. */
   trace?: (line: DistributiveOmit<TraceLine, "id">) => void
-  /** enfants en vol de ce dépôt ; l'appelant les tue tous à `closeRepo` / fermeture d'app. */
+  /** in-flight children of this repo; the caller kills them all at `closeRepo` / app close. */
   children: Set<ChildProcess>
 }
 
 export interface GitRunner {
   git(args: string[], opts?: RunOpts): Promise<string>
-  /** `diff --no-index` contre un chemin hors dépôt (fichier non suivi) : l'exit 1 est le cas
-      nominal (une différence existe), pas un échec — ne passe donc pas par `git()`. */
+  /** `diff --no-index` against a path outside the repo (untracked file): exit 1 is the
+      normal case (a difference exists), not a failure — so it doesn't go through `git()`. */
   diffNoIndex(a: string, b: string): Promise<string>
 }
 
@@ -68,8 +67,8 @@ function killGracefully(child: ChildProcess): void {
   child.once("exit", () => clearTimeout(grace))
 }
 
-/** Termine tous les enfants d'un dépôt (closeRepo, fermeture de fenêtre) : une fenêtre fermée
-    en plein fetch ne doit pas laisser un process orphelin tourner (fix B4). */
+/** Terminates all children of a repo (closeRepo, window close): a window closed
+    mid-fetch shouldn't leave an orphaned process running (fix B4). */
 export function killAll(children: Set<ChildProcess>): void {
   for (const child of children) killGracefully(child)
 }
@@ -84,23 +83,28 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
     return new Promise((resolve, reject) => {
       const child = spawn("git", ["-C", ctx.path, ...args], { env: GIT_ENV, windowsHide: true })
       ctx.children.add(child)
-      child.stdin.on("error", () => {}) // git peut se terminer sans lire : EPIPE sans conséquence
+      child.stdin.on("error", () => {}) // git may exit without reading: EPIPE, harmless
       child.stdin.end(opts.input ?? "")
 
-      let out = "", errAll = "", pending = ""
+      let out = "",
+        errAll = "",
+        pending = ""
       let killedBy: "timeout" | "abort" | "limit" | null = null
 
-      /* setEncoding pose un StringDecoder : une séquence UTF-8 coupée entre deux chunks est
-         recollée, là où `buf += chunk` la corromprait. */
+      /* setEncoding sets up a StringDecoder: a UTF-8 sequence split across two chunks gets
+         reassembled, whereas `buf += chunk` would corrupt it. */
       child.stdout.setEncoding("utf8")
       child.stderr.setEncoding("utf8")
       child.stdout.on("data", (d: string) => {
         if (killedBy) return
         out += d
-        if (out.length > OUTPUT_CAP) { killedBy = "limit"; killGracefully(child) }
+        if (out.length > OUTPUT_CAP) {
+          killedBy = "limit"
+          killGracefully(child)
+        }
       })
-      /* git réécrit sa progression avec \r sur une même ligne : on ne pousse qu'aux \n, donc une
-         ligne par étape terminée (« Receiving objects: 100% … »), sans inonder le flux d'IPC. */
+      /* git rewrites its progress with \r on the same line: we only push on \n, so one
+         line per completed step ("Receiving objects: 100% …"), without flooding the IPC stream. */
       child.stderr.on("data", (d: string) => {
         errAll += d
         pending += d
@@ -113,8 +117,16 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
       })
 
       const timeout = opts.timeout ?? DEFAULT_TIMEOUT
-      const timer = timeout ? setTimeout(() => { killedBy = "timeout"; killGracefully(child) }, timeout) : undefined
-      const onAbort = () => { killedBy = "abort"; killGracefully(child) }
+      const timer = timeout
+        ? setTimeout(() => {
+            killedBy = "timeout"
+            killGracefully(child)
+          }, timeout)
+        : undefined
+      const onAbort = () => {
+        killedBy = "abort"
+        killGracefully(child)
+      }
       opts.signal?.addEventListener("abort", onAbort)
 
       const cleanup = () => {
@@ -153,9 +165,13 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
   function diffNoIndex(a: string, b: string): Promise<string> {
     return new Promise((resolve) => {
       const child = execFile(
-        "git", ["-C", ctx.path, "diff", "--no-index", "--", a, b],
+        "git",
+        ["-C", ctx.path, "diff", "--no-index", "--", a, b],
         { maxBuffer: OUTPUT_CAP, env: GIT_ENV, windowsHide: true },
-        (_err, stdout) => { ctx.children.delete(child); resolve(stdout || "") }
+        (_err, stdout) => {
+          ctx.children.delete(child)
+          resolve(stdout || "")
+        }
       )
       ctx.children.add(child)
     })

@@ -1,15 +1,23 @@
-# Le workflow release ne se déclenche qu'au tag : sans celui-ci, rien ne vérifie
-# les commits ordinaires — les auto-contrôles de scripts/ ne tournaient nulle part.
+# The release workflow only fires on a tag: without this one, nothing checks ordinary
+# commits — the self-checks under scripts/ never ran anywhere.
 name: ci
 
 on:
   push:
-    branches: ["**"]
+    branches: [master]
   pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
 
@@ -24,7 +32,11 @@ jobs:
 
       - run: pnpm typecheck
 
+      - run: pnpm lint
+
+      - run: pnpm format:check
+
       - run: pnpm test
 
-      # le bundle complet (main, preload CJS, renderer) : attrape ce que tsc ne voit pas
+      # the full bundle (main, preload CJS, renderer): catches what tsc doesn't see
       - run: pnpm build

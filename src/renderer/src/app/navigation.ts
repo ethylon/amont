@@ -1,9 +1,9 @@
-/* Navigation d'onglets (AUDIT.md §5, item 6) : une union discriminée remplace le sentinel
-   `HOME = 0` que TabStrip partageait avec l'espace des ids de dépôt (`Repo.id` démarre à 1
-   côté main, ce qui ne collisionne jamais avec 0 — mais rien ne le dit dans les types, c'est
-   une convention implicite entre les deux process). Les transitions restent pures et testées
-   ici ; App.tsx les consomme depuis son propre state React (`document.startViewTransition` +
-   `flushSync` sont un souci de rendu, pas d'état — un store séparé n'y apporterait rien). */
+/* Tab navigation (AUDIT.md §5, item 6): a discriminated union replaces the `HOME = 0`
+   sentinel that TabStrip shared with the repo id space (`Repo.id` starts at 1 on the main
+   side, which never collides with 0 — but nothing says so in the types, it's an implicit
+   convention between the two processes). Transitions stay pure and tested here; App.tsx
+   consumes them from its own React state (`document.startViewTransition` + `flushSync` are
+   a rendering concern, not a state one — a separate store wouldn't add anything here). */
 
 import type { Repo } from "@/lib/git"
 
@@ -16,9 +16,9 @@ export const repoKey = (id: number): NavKey => ({ kind: "repo", id })
 export const navKeyEquals = (a: NavKey, b: NavKey): boolean =>
   a.kind === "home" ? b.kind === "home" : b.kind === "repo" && b.id === a.id
 
-/** Le sens du glissement suit la position dans la barre d'onglets, l'accueil en position 0.
-    Une clé qui n'y figure pas encore vient d'être ouverte : elle arrive de face ("open")
-    plutôt que par le côté. */
+/** The slide direction follows the position in the tab strip, home at position 0.
+    A key not yet in it was just opened: it arrives head-on ("open")
+    rather than from the side. */
 export function transitionKind(tabs: Repo[], active: NavKey, target: NavKey): "open" | "next" | "prev" {
   const order: NavKey[] = [HOME, ...tabs.map((r) => repoKey(r.id))]
   const pos = (k: NavKey) => order.findIndex((x) => navKeyEquals(x, k))
@@ -27,9 +27,9 @@ export function transitionKind(tabs: Repo[], active: NavKey, target: NavKey): "o
   return pos(target) > pos(active) ? "next" : "prev"
 }
 
-/** Onglet actif après la fermeture de `closedId` : si l'onglet fermé n'était pas actif, rien
-    ne bouge ; sinon on retombe sur son voisin (même index, borné), ou l'accueil si c'était le
-    dernier onglet. */
+/** Active tab after closing `closedId`: if the closed tab wasn't active, nothing
+    moves; otherwise we fall back to its neighbor (same index, clamped), or home if it was
+    the last tab. */
 export function afterClose(tabs: Repo[], active: NavKey, closedId: number): NavKey {
   const i = tabs.findIndex((r) => r.id === closedId)
   if (i < 0) return active

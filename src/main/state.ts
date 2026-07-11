@@ -1,9 +1,9 @@
-/* État persisté (AUDIT.md §4) : userData/state.json. Fichier minuscule, écrit à chaque
-   mutation — une perte au crash ne coûte qu'une liste d'onglets.
+/* Persisted state (AUDIT.md §4): userData/state.json. Tiny file, written on every
+   mutation — losing it in a crash only costs a list of tabs.
 
-   Écriture atomique (fix hygiène) : temp + rename plutôt qu'un writeFile direct sur le fichier
-   final — un crash ou un kill -9 en plein write ne peut plus laisser un state.json à moitié
-   écrit (JSON tronqué) que loadState() lirait au prochain lancement. */
+   Atomic write (hygiene fix): temp + rename rather than a direct writeFile on the final
+   file — a crash or a kill -9 mid-write can no longer leave a half-written state.json
+   (truncated JSON) that loadState() would read on the next launch. */
 
 import { existsSync } from "node:fs"
 import { readFile, rename, writeFile } from "node:fs/promises"
@@ -28,7 +28,7 @@ export async function saveState(): Promise<void> {
     await writeFile(tmp, JSON.stringify(persisted))
     await rename(tmp, file)
   } catch {
-    /* best-effort : un disque plein ne doit rien casser côté UI */
+    /* best-effort: a full disk must not break anything on the UI side */
   }
 }
 
@@ -36,10 +36,10 @@ export async function loadState(): Promise<void> {
   try {
     Object.assign(persisted, JSON.parse(await readFile(stateFile(), "utf8")))
   } catch {
-    /* premier lancement, ou fichier absent/corrompu */
+    /* first launch, or missing/corrupt file */
   }
-  /* un state.json corrompu (JSON valide, forme inattendue) ne doit pas empêcher la fenêtre
-     de s'ouvrir : on rabote vers la forme attendue au lieu de laisser le boot échouer */
+  /* a corrupt state.json (valid JSON, unexpected shape) must not prevent the window
+     from opening: we coerce it into the expected shape instead of letting boot fail */
   const paths = (list: unknown): string[] => (Array.isArray(list) ? list.filter((p) => typeof p === "string") : [])
   persisted.tabs = paths(persisted.tabs)
   persisted.recents = paths(persisted.recents).filter(isRepo)
@@ -50,9 +50,9 @@ export async function loadState(): Promise<void> {
 
 export const isRepo = (p: string): boolean => existsSync(join(p, ".git"))
 
-/* Le renderer n'ouvre que des chemins qu'on lui a montrés : récents, résultats de scan, ou
-   choix dans le dialogue système. Sans ce filtre, un renderer compromis (le diff affiche du
-   contenu arbitraire) pourrait pointer git — et ses hooks — sur n'importe quel dossier. */
+/* The renderer only opens paths we've shown it: recents, scan results, or
+   picks from the system dialog. Without this filter, a compromised renderer (the diff displays
+   arbitrary content) could point git — and its hooks — at any folder. */
 export const openable = new Set<string>()
 
 export function remember(path: string): void {

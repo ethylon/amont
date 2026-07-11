@@ -1,6 +1,6 @@
-/* Cache de pages (AUDIT.md §6/§10, item tests) : LRU, épinglage viewport/sélection, `pageOfRow`.
-   Un faux `api.log` fournit des pages de 2 commits — pas besoin du moteur de layout pour ces
-   propriétés, seul l'agencement des pages compte. */
+/* Page cache (AUDIT.md §6/§10, tests item): LRU, viewport/selection pinning, `pageOfRow`.
+   A fake `api.log` provides pages of 2 commits — no need for the layout engine for these
+   properties, only the page layout matters. */
 import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
@@ -9,12 +9,12 @@ import { createPageCache } from "./page-cache.ts"
 
 const commit = (h: string): Commit => ({ h, p: [], d: "2026-01-01", a: "Ada", e: "ada@x.io", r: "", s: h })
 
-/** faux `api.log(skip, count)` : 2 commits par page, hash = son rowStart. */
+/** fake `api.log(skip, count)`: 2 commits per page, hash = its rowStart. */
 const fakeLog = (skip: number, count: number): Commit[] =>
   Array.from({ length: count }, (_, i) => commit(`c${skip + i}`))
 
 describe("page-cache — pageOfRow", () => {
-  it("trouve la page la plus à droite dont le rowStart ne dépasse pas la ligne", () => {
+  it("finds the rightmost page whose rowStart doesn't exceed the row", () => {
     const cache = createPageCache(10)
     cache.appendPage(0, fakeLog(0, 2))
     cache.appendPage(2, fakeLog(2, 2))
@@ -27,7 +27,7 @@ describe("page-cache — pageOfRow", () => {
 })
 
 describe("page-cache — commitAt / appendPage / refill", () => {
-  it("résout le commit d'une ligne depuis la bonne page", () => {
+  it("resolves a row's commit from the correct page", () => {
     const cache = createPageCache(10)
     cache.appendPage(0, fakeLog(0, 2))
     cache.appendPage(2, fakeLog(2, 2))
@@ -35,54 +35,54 @@ describe("page-cache — commitAt / appendPage / refill", () => {
     assert.equal(cache.commitAt(3)!.h, "c3")
   })
 
-  it("rend undefined pour une page jamais chargée", () => {
+  it("returns undefined for a page never loaded", () => {
     const cache = createPageCache(10)
     cache.appendPage(0, fakeLog(0, 2))
-    // page 1 (lignes 2-3) jamais enregistrée : pageOfRow(2) retombe sur la page 0 (rowStart <= 2),
-    // dont les commits ne couvrent que les lignes 0-1 — l'accès hors bornes rend undefined
+    // page 1 (rows 2-3) never registered: pageOfRow(2) falls back to page 0 (rowStart <= 2),
+    // whose commits only cover rows 0-1 — out-of-bounds access returns undefined
     assert.equal(cache.commitAt(2), undefined)
   })
 
-  it("refill regarnit une page évincée sans avancer nPages/pageRows", () => {
+  it("refill refills an evicted page without advancing nPages/pageRows", () => {
     const cache = createPageCache(10)
     cache.appendPage(0, fakeLog(0, 2))
     const before = cache.pageCount
     assert.equal(cache.refill(0, fakeLog(0, 2)), true)
-    assert.equal(cache.pageCount, before, "refill n'ajoute pas de page")
-    assert.equal(cache.refill(5, fakeLog(0, 2)), false, "refill échoue sur un index jamais append")
+    assert.equal(cache.pageCount, before, "refill does not add a page")
+    assert.equal(cache.refill(5, fakeLog(0, 2)), false, "refill fails on an index never appended")
   })
 })
 
-describe("page-cache — évinction LRU avec épinglage", () => {
-  it("évince les pages les moins récemment touchées, hors viewport et sélection", () => {
-    const cache = createPageCache(2) // résident = 2 pages max
-    cache.appendPage(0, fakeLog(0, 2)) // page 0 : lignes 0-1
-    cache.appendPage(2, fakeLog(2, 2)) // page 1 : lignes 2-3
-    cache.appendPage(4, fakeLog(4, 2)) // page 2 : lignes 4-5
-    assert.equal(cache.size, 3, "au-delà du résident tant qu'evict() n'a pas tourné")
+describe("page-cache — LRU eviction with pinning", () => {
+  it("evicts the least recently touched pages, outside viewport and selection", () => {
+    const cache = createPageCache(2) // resident = 2 pages max
+    cache.appendPage(0, fakeLog(0, 2)) // page 0: rows 0-1
+    cache.appendPage(2, fakeLog(2, 2)) // page 1: rows 2-3
+    cache.appendPage(4, fakeLog(4, 2)) // page 2: rows 4-5
+    assert.equal(cache.size, 3, "beyond resident as long as evict() hasn't run")
 
-    // viewport sur la page 2 (ligne 4), rien en sélection : page 0 et 1 sont candidates à l'éviction,
-    // la plus ancienne (0, jamais touchée depuis) part en premier.
+    // viewport on page 2 (row 4), nothing selected: pages 0 and 1 are eviction candidates,
+    // the oldest one (0, untouched since) leaves first.
     cache.evict([4, 5], [])
     assert.equal(cache.size, 2)
-    assert.equal(cache.has(0), false, "page 0 évincée (hors viewport, non sélectionnée)")
-    assert.equal(cache.has(2), true, "page 2 (viewport) reste résidente")
+    assert.equal(cache.has(0), false, "page 0 evicted (outside viewport, not selected)")
+    assert.equal(cache.has(2), true, "page 2 (viewport) stays resident")
   })
 
-  it("épingle les pages de la sélection même hors du viewport courant", () => {
+  it("pins selection pages even outside the current viewport", () => {
     const cache = createPageCache(2)
     cache.appendPage(0, fakeLog(0, 2))
     cache.appendPage(2, fakeLog(2, 2))
     cache.appendPage(4, fakeLog(4, 2))
 
-    // viewport sur la page 2, mais une sélection vit en page 0 : elle doit survivre à l'éviction
-    // au détriment de la page 1, ni vue ni sélectionnée.
+    // viewport on page 2, but a selection lives on page 0: it must survive eviction
+    // at the expense of page 1, neither viewed nor selected.
     cache.evict([4, 5], [0])
-    assert.equal(cache.has(0), true, "page de la sélection épinglée")
-    assert.equal(cache.has(1), false, "page ni vue ni sélectionnée : évincée")
+    assert.equal(cache.has(0), true, "selection page pinned")
+    assert.equal(cache.has(1), false, "page neither viewed nor selected: evicted")
   })
 
-  it("ne touche à rien tant que le nombre de pages reste sous le résident", () => {
+  it("touches nothing as long as the page count stays under resident", () => {
     const cache = createPageCache(10)
     cache.appendPage(0, fakeLog(0, 2))
     cache.appendPage(2, fakeLog(2, 2))

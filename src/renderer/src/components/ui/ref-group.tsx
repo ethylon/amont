@@ -5,10 +5,16 @@ import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { LABEL_CLS } from "@/components/ui/typography"
 
-/** En-tête de groupe repliable du sidebar de refs : titre + compteur, chevron qui pivote à
-    l'ouverture. Copié à l'identique entre les groupes de refs (Branches/Distantes/Tags) et le
-    groupe Stash avant ce refactor (AUDIT.md §7, phase 5). */
-export function RefGroup({ title, count, open, onOpenChange, children }: {
+/** Collapsible group header for the refs sidebar: title + count, chevron that rotates on
+    open. Copied identically between the ref groups (Branches/Remotes/Tags) and the
+    Stash group before this refactor (AUDIT.md §7, phase 5). */
+export function RefGroup({
+  title,
+  count,
+  open,
+  onOpenChange,
+  children,
+}: {
   title: string
   count: number
   open: boolean

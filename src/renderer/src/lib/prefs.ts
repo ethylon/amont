@@ -1,8 +1,8 @@
-/* Préférences persistées en localStorage (AUDIT.md §7, phase 5) : les clés `gg.*` étaient
-   éparpillées, écrites et relues à l'appel dans trois modules différents (theme.ts,
-   repo-store.tsx, file-list.tsx) — un nom de clé qui diverge entre lecture et écriture se
-   découvre en runtime, silencieusement. Centralisées ici, une clé qui change de nom ou de type
-   se détecte à la compilation partout où elle est utilisée. */
+/* Preferences persisted in localStorage (AUDIT.md §7, phase 5): the `amont.*` keys used to be
+   scattered, written and re-read ad hoc across three different modules (theme.ts, repo-store.tsx,
+   file-list.tsx) — a key name that drifts between read and write only shows up at runtime,
+   silently. Centralized here, a key that changes name or type is caught at compile time
+   everywhere it's used. */
 
 import type { DiffViewMode } from "@/features/diff/diff-view"
 import type { FileView } from "@/features/repo/file-list"
@@ -15,8 +15,10 @@ function pref<T extends string>(key: string) {
 }
 
 export const prefs = {
-  /** choix explicite de thème ; `null` = pas de choix, suivre l'OS (cf. lib/theme.ts) */
-  theme: pref<"dark" | "light">("gg.theme"),
-  diffView: pref<DiffViewMode>("gg.diffview"),
-  fileView: pref<FileView>("gg.fileview"),
+  /** explicit theme choice; `null` = no choice made, follow the OS (cf. lib/theme.ts) */
+  theme: pref<"dark" | "light">("amont.theme"),
+  diffView: pref<DiffViewMode>("amont.diffview"),
+  fileView: pref<FileView>("amont.fileview"),
+  /** opt-in for network avatars (Gravatar/GitHub); `null`/anything but "on" = off, cf. lib/avatar.ts */
+  avatars: pref<"on" | "off">("amont.avatars"),
 }

@@ -1,26 +1,31 @@
-/* Panneau flottant « +N » (AUDIT.md §6/§8) : ouverture au survol OU au clic/clavier (le bouton
-   est un vrai <button>, Entrée/Espace y déclenchent nativement le même `click` — aucun code
-   clavier séparé n'est nécessaire pour l'ouverture). Fermeture différée pour franchir le vide
-   entre le bouton et le panneau au survol — le survol du panneau, arrivé dans l'intervalle,
-   annule la fermeture. Déplie soit les refs cachées d'une ligne, soit les chips fantômes d'un tip
-   partagé (`data-ghost`, posé par render/rows.ts `ghostChips`).
+/* Floating "+N" panel (AUDIT.md §6/§8): opens on hover OR on click/keyboard (the button
+   is a real <button>, Enter/Space natively trigger the same `click` on it — no separate
+   keyboard code is needed for opening). Closing is delayed to bridge the gap
+   between the button and the panel on hover — hovering the panel, arriving within that gap,
+   cancels the close. Unfolds either a row's hidden refs, or the ghost chips of a shared tip
+   (`data-ghost`, set by render/rows.ts `ghostChips`).
 
-   Porté sur une primitive Base UI plutôt que réécrit à la main : évalué et écarté (cf. PR) — ce
-   panneau vit dans le pipeline impératif des lignes (render/rows.ts), hors de l'arbre React ; le
-   porter demanderait de dupliquer le rendu des chips en JSX et de déplacer la frontière
-   contrôleur/React, un chantier plus large que cette passe a11y. À la place : rôle/aria-label,
-   focus posé dedans à l'ouverture volontaire (clic/clavier, pas au survol souris) et rendu au
-   déclencheur à la fermeture — seulement si le focus y était (`el.contains(activeElement)`),
-   sinon un défilement souris qui ferme le panneau au passage ne volerait pas le focus clavier. */
+   Considered porting to a Base UI primitive instead of hand-rolling this: evaluated and dropped
+   (cf. PR) — this panel lives in the rows' imperative pipeline (render/rows.ts), outside the React
+   tree; porting it would require duplicating chip rendering in JSX and moving the
+   controller/React boundary, a bigger undertaking than this a11y pass. Instead: role/aria-label,
+   focus placed inside on intentional opening (click/keyboard, not mouse hover) and returned to
+   the trigger on close — only if focus was there (`el.contains(activeElement)`),
+   otherwise a mouse scroll that closes the panel along the way wouldn't steal keyboard focus. */
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { parseRefs } from "@/lib/commit-parse"
+import { messages } from "@/lib/messages"
 import { MORE_CLASS } from "../constants.ts"
 import { ghostChip, refChip } from "../render/rows.ts"
 
 const CLOSE_DELAY = 120
 
-export function createPopover(board: HTMLDivElement, inner: HTMLDivElement, commitAt: (row: number) => Commit | undefined) {
+export function createPopover(
+  board: HTMLDivElement,
+  inner: HTMLDivElement,
+  commitAt: (row: number) => Commit | undefined
+) {
   const el = document.createElement("div")
   el.className = MORE_CLASS
   el.setAttribute("role", "group")
@@ -45,34 +50,34 @@ export function createPopover(board: HTMLDivElement, inner: HTMLDivElement, comm
     timer = window.setTimeout(closeMore, CLOSE_DELAY)
   }
 
-  /** `focus` : pose le focus dans le panneau une fois ouvert — réservé à une ouverture volontaire
-      (clic, Entrée/Espace sur le bouton), jamais au survol souris (cf. en-tête). */
+  /** `focus`: places focus inside the panel once open — reserved for intentional opening
+      (click, Enter/Space on the button), never mouse hover (cf. header comment). */
   function openMore(btn: HTMLElement, opts?: { focus?: boolean }) {
     closeMore()
-    const row = btn.closest<HTMLElement>(".gg-row")!
+    const row = btn.closest<HTMLElement>(".amont-row")!
     if (btn.dataset.ghost !== undefined) {
-      /* "+N" fantôme : les autres branches du tip, en chips fantômes — pas des refs de la ligne */
+      /* ghost "+N": the tip's other branches, as ghost chips — not the row's own refs */
       el.replaceChildren(...btn.dataset.ghost.split("\n").map((n) => ghostChip(n, "", "max-w-full")))
     } else {
       const c = commitAt(Number(row.dataset.i))
-      if (!c) return // la ligne est montée donc résidente ; pure défense
+      if (!c) return // the row is mounted so it's resident; pure defensive check
       const refs = parseRefs(c.r).slice(Number(btn.dataset.n))
       const flow = (row.dataset.flow as Parameters<typeof refChip>[2]) || null
       el.replaceChildren(...refs.map((r) => refChip(r, "max-w-full", flow)))
     }
-    /* le panneau flotte sous `inner`, pas sous la ligne : la teinte de lane ne peut pas hériter */
+    /* the panel floats under `inner`, not under the row: lane hue can't be inherited */
     el.style.setProperty("--badge-color", row.style.getPropertyValue("--badge-color"))
-    /* même texte que le bouton qui l'ouvre (posé par render/rows.ts) : un lecteur d'écran qui
-       atterrit dans le panneau entend ce qu'il déplie, pas un "groupe" muet. */
-    el.setAttribute("aria-label", btn.getAttribute("aria-label") || "Références supplémentaires")
+    /* same text as the button that opens it (set by render/rows.ts): a screen reader landing
+       in the panel hears what it's unfolding, not a mute "group". */
+    el.setAttribute("aria-label", btn.getAttribute("aria-label") || messages.graph.extraRefs)
 
     const b = btn.getBoundingClientRect()
-    const box = inner.getBoundingClientRect() // se déplace avec le scroll, comme `more`
+    const box = inner.getBoundingClientRect() // moves with scroll, like `more`
     el.style.left = b.left - box.left + "px"
     el.style.top = b.bottom - box.top + 4 + "px"
     el.classList.replace("hidden", "flex")
-    /* mesuré une fois visible : un "+N" près du bord droit rabat le panneau dans la zone visible
-       du board au lieu d'étendre son scroll horizontal */
+    /* measured once visible: a "+N" near the right edge folds the panel back into the board's
+       visible area instead of extending its horizontal scroll */
     const maxLeft = board.scrollLeft + board.clientWidth - el.offsetWidth - 4
     if (b.left - box.left > maxLeft) el.style.left = Math.max(0, maxLeft) + "px"
     btn.setAttribute("aria-expanded", "true")
