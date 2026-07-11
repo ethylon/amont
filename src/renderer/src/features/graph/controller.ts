@@ -275,7 +275,7 @@ export function createGraph(
     cb.onSelect(target, additive)
     const el = inner.querySelector<HTMLElement>(`.gg-row[data-i="${target}"]`)
     el?.scrollIntoView({ block: "nearest" })
-    el?.focus()
+    el?.focus({ preventScroll: true }) // le scroll est déjà fait juste au-dessus, pas la peine que focus() le refasse à sa façon
   }
 
   function resolveRow(hash: string): number | undefined {
