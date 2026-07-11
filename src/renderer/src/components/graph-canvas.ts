@@ -786,6 +786,7 @@ export function createGraph(
   }
 
   function remount() {
+    scrollTextStop() // les lignes partent sans mouseleave : la boucle rAF s'arrête avec elles
     mountedG.forEach((g) => g.remove())
     mountedG.clear()
     mountedRows.forEach((d) => d.remove())
@@ -1049,6 +1050,7 @@ export function createGraph(
     destroy() {
       destroyed = true
       gen++
+      scrollTextStop() // même raison qu'à remount : le texte survolé part sans mouseleave
       clearTimeout(moreTimer)
       board.removeEventListener("scroll", onScroll)
       board.removeEventListener("mouseleave", onMouseLeave)
