@@ -184,10 +184,6 @@ export function RepoView({ repo, active }: Props) {
     }
   }, [booted])
 
-  useEffect(() => {
-    if (active) document.title = `Amont — ${repo.name}`
-  }, [active, repo.name])
-
   /* git ne notifie rien : l'arbre a pu bouger dans l'éditeur pendant qu'on regardait ailleurs */
   useEffect(() => {
     if (!active) return
