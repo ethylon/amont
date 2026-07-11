@@ -5,6 +5,7 @@ import { Clock01Icon, Folder01Icon, FolderLibraryIcon } from "@hugeicons/core-fr
 
 import { host, type Repo, type RepoRef } from "@/lib/git"
 import { describeError } from "@/lib/errors"
+import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/ui/mark"
 import { AsyncHint } from "@/components/ui/async-hint"
@@ -34,7 +35,12 @@ function RepoButton({ repo, onClick }: { repo: RepoRef; onClick(): void }) {
   )
 }
 
-function Section({ icon, title, action, children }: {
+function Section({
+  icon,
+  title,
+  action,
+  children,
+}: {
   icon: IconSvgElement
   title: string
   action?: React.ReactNode
@@ -61,26 +67,26 @@ export function HomeScreen({ active, onOpened }: Props) {
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
-  /* l'accueil ne démonte jamais : on rafraîchit les récents à chaque retour dessus. TanStack
-     Query encaisse le cas où deux passages rapprochés se chevauchent (démontage/réabonnement
-     de requêtes en vol) sans flag `stale` à recopier à la main. */
+  /* the home screen never unmounts: we refresh the recents on every return to it. TanStack
+     Query absorbs the case where two close-together visits overlap (unmount/resubscribe
+     of in-flight queries) without a `stale` flag to copy by hand. */
   const { data: repos } = useQuery({ queryKey: homeKeys.repos, queryFn: () => host.repos() })
   useEffect(() => {
-    if (active) queryClient.invalidateQueries({ queryKey: homeKeys.repos })
+    if (active) void queryClient.invalidateQueries({ queryKey: homeKeys.repos })
   }, [active, queryClient])
 
   const root = repos?.root ?? null
   const recents = repos?.recents ?? []
 
-  /* le scan traverse le disque : il ne part qu'une fois la racine connue */
+  /* the scan walks the disk: it only starts once the root is known */
   const { data: found = null } = useQuery({
     queryKey: homeKeys.scan(root),
     queryFn: () => host.scanRoot(),
     enabled: !!root,
   })
 
-  /* main renvoie null (dialogue annulé) ou le repo ouvert ; un échec throw désormais une
-     erreur structurée (fix chantier « erreurs », AUDIT.md §4) plutôt qu'un `{ error }`. */
+  /* main returns null (dialog cancelled) or the opened repo; a failure now throws a
+     structured error (error-handling overhaul fix, AUDIT.md §4) rather than a `{ error }`. */
   const opened = useCallback(
     (res: Repo | null) => {
       if (!res) return
@@ -93,30 +99,29 @@ export function HomeScreen({ active, onOpened }: Props) {
 
   const chooseRoot = useCallback(async () => {
     const newRoot = await host.chooseRoot()
-    queryClient.setQueryData(homeKeys.repos, (prev) => (prev ? { ...prev, root: newRoot } : { root: newRoot, recents: [] }))
+    queryClient.setQueryData(homeKeys.repos, (prev) =>
+      prev ? { ...prev, root: newRoot } : { root: newRoot, recents: [] }
+    )
   }, [queryClient])
   const openPath = useCallback((path: string) => host.openPath(path).then(opened, failed), [failed, opened])
   const openDialog = useCallback(() => host.openDialog().then(opened, failed), [failed, opened])
 
   if (!root && !recents.length) {
     return (
-      /* le halo radial ne relève d'aucune primitive : il vit sur le conteneur, pas sur Empty */
+      /* the radial halo isn't part of any primitive: it lives on the container, not on Empty */
       <div className="relative grid flex-1 place-items-center overflow-hidden before:pointer-events-none before:absolute before:top-1/2 before:left-1/2 before:size-[min(70vw,620px)] before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-radial before:from-primary/12 before:to-transparent before:to-66%">
         <Empty className="relative">
           <EmptyHeader>
             <EmptyMedia>
               <Mark className="size-11" />
             </EmptyMedia>
-            <EmptyTitle className="text-base">Aucun dépôt</EmptyTitle>
-            <EmptyDescription className="text-pretty">
-              Choisis un dossier racine pour lister les dépôts qu'il contient, ou ouvre un dépôt
-              directement.
-            </EmptyDescription>
+            <EmptyTitle className="text-base">{messages.home.noRepos}</EmptyTitle>
+            <EmptyDescription className="text-pretty">{messages.home.chooseRootHint}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button onClick={chooseRoot}>Choisir un dossier racine…</Button>
+            <Button onClick={chooseRoot}>{messages.home.chooseRoot}</Button>
             <Button variant="ghost" size="sm" onClick={openDialog}>
-              Ouvrir un dépôt…
+              {messages.home.openRepo}
             </Button>
             {error && (
               <Badge color="danger" shape="squared">
@@ -136,10 +141,10 @@ export function HomeScreen({ active, onOpened }: Props) {
           <Mark className="size-7" />
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold tracking-tight">Amont</h2>
-            <p className="text-xs text-muted-foreground">Ouvre un dépôt dans un nouvel onglet.</p>
+            <p className="text-xs text-muted-foreground">{messages.home.openInNewTab}</p>
           </div>
           <Button variant="outline" size="sm" onClick={openDialog}>
-            Ouvrir un dépôt…
+            {messages.home.openRepo}
           </Button>
         </div>
 
@@ -150,7 +155,7 @@ export function HomeScreen({ active, onOpened }: Props) {
         )}
 
         {!!recents.length && (
-          <Section icon={Clock01Icon} title="Récents">
+          <Section icon={Clock01Icon} title={messages.home.recents}>
             {recents.map((r) => (
               <RepoButton key={r.path} repo={r} onClick={() => openPath(r.path)} />
             ))}
@@ -159,22 +164,22 @@ export function HomeScreen({ active, onOpened }: Props) {
 
         <Section
           icon={FolderLibraryIcon}
-          title="Dossier racine"
+          title={messages.home.rootFolder}
           action={
             <Button variant="ghost" size="xs" className="normal-case" onClick={chooseRoot}>
-              {root ? "Changer…" : "Choisir…"}
+              {root ? messages.home.change : messages.home.choose}
             </Button>
           }
         >
           {root && <p className="truncate px-2.5 pb-1.5 text-[0.625rem] text-muted-foreground">{root}</p>}
           {!root ? (
-            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">
-              Aucun dossier racine. Choisis-en un pour lister ses dépôts.
-            </p>
+            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">{messages.home.noRootFolder}</p>
           ) : found === null ? (
-            <AsyncHint className="px-2.5 py-2">recherche des dépôts…</AsyncHint>
+            <AsyncHint className="px-2.5 py-2">{messages.home.scanningRepos}</AsyncHint>
           ) : !found.length ? (
-            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">Aucun dépôt trouvé sous cette racine.</p>
+            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">
+              {messages.home.noReposFoundUnderRoot}
+            </p>
           ) : (
             found.map((r) => <RepoButton key={r.path} repo={r} onClick={() => openPath(r.path)} />)
           )}

@@ -1,12 +1,12 @@
-/* Registre des dépôts ouverts (AUDIT.md §4) : le renderer ne les désigne que par un id opaque,
-   jamais par leur chemin. Un onglet = un repo ouvert ; la fermeture d'onglet passe par
+/* Registry of open repos (AUDIT.md §4): the renderer only designates them by an opaque id,
+   never by their path. One tab = one open repo; closing a tab goes through
    `repo:close`.
 
-   Réunit ce qui vivait épars dans l'ancien main/index.js : cycle de vie (open/close), mutex de
-   mutation par dépôt (fix hygiène — la danse stash→checkout→pop courait sans verrou face à
-   l'autofetch), garde de réentrance sur `openRepo` (deux ouvertures concurrentes du même chemin
-   ne doivent produire qu'un seul RepoHandle, pas deux watchers/timers dupliqués), et la
-   confinement de chemin (`inRepo`, realpath des deux côtés — fix durcissement, symlinks). */
+   Brings together what used to live scattered across the old main/index.js: lifecycle
+   (open/close), per-repo mutation mutex (hygiene fix — the stash→checkout→pop dance used to
+   run unlocked against autofetch), reentrancy guard on `openRepo` (two concurrent openings of
+   the same path must produce only a single RepoHandle, not two duplicated watchers/timers), and
+   path confinement (`inRepo`, realpath on both sides — hardening fix, symlinks). */
 
 import { realpathSync } from "node:fs"
 import { resolve, sep } from "node:path"
@@ -16,11 +16,11 @@ import { AppError } from "../shared/errors.ts"
 import type { DistributiveOmit, OpEvent, Repo, TraceLine } from "../shared/types.ts"
 import { createGitRunner, killAll, type GitRunner } from "./git/exec.ts"
 import { basename } from "./util.ts"
-import { openable, remember } from "./state.ts"
+import { remember } from "./state.ts"
 import { watchGit, type Watchable } from "./watcher.ts"
 
-/** Hooks fournis par la couche fenêtre (window.ts), injectés à l'ouverture plutôt que lus sur
-    un `mainWindow` global — exec.ts et ce module n'importent `electron` que pour les types. */
+/** Hooks provided by the window layer (window.ts), injected at opening rather than read from
+    a global `mainWindow` — exec.ts and this module only import `electron` for its types. */
 export interface RepoHooks {
   trace(line: DistributiveOmit<TraceLine, "id">): void
   op(payload: DistributiveOmit<OpEvent, "id">): void
@@ -28,21 +28,21 @@ export interface RepoHooks {
   isFocused(): boolean
 }
 
-/* Repos ouverts, côté main uniquement. */
+/* Open repos, main side only. */
 export interface RepoHandle extends Watchable {
-  /** intervalle d'autofetch ; `null` = aucun (jamais le cas après ouverture, cf. createRepo) */
+  /** autofetch interval; `null` = none (never the case after opening, cf. createRepo) */
   timer: NodeJS.Timeout | null
   id: number
   path: string
-  /** realpath de `path`, calculé une fois : base du confinement symlink-safe de `inRepo`. */
+  /** realpath of `path`, computed once: the basis for `inRepo`'s symlink-safe confinement. */
   realRoot: string
   name: string
   gitDir: string
-  /** cache de la chaîne first-parent du tronc (cf. git/queries.ts refs), invalidé si son tip bouge */
+  /** cache of the trunk's first-parent chain (cf. git/queries.ts refs), invalidated if its tip moves */
   trunk: { key: string; set: Set<string> } | null
-  /** enfants git en vol pour ce dépôt ; killAll() les termine tous (closeRepo, fermeture d'app) */
+  /** in-flight git children for this repo; killAll() terminates them all (closeRepo, app close) */
   children: Set<ChildProcess>
-  /** requêtes annulables en vol, par id fourni par le renderer (cf. `repo:cancel`) */
+  /** cancellable in-flight requests, keyed by id supplied by the renderer (cf. `repo:cancel`) */
   requests: Map<string, AbortController>
   events: RepoHooks
   git: GitRunner["git"]
@@ -64,11 +64,11 @@ export function all(): RepoHandle[] {
   return [...repos.values()]
 }
 
-/* --- Mutex de mutation par dépôt ---
-   La danse stash→checkout→pop, le commit, les actions de branche et les opérations réseau
-   partagent le même verrou : deux mutations concurrentes sur le même dépôt risquent sinon des
-   `.git/index.lock` qui se marchent dessus. Les lectures (log, status, refs, diff…) restent
-   hors mutex, comme avant ce refactor — seule la propriété du dépôt entre en jeu ici. */
+/* --- Per-repo mutation mutex ---
+   The stash→checkout→pop dance, commit, branch actions, and network operations
+   share the same lock: two concurrent mutations on the same repo would otherwise risk
+   `.git/index.lock` files stepping on each other. Reads (log, status, refs, diff…) stay
+   outside the mutex, as before this refactor — only repo ownership comes into play here. */
 export function acquire(r: RepoHandle, label: string): void {
   if (r.running) throw new AppError("BUSY", r.running)
   r.running = label
@@ -88,9 +88,9 @@ export async function withLock<T>(r: RepoHandle, label: string, fn: () => Promis
 }
 
 /* --- Autofetch ---
-   Injecté plutôt qu'importé directement depuis git/ops.ts : ops.ts dépend déjà de repos.ts
-   (use, mutex) pour ses propres handlers, un import direct dans l'autre sens bouclerait.
-   Posé une fois par ipc.ts au démarrage. */
+   Injected rather than imported directly from git/ops.ts: ops.ts already depends on repos.ts
+   (use, mutex) for its own handlers, a direct import the other way would cycle.
+   Set once by ipc.ts at startup. */
 type AutofetchFn = (r: RepoHandle) => void
 let autofetch: AutofetchFn | null = null
 export function setAutofetch(fn: AutofetchFn): void {
@@ -99,15 +99,15 @@ export function setAutofetch(fn: AutofetchFn): void {
 
 const AUTOFETCH_MS = 5 * 60_000
 
-/* --- Cycle de vie --- */
+/* --- Lifecycle --- */
 
 const pendingOpens = new Map<string, Promise<Repo>>()
 
-/** Ouvre `path`, ou rend le dépôt déjà ouvert (même id). Garde de réentrance : deux appels
-    concurrents sur le même chemin encore inconnu du registre partagent la même promesse — sans
-    elle, les deux passeraient la vérification « déjà ouvert » avant que l'un ou l'autre n'ait
-    fini son `rev-parse`, et deux RepoHandle (deux watchers, deux timers) naîtraient pour un
-    seul dépôt. */
+/** Opens `path`, or returns the already-open repo (same id). Reentrancy guard: two
+    concurrent calls on the same path, still unknown to the registry, share the same promise —
+    without it, both would pass the "already open" check before either finished its
+    `rev-parse`, and two RepoHandles (two watchers, two timers) would be born for a
+    single repo. */
 export function openRepo(path: string, hooks: (id: number) => RepoHooks): Promise<Repo> {
   const already = all().find((r) => r.path === path)
   if (already) return Promise.resolve(pub(already))
@@ -136,11 +136,23 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
   const runner = createGitRunner({ path, trace: (line) => events.trace(line), children })
 
   const r: RepoHandle = {
-    id, path, name: basename(path), gitDir,
+    id,
+    path,
+    name: basename(path),
+    gitDir,
     realRoot: safeRealpath(path),
-    running: null, muted: 0, dirty: false, timer: null, watcher: null, watchRetries: 0,
-    trunk: null, children, requests: new Map(),
-    events, git: runner.git, diffNoIndex: runner.diffNoIndex,
+    running: null,
+    muted: 0,
+    dirty: false,
+    timer: null,
+    watcher: null,
+    watchRetries: 0,
+    trunk: null,
+    children,
+    requests: new Map(),
+    events,
+    git: runner.git,
+    diffNoIndex: runner.diffNoIndex,
   }
   r.timer = setInterval(() => autofetch?.(r), AUTOFETCH_MS)
   watchGit(r)
@@ -167,7 +179,7 @@ export function closeRepo(id: number): void {
   repos.delete(id)
 }
 
-/** Ferme tout (fermeture de la fenêtre / de l'app) : mêmes garanties que `closeRepo`, en gros. */
+/** Closes everything (window / app close): roughly the same guarantees as `closeRepo`. */
 export function closeAll(): void {
   for (const r of repos.values()) {
     if (r.timer) clearInterval(r.timer)
@@ -177,18 +189,18 @@ export function closeAll(): void {
   repos.clear()
 }
 
-/* --- Chemins confinés au dépôt --- */
+/* --- Paths confined to the repo --- */
 
 export function assertPaths(paths: string[]): void {
   if (!Array.isArray(paths) || !paths.length || paths.some((p) => typeof p !== "string" || !p))
     throw new AppError("BAD_ARG", "paths")
 }
 
-/** Chemin absolu confiné au dépôt. Double vérification (fix durcissement) : le test lexical
-    d'origine (git nous protège du `--`, pas d'un `../..` passé à shell), puis realpath des
-    deux côtés — un symlink interne pointant hors du dépôt contournerait le test lexical seul.
-    Un chemin absent du disque (fichier supprimé, vieux commit) n'a rien à symlink-escaper : on
-    retombe sur le résultat lexical, comme avant ce durcissement. */
+/** Absolute path confined to the repo. Double check (hardening fix): the original lexical
+    test (git protects us from `--`, not from a `../..` passed to a shell), then realpath on
+    both sides — an internal symlink pointing outside the repo would bypass the lexical test
+    alone. A path absent from disk (deleted file, old commit) has nothing to symlink-escape:
+    we fall back to the lexical result, as before this hardening. */
 export function inRepo(r: RepoHandle, path: string): string {
   assertPaths([path])
   const full = resolve(r.path, path)

@@ -1,23 +1,22 @@
-/* Hook `afterPack` d'electron-builder (AUDIT.md §4, item durcissement) : bascule les fuses
-   Electron sur le binaire packagé, une fois tous les fichiers en place mais avant toute
-   signature de code — le point exact que documente @electron/fuses.
+/* electron-builder's `afterPack` hook (AUDIT.md §4, hardening item): flips the Electron
+   fuses on the packaged binary, once every file is in place but before any code
+   signing — the exact point @electron/fuses documents.
 
-   RunAsNode / EnableNodeCliInspectArguments / EnableNodeOptionsEnvironmentVariable off :
-   ferment les portes dérobées qui feraient tourner le binaire packagé comme un Node nu
-   (ELECTRON_RUN_AS_NODE, --inspect, NODE_OPTIONS) — sans intérêt pour cette app et un risque
-   pur si le binaire signé venait à fuiter. OnlyLoadAppFromAsar + intégrité asar : le
-   chargement ne se fait que depuis app.asar, contenu vérifié — un fichier posé à côté du
-   binaire ne peut pas se substituer au code embarqué.
+   RunAsNode / EnableNodeCliInspectArguments / EnableNodeOptionsEnvironmentVariable off:
+   close the backdoors that would let the packaged binary run as a bare Node process
+   (ELECTRON_RUN_AS_NODE, --inspect, NODE_OPTIONS) — pointless for this app and a pure
+   risk if the signed binary were ever to leak. OnlyLoadAppFromAsar + asar integrity:
+   loading only happens from app.asar, content verified — a file dropped next to the
+   binary can't substitute itself for the embedded code.
 
-   ponytail: seule la cible win32 (nsis) est packagée aujourd'hui (electron-builder.yml) ; le
-   chemin de l'exécutable ci-dessous est spécifique à Windows. À adapter si mac/linux
-   rejoignent un jour les cibles de release. */
-import { join } from 'node:path';
-import { flipFuses, FuseV1Options, FuseVersion } from '@electron/fuses';
+   Only the win32 (nsis) target is packaged today (electron-builder.yml); the executable path
+   below is Windows-specific. Adapt it if mac/linux ever join the release targets. */
+import { join } from "node:path";
+import { flipFuses, FuseV1Options, FuseVersion } from "@electron/fuses";
 
 /** @param {import('electron-builder').AfterPackContext} context */
 export default async function afterPack(context) {
-  if (context.electronPlatformName !== 'win32') return;
+  if (context.electronPlatformName !== "win32") return;
 
   const exePath = join(context.appOutDir, `${context.packager.appInfo.productFilename}.exe`);
   await flipFuses(exePath, {

@@ -1,5 +1,5 @@
-/* Une icône Hugeicons hors React (AUDIT.md §7, phase 5, item 6 — vivait dans lib/utils, seul
-   le moteur de graphe construit son DOM à la main et en a besoin). */
+/* A Hugeicons icon outside React (AUDIT.md §7, phase 5, item 6 — used to live in lib/utils, only
+   the graph engine builds its DOM by hand and needs it). */
 
 import type { IconSvgElement } from "@hugeicons/react"
 

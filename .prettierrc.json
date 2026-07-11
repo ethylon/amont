@@ -1,0 +1,16 @@
+{
+  "semi": false,
+  "singleQuote": false,
+  "printWidth": 120,
+  "trailingComma": "es5",
+  "overrides": [
+    {
+      "files": ["*.mjs", "*.cjs"],
+      "options": { "semi": true }
+    },
+    {
+      "files": ["*.yml", "*.yaml", "*.md", "*.json", "*.json5"],
+      "options": { "printWidth": 100 }
+    }
+  ]
+}

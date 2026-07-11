@@ -1,13 +1,13 @@
-/* Conventions gitflow et branches (AUDIT.md §7, phase 5 — anciennement lib/commit-message.ts,
-   plus `PINNED`/`pinRank`, déménagés depuis refs-sidebar : les deux tables de conventions de
-   branches (branches d'intégration à épingler, cibles de merge d'une release/hotfix) vivent
-   maintenant au même endroit). */
+/* Gitflow and branch conventions (AUDIT.md §7, phase 5 — formerly lib/commit-message.ts,
+   plus `PINNED`/`pinRank`, moved from refs-sidebar: the two branch-convention tables
+   (integration branches to pin, merge targets of a release/hotfix) now live
+   in the same place). */
 
 import type { BadgeColor } from "@/components/ui/badge"
 import type { FlowPrefixes } from "@/lib/git"
 import type { ParsedMerge } from "@/lib/commit-parse"
 
-/** Les branches d'intégration passent devant dans l'arbre des refs, dans cet ordre. */
+/** Integration branches come first in the refs tree, in this order. */
 export const PINNED = ["master", "main", "develop"]
 
 export const pinRank = (label: string) => {
@@ -17,10 +17,10 @@ export const pinRank = (label: string) => {
 
 export const MAIN_TARGETS = /^(develop|master|main|release\/.+)$/
 
-/* Une release/hotfix gitflow atterrit sur master ET develop, avec un tag de version. Le motif se
-   reconnaît à la source du merge : préfixe `release/`|`hotfix/`, ou — côté develop du « merge tag
-   into develop » — au tag semver lui-même. Un tag semver seul ne distingue pas release de hotfix :
-   on retombe sur release, le rouge du hotfix venant de ses merges `hotfix/`. */
+/* A gitflow release/hotfix lands on master AND develop, with a version tag. The pattern is
+   recognized from the merge's source: `release/`|`hotfix/` prefix, or — on the develop side of a
+   "merge tag into develop" — the semver tag itself. A semver tag alone doesn't distinguish release
+   from hotfix: it falls back to release, the hotfix red coming from its `hotfix/` merges. */
 export type FlowKind = "release" | "hotfix"
 export const SEMVER = /^v?\d+\.\d+\.\d+/
 const RELEASE_BRANCH = /^release\//
@@ -34,8 +34,8 @@ export function mergeFlow(mg: ParsedMerge): FlowKind | null {
   return null
 }
 
-/* Teinte du chip source d'un merge. Le motif release/hotfix prime ; sinon un tag reste ambre, et
-   un merge vers un tronc garde son teal. */
+/* Color of a merge's source chip. The release/hotfix pattern takes priority; otherwise a tag
+   stays amber, and a merge into a trunk keeps its teal. */
 export function mergeColor(mg: ParsedMerge): BadgeColor {
   const flow = mergeFlow(mg)
   if (flow) return FLOW_COLOR[flow]
@@ -43,15 +43,15 @@ export function mergeColor(mg: ParsedMerge): BadgeColor {
   return !mg.noise && mg.to && MAIN_TARGETS.test(mg.to) ? "primary" : "neutral"
 }
 
-/** Teinte d'un tag semver posé sur une ligne : rouge si la ligne est un hotfix, violet sinon. */
+/** Color of a semver tag placed on a row: red if the row is a hotfix, purple otherwise. */
 export const tagFlowColor = (flow: FlowKind | null): BadgeColor => (flow === "hotfix" ? "danger" : "release")
 
-/* --- Type de travail d'une branche --- */
+/* --- Work type of a branch --- */
 
 export type BranchFlow = keyof FlowPrefixes
 
-/* Conventions usuelles quand git-flow n'est pas configuré : ce dépôt même nomme ses
-   branches `fix/…` et `release/…` sans jamais avoir vu `git flow init`. */
+/* Common conventions when git-flow isn't configured: this very repo names its
+   branches `fix/…` and `release/…` without ever having seen `git flow init`. */
 const BRANCH_PREFIX: [RegExp, BranchFlow][] = [
   [/^(feature|feat)\//, "feature"],
   [/^(bugfix|fix)\//, "bugfix"],
@@ -59,12 +59,11 @@ const BRANCH_PREFIX: [RegExp, BranchFlow][] = [
   [HOTFIX_BRANCH, "hotfix"],
 ]
 
-/* Type de travail porté par le nom d'une branche : préfixes gitflow s'ils sont configurés,
-   sinon les conventions usuelles. Nourrit les indicateurs de contexte (chip et rail de la
-   toolbar), pas le menu `flow finish` — lui exige un vrai gitflow, cf. features/refs. */
+/* Work type carried by a branch name: gitflow prefixes if configured,
+   otherwise the common conventions. Feeds the context indicators (chip and toolbar
+   rail), not the `flow finish` menu — that one requires a real gitflow, see features/refs. */
 export function branchFlow(name: string, prefixes: FlowPrefixes | null): BranchFlow | null {
   const flow =
-    prefixes &&
-    (Object.keys(prefixes) as BranchFlow[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]!))
+    prefixes && (Object.keys(prefixes) as BranchFlow[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]))
   return flow || (BRANCH_PREFIX.find(([re]) => re.test(name))?.[1] ?? null)
 }

@@ -1,27 +1,55 @@
-/* Client typé du bridge exposé par le preload. Les types du domaine vivent dans shared/ —
-   ce module les ré-exporte pour ne pas faire bouger tous les imports du renderer — et la
-   forme du bridge (Bridge) est dérivée du contrat IPC partagé (src/shared/ipc-contract.ts),
-   compilé identiquement côté main et préload. */
+/* Typed client for the bridge exposed by the preload. Domain types live in shared/ —
+   this module re-exports them so renderer imports don't all have to move — and the
+   bridge's shape (Bridge) is derived from the shared IPC contract (src/shared/ipc-contract.ts),
+   compiled identically on the main and preload sides. */
 
 export type {
-  BootState, BranchAct, ChangeEvent, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes,
-  GitRef, OpEvent, OpName, OpenResult, Repo, RepoRef, Stash, StashAct, Status, TraceLine, Worktree,
+  BootState,
+  BranchAct,
+  ChangeEvent,
+  Commit,
+  CommitMessage,
+  FileChange,
+  FlowInfo,
+  FlowPrefixes,
+  GitRef,
+  OpEvent,
+  OpName,
+  OpenResult,
+  Repo,
+  RepoRef,
+  Stash,
+  StashAct,
+  Status,
+  TraceLine,
+  Worktree,
   WtSource,
 } from "../../../shared/types.ts"
 
 import type { Bridge } from "../../../shared/ipc-contract.ts"
 import type {
-  BranchAct, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes, GitRef, OpName, Stash,
-  StashAct, Status, Worktree, WtSource,
+  BranchAct,
+  Commit,
+  CommitMessage,
+  FileChange,
+  FlowInfo,
+  FlowPrefixes,
+  GitRef,
+  OpName,
+  Stash,
+  StashAct,
+  Status,
+  Worktree,
+  WtSource,
 } from "../../../shared/types.ts"
 
 declare global {
   interface Window {
-    gitgraph: Bridge
+    amont: Bridge
   }
 }
 
-const bridge = window.gitgraph
+const bridge = window.amont
 
 export const host = {
   repos: bridge.repos,
@@ -33,34 +61,34 @@ export const host = {
   scanRoot: bridge.scanRoot,
 }
 
-/* Le preload gère désormais lui-même le désabonnement (`ipcRenderer.off`, cf. src/preload) :
-   chaque appel à onOp/onChanged/onTrace pose son propre listener IPC et le retire à son tour,
-   plus besoin du singleton `fanout` qui multiplexait un unique listener jamais désinscrit. */
+/* The preload now handles unsubscription itself (`ipcRenderer.off`, see src/preload):
+   each call to onOp/onChanged/onTrace sets its own IPC listener and removes it in turn,
+   no more need for the `fanout` singleton that multiplexed a single listener never removed. */
 export const onOp = bridge.onOp
 export const onChanged = bridge.onChanged
 export const onTrace = bridge.onTrace
 
-/* Ouvre les repos des onglets restaurés. Appelée une fois, explicitement, depuis main.tsx —
-   plutôt qu'un side-effect à l'import (l'ancien `bootState`, évalué dès que ce module était
-   importé, y compris par un test qui n'en a rien à faire). `app:state` reste idempotent côté
-   main : un second appel ne rouvrirait rien, il refléterait juste le registre courant. */
+/* Opens the repos of restored tabs. Called once, explicitly, from main.tsx —
+   rather than an import-time side effect (the old `bootState`, evaluated as soon as this module
+   was imported, including by a test that had no use for it). `app:state` stays idempotent on the
+   main side: a second call wouldn't reopen anything, it would just reflect the current registry. */
 export const boot = () => bridge.state()
 
 export type RepoApi = {
   log(skip: number, count: number): Promise<Commit[]>
   total(): Promise<number>
-  /** hashes courts des commits correspondants, tous critères confondus ; `content` fouille les diffs.
-      `requestId` : cf. `cancel` — la couche requêtes (lib/queries.ts) y branche l'AbortSignal. */
+  /** short hashes of matching commits, all criteria combined; `content` searches the diffs too.
+      `requestId`: see `cancel` — the query layer (lib/queries.ts) wires the AbortSignal to it. */
   search(q: string, content: boolean, requestId?: string): Promise<string[]>
   refs(): Promise<GitRef[]>
-  /** `null` : le dépôt n'a jamais vu `git flow init` */
+  /** `null`: the repo has never seen `git flow init` */
   flow(): Promise<FlowPrefixes | null>
-  /** contexte de la branche de flow courante ; `null` si le tronc de référence manque */
+  /** context of the current flow branch; `null` if the reference trunk is missing */
   flowInfo(branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null>
-  /** merge dans HEAD, suppression, pull/push d'une branche donnée, ou `git flow <type> finish` */
+  /** merge into HEAD, deletion, pull/push of a given branch, or `git flow <type> finish` */
   branch(action: BranchAct, name: string): Promise<void>
   files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
-  /** corps du message (`%b`), trailers compris */
+  /** message body (`%b`), trailers included */
   body(hash: string, requestId?: string): Promise<string>
   diff(hash: string, parent: string | null, path: string, oldPath: string | null, requestId?: string): Promise<string>
   status(): Promise<Status>
@@ -69,20 +97,20 @@ export type RepoApi = {
   wtdiff(path: string, source: WtSource): Promise<string>
   stage(paths: string[]): Promise<void>
   unstage(paths: string[]): Promise<void>
-  /** `amend` réécrit le dernier commit (message, et arbre indexé s'il y en a) au lieu d'en créer un */
+  /** `amend` rewrites the last commit (message, and staged tree if any) instead of creating a new one */
   commit(message: string, amend: boolean): Promise<void>
-  /** sujet et corps du dernier commit, pour préremplir un amend */
+  /** subject and body of the last commit, to prefill an amend */
   headMessage(): Promise<CommitMessage>
-  /** bascule sur une branche locale ; l'arbre sale est stashé puis réappliqué */
+  /** switches to a local branch; the dirty tree is stashed then reapplied */
   checkout(name: string): Promise<void>
-  /** entrées de `git stash list`, de la plus récente à la plus ancienne */
+  /** entries of `git stash list`, most recent first */
   stashes(): Promise<Stash[]>
-  /** `push` remise l'arbre (message optionnel) ; les autres visent un nom `stash@{N}` */
+  /** `push` stashes the tree (optional message); the others target a `stash@{N}` name */
   stash(action: StashAct, arg?: string): Promise<void>
-  /** icône Windows du fichier, `null` s'il n'existe pas sur le disque */
+  /** Windows icon of the file, `null` if it doesn't exist on disk */
   fileIcon(path: string): Promise<string | null>
   openFile(path: string): Promise<string>
-  /** kill le process associé à `requestId`, s'il tourne encore (cf. chantier main, AUDIT.md §4) */
+  /** kills the process associated with `requestId`, if it's still running (see main-side work, AUDIT.md §4) */
   cancel(requestId: string): Promise<void>
 }
 

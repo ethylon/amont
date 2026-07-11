@@ -1,7 +1,7 @@
-/* Requêtes de la feature repo (AUDIT.md §5/§7) : statut du dépôt et corps d'un message de
-   commit — colocalisées avec repo-view.tsx/repo-store.tsx plutôt que dans un lib/queries.ts
-   fourre-tout. `placeholderData: keepPreviousData` tient le rendu précédent affiché pendant
-   qu'une nouvelle réponse arrive. */
+/* Repo feature queries (AUDIT.md §5/§7): repo status and a commit message body — colocated
+   with repo-view.tsx/repo-store.tsx rather than in a catch-all lib/queries.ts.
+   `placeholderData: keepPreviousData` keeps the previous render displayed while
+   a new response arrives. */
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 

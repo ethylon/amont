@@ -4,11 +4,16 @@ import { ArrowDown01Icon, ArrowUp01Icon, FileSearchIcon, Search01Icon } from "@h
 
 import type { RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
+import { messages } from "@/lib/messages"
 import { SEARCH_MIN, useSearchQuery } from "@/features/search/search-queries"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import type { GraphHandle } from "@/features/graph/controller"
 import {
-  InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -18,24 +23,24 @@ type Props = {
   api: RepoApi
   repoId: number
   graph: RefObject<GraphHandle | null>
-  /** un onglet en arrière-plan ne capte pas Ctrl+F */
+  /** a background tab doesn't capture Ctrl+F */
   active: boolean
 }
 
-/* Barre de recherche façon « find in page » : le graphe n'est jamais filtré — il perdrait ses
-   lanes — mais estompe les lignes hors résultat, et Entrée saute de résultat en résultat. */
+/* "Find in page" style search bar: the graph is never filtered — it would lose its
+   lanes — but dims rows outside the results, and Enter jumps from result to result. */
 export function CommitSearch({ api, repoId, graph, active }: Props) {
   const [q, setQ] = useState("")
-  const [term, setTerm] = useState("") // débattu de `q`, seule identité que la requête retient
+  const [term, setTerm] = useState("") // debounced from `q`, the only identity the query retains
   const [content, setContent] = useState(false)
 
   const input = useRef<HTMLInputElement>(null)
-  const cursor = useRef(-1) // dernière ligne atteinte, -1 = avant la première
+  const cursor = useRef(-1) // last row reached, -1 = before the first
 
   useEffect(() => {
     cursor.current = -1
     const trimmed = q.trim()
-    /* sous le seuil : on efface tout de suite, pas la peine d'attendre le débat */
+    /* below the threshold: clear right away, no need to wait for the debounce */
     if (trimmed.length < SEARCH_MIN) {
       setTerm(trimmed)
       return
@@ -44,9 +49,9 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
     return () => clearTimeout(t)
   }, [q])
 
-  /* TanStack Query annule lui-même le fetch superflu quand `term`/`content` changent avant la
-     résolution (AbortSignal fourni à la queryFn, cf. lib/queries.ts) : plus de flag `alive` à
-     recopier à la main pour ignorer une réponse tardive. */
+  /* TanStack Query itself cancels the stale fetch when `term`/`content` change before
+     resolution (AbortSignal provided to the queryFn, see lib/queries.ts): no more `alive`
+     flag to hand-copy to ignore a late response. */
   const { data: hits = null, isFetching: busy, error: queryError } = useSearchQuery(api, repoId, term, content)
   const error = queryError ? describeError(queryError) : null
 
@@ -62,7 +67,7 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
     [graph]
   )
 
-  /* F3 navigue sans repasser par le champ : la sélection reste sur le graphe. */
+  /* F3 navigates without going back through the field: the selection stays on the graph. */
   useShortcut(active, PRIORITY.DEFAULT, (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "f") {
       ev.preventDefault()
@@ -71,16 +76,16 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
     }
     if (ev.key === "F3") {
       ev.preventDefault()
-      jump(ev.shiftKey ? -1 : 1)
+      void jump(ev.shiftKey ? -1 : 1)
       return true
     }
     return false
   })
 
   const onKeyDown = (ev: React.KeyboardEvent) => {
-    if (ev.key === "Enter") jump(ev.shiftKey ? -1 : 1)
+    if (ev.key === "Enter") void jump(ev.shiftKey ? -1 : 1)
     else if (ev.key === "Escape" && q) {
-      ev.stopPropagation() // sinon RepoView referme le diff au lieu de vider le champ
+      ev.stopPropagation() // otherwise RepoView closes the diff instead of clearing the field
       setQ("")
     }
   }
@@ -100,26 +105,32 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={onKeyDown}
         aria-invalid={!!error || empty}
-        placeholder="Filtrer les commits — message, auteur, hash"
+        placeholder={messages.search.placeholder}
       />
 
-      {/* résultat de recherche annoncé aux lecteurs d'écran */}
+      {/* search result announced to screen readers */}
       <span aria-live="polite" className="sr-only">
-        {error ? `Erreur : ${error}` : empty ? "Aucun résultat" : hits ? `${hits.length} résultat${hits.length > 1 ? "s" : ""}` : ""}
+        {error
+          ? messages.search.error(error)
+          : empty
+            ? messages.search.noResults
+            : hits
+              ? messages.search.results(hits.length)
+              : ""}
       </span>
 
       <InputGroupAddon align="inline-end">
         {busy ? (
           <Spinner className="size-3" />
         ) : error ? (
-          <InputGroupText className="text-destructive">erreur</InputGroupText>
+          <InputGroupText className="text-destructive">{messages.search.errorShort}</InputGroupText>
         ) : (
           hits && <InputGroupText className="tabular-nums">{hits.length}</InputGroupText>
         )}
 
         <InputGroupButton
           size="icon-xs"
-          aria-label="Chercher aussi dans le contenu des diffs"
+          aria-label={messages.search.searchDiffContent}
           aria-pressed={content}
           className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
           onClick={() => setContent((v) => !v)}
@@ -129,7 +140,7 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
 
         <InputGroupButton
           size="icon-xs"
-          aria-label="Résultat précédent"
+          aria-label={messages.search.prevResult}
           disabled={!hits?.length}
           onClick={() => jump(-1)}
         >
@@ -137,7 +148,7 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
         </InputGroupButton>
         <InputGroupButton
           size="icon-xs"
-          aria-label="Résultat suivant"
+          aria-label={messages.search.nextResult}
           disabled={!hits?.length}
           onClick={() => jump(1)}
         >

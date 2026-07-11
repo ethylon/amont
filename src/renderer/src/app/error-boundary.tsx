@@ -1,23 +1,24 @@
-/* Frontière d'erreur (AUDIT.md §5, item 8) : avant ce composant, un throw de rendu blanchissait
-   toute la fenêtre, rattrapé seulement par le reload complet du main (render-process-gone).
-   Une par onglet (autour de RepoView) et une autour de DetailPanel/DiffView — un panneau qui
-   plante n'emporte plus le reste de l'onglet.
+/* Error boundary (AUDIT.md §5, item 8): before this component, a render throw blanked
+   the entire window, only caught by main's full reload (render-process-gone).
+   One per tab (around RepoView) and one around DetailPanel/DiffView — a panel that
+   crashes no longer takes down the rest of the tab.
 
-   React n'offre pas de "réessayer" un rendu qui a déjà jeté sans repartir d'un sous-arbre
-   neuf : la vraie récupération est un changement de `key` côté appelant, qui démonte et
-   remonte tout — `onReset` le déclenche. Le clic vide aussi l'état local en secours pour les
-   frontières qui n'auraient pas câblé de `key` (l'affichage réessaie, sans garantie). */
+   React doesn't offer a way to "retry" a render that has already thrown without starting
+   from a fresh subtree: true recovery is a `key` change on the caller's side, which unmounts
+   and remounts everything — `onReset` triggers it. The click also clears local state as a
+   fallback for boundaries that haven't wired up a `key` (the display retries, without guarantee). */
 
 import { Component, type ErrorInfo, type ReactNode } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Alert02Icon } from "@hugeicons/core-free-icons"
 
+import { messages } from "@/lib/messages"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
 type Props = {
   children: ReactNode
-  /** libellé du bouton de récupération */
+  /** recovery button label */
   label?: string
   onReset?(): void
 }
@@ -42,18 +43,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.error) return this.props.children
-    const message = this.state.error instanceof Error ? this.state.error.message : "Erreur inattendue."
+    const message = this.state.error instanceof Error ? this.state.error.message : messages.app.unexpectedError
     return (
       <Empty className="flex-1">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} />
           </EmptyMedia>
-          <EmptyTitle>Un problème est survenu</EmptyTitle>
+          <EmptyTitle>{messages.app.somethingWentWrong}</EmptyTitle>
           <EmptyDescription className="[overflow-wrap:anywhere]">{message}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button onClick={this.reset}>{this.props.label ?? "Recharger"}</Button>
+          <Button onClick={this.reset}>{this.props.label ?? messages.app.reload}</Button>
         </EmptyContent>
       </Empty>
     )

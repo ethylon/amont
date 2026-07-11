@@ -1,4 +1,4 @@
-/* Pas de surcharge : simple projection du primitive (AUDIT.md §7, phase 5 — frontière ui/). */
+/* No override: plain passthrough of the primitive (AUDIT.md §7, phase 5 — ui/ boundary). */
 export {
   Field,
   FieldContent,

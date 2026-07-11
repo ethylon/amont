@@ -2,32 +2,35 @@ import { useEffect, useRef } from "react"
 import { html as d2hHtml } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
-import { codeToTokens, type BundledLanguage } from "shiki"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { useDiffQuery } from "@/features/diff/diff-queries"
+import { messages } from "@/lib/messages"
 import { isDark, useTheme } from "@/lib/theme"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { IconButton } from "@/components/ui/icon-button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
-/** Nommé `DiffViewMode` (pas `DiffView`) pour ne pas entrer en collision avec le composant
-    React homonyme ci-dessous (AUDIT.md §7, phase 5, item 6). */
+/** Named `DiffViewMode` (not `DiffView`) to avoid colliding with the identically named
+    React component below (AUDIT.md §7, phase 5, item 6). */
 export type DiffViewMode = "unified" | "sbs"
-/** Un contexte porte soit un couple de commits, soit la source dans l'arbre de travail. */
+/** A context carries either a pair of commits, or the source within the working tree. */
 export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" | "unstaged" | "untracked" }
 
 const MAX_LINES = 3000
-/* Réappliqué à chaque rendu — les effets réécrivent `className` de fond en comble. */
-const DIFF_BODY = "gg-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
+/* Reapplied on every render — the effects rewrite `className` from top to bottom. */
+const DIFF_BODY =
+  "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 
-/* extensions maison -> grammaire shiki ; les projets/props MSBuild sont du XML */
+/* in-house extensions -> shiki grammar; MSBuild project/props files are XML */
 const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
 
-/* Coloration shiki par-dessus le rendu diff2html.
-   Les segments <ins>/<del> (word-diff) sont préservés en re-répartissant les tokens. */
+/* Shiki coloring on top of the diff2html render.
+   <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.
+   The highlighter (shiki/core + the JS regex engine, cf. shiki-highlighter.ts) is loaded
+   dynamically here — its own module graph never touches the app's initial bundle. */
 async function shikiPass(body: HTMLElement) {
   let lang = body.querySelector(".d2h-file-wrapper")?.getAttribute("data-lang")
   if (!lang || lang === "txt") return
@@ -36,13 +39,15 @@ async function shikiPass(body: HTMLElement) {
   if (!ctns.length) return
   let lines
   try {
-    const res = await codeToTokens(ctns.map((e) => e.textContent).join("\n"), {
-      lang: lang as BundledLanguage,
+    const { codeToTokens, getHighlighter } = await import("./shiki-highlighter")
+    const highlighter = await getHighlighter()
+    const res = codeToTokens(highlighter, ctns.map((e) => e.textContent).join("\n"), {
+      lang,
       theme: isDark() ? "github-dark" : "github-light",
     })
     lines = res.tokens
   } catch {
-    return // grammaire inconnue : on reste brut
+    return // unknown grammar: stay plain
   }
   ctns.forEach((ctn, i) => {
     const tokens = lines[i]
@@ -62,9 +67,7 @@ async function shikiPass(body: HTMLElement) {
       while (local < t.content.length) {
         const abs = pos + local
         const mark = marks.find((m) => abs >= m.start && abs < m.end)
-        const limit = mark
-          ? mark.end
-          : Math.min(...marks.filter((m) => m.start > abs).map((m) => m.start), Infinity)
+        const limit = mark ? mark.end : Math.min(...marks.filter((m) => m.start > abs).map((m) => m.start), Infinity)
         const end = Math.min(t.content.length, limit - pos)
         const span = document.createElement("span")
         span.style.color = t.color!
@@ -93,7 +96,7 @@ const RAW_CLASS: Record<string, string> = {
   ctx: "",
 }
 
-/* ponytail: au-delà de 3000 lignes, rendu brut sans coloration — diff2html rame, personne ne lit */
+/* Past 3000 lines: plain, uncolored rendering — diff2html chokes, and nobody reads a diff that big anyway */
 function renderRaw(body: HTMLElement, text: string) {
   const lines = text.split("\n")
   body.textContent = ""
@@ -116,13 +119,13 @@ function renderRaw(body: HTMLElement, text: string) {
   if (lines.length > MAX_LINES) {
     const more = document.createElement("div")
     more.className = "min-w-max px-2 text-muted-foreground"
-    more.textContent = `… ${(lines.length - MAX_LINES).toLocaleString("fr")} lignes tronquées`
+    more.textContent = messages.diff.truncated((lines.length - MAX_LINES).toLocaleString())
     body.appendChild(more)
   }
 }
 
-/* Côte à côte : d2h donne à chaque volet son propre `overflow-x`. Les deux lignes en vis-à-vis
-   ne restent alignées que si les deux barres avancent ensemble. */
+/* Side by side: d2h gives each pane its own `overflow-x`. The two facing lines
+   only stay aligned if both scrollbars advance together. */
 function syncSides(body: HTMLElement) {
   const sides = [...body.querySelectorAll<HTMLElement>(".d2h-file-side-diff")]
   if (sides.length < 2) return
@@ -151,12 +154,12 @@ type Props = {
 export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }: Props) {
   const root = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
-  /* le diff est peint hors de la classe `.dark` (diff2html + shiki reçoivent le thème en dur) :
-     un re-rendu explicite à chaque bascule, sinon il reste figé sur le thème d'ouverture */
+  /* the diff is painted outside the `.dark` class (diff2html + shiki receive the theme hardcoded):
+     an explicit re-render on every toggle, otherwise it stays frozen on the theme it opened with */
   const dark = useTheme()
 
-  /* Le diff recouvre le graphe : on y amène le focus à l'ouverture (Échap et fermeture
-     atteignables au clavier) et on le rend à l'élément précédent à la fermeture. */
+  /* The diff overlays the graph: we bring focus to it on open (Escape and close
+     reachable from the keyboard) and return it to the previous element on close. */
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
     root.current?.focus()
@@ -169,7 +172,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
     const el = body.current
     if (!el || text === null) return
     if (!text.trim()) {
-      el.textContent = "Diff vide."
+      el.textContent = messages.diff.empty
       el.className = DIFF_BODY + " text-muted-foreground"
       return
     }
@@ -178,7 +181,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
       renderRaw(el, text)
       return
     }
-    /* diff2html échappe le contenu ; les tokens shiki sont réinjectés par textContent */
+    /* diff2html escapes the content; shiki tokens are re-injected via textContent */
     el.innerHTML = d2hHtml(text, {
       outputFormat: view === "sbs" ? OutputFormatType.SIDE_BY_SIDE : OutputFormatType.LINE_BY_LINE,
       drawFileList: false,
@@ -201,25 +204,24 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
             value={[view]}
             onValueChange={(v) => v[0] && onViewChange(v[0] as DiffViewMode)}
           >
-            <ToggleGroupItem value="unified" aria-label="Diff unifié">
+            <ToggleGroupItem value="unified" aria-label={messages.diff.unified}>
               <HugeiconsIcon icon={MenuSquareIcon} strokeWidth={2} />
             </ToggleGroupItem>
-            <ToggleGroupItem value="sbs" aria-label="Côte à côte">
+            <ToggleGroupItem value="sbs" aria-label={messages.diff.sideBySide}>
               <HugeiconsIcon icon={LayoutTwoColumnIcon} strokeWidth={2} />
             </ToggleGroupItem>
           </ToggleGroup>
-          <IconButton label="Fermer (Échap)" icon={Cancel01Icon} onClick={onClose} />
+          <IconButton label={messages.diff.close} icon={Cancel01Icon} onClick={onClose} />
         </div>
       </div>
 
       {error ? (
-        <p className="shrink-0 text-xs text-muted-foreground">Diff indisponible.</p>
+        <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
       ) : text === null ? (
-        <AsyncHint className="shrink-0 py-1">diff…</AsyncHint>
+        <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
       ) : (
         <div ref={body} className={DIFF_BODY} />
       )}
     </div>
   )
 }
-

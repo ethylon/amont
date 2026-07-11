@@ -1,22 +1,38 @@
-/* Le contrat IPC partagé : UNE map typée par canal, plutôt que trois copies manuelles
-   synchronisées à la main (main, preload, miroir renderer — cf. AUDIT.md §3). Main et
-   preload compilent contre les mêmes signatures ; un renommage de canal ou un argument
-   ajouté casse à la compilation dans les trois process, plus seulement à l'exécution.
+/* The shared IPC contract: ONE typed map per channel, rather than three manual copies
+   kept in sync by hand (main, preload, renderer mirror — cf. AUDIT.md §3). Main and
+   preload compile against the same signatures; a renamed channel or an added
+   argument breaks at compile time across all three processes, not just at runtime.
 
-   Chantier « main » (AUDIT.md §4) : `repo:cancel` est le nouveau canal d'annulation — le
-   renderer génère un `requestId` (une simple string, un vrai AbortSignal ne traverserait pas
-   le clonage structuré de l'IPC) et le passe en dernier argument optionnel aux lectures assez
-   longues pour valoir la peine d'être annulées ; main kill le process associé. Chaque canal
-   fallible throw désormais une erreur structurée (`shared/errors.ts`) plutôt qu'une string
-   française pré-formatée — payload identique, message reconstruit côté renderer. */
+   The "main" workstream (AUDIT.md §4): `repo:cancel` is the new cancellation channel — the
+   renderer generates a `requestId` (a plain string, since a real AbortSignal wouldn't survive
+   IPC's structured clone) and passes it as the last optional argument to reads long enough to
+   be worth cancelling; main kills the associated process. Every fallible channel now throws a
+   structured error (`shared/errors.ts`) instead of a pre-formatted French string — same
+   payload, message reconstructed on the renderer side. */
 
 import type {
-  BootState, BranchAct, ChangeEvent, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes,
-  GitRef, OpEvent, OpName, OpenResult, RepoRef, Stash, StashAct, Status, TraceLine, Worktree,
+  BootState,
+  BranchAct,
+  ChangeEvent,
+  Commit,
+  CommitMessage,
+  FileChange,
+  FlowInfo,
+  FlowPrefixes,
+  GitRef,
+  OpEvent,
+  OpName,
+  OpenResult,
+  RepoRef,
+  Stash,
+  StashAct,
+  Status,
+  TraceLine,
+  Worktree,
   WtSource,
 } from "./types"
 
-/** Un canal par entrée `invoke`/`handle` : la signature complète, arguments compris. */
+/** One channel per `invoke`/`handle` entry: the full signature, arguments included. */
 export type InvokeChannels = {
   "app:state": () => Promise<BootState>
   "app:repos": () => Promise<{ root: string | null; recents: RepoRef[] }>
@@ -57,15 +73,15 @@ export type InvokeChannels = {
   "repo:checkout": (id: number, name: string) => Promise<void>
   "repo:stashes": (id: number) => Promise<Stash[]>
   "repo:stash": (id: number, action: StashAct, arg?: string) => Promise<void>
-  /** Kill le process git associé à `requestId` pour ce dépôt, s'il tourne encore
-      (AUDIT.md §2 B4). No-op silencieux si la requête a déjà fini ou n'existe pas. */
+  /** Kills the git process associated with `requestId` for this repo, if it's still running
+      (AUDIT.md §2 B4). Silent no-op if the request has already finished or doesn't exist. */
   "repo:cancel": (id: number, requestId: string) => Promise<void>
 }
 
-/** Nom de canal `invoke`/`handle` — dérivé du contrat, jamais redéclaré à la main. */
+/** `invoke`/`handle` channel name — derived from the contract, never redeclared by hand. */
 export type InvokeChannel = keyof InvokeChannels
 
-/** Un canal par événement poussé par main (`webContents.send` / `ipcRenderer.on`). */
+/** One channel per event pushed by main (`webContents.send` / `ipcRenderer.on`). */
 export type EventChannels = {
   "git:op": OpEvent
   "git:changed": ChangeEvent
@@ -74,11 +90,11 @@ export type EventChannels = {
 
 export type EventChannel = keyof EventChannels
 
-/** Ce que le preload expose en `window.gitgraph`. Les noms de méthode diffèrent des noms de
-    canal (`state` ↔ `app:state`, `log` ↔ `repo:log`…) : ils restent ceux que le renderer
-    consomme déjà, cette table est la seule correspondance entre les deux mondes. Les
-    abonnements `on*` retournent un désabonnement (`ipcRenderer.off` côté preload) — un vrai
-    par consommateur, plus le singleton `fanout` qu'imposait l'ancienne API sans unsubscribe. */
+/** What the preload exposes as `window.amont`. Method names differ from channel
+    names (`state` ↔ `app:state`, `log` ↔ `repo:log`…): they stay the ones the renderer
+    already consumes, this table is the sole correspondence between the two worlds. The
+    `on*` subscriptions return an unsubscribe (`ipcRenderer.off` on the preload side) — a real
+    one per consumer, instead of the `fanout` singleton the old API without unsubscribe used to force. */
 export type Bridge = {
   state: InvokeChannels["app:state"]
   repos: InvokeChannels["app:repos"]

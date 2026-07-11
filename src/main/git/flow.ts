@@ -1,7 +1,7 @@
-/* Git-flow (AUDIT.md §4) : préfixes de `git flow init`, contexte read-only de la branche
-   courante (cockpit, carte de contexte), et `finish` (fix B2 : rejette les suffixes en `-`,
-   qui se feraient passer pour une option de git-flow — cf. computeNextTag/flowVersionSuffix
-   dans git/parse.ts pour la partie pure, testée isolément). */
+/* Git-flow (AUDIT.md §4): prefixes from `git flow init`, read-only context of the current
+   branch (cockpit, context card), and `finish` (fix B2: rejects suffixes starting with `-`,
+   which could pass themselves off as a git-flow option — cf. computeNextTag/flowVersionSuffix
+   in git/parse.ts for the pure part, tested in isolation). */
 
 import { AppError } from "../../shared/errors.ts"
 import type { FlowInfo, FlowPrefixes } from "../../shared/types.ts"
@@ -11,7 +11,7 @@ import { computeNextTag, flowVersionSuffix, parseFlowPrefixes } from "./parse.ts
 
 export const FLOW_TYPES = ["feature", "bugfix", "release", "hotfix"] as const
 
-/** Les préfixes posés par `git flow init` dans la config, ou `null` : le dépôt ignore git-flow. */
+/** The prefixes set by `git flow init` in the config, or `null`: the repo doesn't use git-flow. */
 export async function flowPrefixes(r: RepoHandle): Promise<FlowPrefixes | null> {
   const out = await r.git(["config", "--get-regexp", "^gitflow\\.prefix\\."]).catch(() => "")
   const prefixes = parseFlowPrefixes(out)
@@ -19,11 +19,14 @@ export async function flowPrefixes(r: RepoHandle): Promise<FlowPrefixes | null> 
 }
 
 const cfgOf = (r: RepoHandle, key: string): Promise<string> =>
-  r.git(["config", "--get", key]).then((o) => o.trim(), () => "")
+  r.git(["config", "--get", key]).then(
+    (o) => o.trim(),
+    () => ""
+  )
 
-/* --- Contexte de flow de la branche courante ---
-   Lecture seule : ce que la branche a produit et où son finish atterrira. Le renderer classe
-   la branche (préfixes gitflow ou conventions) ; main ne fait que mesurer. */
+/* --- Flow context of the current branch ---
+   Read-only: what the branch has produced and where its finish will land. The renderer
+   classifies the branch (gitflow prefixes or conventions); main only measures. */
 export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null> {
   const [headsOut, cfgMaster, cfgDevelop] = await Promise.all([
     r.git(["for-each-ref", "--format=%(refname:short)", "refs/heads"]),
@@ -33,27 +36,32 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
   const heads = new Set(headsOut.split("\n").filter(Boolean))
   const master = cfgMaster || ["master", "main"].find((b) => heads.has(b)) || null
   const develop = cfgDevelop || (heads.has("develop") ? "develop" : null)
-  /* un hotfix part du tronc de production, tout le reste du tronc d'intégration */
-  const parent = kind === "hotfix" ? master : develop ?? master
+  /* a hotfix branches off the production trunk, everything else off the integration trunk */
+  const parent = kind === "hotfix" ? master : (develop ?? master)
   if (!parent || !heads.has(parent) || parent === branch) return null
 
   const tagged = kind === "release" || kind === "hotfix"
-  /* ponytail: describe prend le tag le plus proche, semver ou non — le bump s'en protège par regex */
+  /* describe returns the nearest tag, semver or not — the bump logic guards against that with a regex */
   const [commits, lastTag] = await Promise.all([
     r.git(["rev-list", "--count", `${parent}..${branch}`]).then((o) => parseInt(o, 10)),
-    tagged ? r.git(["describe", "--tags", "--abbrev=0", branch]).then((o) => o.trim(), () => null) : Promise.resolve(null),
+    tagged
+      ? r.git(["describe", "--tags", "--abbrev=0", branch]).then(
+          (o) => o.trim(),
+          () => null
+        )
+      : Promise.resolve(null),
   ])
   const startedAt = commits
     ? parseInt((await r.git(["log", "--format=%ct", "--reverse", `${parent}..${branch}`])).split("\n", 1)[0], 10)
     : null
 
-  /* le tag du finish : gitflow nomme la branche par sa version ; sinon, bump du dernier tag —
-     patch pour un hotfix, minor pour une release */
+  /* the finish tag: gitflow names the branch after its version; otherwise, bump the last tag —
+     patch for a hotfix, minor for a release */
   let nextTag: string | null = null
   if (kind === "release" || kind === "hotfix") {
     const prefixes = (await flowPrefixes(r)) ?? {}
     const prefix = prefixes[kind] && branch.startsWith(prefixes[kind]) ? prefixes[kind] : `${kind}/`
-    /* même garde que finish : un suffixe en `-…` n'est jamais une version */
+    /* same guard as finish: a suffix starting with `-…` is never a version */
     nextTag = computeNextTag(kind, flowVersionSuffix(branch, prefix), lastTag)
   }
 
@@ -66,18 +74,18 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
   }
 }
 
-/* `git flow` fait tout — merge, tag, back-merge, suppression de la branche. Le réimplémenter,
-   c'est s'écarter en silence de la sémantique que l'utilisateur attend de son outil.
-   ponytail: l'extension n'est pas installée ? le message de git le dira au clic. */
+/* `git flow` does everything — merge, tag, back-merge, branch deletion. Reimplementing it means
+   silently drifting from the semantics the user expects from their tool. If the extension isn't
+   installed, git's own error message will say so when the user clicks. */
 export async function finishFlow(r: RepoHandle, name: string): Promise<void> {
   const prefixes = (await flowPrefixes(r)) ?? {}
-  const type = FLOW_TYPES.find((t) => prefixes[t] && name.startsWith(prefixes[t]!))
+  const type = FLOW_TYPES.find((t) => prefixes[t] && name.startsWith(prefixes[t]))
   if (!type) throw new AppError("NOT_FLOW_BRANCH", name)
   const version = name.slice(prefixes[type]!.length)
-  /* BRANCH n'interdit le `-` qu'en tête du nom complet : `feature/-D` donnerait
-     version = '-D', que git-flow lirait comme une option (suppression forcée) — fix B2 */
+  /* BRANCH only forbids `-` at the start of the full name: `feature/-D` would give
+     version = '-D', which git-flow would read as an option (forced deletion) — fix B2 */
   if (version.startsWith("-")) throw new AppError("BAD_ARG", name)
-  /* release et hotfix posent un tag annoté : sans `-m`, `git tag -a` réclamerait un éditeur */
+  /* release and hotfix create an annotated tag: without `-m`, `git tag -a` would prompt for an editor */
   const tagged = type === "release" || type === "hotfix"
   await r.git(["flow", type, "finish", ...(tagged ? ["-m", version] : []), version], { timeout: OP_TIMEOUT })
 }

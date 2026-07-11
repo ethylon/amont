@@ -1,8 +1,8 @@
 import { avatarUrl, initials, tint } from "@/lib/avatar"
 import { cn } from "@/lib/utils"
 
-/* L'image se pose par-dessus le monogramme : un 404 (auteur sans Gravatar) ou l'absence de réseau
-   la retire et découvre les initiales. Ni état, ni saut de mise en page, ni cascade de rendus. */
+/* The image sits on top of the monogram: a 404 (author without a Gravatar) or no network
+   removes it and reveals the initials. No state, no layout shift, no render cascade. */
 export function Avatar({ name, email, className }: { name: string; email: string; className?: string }) {
   const src = avatarUrl(email)
   return (
@@ -10,7 +10,7 @@ export function Avatar({ name, email, className }: { name: string; email: string
       aria-hidden
       className={cn(
         "relative flex size-4.5 shrink-0 items-center justify-center overflow-hidden",
-        /* liseré neutre (chroma 0 des deux thèmes) : un Gravatar pâle ne fond pas dans la surface */
+        /* neutral border (chroma 0 in both themes): a pale Gravatar doesn't blend into the surface */
         "rounded-full text-[0.5625rem] font-medium text-background ring-1 ring-foreground/10",
         className
       )}
@@ -19,7 +19,7 @@ export function Avatar({ name, email, className }: { name: string; email: string
       {initials(name)}
       {src && (
         <img
-          key={src} // sans quoi React recyclerait l'image masquée d'un autre auteur
+          key={src} // otherwise React would recycle the hidden image of a different author
           src={src}
           alt=""
           className="absolute inset-0 size-full"

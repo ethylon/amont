@@ -1,15 +1,14 @@
-/* Requête de la feature search (AUDIT.md §5/§7) : hashes correspondant à un terme, message ou
-   contenu de diff — colocalisée avec commit-search.tsx plutôt que dans un lib/queries.ts
-   fourre-tout. */
+/* Search feature query (AUDIT.md §5/§7): hashes matching a term, message or
+   diff content — colocated with commit-search.tsx rather than in a catch-all lib/queries.ts. */
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
 import type { RepoApi } from "@/lib/git"
 import { queryKeys, withAbort } from "@/lib/queries"
 
-/** Sous ce seuil, `git log -S` balaierait l'historique entier pour rien — même garde que
-    l'ancien CommitSearch. `enabled` la coupe : `data` retombe à `undefined` pour la nouvelle
-    clé, ce qui vide les résultats sans flag `stale` à recopier à la main. */
+/** Below this threshold, `git log -S` would sweep the entire history for nothing — same
+    guard as the old CommitSearch. `enabled` cuts it off: `data` falls back to `undefined` for
+    the new key, which clears the results without a `stale` flag to hand-copy. */
 export const SEARCH_MIN = 2
 
 export function useSearchQuery(api: RepoApi, id: number, term: string, content: boolean) {

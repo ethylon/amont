@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { worktreeCount } from "@/lib/git"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
+import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { DiffView } from "@/features/diff/diff-view"
@@ -17,10 +18,10 @@ const WT_COUNTERS = [
   { key: "untracked", color: "neutral" },
 ] as const
 
-/* Le moteur du graphe (createGraph, features/graph/controller.ts, décomposé en phase 4) : ce
-   composant reste la coque React qui lui fournit ses trois nœuds DOM et ses callbacks. Les
-   mesures (graphW/branchW) ne repassent plus par du state React — `onGraphWidth`/`onBranchWidth`
-   écrivent directement les propriétés CSS sur le conteneur, lues par `.gg-wtrow`/le moteur via
+/* The graph engine (createGraph, features/graph/controller.ts, decomposed in phase 4): this
+   component remains the React shell that provides it its three DOM nodes and callbacks. The
+   measurements (graphW/branchW) no longer go through React state — `onGraphWidth`/`onBranchWidth`
+   write CSS properties directly on the container, read by `.amont-wtrow`/the engine via
    `var()` (cf. app.css). */
 export function GraphColumn() {
   const storeApi = useRepoStoreApi()
@@ -41,7 +42,7 @@ export function GraphColumn() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [diffNonce, setDiffNonce] = useState(0)
 
-  /* --- Sélection : la source de vérité est le store, le canvas ne fait qu'appliquer les classes --- */
+  /* --- Selection: the store is the source of truth, the canvas only applies the classes --- */
   useEffect(() => {
     graphRef.current?.setSelection(rows)
   }, [rows, graphRef])
@@ -52,9 +53,9 @@ export function GraphColumn() {
       onBranchSelect: (row) => void storeApi.getState().selectBranch(row),
       onStats: (stats) => storeApi.getState().setStats(stats),
       onGraphWidth: (px) => wrapRef.current?.style.setProperty("--graphw", `${px}px`),
-      onBranchWidth: (px) => wrapRef.current?.style.setProperty("--gg-branch", `${px}px`),
-      /* les échecs de `api.log` ne sont plus muets (AUDIT.md §6) : la pastille de statut existante
-         (op git → refresh → resetAndLoad → showOp) porte aussi celle-ci */
+      onBranchWidth: (px) => wrapRef.current?.style.setProperty("--amont-branch", `${px}px`),
+      /* `api.log` failures are no longer silent (AUDIT.md §6): the existing status badge
+         (git op → refresh → resetAndLoad → showOp) carries this one too */
       onError: (message) => storeApi.getState().showOp(message, "danger"),
     }),
     [storeApi]
@@ -66,11 +67,11 @@ export function GraphColumn() {
         <div
           onClick={showWorktree}
           className={cn(
-            "gg-wtrow gg-drop relative flex h-8.5 min-w-0 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
+            "amont-wtrow amont-drop relative flex h-8.5 min-w-0 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
             view === "wt" && "border-l-primary bg-primary/10 text-foreground"
           )}
         >
-          <span className="truncate font-medium">Modifications non validées</span>
+          <span className="truncate font-medium">{messages.worktree.uncommittedChanges}</span>
           <span className="ms-auto flex gap-1">
             {WT_COUNTERS.map(({ key, color }) =>
               worktree[key].length ? (
@@ -83,8 +84,8 @@ export function GraphColumn() {
         </div>
       )}
 
-      {/* le diff recouvre le graphe au lieu de le démonter : scroll, sélection et mise en
-          page du canvas survivent à la fermeture */}
+      {/* the diff overlays the graph instead of unmounting it: scroll, selection and layout
+          of the canvas survive its closing */}
       <div className="relative grid min-h-0">
         <CommitGraph
           api={api}
@@ -95,9 +96,17 @@ export function GraphColumn() {
           }}
         />
         {diff && (
-          <div data-gg-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
+          <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
             <ErrorBoundary key={`${diff.file.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
-              <DiffView api={api} repoId={repoId} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={setDiffMode} onClose={closeDiff} />
+              <DiffView
+                api={api}
+                repoId={repoId}
+                ctx={diff.ctx}
+                file={diff.file}
+                view={diffMode}
+                onViewChange={setDiffMode}
+                onClose={closeDiff}
+              />
             </ErrorBoundary>
           </div>
         )}
