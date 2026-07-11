@@ -3,7 +3,7 @@
    chemins C-quotés (non-ASCII), tab et saut de ligne dans un nom — et le layout à trois
    champs des renames/copies (`Rnn NUL ancien NUL nouveau NUL`). */
 import assert from "node:assert/strict"
-import { parseNameStatus } from "../src/main/name-status.js"
+import { parseNameStatus } from "../src/main/name-status.ts"
 
 const NUL = "\0"
 
