@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
-import { ArrowRight01Icon, GitMergeIcon } from "@hugeicons/core-free-icons"
+import { ArrowRight01Icon, GitBranchIcon, GitMergeIcon } from "@hugeicons/core-free-icons"
 
 import type { BranchAct, FlowPrefixes, GitRef } from "@/lib/git"
 import { typeColor } from "@/lib/commit-parse"
@@ -15,7 +15,8 @@ import type { BadgeColor } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { BranchMenu } from "@/features/refs/refs-menu"
 
 type RowProps = { onCheckout(name: string): void }
@@ -149,12 +150,28 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
     </button>
   )
 
-  if (r.kind !== "head") return <li>{row}</li>
   /* le trigger porte le `li` : le clic droit prend toute la ligne, pas le seul bouton */
+  if (r.kind === "head")
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger render={<li />}>{row}</ContextMenuTrigger>
+        <BranchMenu r={r} ctx={ctx} />
+      </ContextMenu>
+    )
+
+  /* Distante/tag (AUDIT.md §8) : pas de BranchMenu complet (merge/pull/push/flow n'ont pas de
+     sens hors d'une branche locale), mais le checkout — aujourd'hui double-clic-only pour les
+     distantes, absent pour les tags — doit rester atteignable au clavier (menu contextuel,
+     ouvrable aussi via Maj+F10/touche Menu sur la ligne focalisée). */
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<li />}>{row}</ContextMenuTrigger>
-      <BranchMenu r={r} ctx={ctx} />
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => ctx.onCheckout(target)}>
+          <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} />
+          <MenuItemWithCmd label="Checkout" cmd={`git checkout ${target}`} />
+        </ContextMenuItem>
+      </ContextMenuContent>
     </ContextMenu>
   )
 }
