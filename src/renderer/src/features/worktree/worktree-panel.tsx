@@ -32,7 +32,19 @@ const HIT_CLS = "relative after:absolute after:-inset-x-1 after:-inset-y-px"
 const ACTION_CLS = `ms-auto shrink-0 self-center opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
 const DIR_ACTION_CLS = `shrink-0 self-center opacity-0 group-hover/dirrow:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
 
-function WtBlock({ title, files, view, api, activePath, onOpen, action, dirAction, bulk, empty, className }: {
+function WtBlock({
+  title,
+  files,
+  view,
+  api,
+  activePath,
+  onOpen,
+  action,
+  dirAction,
+  bulk,
+  empty,
+  className,
+}: {
   title: string
   files: WtFile[]
   view: FileView
@@ -51,7 +63,12 @@ function WtBlock({ title, files, view, api, activePath, onOpen, action, dirActio
         actions={
           files.length > 0 &&
           bulk && (
-            <Button variant="ghost" size="sm" className="h-auto py-0.5 normal-case tracking-normal" onClick={bulk.onClick}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto py-0.5 normal-case tracking-normal"
+              onClick={bulk.onClick}
+            >
               <span className="flex flex-col items-start">
                 <span>{bulk.label}</span>
                 <GitCmd cmd={bulk.cmd} />
@@ -65,7 +82,15 @@ function WtBlock({ title, files, view, api, activePath, onOpen, action, dirActio
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {files.length ? (
-          <FileEntries files={files} view={view} api={api} activePath={activePath} onOpen={onOpen} action={action} dirAction={dirAction} />
+          <FileEntries
+            files={files}
+            view={view}
+            api={api}
+            activePath={activePath}
+            onOpen={onOpen}
+            action={action}
+            dirAction={dirAction}
+          />
         ) : (
           <p className="px-1.5 py-0.5 text-xs text-muted-foreground">{empty}</p>
         )}
@@ -128,14 +153,28 @@ export function WorktreePanel() {
       className={dirScoped ? DIR_ACTION_CLS : ACTION_CLS}
       onClick={(ev) => {
         ev.stopPropagation()
-        onRun(act, paths)
+        void onRun(act, paths)
       }}
     />
   )
   const stageBtn = (f: WtFile) => wtButton(messages.worktree.stage, PlusSignIcon, STAGE, false, [f.path])
   const unstageBtn = (f: WtFile) => wtButton(messages.worktree.unstage, MinusSignIcon, UNSTAGE, false, [f.path])
-  const stageDir = (files: WtFile[]) => wtButton(messages.worktree.stageFolder, PlusSignIcon, STAGE, true, files.map((f) => f.path))
-  const unstageDir = (files: WtFile[]) => wtButton(messages.worktree.unstageFolder, MinusSignIcon, UNSTAGE, true, files.map((f) => f.path))
+  const stageDir = (files: WtFile[]) =>
+    wtButton(
+      messages.worktree.stageFolder,
+      PlusSignIcon,
+      STAGE,
+      true,
+      files.map((f) => f.path)
+    )
+  const unstageDir = (files: WtFile[]) =>
+    wtButton(
+      messages.worktree.unstageFolder,
+      MinusSignIcon,
+      UNSTAGE,
+      true,
+      files.map((f) => f.path)
+    )
 
   const verb = amend ? messages.worktree.amend : messages.worktree.commit
   const caption = messages.worktree.commitCaption(verb, staged)
@@ -143,7 +182,9 @@ export function WorktreePanel() {
   return (
     <>
       <div className="flex shrink-0 items-center justify-between gap-2">
-        <h2 className="text-sm leading-snug font-semibold tracking-tight text-balance">{messages.worktree.uncommittedChanges}</h2>
+        <h2 className="text-sm leading-snug font-semibold tracking-tight text-balance">
+          {messages.worktree.uncommittedChanges}
+        </h2>
         <div className="flex items-center gap-1">
           <IconButton
             label={messages.worktree.stashChanges}
@@ -168,7 +209,17 @@ export function WorktreePanel() {
           action={stageBtn}
           dirAction={stageDir}
           bulk={
-            unindexed.length ? { label: messages.worktree.stageAll, cmd: "git add -- …", onClick: () => onRun(STAGE, unindexed.map((f) => f.path)) } : undefined
+            unindexed.length
+              ? {
+                  label: messages.worktree.stageAll,
+                  cmd: "git add -- …",
+                  onClick: () =>
+                    onRun(
+                      STAGE,
+                      unindexed.map((f) => f.path)
+                    ),
+                }
+              : undefined
           }
           empty={messages.worktree.noChangesToStage}
           className="pb-3"
@@ -183,7 +234,17 @@ export function WorktreePanel() {
           action={unstageBtn}
           dirAction={unstageDir}
           bulk={
-            indexed.length ? { label: messages.worktree.unstageAll, cmd: "git restore --staged -- …", onClick: () => onRun(UNSTAGE, indexed.map((f) => f.path)) } : undefined
+            indexed.length
+              ? {
+                  label: messages.worktree.unstageAll,
+                  cmd: "git restore --staged -- …",
+                  onClick: () =>
+                    onRun(
+                      UNSTAGE,
+                      indexed.map((f) => f.path)
+                    ),
+                }
+              : undefined
           }
           empty={messages.worktree.noStagedFiles}
           className="border-t pt-3"
@@ -225,14 +286,12 @@ export function WorktreePanel() {
               }}
             >
               {caption}
-              <GitCmd cmd={amend ? 'git commit --amend -m "…"' : 'git commit -m "…"'} className="text-primary-foreground/70" />
+              <GitCmd
+                cmd={amend ? 'git commit --amend -m "…"' : 'git commit -m "…"'}
+                className="text-primary-foreground/70"
+              />
             </Button>
-            <div
-              className={cn(
-                "flex shrink-0 items-center gap-1.5",
-                !canAmend && "pointer-events-none opacity-50"
-              )}
-            >
+            <div className={cn("flex shrink-0 items-center gap-1.5", !canAmend && "pointer-events-none opacity-50")}>
               <Checkbox id={amendId} checked={amend} disabled={!canAmend} onCheckedChange={(v) => onAmendChange(v)} />
               <label htmlFor={amendId} className="cursor-pointer text-xs text-muted-foreground select-none">
                 {messages.worktree.amend}

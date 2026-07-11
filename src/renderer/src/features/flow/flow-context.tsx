@@ -61,7 +61,10 @@ export function FlowCard({ kind, branch, info }: { kind: BranchFlow; branch: str
   const rows = [
     [messages.flow.base, info.base ?? "—"],
     [messages.flow.commits, info.commits ? String(info.commits) : messages.flow.none],
-    [info.targets.length > 1 ? messages.flow.finishTargets : messages.flow.finishTarget, info.targets.join(" + ") || "—"],
+    [
+      info.targets.length > 1 ? messages.flow.finishTargets : messages.flow.finishTarget,
+      info.targets.join(" + ") || "—",
+    ],
     ...(info.nextTag ? [[messages.flow.expectedTag, info.nextTag]] : []),
   ]
   return (

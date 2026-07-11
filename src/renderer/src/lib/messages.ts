@@ -96,10 +96,10 @@ export const messages = {
     tags: "Tags",
     filterBranches: "Filter branches",
     checkout: "Checkout",
-    mergeInto: (branch: string) => `Merge into « ${branch} »`,
+    mergeInto: (branch: string) => `Merge into « ${branch} »`,
     pull: "Pull",
     push: "Push",
-    pushTo: (upstream: string) => `Push to « ${upstream} »`,
+    pushTo: (upstream: string) => `Push to « ${upstream} »`,
     deleteBranch: "Delete branch",
     finishFeature: "Finish feature",
     finishBugfix: "Finish bugfix",
@@ -133,7 +133,8 @@ export const messages = {
     commitMessage: "Commit message",
     amend: "Amend",
     commit: "Commit",
-    commitCaption: (verb: string, staged: number) => (staged ? `${verb} · ${staged} file${staged > 1 ? "s" : ""}` : verb),
+    commitCaption: (verb: string, staged: number) =>
+      staged ? `${verb} · ${staged} file${staged > 1 ? "s" : ""}` : verb,
   },
 
   graph: {

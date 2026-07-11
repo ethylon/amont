@@ -28,9 +28,7 @@ type Props = {
 
 const nf = new Intl.NumberFormat()
 
-const Num = ({ children }: { children: React.ReactNode }) => (
-  <b className="font-medium text-foreground">{children}</b>
-)
+const Num = ({ children }: { children: React.ReactNode }) => <b className="font-medium text-foreground">{children}</b>
 
 export function StatusBar({ branch, flow, opState, stats, consoleSlot }: Props) {
   /* the work type tints the branch segment: shared signals from flow-context */
@@ -38,7 +36,9 @@ export function StatusBar({ branch, flow, opState, stats, consoleSlot }: Props) 
   return (
     <footer className="flex h-7 shrink-0 items-center gap-3 border-t pr-3 pl-3.5 text-[0.625rem] text-muted-foreground">
       {/* outcome of git operations announced to screen readers; the hover (hoverInfo) stays silent */}
-      <span aria-live="polite" className="sr-only">{opState?.text ?? ""}</span>
+      <span aria-live="polite" className="sr-only">
+        {opState?.text ?? ""}
+      </span>
       {/* graph loading stats (AUDIT.md §8): polite, not assertive — doesn't interrupt an
           ongoing selection announcement for a mere pagination progress update. */}
       <span aria-live="polite" className="sr-only">

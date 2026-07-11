@@ -39,7 +39,9 @@ export interface Watchable {
 
 /* Our own commands wake up the watcher, even though the renderer has already reloaded behind
    them. We can't tell these events apart from the others: we go quiet for a moment. */
-export const mute = (r: Watchable): void => { r.muted = Date.now() + MUTE_MS }
+export const mute = (r: Watchable): void => {
+  r.muted = Date.now() + MUTE_MS
+}
 
 export function watchGit(r: Watchable): void {
   let timer: NodeJS.Timeout | undefined

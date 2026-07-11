@@ -76,7 +76,11 @@ export function layoutChunk(S: LayoutState, at: (row: number) => Commit, total: 
     }
     S.laneOf[row] = lane
     chunkOf(S.nodes, Math.floor(row / CHUNK)).push({
-      row, lane, merge: c.p.length > 1, cap: c.cap?.flow, stash: !!c.stash,
+      row,
+      lane,
+      merge: c.p.length > 1,
+      cap: c.cap?.flow,
+      stash: !!c.stash,
     })
 
     c.p.forEach((p, k) => {

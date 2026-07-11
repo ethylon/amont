@@ -83,10 +83,10 @@ describe("parseBody", () => {
   })
 
   it("extracts co-author trailers, case-insensitive on the field name", () => {
-    assert.deepEqual(
-      body("Corps.\n\nCo-authored-by: Ada Lovelace <ada@x.io>\nCo-Authored-By: Alan <alan@x.io>\n"),
-      ["Corps.", ["Ada Lovelace|ada@x.io", "Alan|alan@x.io"]]
-    )
+    assert.deepEqual(body("Corps.\n\nCo-authored-by: Ada Lovelace <ada@x.io>\nCo-Authored-By: Alan <alan@x.io>\n"), [
+      "Corps.",
+      ["Ada Lovelace|ada@x.io", "Alan|alan@x.io"],
+    ])
   })
 
   it("accepts a trailer with no body, and a trailer with no email", () => {
@@ -99,29 +99,43 @@ describe("parseBody", () => {
   })
 
   it("does not mistake a plain-text mention for a trailer", () => {
-    assert.deepEqual(body("Voir le Co-authored-by: du commit d'avant."), ["Voir le Co-authored-by: du commit d'avant.", []])
+    assert.deepEqual(body("Voir le Co-authored-by: du commit d'avant."), [
+      "Voir le Co-authored-by: du commit d'avant.",
+      [],
+    ])
   })
 })
 
 describe("parseMerge / mergeSource", () => {
   it("extracts source and target of a branch merge", () => {
-    assert.deepEqual(parseMerge("Merge branch 'feature/x' into develop"), { from: "feature/x", to: "develop", noise: false })
+    assert.deepEqual(parseMerge("Merge branch 'feature/x' into develop"), {
+      from: "feature/x",
+      to: "develop",
+      noise: false,
+    })
     assert.deepEqual(parseMerge("Merge branch 'hotfix/1.2.1'"), { from: "hotfix/1.2.1", to: null, noise: false })
   })
 
   it("flags sync merges (remote-tracking, 'x' of <url>) as noise", () => {
-    assert.deepEqual(
-      parseMerge("Merge remote-tracking branch 'origin/develop' into develop"),
-      { from: "origin/develop", to: "develop", noise: true }
-    )
-    assert.deepEqual(
-      parseMerge("Merge branch 'master' of https://forge/depot.git into master"),
-      { from: "master", to: "master", noise: true }
-    )
+    assert.deepEqual(parseMerge("Merge remote-tracking branch 'origin/develop' into develop"), {
+      from: "origin/develop",
+      to: "develop",
+      noise: true,
+    })
+    assert.deepEqual(parseMerge("Merge branch 'master' of https://forge/depot.git into master"), {
+      from: "master",
+      to: "master",
+      noise: true,
+    })
   })
 
   it("recognizes a tag merge", () => {
-    assert.deepEqual(parseMerge("Merge tag 'v1.2.0' into develop"), { from: "v1.2.0", to: "develop", tag: true, noise: false })
+    assert.deepEqual(parseMerge("Merge tag 'v1.2.0' into develop"), {
+      from: "v1.2.0",
+      to: "develop",
+      tag: true,
+      noise: false,
+    })
   })
 
   it("renders null for a subject that isn't a merge", () => {
@@ -137,14 +151,18 @@ describe("parseMerge / mergeSource", () => {
 
 describe("parseSubject", () => {
   it("recognizes the type badge, the alias table, and Conventional Commits", () => {
-    assert.deepEqual(parseSubject("[FEATURE] ajout du graphe"), { type: "feat", label: "feat", text: "ajout du graphe" })
+    assert.deepEqual(parseSubject("[FEATURE] ajout du graphe"), {
+      type: "feat",
+      label: "feat",
+      text: "ajout du graphe",
+    })
     assert.deepEqual(parseSubject("[HOTFIX] vite"), { type: "hotfix", label: "hotfix", text: "vite" })
     assert.deepEqual(parseSubject("[Machin] chose"), { type: "other", label: "machin", text: "chose" })
     assert.deepEqual(parseSubject("feat(graph): lanes"), { type: "feat", label: "feat · graph", text: "lanes" })
     assert.deepEqual(parseSubject("fix: débordement"), { type: "bugfix", label: "bugfix", text: "débordement" })
   })
 
-  it("leaves any random \"truc: machin\" as plain text", () => {
+  it('leaves any random "truc: machin" as plain text', () => {
     assert.deepEqual(parseSubject("truc: machin"), { type: null, label: null, text: "truc: machin" })
   })
 })

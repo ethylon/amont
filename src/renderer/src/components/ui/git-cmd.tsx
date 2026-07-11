@@ -3,7 +3,12 @@ import { cn } from "@/lib/utils"
 /* UI experiment: the git command a control triggers, shown as muted mono subtext. */
 export function GitCmd({ cmd, className }: { cmd: string; className?: string }) {
   return (
-    <span className={cn("block max-w-full truncate font-mono text-[0.625rem] leading-tight font-normal text-muted-foreground", className)}>
+    <span
+      className={cn(
+        "block max-w-full truncate font-mono text-[0.625rem] leading-tight font-normal text-muted-foreground",
+        className
+      )}
+    >
       {cmd}
     </span>
   )

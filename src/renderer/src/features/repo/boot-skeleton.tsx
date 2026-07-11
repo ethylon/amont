@@ -8,7 +8,22 @@ import { cn } from "@/lib/utils"
    without a flash of ghosts. */
 
 /* Fixed, pseudo-random widths: a skeleton stable across renders. */
-const ROWS = ["w-40", "w-24", "w-36", "w-28", "w-44", "w-32", "w-24", "w-36", "w-28", "w-40", "w-32", "w-24", "w-36", "w-28"]
+const ROWS = [
+  "w-40",
+  "w-24",
+  "w-36",
+  "w-28",
+  "w-44",
+  "w-32",
+  "w-24",
+  "w-36",
+  "w-28",
+  "w-40",
+  "w-32",
+  "w-24",
+  "w-36",
+  "w-28",
+]
 const REFS = ["w-28", "w-20", "w-24", "w-32", "w-16", "w-24", "w-20"]
 
 export function BootSkeleton({ out, sidebar }: { out: boolean; sidebar: boolean }) {

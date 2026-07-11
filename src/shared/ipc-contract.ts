@@ -11,8 +11,24 @@
    payload, message reconstructed on the renderer side. */
 
 import type {
-  BootState, BranchAct, ChangeEvent, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes,
-  GitRef, OpEvent, OpName, OpenResult, RepoRef, Stash, StashAct, Status, TraceLine, Worktree,
+  BootState,
+  BranchAct,
+  ChangeEvent,
+  Commit,
+  CommitMessage,
+  FileChange,
+  FlowInfo,
+  FlowPrefixes,
+  GitRef,
+  OpEvent,
+  OpName,
+  OpenResult,
+  RepoRef,
+  Stash,
+  StashAct,
+  Status,
+  TraceLine,
+  Worktree,
   WtSource,
 } from "./types"
 

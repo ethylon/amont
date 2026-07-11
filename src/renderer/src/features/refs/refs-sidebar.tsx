@@ -22,8 +22,20 @@ const GROUPS = [
   { title: messages.refs.tags, kind: "tag", icon: Tag01Icon },
 ] as const satisfies readonly { title: string; kind: GitRef["kind"]; icon: IconSvgElement }[]
 
-function RefGroupSection({ title, icon, refs, ctx, openDirs, forceOpen }: {
-  title: string; icon: IconSvgElement; refs: GitRef[]; ctx: Ctx; openDirs: boolean; forceOpen: boolean
+function RefGroupSection({
+  title,
+  icon,
+  refs,
+  ctx,
+  openDirs,
+  forceOpen,
+}: {
+  title: string
+  icon: IconSvgElement
+  refs: GitRef[]
+  ctx: Ctx
+  openDirs: boolean
+  forceOpen: boolean
 }) {
   const focused = refs.some((r) => ctx.focusedKeys.has(refKey(r)))
   const { open, onOpenChange } = useResettableOpen(true, forceOpen, focused)

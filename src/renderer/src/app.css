@@ -7,183 +7,220 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    /* Tailwind's palette cut off: only the preset's tokens produce utilities, so
+  /* Tailwind's palette cut off: only the preset's tokens produce utilities, so
        `bg-slate-800` fails the build. */
-    --color-*: initial;
+  --color-*: initial;
 
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
-    --font-mono: 'Geist Mono Variable', Consolas, ui-monospace, monospace;
+  --font-heading: var(--font-sans);
+  --font-sans: "Geist Variable", sans-serif;
+  --font-mono: "Geist Mono Variable", Consolas, ui-monospace, monospace;
 
-    --color-ring: var(--ring);
-    --color-input: var(--input);
-    --color-border: var(--border);
-    --color-destructive: var(--destructive);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-accent: var(--accent);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-muted: var(--muted);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-secondary: var(--secondary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-primary: var(--primary);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-popover: var(--popover);
-    --color-card-foreground: var(--card-foreground);
-    --color-card: var(--card);
-    --color-foreground: var(--foreground);
-    --color-background: var(--background);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
 
-    /* Outside the shadcn palette, deliberately: the preset only knows destructive. */
-    --color-success: var(--success);
-    --color-warning: var(--warning);
-    --color-release: var(--release);
-    --color-info: var(--info);
-    --color-refactor: var(--refactor);
+  /* Outside the shadcn palette, deliberately: the preset only knows destructive. */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-release: var(--release);
+  --color-info: var(--info);
+  --color-refactor: var(--refactor);
 
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.52 0.105 223.128);
-    --primary-foreground: oklch(0.984 0.019 200.873);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.52 0.105 223.128);
+  --primary-foreground: oklch(0.984 0.019 200.873);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
 
-    --success: oklch(0.52 0.14 150);
-    --warning: oklch(0.56 0.13 70);
-    /* release: bold violet, distinct from the brand teal (primary) and the other chip hues */
-    --release: oklch(0.53 0.22 300);
-    /* info: blue (test); refactor: cyan — the chroma keeps them apart from the primary teal (hue 223) */
-    --info: oklch(0.52 0.13 250);
-    --refactor: oklch(0.52 0.10 195);
+  --success: oklch(0.52 0.14 150);
+  --warning: oklch(0.56 0.13 70);
+  /* release: bold violet, distinct from the brand teal (primary) and the other chip hues */
+  --release: oklch(0.53 0.22 300);
+  /* info: blue (test); refactor: cyan — the chroma keeps them apart from the primary teal (hue 223) */
+  --info: oklch(0.52 0.13 250);
+  --refactor: oklch(0.52 0.1 195);
 
-    /* Lanes: hues spaced 108° apart — two adjacent lanes are never confused for each other.
+  /* Lanes: hues spaced 108° apart — two adjacent lanes are never confused for each other.
        Chroma adjusted per hue (yellow and cyan saturate less than red).
        Outside @theme: consumed via var() in SVG attributes, never through a utility. */
-    --lane-0: oklch(0.56 0.16 250);
-    --lane-1: oklch(0.58 0.18 358);
-    --lane-2: oklch(0.56 0.14 106);
-    --lane-3: oklch(0.56 0.13 214);
-    --lane-4: oklch(0.55 0.19 322);
-    --lane-5: oklch(0.62 0.14 70);
-    --lane-6: oklch(0.55 0.10 178);
-    --lane-7: oklch(0.53 0.19 286);
-    --lane-8: oklch(0.58 0.16 34);
-    --lane-9: oklch(0.55 0.14 142);
+  --lane-0: oklch(0.56 0.16 250);
+  --lane-1: oklch(0.58 0.18 358);
+  --lane-2: oklch(0.56 0.14 106);
+  --lane-3: oklch(0.56 0.13 214);
+  --lane-4: oklch(0.55 0.19 322);
+  --lane-5: oklch(0.62 0.14 70);
+  --lane-6: oklch(0.55 0.1 178);
+  --lane-7: oklch(0.53 0.19 286);
+  --lane-8: oklch(0.58 0.16 34);
+  --lane-9: oklch(0.55 0.14 142);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.45 0.085 224.283);
-    --primary-foreground: oklch(0.984 0.019 200.873);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.45 0.085 224.283);
+  --primary-foreground: oklch(0.984 0.019 200.873);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
 
-    --success: oklch(0.74 0.15 150);
-    --warning: oklch(0.80 0.14 70);
-    --release: oklch(0.72 0.19 300);
-    --info: oklch(0.74 0.14 250);
-    --refactor: oklch(0.76 0.12 195);
+  --success: oklch(0.74 0.15 150);
+  --warning: oklch(0.8 0.14 70);
+  --release: oklch(0.72 0.19 300);
+  --info: oklch(0.74 0.14 250);
+  --refactor: oklch(0.76 0.12 195);
 
-    --lane-0: oklch(0.70 0.14 250);
-    --lane-1: oklch(0.70 0.16 358);
-    --lane-2: oklch(0.74 0.16 106);
-    --lane-3: oklch(0.74 0.12 214);
-    --lane-4: oklch(0.70 0.17 322);
-    --lane-5: oklch(0.80 0.14 70);
-    --lane-6: oklch(0.76 0.11 178);
-    --lane-7: oklch(0.69 0.16 286);
-    --lane-8: oklch(0.73 0.15 34);
-    --lane-9: oklch(0.72 0.14 142);
+  --lane-0: oklch(0.7 0.14 250);
+  --lane-1: oklch(0.7 0.16 358);
+  --lane-2: oklch(0.74 0.16 106);
+  --lane-3: oklch(0.74 0.12 214);
+  --lane-4: oklch(0.7 0.17 322);
+  --lane-5: oklch(0.8 0.14 70);
+  --lane-6: oklch(0.76 0.11 178);
+  --lane-7: oklch(0.69 0.16 286);
+  --lane-8: oklch(0.73 0.15 34);
+  --lane-9: oklch(0.72 0.14 142);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground tabular-nums;
-    }
+  }
   html {
     @apply font-sans;
-    }
+  }
 }
 
 @layer base {
-  html, body, #root { height: 100%; }
-  body { overflow: hidden; -webkit-font-smoothing: antialiased; font-optical-sizing: auto; }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-optical-sizing: auto;
+  }
 
-  ::-webkit-scrollbar { width: 11px; height: 11px; }
-  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
   ::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 6px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); background-clip: padding-box; }
-  ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 /* The strict minimum that utilities don't express: a gutter computed at
    runtime, the graph's hover dimming, and a targeted commit's flash. */
 @layer components {
   /* The branch column sits left of the metro, the working tree keeps its full offset. */
-  .amont-wtrow { padding-left: calc(var(--amont-branch, 0px) + var(--graphw, 0px) + 12px); }
+  .amont-wtrow {
+    padding-left: calc(var(--amont-branch, 0px) + var(--graphw, 0px) + 12px);
+  }
 
   /* Search in progress: rows outside the results fade out, the others get tinted. */
-  [data-search] .amont-row[data-match="false"] { opacity: 0.32; }
-  [data-search] .amont-row[data-match="true"] { background: color-mix(in oklab, var(--warning) 14%, transparent); }
+  [data-search] .amont-row[data-match="false"] {
+    opacity: 0.32;
+  }
+  [data-search] .amont-row[data-match="true"] {
+    background: color-mix(in oklab, var(--warning) 14%, transparent);
+  }
 
   /* Release/hotfix pattern: tinted background to spot a version landing at a glance.
      Hover and selection (utilities) cover it — their layer wins. The 2px rail, though, is
      set outside @layer further below (otherwise ROW_CLASS's `border-l-transparent` would win). */
-  .amont-row[data-flow="release"] { background: color-mix(in oklab, var(--release) 8%, transparent); }
-  .amont-row[data-flow="hotfix"]  { background: color-mix(in oklab, var(--destructive) 9%, transparent); }
+  .amont-row[data-flow="release"] {
+    background: color-mix(in oklab, var(--release) 8%, transparent);
+  }
+  .amont-row[data-flow="hotfix"] {
+    background: color-mix(in oklab, var(--destructive) 9%, transparent);
+  }
 
   /* Stash: a neutral veil — the entry sits on the margin of history, not a milestone. */
-  .amont-row[data-stash] { background: color-mix(in oklab, var(--muted-foreground) 6%, transparent); }
+  .amont-row[data-stash] {
+    background: color-mix(in oklab, var(--muted-foreground) 6%, transparent);
+  }
 
   @keyframes amont-flash {
-    0%, 40% { background: color-mix(in oklab, var(--primary) 22%, transparent); }
-    100%    { background: transparent; }
+    0%,
+    40% {
+      background: color-mix(in oklab, var(--primary) 22%, transparent);
+    }
+    100% {
+      background: transparent;
+    }
   }
-  .amont-flash { animation: amont-flash 1.6s ease-out; }
+  .amont-flash {
+    animation: amont-flash 1.6s ease-out;
+  }
 
   /* Tab change: only the body slides (refs + graph + detail). The chrome — tab bar,
      toolbar, status bar — switches instantly in the `root` snapshot, the tab's highlight
@@ -193,12 +230,21 @@
      The transition names only live on the active tab: `old` is captured before the React
      commit, `new` after, so each one names the right element at the right time. */
   [data-tab-active].amont-tabbody,
-  [data-tab-active] .amont-tabbody { view-transition-name: amont-tabbody; }
-  [data-tab-active] .amont-reponame { view-transition-name: amont-reponame; }
+  [data-tab-active] .amont-tabbody {
+    view-transition-name: amont-tabbody;
+  }
+  [data-tab-active] .amont-reponame {
+    view-transition-name: amont-reponame;
+  }
 
-  ::view-transition-image-pair(root) { isolation: auto; }
+  ::view-transition-image-pair(root) {
+    isolation: auto;
+  }
   ::view-transition-old(root),
-  ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  ::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
 
   /* Cross-fade + translation, as two parallel animations: the fade stays linear —
      `plus-lighter` (the image-pair's default) only adds up complementary opacities
@@ -209,8 +255,12 @@
     animation-fill-mode: both;
     animation-timing-function: linear, cubic-bezier(0.2, 0, 0, 1);
   }
-  ::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out, amont-tab-out; }
-  ::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in, amont-tab-in; }
+  ::view-transition-old(amont-tabbody) {
+    animation-name: amont-tab-fade-out, amont-tab-out;
+  }
+  ::view-transition-new(amont-tabbody) {
+    animation-name: amont-tab-fade-in, amont-tab-in;
+  }
 
   /* The home body starts at the top of the chrome, a repo's body sits below the toolbar: the
      group bridges the gap. Between two repos the boxes coincide, the animation is a no-op. */
@@ -221,35 +271,78 @@
 
   /* The name box has a fixed size (cf. `Toolbar`): the group doesn't move, only the fade remains. */
   ::view-transition-old(amont-reponame),
-  ::view-transition-new(amont-reponame) { animation-duration: 220ms; }
+  ::view-transition-new(amont-reponame) {
+    animation-duration: 220ms;
+  }
 
-  @keyframes amont-tab-fade-out { to   { opacity: 0; } }
-  @keyframes amont-tab-fade-in  { from { opacity: 0; } }
+  @keyframes amont-tab-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes amont-tab-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
 
   /* --amont-slide: direction of travel in the tab bar. :root's custom properties
      flow down into the transition pseudo-element tree. */
-  :root:active-view-transition-type(next) { --amont-slide: 32px; }
-  :root:active-view-transition-type(prev) { --amont-slide: -32px; }
+  :root:active-view-transition-type(next) {
+    --amont-slide: 32px;
+  }
+  :root:active-view-transition-type(prev) {
+    --amont-slide: -32px;
+  }
 
-  @keyframes amont-tab-in  { from { transform: translateX(var(--amont-slide, 0)); } }
-  @keyframes amont-tab-out { to   { transform: translateX(calc(var(--amont-slide, 0) * -1)); } }
+  @keyframes amont-tab-in {
+    from {
+      transform: translateX(var(--amont-slide, 0));
+    }
+  }
+  @keyframes amont-tab-out {
+    to {
+      transform: translateX(calc(var(--amont-slide, 0) * -1));
+    }
+  }
 
   /* Opening a repo: nothing beside it to come from, it rises from the background. */
-  :root:active-view-transition-type(open)::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out, amont-tab-zoom-out; }
-  :root:active-view-transition-type(open)::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in, amont-tab-zoom-in; }
+  :root:active-view-transition-type(open)::view-transition-old(amont-tabbody) {
+    animation-name: amont-tab-fade-out, amont-tab-zoom-out;
+  }
+  :root:active-view-transition-type(open)::view-transition-new(amont-tabbody) {
+    animation-name: amont-tab-fade-in, amont-tab-zoom-in;
+  }
 
-  @keyframes amont-tab-zoom-in  { from { transform: scale(0.97); } }
-  @keyframes amont-tab-zoom-out { to   { transform: scale(1.02); } }
+  @keyframes amont-tab-zoom-in {
+    from {
+      transform: scale(0.97);
+    }
+  }
+  @keyframes amont-tab-zoom-out {
+    to {
+      transform: scale(1.02);
+    }
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    .amont-flash { animation: none; background: color-mix(in oklab, var(--primary) 18%, transparent); }
+    .amont-flash {
+      animation: none;
+      background: color-mix(in oklab, var(--primary) 18%, transparent);
+    }
 
     /* Tab change: keep the fade, drop the slide and the zoom (vestibular motion). */
-    ::view-transition-group(amont-tabbody) { animation: none; }
+    ::view-transition-group(amont-tabbody) {
+      animation: none;
+    }
     ::view-transition-old(amont-tabbody),
-    :root:active-view-transition-type(open)::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out; }
+    :root:active-view-transition-type(open)::view-transition-old(amont-tabbody) {
+      animation-name: amont-tab-fade-out;
+    }
     ::view-transition-new(amont-tabbody),
-    :root:active-view-transition-type(open)::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in; }
+    :root:active-view-transition-type(open)::view-transition-new(amont-tabbody) {
+      animation-name: amont-tab-fade-in;
+    }
   }
 
   /* --- Tab boot: the reveal happens in a single frame (cf. RepoView); these entries
@@ -261,40 +354,76 @@
   [data-settled] .amont-drop {
     /* vertical clip only: the flow banner keeps its horizontal scroll (overflow-x-auto) */
     overflow-y: clip;
-    transition: height 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease-out;
-    @starting-style { height: 0; opacity: 0; }
+    transition:
+      height 200ms cubic-bezier(0.2, 0, 0, 1),
+      opacity 200ms ease-out;
+    @starting-style {
+      height: 0;
+      opacity: 0;
+    }
   }
   [data-settled] .amont-fadein {
-    transition: opacity 200ms ease-out, translate 200ms cubic-bezier(0.2, 0, 0, 1);
-    @starting-style { opacity: 0; translate: 0 4px; }
+    transition:
+      opacity 200ms ease-out,
+      translate 200ms cubic-bezier(0.2, 0, 0, 1);
+    @starting-style {
+      opacity: 0;
+      translate: 0 4px;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     /* the fade stays, the movement (push, slide) disappears */
-    [data-settled] .amont-drop { transition: opacity 200ms ease-out; }
-    [data-settled] .amont-fadein { transition: opacity 200ms ease-out; }
+    [data-settled] .amont-drop {
+      transition: opacity 200ms ease-out;
+    }
+    [data-settled] .amont-fadein {
+      transition: opacity 200ms ease-out;
+    }
   }
 }
 
 /* 2px rail of the release/hotfix pattern. Outside @layer, otherwise ROW_CLASS's
    `border-l-transparent` utility would win (a later layer wins over specificity).
    `:not([data-selected])` lets the selection set its own rail. The width (2px) comes from ROW_CLASS. */
-.amont-row[data-flow="release"]:not([data-selected="true"]) { border-left-color: var(--release); }
-.amont-row[data-flow="hotfix"]:not([data-selected="true"]) { border-left-color: var(--destructive); }
+.amont-row[data-flow="release"]:not([data-selected="true"]) {
+  border-left-color: var(--release);
+}
+.amont-row[data-flow="hotfix"]:not([data-selected="true"]) {
+  border-left-color: var(--destructive);
+}
 
 /* Outline of a focused ref (and the current branch). Outside @layer for the same reason as the
    rail above: the row's `border-transparent` utility would otherwise win. `data-run` is set
    by the sidebar's DOM pass; contiguous lit refs join into a single frame (inner
    borders erased, only the outermost corners rounded). */
-.amont-refrow[data-run] { border-color: var(--primary); }
-.amont-refrow[data-run="start"] { border-bottom-color: transparent; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-.amont-refrow[data-run="mid"]   { border-top-color: transparent; border-bottom-color: transparent; border-radius: 0; }
-.amont-refrow[data-run="end"]   { border-top-color: transparent; border-top-left-radius: 0; border-top-right-radius: 0; }
+.amont-refrow[data-run] {
+  border-color: var(--primary);
+}
+.amont-refrow[data-run="start"] {
+  border-bottom-color: transparent;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.amont-refrow[data-run="mid"] {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 0;
+}
+.amont-refrow[data-run="end"] {
+  border-top-color: transparent;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
 
 /* --- diff2html / hljs: outside a layer, mandatorily ---
    diff2html's CSS is imported without a layer by diff-view.tsx; an @layer rule
    would lose against it regardless of its specificity. */
-.amont-diffbody .d2h-file-header { display: none; }
-.amont-diffbody .d2h-wrapper { text-align: left; }
+.amont-diffbody .d2h-file-header {
+  display: none;
+}
+.amont-diffbody .d2h-wrapper {
+  text-align: left;
+}
 .amont-diffbody .d2h-file-wrapper {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.8);
@@ -310,7 +439,10 @@
   font-size: inherit;
 }
 /* the hljs theme sets an opaque background that overrides d2h's add/del backgrounds */
-.amont-diffbody .hljs { background: transparent; padding: 0; }
+.amont-diffbody .hljs {
+  background: transparent;
+  padding: 0;
+}
 /* no amber "change" color in unified view: a modified line = red del + green ins */
 .amont-diffbody {
   --d2h-change-del-color: var(--d2h-del-bg-color);
@@ -329,17 +461,25 @@
    d2h's semi-transparent add/del tint on top */
 .amont-diffbody .d2h-code-linenumber::before,
 .amont-diffbody .d2h-code-side-linenumber::before {
-  content: ''; position: absolute; inset: 0; z-index: -2;
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
   background: var(--background);
 }
 .amont-diffbody .d2h-code-linenumber::after,
 .amont-diffbody .d2h-code-side-linenumber::after {
-  content: ''; position: absolute; inset: 0; z-index: -1;
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: inherit;
 }
 /* the row grows to fit its content (the table widens and scrolls) instead of overflowing it */
 .amont-diffbody .d2h-code-line,
 .amont-diffbody .d2h-code-side-line {
-  padding: 0 .5em; box-sizing: border-box;
-  width: max-content; min-width: 100%;
+  padding: 0 0.5em;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
 }

@@ -77,8 +77,8 @@ export function createWindow(): void {
       return win.webContents.reload()
     }
     void report("renderer crash loop: reload suspended, static error page")
-    if (process.env.ELECTRON_RENDERER_URL) win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/crash.html`)
-    else win.loadFile(join(import.meta.dirname, "../renderer/crash.html"))
+    if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/crash.html`)
+    else void win.loadFile(join(import.meta.dirname, "../renderer/crash.html"))
   })
   win.webContents.on("unresponsive", () => void report("renderer unresponsive"))
   win.webContents.on("responsive", () => void report("renderer responsive again"))
@@ -91,7 +91,7 @@ export function createWindow(): void {
   win.once("ready-to-show", () => win.show())
   /* links from commit messages: open in the browser, never in the app's own window */
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//.test(url)) shell.openExternal(url)
+    if (/^https?:\/\//.test(url)) void shell.openExternal(url)
     return { action: "deny" }
   })
   /* the window never navigates (a file dragged onto it would load its file://);
@@ -104,8 +104,8 @@ export function createWindow(): void {
     closeAll()
   })
 
-  if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
-  else win.loadFile(join(import.meta.dirname, "../renderer/index.html"))
+  if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
+  else void win.loadFile(join(import.meta.dirname, "../renderer/index.html"))
 }
 
 /** Brings the existing window to the foreground (hygiene fix: `requestSingleInstanceLock`,

@@ -98,7 +98,15 @@ export function GraphColumn() {
         {diff && (
           <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
             <ErrorBoundary key={`${diff.file.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
-              <DiffView api={api} repoId={repoId} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={setDiffMode} onClose={closeDiff} />
+              <DiffView
+                api={api}
+                repoId={repoId}
+                ctx={diff.ctx}
+                file={diff.file}
+                view={diffMode}
+                onViewChange={setDiffMode}
+                onClose={closeDiff}
+              />
             </ErrorBoundary>
           </div>
         )}

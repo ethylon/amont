@@ -29,17 +29,11 @@ function ContextMenuCheckboxItem({
   return <ContextMenuCheckboxItemPrimitive className={cn("min-h-6", className)} {...props} />
 }
 
-function ContextMenuRadioItem({
-  className,
-  ...props
-}: React.ComponentProps<typeof ContextMenuRadioItemPrimitive>) {
+function ContextMenuRadioItem({ className, ...props }: React.ComponentProps<typeof ContextMenuRadioItemPrimitive>) {
   return <ContextMenuRadioItemPrimitive className={cn("min-h-6", className)} {...props} />
 }
 
-function ContextMenuSubTrigger({
-  className,
-  ...props
-}: React.ComponentProps<typeof ContextMenuSubTriggerPrimitive>) {
+function ContextMenuSubTrigger({ className, ...props }: React.ComponentProps<typeof ContextMenuSubTriggerPrimitive>) {
   return <ContextMenuSubTriggerPrimitive className={cn("min-h-6", className)} {...props} />
 }
 

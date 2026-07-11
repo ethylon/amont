@@ -7,12 +7,17 @@ import { app, shell } from "electron"
 
 import { AppError } from "../../shared/errors.ts"
 import type {
-  CommitMessage, Commit, FileChange, GitRef, Stash, Status, Worktree, WtSource,
+  CommitMessage,
+  Commit,
+  FileChange,
+  GitRef,
+  Stash,
+  Status,
+  Worktree,
+  WtSource,
 } from "../../shared/types.ts"
 import { inRepo, type RepoHandle } from "../repos.ts"
-import {
-  ALL_REFS, parseForEachRef, parseLogPage, parseNameStatus, parsePorcelain, parseStashList,
-} from "./parse.ts"
+import { ALL_REFS, parseForEachRef, parseLogPage, parseNameStatus, parsePorcelain, parseStashList } from "./parse.ts"
 
 const HASH = /^[0-9a-f]{7,40}$/
 
@@ -32,7 +37,9 @@ export async function repoStatus(r: RepoHandle): Promise<Status> {
   if (branch === "HEAD") return { branch: null, head, ahead: null, behind: null }
   try {
     const [behind, ahead] = (await r.git(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]))
-      .trim().split(/\s+/).map(Number)
+      .trim()
+      .split(/\s+/)
+      .map(Number)
     return { branch, head, ahead, behind }
   } catch {
     return { branch, head, ahead: null, behind: null }
@@ -53,11 +60,16 @@ export function wtdiff(r: RepoHandle, path: string, source: WtSource): Promise<s
 
 /* --- Stash --- */
 export const stashList = (r: RepoHandle): Promise<Stash[]> =>
-  r.git(["stash", "list", "--format=%H%x1f%P%x1f%gd%x1f%as%x1f%an%x1f%ae%x1f%gs%x1e"])
-    .catch(() => "").then(parseStashList)
+  r
+    .git(["stash", "list", "--format=%H%x1f%P%x1f%gd%x1f%as%x1f%an%x1f%ae%x1f%gs%x1e"])
+    .catch(() => "")
+    .then(parseStashList)
 
 const stashTips = (r: RepoHandle): Promise<string[]> =>
-  r.git(["stash", "list", "--format=%H"]).catch(() => "").then((o) => o.split("\n").filter(Boolean))
+  r
+    .git(["stash", "list", "--format=%H"])
+    .catch(() => "")
+    .then((o) => o.split("\n").filter(Boolean))
 
 /* --- Log ---
    `git log --skip` re-walks history from the start on every page — fine up to roughly 100k
@@ -65,11 +77,20 @@ const stashTips = (r: RepoHandle): Promise<string[]> =>
 export async function logPage(r: RepoHandle, skip: number, count: number, signal?: AbortSignal): Promise<Commit[]> {
   /* --decorate=full: `%D` then outputs `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
      In its short form, `origin/x` and a local branch named `origin/x` are indistinguishable. */
-  const out = await r.git([
-    "log", ...ALL_REFS, ...(await stashTips(r)), "--date-order", "--date=short", "--decorate=full",
-    `--skip=${skip}`, `-n${count}`,
-    "--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e",
-  ], { signal })
+  const out = await r.git(
+    [
+      "log",
+      ...ALL_REFS,
+      ...(await stashTips(r)),
+      "--date-order",
+      "--date=short",
+      "--decorate=full",
+      `--skip=${skip}`,
+      `-n${count}`,
+      "--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e",
+    ],
+    { signal }
+  )
   return parseLogPage(out)
 }
 
@@ -81,12 +102,14 @@ export async function logPage(r: RepoHandle, skip: number, count: number, signal
 const SEARCH_MAX = 2000
 const SEARCH_TIMEOUT = 30_000
 
-export async function searchCommits(r: RepoHandle, q: string, content: boolean, signal?: AbortSignal): Promise<string[]> {
+export async function searchCommits(
+  r: RepoHandle,
+  q: string,
+  content: boolean,
+  signal?: AbortSignal
+): Promise<string[]> {
   const base = ["log", ...ALL_REFS, "--format=%H", `-n${SEARCH_MAX}`, "-i", "-F"]
-  const runs = [
-    r.git([...base, `--grep=${q}`], { signal }),
-    r.git([...base, `--author=${q}`], { signal }),
-  ]
+  const runs = [r.git([...base, `--grep=${q}`], { signal }), r.git([...base, `--author=${q}`], { signal })]
   /* a hash prefix isn't a pattern: rev-parse resolves it, or fails (unknown, ambiguous) */
   if (/^[0-9a-f]{4,40}$/i.test(q))
     runs.push(r.git(["rev-parse", "--verify", "-q", `${q}^{commit}`], { signal }).catch(() => ""))
@@ -118,15 +141,19 @@ const REFLOG_POOL = 8
 
 export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
   const out = await r.git([
-    "for-each-ref", "--sort=refname",
+    "for-each-ref",
+    "--sort=refname",
     "--format=%(refname)\x1f%(HEAD)\x1f%(upstream:track,nobracket)\x1f%(symref:short)\x1f%(upstream:short)\x1f%(objectname)\x1f%(*objectname)",
-    "refs/heads", "refs/remotes", "refs/tags",
+    "refs/heads",
+    "refs/remotes",
+    "refs/tags",
   ])
   const { refs, base: symrefBase } = parseForEachRef(out)
 
   /* Without a remote, we fall back to convention. Without convention either, nobody is
      "merged": better to say nothing than to designate an arbitrary base. */
-  const base = symrefBase || ["main", "master", "develop"].find((b) => refs.some((x) => x.kind === "head" && x.name === b)) || ""
+  const base =
+    symrefBase || ["main", "master", "develop"].find((b) => refs.some((x) => x.kind === "head" && x.name === b)) || ""
   if (base) {
     /* `origin/main` → `main`; a base that's already local passes through unchanged. The
        integration branch is its own ancestor: flagging it would teach us nothing. */
@@ -173,12 +200,14 @@ export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
   const candidates: GitRef[] = remoteNames.length
     ? refs.filter((ref) => ref.kind === "head" && !ref.gone && !present.has(ref.name))
     : []
-  await Promise.all(Array.from({ length: Math.min(REFLOG_POOL, candidates.length) }, async () => {
-    for (let ref: GitRef | undefined; (ref = candidates.shift()) !== undefined;) {
-      const reflog = await r.git(["reflog", "show", "--format=%gs", ref.name]).catch(() => "")
-      ref.gone = remoteNames.some((remote) => reflog.includes(`${remote}/${ref!.name}`))
-    }
-  }))
+  await Promise.all(
+    Array.from({ length: Math.min(REFLOG_POOL, candidates.length) }, async () => {
+      for (let ref: GitRef | undefined; (ref = candidates.shift()) !== undefined;) {
+        const reflog = await r.git(["reflog", "show", "--format=%gs", ref.name]).catch(() => "")
+        ref.gone = remoteNames.some((remote) => reflog.includes(`${remote}/${ref.name}`))
+      }
+    })
+  )
   return refs
 }
 
@@ -212,10 +241,16 @@ export async function headMessage(r: RepoHandle): Promise<CommitMessage> {
 }
 
 export function diff(
-  r: RepoHandle, hash: string, parent: string | null, path: string, oldPath: string | null, signal?: AbortSignal
+  r: RepoHandle,
+  hash: string,
+  parent: string | null,
+  path: string,
+  oldPath: string | null,
+  signal?: AbortSignal
 ): Promise<string> {
   assertHash(hash, parent)
-  if (typeof path !== "string" || (oldPath != null && typeof oldPath !== "string")) throw new AppError("BAD_ARG", "path")
+  if (typeof path !== "string" || (oldPath != null && typeof oldPath !== "string"))
+    throw new AppError("BAD_ARG", "path")
   const paths = oldPath ? [oldPath, path] : [path]
   const args = parent ? ["diff", parent, hash, "--", ...paths] : ["show", "--format=", hash, "--", ...paths]
   return r.git(args, { signal })
@@ -225,7 +260,10 @@ export function diff(
    Windows icon of the file. Missing from disk (deleted, old commit): the renderer falls back
    to its generic icon. */
 export function fileIcon(r: RepoHandle, path: string): Promise<string | null> {
-  return app.getFileIcon(inRepo(r, path), { size: "small" }).then((i) => i.toDataURL(), () => null)
+  return app.getFileIcon(inRepo(r, path), { size: "small" }).then(
+    (i) => i.toDataURL(),
+    () => null
+  )
 }
 
 /* Extensions Windows executes on double-click (default or near-universal association): a hostile
@@ -235,9 +273,31 @@ export function fileIcon(r: RepoHandle, path: string): Promise<string | null> {
    blocked extension, the file is revealed in the file explorer instead of failing silently
    (AUDIT.md §2, misc). */
 const BLOCKED_EXT = new Set([
-  ".exe", ".bat", ".cmd", ".com", ".scr", ".msi", ".msp", ".ps1", ".ps1xml", ".vbs", ".vbe",
-  ".js", ".jse", ".wsf", ".wsh", ".msc", ".cpl", ".jar", ".pif", ".reg", ".lnk", ".hta",
-  ".gadget", ".application", ".ws",
+  ".exe",
+  ".bat",
+  ".cmd",
+  ".com",
+  ".scr",
+  ".msi",
+  ".msp",
+  ".ps1",
+  ".ps1xml",
+  ".vbs",
+  ".vbe",
+  ".js",
+  ".jse",
+  ".wsf",
+  ".wsh",
+  ".msc",
+  ".cpl",
+  ".jar",
+  ".pif",
+  ".reg",
+  ".lnk",
+  ".hta",
+  ".gadget",
+  ".application",
+  ".ws",
 ])
 
 export function openFile(r: RepoHandle, path: string): Promise<string> {

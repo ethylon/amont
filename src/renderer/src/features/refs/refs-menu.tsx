@@ -4,15 +4,18 @@
 
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  ArrowDown02Icon, ArrowUp02Icon, CheckmarkCircle02Icon, Delete02Icon, GitBranchIcon, GitMergeIcon,
+  ArrowDown02Icon,
+  ArrowUp02Icon,
+  CheckmarkCircle02Icon,
+  Delete02Icon,
+  GitBranchIcon,
+  GitMergeIcon,
 } from "@hugeicons/core-free-icons"
 
 import type { FlowPrefixes, GitRef } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
-import {
-  ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
-} from "@/components/ui/context-menu"
+import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
 import type { Ctx } from "@/features/refs/refs-tree"
 
 const FLOW_LABEL = {
@@ -24,9 +27,7 @@ const FLOW_LABEL = {
 
 const flowType = (name: string, prefixes: FlowPrefixes | null) =>
   prefixes &&
-  (Object.keys(FLOW_LABEL) as (keyof FlowPrefixes)[]).find(
-    (t) => prefixes[t] && name.startsWith(prefixes[t]!)
-  )
+  (Object.keys(FLOW_LABEL) as (keyof FlowPrefixes)[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]))
 
 /* The menu only opens on a local branch: a remote is neither merged nor pushed,
    and a tag has none of that. `flow finish` knows the full name, prefix included. */

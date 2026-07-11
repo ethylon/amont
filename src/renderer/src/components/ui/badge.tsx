@@ -16,8 +16,7 @@ const badgeVariants = cva(
       color: {
         /* --primary turns dark in dark theme (it's meant as a background, not text):
            we mix it toward --foreground so it stays legible as text. */
-        primary:
-          "[--badge-color:var(--primary)] [--badge-fg:color-mix(in_oklab,var(--primary)_70%,var(--foreground))]",
+        primary: "[--badge-color:var(--primary)] [--badge-fg:color-mix(in_oklab,var(--primary)_70%,var(--foreground))]",
         neutral: "[--badge-color:var(--muted-foreground)] [--badge-fg:var(--muted-foreground)]",
         success: "[--badge-color:var(--success)] [--badge-fg:var(--success)]",
         warning: "[--badge-color:var(--warning)] [--badge-fg:var(--warning)]",

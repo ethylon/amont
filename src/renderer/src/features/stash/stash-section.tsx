@@ -16,7 +16,11 @@ import { useResettableOpen } from "@/features/refs/refs-tree"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { RefGroup } from "@/components/ui/ref-group"
 import {
-  ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 
 /** Substring filter on the entry's name or the WIP message — same grammar as the
@@ -26,7 +30,11 @@ export const matchStash = (s: Stash, q: string) => !q || s.name.includes(q) || s
 
 /* A stash entry is not a ref: no tree, no checkout, no branch focus.
    A click jumps to its graph node; the menu carries the three stash actions. */
-function StashRow({ s, onFocus, onStash }: {
+function StashRow({
+  s,
+  onFocus,
+  onStash,
+}: {
   s: Stash
   onFocus(s: Stash): void
   onStash(action: StashAct, name: string): void

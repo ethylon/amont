@@ -86,7 +86,9 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
       child.stdin.on("error", () => {}) // git may exit without reading: EPIPE, harmless
       child.stdin.end(opts.input ?? "")
 
-      let out = "", errAll = "", pending = ""
+      let out = "",
+        errAll = "",
+        pending = ""
       let killedBy: "timeout" | "abort" | "limit" | null = null
 
       /* setEncoding sets up a StringDecoder: a UTF-8 sequence split across two chunks gets
@@ -96,7 +98,10 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
       child.stdout.on("data", (d: string) => {
         if (killedBy) return
         out += d
-        if (out.length > OUTPUT_CAP) { killedBy = "limit"; killGracefully(child) }
+        if (out.length > OUTPUT_CAP) {
+          killedBy = "limit"
+          killGracefully(child)
+        }
       })
       /* git rewrites its progress with \r on the same line: we only push on \n, so one
          line per completed step ("Receiving objects: 100% …"), without flooding the IPC stream. */
@@ -112,8 +117,16 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
       })
 
       const timeout = opts.timeout ?? DEFAULT_TIMEOUT
-      const timer = timeout ? setTimeout(() => { killedBy = "timeout"; killGracefully(child) }, timeout) : undefined
-      const onAbort = () => { killedBy = "abort"; killGracefully(child) }
+      const timer = timeout
+        ? setTimeout(() => {
+            killedBy = "timeout"
+            killGracefully(child)
+          }, timeout)
+        : undefined
+      const onAbort = () => {
+        killedBy = "abort"
+        killGracefully(child)
+      }
       opts.signal?.addEventListener("abort", onAbort)
 
       const cleanup = () => {
@@ -152,9 +165,13 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
   function diffNoIndex(a: string, b: string): Promise<string> {
     return new Promise((resolve) => {
       const child = execFile(
-        "git", ["-C", ctx.path, "diff", "--no-index", "--", a, b],
+        "git",
+        ["-C", ctx.path, "diff", "--no-index", "--", a, b],
         { maxBuffer: OUTPUT_CAP, env: GIT_ENV, windowsHide: true },
-        (_err, stdout) => { ctx.children.delete(child); resolve(stdout || "") }
+        (_err, stdout) => {
+          ctx.children.delete(child)
+          resolve(stdout || "")
+        }
       )
       ctx.children.add(child)
     })

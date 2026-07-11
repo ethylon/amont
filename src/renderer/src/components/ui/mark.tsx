@@ -15,8 +15,20 @@ export function Mark({ className }: { className?: string }) {
           <stop offset="1" stopColor="#8F8FE8" />
         </linearGradient>
       </defs>
-      <path d="M62,192 C62,132 92,112 114,70" fill="none" stroke="url(#amont-courant)" strokeWidth="22" strokeLinecap="round" />
-      <path d="M178,192 C178,132 148,112 126,70" fill="none" stroke="url(#amont-courant)" strokeWidth="22" strokeLinecap="round" />
+      <path
+        d="M62,192 C62,132 92,112 114,70"
+        fill="none"
+        stroke="url(#amont-courant)"
+        strokeWidth="22"
+        strokeLinecap="round"
+      />
+      <path
+        d="M178,192 C178,132 148,112 126,70"
+        fill="none"
+        stroke="url(#amont-courant)"
+        strokeWidth="22"
+        strokeLinecap="round"
+      />
       <path d="M94,148 H146" fill="none" stroke="currentColor" strokeWidth="16" strokeLinecap="round" />
       <circle cx="120" cy="40" r="13" fill="#F272A8" />
     </svg>

@@ -22,7 +22,8 @@ export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" |
 
 const MAX_LINES = 3000
 /* Reapplied on every render — the effects rewrite `className` from top to bottom. */
-const DIFF_BODY = "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
+const DIFF_BODY =
+  "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 
 /* in-house extensions -> shiki grammar; MSBuild project/props files are XML */
 const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
@@ -63,9 +64,7 @@ async function shikiPass(body: HTMLElement) {
       while (local < t.content.length) {
         const abs = pos + local
         const mark = marks.find((m) => abs >= m.start && abs < m.end)
-        const limit = mark
-          ? mark.end
-          : Math.min(...marks.filter((m) => m.start > abs).map((m) => m.start), Infinity)
+        const limit = mark ? mark.end : Math.min(...marks.filter((m) => m.start > abs).map((m) => m.start), Infinity)
         const end = Math.min(t.content.length, limit - pos)
         const span = document.createElement("span")
         span.style.color = t.color!
@@ -223,4 +222,3 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
     </div>
   )
 }
-
