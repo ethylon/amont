@@ -14,7 +14,7 @@ import {
 } from "@/lib/commit-parse"
 import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/lib/gitflow"
 import { scrollText } from "../interactions/scroll-text.ts"
-import { BRANCH_BUDGET, BRANCH_MAX, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
+import { BRANCH_BUDGET, BRANCH_MAX, GRID_COLS, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
 import type { LayoutState } from "../layout/state.ts"
 import { hashOfId, idOf, shortHash } from "../ids.ts"
 
@@ -136,6 +136,7 @@ function rowFlow(S: LayoutState, c: Commit, mg: ParsedMerge | null): FlowKind | 
 export function rowDiv(S: LayoutState, i: number, c: Commit, selected: boolean, matched: boolean | null): HTMLDivElement {
   const row = document.createElement("div")
   row.className = ROW_CLASS
+  row.style.setProperty("--gg-cols", GRID_COLS)
   row.dataset.i = String(i)
   row.dataset.selected = String(selected)
   if (matched !== null) row.dataset.match = String(matched)
