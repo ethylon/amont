@@ -141,7 +141,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
   )
 }
 
-const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString("fr", { hour12: false })
+const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString(undefined, { hour12: false })
 
 function Line({ line }: { line: Entry }) {
   if (line.kind === "group")

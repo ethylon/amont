@@ -1,17 +1,17 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="%CSP%" />
   <title>Amont</title>
-  <!-- Peint avant que le bundle n'existe. Sans ce fond, la fenêtre s'ouvre en blanc puis
-       bascule en sombre à l'arrivée d'app.css. React vide #root à son premier commit :
-       le splash s'en va sans une ligne de JS — et la CSP de prod interdit l'inline. -->
+  <!-- Painted before the bundle even exists. Without this backdrop, the window opens white then
+       flips to dark once app.css lands. React clears #root on its first commit: the splash goes
+       away without a line of JS — and the production CSP forbids inline scripts anyway. -->
   <style>
     :root { color-scheme: light dark; }
     body { margin: 0 }
-    /* pas sur body : app.css y pose `bg-background` dans @layer base, qu'une règle sans
-       layer écraserait — le thème ne suivrait plus les tokens. */
+    /* not on body: app.css sets `bg-background` there inside @layer base, which an unlayered
+       rule would override — the theme would stop following the tokens. */
     html { background: light-dark(#fff, #0a0a0a) }
 
     #splash { position: fixed; inset: 0; display: grid; place-items: center }
@@ -23,7 +23,7 @@
 <body>
   <div id="root">
     <div id="splash">
-      <svg viewBox="0 0 240 240" role="img" aria-label="Chargement">
+      <svg viewBox="0 0 240 240" role="img" aria-label="Loading">
         <defs>
           <linearGradient id="splash-courant" x1="0" y1="1" x2="0" y2="0">
             <stop offset="0" stop-color="#6AA6E8"/>

@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="%CSP%" />
-  <title>Amont — erreur</title>
-  <!-- Page de repli du plafond de crash-reload (cf. main) : statique, zéro JS — si le
-       renderer plante en boucle, cette page ne doit dépendre de rien de ce qui plante. -->
+  <title>Amont — Error</title>
+  <!-- Fallback page for the crash-reload cap (cf. main): static, zero JS — if the renderer keeps
+       crashing in a loop, this page must not depend on anything that could itself be crashing. -->
   <style>
     :root { color-scheme: light dark; }
     html { background: light-dark(#fff, #0a0a0a); color: light-dark(#1c1c22, #ececf2) }
@@ -33,10 +33,10 @@
         <path d="M94,148 H146" fill="none" stroke="light-dark(#1C1C22, #ECECF2)" stroke-width="16" stroke-linecap="round"/>
         <circle cx="120" cy="40" r="13" fill="#F272A8"/>
       </svg>
-      <h1>L'affichage a planté plusieurs fois d'affilée</h1>
-      <p>Le rechargement automatique a été suspendu pour ne pas boucler.
-         Relance l'application ; le détail des incidents est dans
-         <code>incidents.log</code> (dossier de données de l'application).</p>
+      <h1>The display crashed several times in a row</h1>
+      <p>Automatic reloading has been suspended to avoid looping.
+         Restart the application; incident details are in
+         <code>incidents.log</code> (the application's data folder).</p>
     </section>
   </main>
 </body>
