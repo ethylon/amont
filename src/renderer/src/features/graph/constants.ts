@@ -70,9 +70,17 @@ export const FIXED_W = COL_GRAPH_GUTTER + COL_SUBJECT_MIN + COL_AUTHOR + COL_DAT
    chargé (cf. render/measure.ts) et tombent à 0 quand le dépôt n'a rien à y mettre. La colonne
    graphe est un espaceur réservant `--graphw` sous le SVG, décalé de la largeur de la colonne
    branche. */
+/* Le grid-template dérive des mêmes constantes mais vit dans une variable CSS (`--gg-cols`, posée
+   par rowDiv) plutôt que dans la classe : `grid-cols-[…${COL}px…]` construit par interpolation
+   n'est pas un littéral que le scanner Tailwind voit — il ne l'émettait jamais et la ligne
+   retombait sur une colonne unique (tout tassé à gauche). `grid-cols-(--gg-cols)` est une classe
+   statique, donc émise ; la valeur interpolée passe par la var. Les espaces autour du `+` du calc
+   sont obligatoires — `calc(a+b)` est invalide. */
+export const GRID_COLS =
+  `var(--gg-branch,0px) calc(var(--graphw,0px) + ${COL_GRAPH_GUTTER}px) var(--gg-type,0px) 1fr ${COL_AUTHOR}px ${COL_DATE}px ${COL_HASH}px`
+
 export const ROW_CLASS =
-  "gg-row grid h-7 cursor-pointer " +
-  `grid-cols-[var(--gg-branch,0px)_calc(var(--graphw,0px)+${COL_GRAPH_GUTTER}px)_var(--gg-type,0px)_1fr_${COL_AUTHOR}px_${COL_DATE}px_${COL_HASH}px] ` +
+  "gg-row grid h-7 cursor-pointer grid-cols-(--gg-cols) " +
   "items-center border-l-2 border-l-transparent pr-4.5 text-xs hover:bg-muted/60 " +
   "data-selected:border-l-primary data-selected:bg-primary/20 data-selected:hover:bg-primary/25"
 
