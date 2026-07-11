@@ -7,7 +7,8 @@ import { parseBody, parseMarkdown, parseRefs, parseSubject, refColor, typeColor,
 import { queryKeys, useBodyQuery } from "@/lib/queries"
 import type { SelMode } from "@/lib/repo-store"
 import { cn } from "@/lib/utils"
-import type { GraphHandle } from "@/components/graph-canvas"
+import type { ChainInfo, GraphHandle } from "@/features/graph/controller"
+import { shortHash } from "@/features/graph/ids"
 import { SCROLL_TEXT_CLASS, scrollTextHover, scrollTextStop } from "@/components/scroll-text"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
@@ -194,7 +195,7 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
           </>
         )}
         <Dt>commit</Dt>
-        <dd className="font-mono text-xs">{c.h}</dd>
+        <dd className="font-mono text-xs" title={c.h}>{shortHash(c.h)}</dd>
         <Dt>auteur</Dt>
         <dd className="text-xs"><PersonChip name={c.a} email={c.e} /></dd>
         {!!body?.coAuthors.length && (
@@ -217,9 +218,10 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
               key={p}
               type="button"
               onClick={() => onJump(p)}
+              title={p}
               className="block cursor-pointer font-mono text-primary hover:underline"
             >
-              {p}
+              {shortHash(p)}
               {c.p.length > 1 && (k === 0 ? "  (first-parent)" : "  (mergé)")}
             </button>
           ))}
@@ -252,6 +254,13 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
   )
 }
 
+/* Compose le texte affiché depuis les données structurées de `chainInfo` (AUDIT.md §6, item 3) :
+   les strings françaises « mergée dans… » sortent du module d'algorithme, React les forme ici. */
+function formatChainInfo(info: ChainInfo): string {
+  if (!info.merged) return info.refs ? `${info.refs} · non mergée` : "segment non mergé"
+  return `${info.refs ? info.refs + " · " : ""}mergée${info.mergedInto ? " dans " + info.mergedInto : ""} (${shortHash(info.mergeHash)})`
+}
+
 function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
   api: RepoApi; repoId: number; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
 }) {
@@ -262,7 +271,7 @@ function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
       <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">
         Branche · {n} commit{n > 1 ? "s" : ""}
       </h2>
-      <Hint>{graph.chainInfo(selection)}</Hint>
+      <Hint>{formatChainInfo(graph.chainInfo(selection))}</Hint>
       {/* une seule commande git entre les extrémités */}
       <Files
         api={api}
@@ -304,7 +313,7 @@ function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
           const c = graph.commit(i)!
           return (
             <div key={c.h} className="flex min-w-0 items-baseline gap-2 text-xs">
-              <span className="shrink-0 font-mono text-muted-foreground">{c.h}</span>
+              <span className="shrink-0 font-mono text-muted-foreground" title={c.h}>{shortHash(c.h)}</span>
               <span className="truncate">{parseSubject(c.s).text}</span>
             </div>
           )
