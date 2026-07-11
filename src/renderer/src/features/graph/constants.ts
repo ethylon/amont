@@ -82,6 +82,7 @@ export const GRID_COLS =
 export const ROW_CLASS =
   "gg-row grid h-7 cursor-pointer grid-cols-(--gg-cols) " +
   "items-center border-l-2 border-l-transparent pr-4.5 text-xs hover:bg-muted/60 " +
+  "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:-ring-offset-2 focus-visible:ring-ring/30 " +
   "data-selected:border-l-primary data-selected:bg-primary/20 data-selected:hover:bg-primary/25"
 
 /** Surface flottante du projet (cf. `dialog`, `command`). Bornée en hauteur : un commit très

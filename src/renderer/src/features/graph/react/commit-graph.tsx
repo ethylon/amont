@@ -42,11 +42,17 @@ export function CommitGraph({ api, callbacks, onReady }: Props) {
   }, [api])
 
   return (
-    <div ref={board} className="relative overflow-auto">
+    /* Grille ARIA (AUDIT.md §8) : "listbox" plutôt que "grid" — l'unité de navigation/sélection
+       est la ligne entière (pas la cellule), ce que "listbox"/"option" décrit plus fidèlement ;
+       l'audit laissait ce choix ouvert. Roving tabindex sur les lignes (interactions/selection.ts),
+       flèches/PageUp/Down/Home/End/Enter pilotés par board.ts (posés sur `board`, cf. controller.ts). */
+    <div ref={board} role="listbox" aria-label="Commits" aria-multiselectable="true" className="relative overflow-auto">
       <div ref={inner} className="relative">
-        {/* décalé de la colonne branche : le métro commence après elle */}
+        {/* décalé de la colonne branche : le métro commence après elle — décoratif, les commits
+            se lisent dans les lignes HTML, pas dans ce tracé SVG */}
         <svg
           ref={svg}
+          aria-hidden="true"
           className="gg-graph pointer-events-none absolute top-0 z-1"
           style={{ left: "var(--gg-branch, 0px)" }}
           xmlns="http://www.w3.org/2000/svg"
