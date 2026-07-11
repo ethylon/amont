@@ -4,9 +4,10 @@
    bruts. Un rename/copy occupe trois champs : `Rnn NUL ancien NUL nouveau NUL`.
    Module pur (zéro import Electron) : les scripts d'auto-contrôle l'exécutent sous Node. */
 
-/** @returns {{ st: string, path: string, old: string | null }[]} */
-export function parseNameStatus(out) {
-  const files = [];
+import type { FileChange } from '../shared/types';
+
+export function parseNameStatus(out: string): FileChange[] {
+  const files: FileChange[] = [];
   const parts = out.split('\0'); // NUL final : dernier élément vide, jamais consommé comme statut
   for (let i = 0; i < parts.length - 1; ) {
     const st = parts[i++];
