@@ -1,14 +1,15 @@
-/* Texte trop long pour sa boîte, sans ellipsis : le fondu `scroll-fade-x` (shadcn) signale le
-   débordement et suit la position de scroll — bord gauche net à 0, bord droit net en fin de
-   course. `overflow-hidden` garde la boîte défilable par script mais neutralise la molette.
-   Au survol le texte défile vers la gauche à vitesse fixe, linéaire, et boucle sans retour :
-   une copie du texte prend le relais derrière un écart constant, le scroll retombe à 0 au
-   raccord — indétectable, les deux copies y coïncident. */
+/* Text too long for its box, without ellipsis: the `scroll-fade-x` fade (shadcn) signals
+   overflow and follows the scroll position — sharp left edge at 0, sharp right edge at the end
+   of the run. `overflow-hidden` keeps the box scrollable by script but neutralizes the wheel.
+   On hover the text scrolls left at a fixed, linear speed, and loops without snapping back:
+   a copy of the text takes over behind a constant gap, the scroll drops back to 0 at the
+   seam — undetectable, since the two copies coincide there. */
 
-const SPEED = 30 // px/s, indépendant de la longueur du texte
+const SPEED = 30 // px/s, independent of text length
 
-/** classes du conteneur, partagées avec les rendus React (cf. detail-panel) */
-export const SCROLL_TEXT_CLASS = "gg-scrolltext scroll-fade-x flex min-w-0 max-w-full gap-3 overflow-hidden whitespace-nowrap"
+/** container classes, shared with React renders (cf. detail-panel) */
+export const SCROLL_TEXT_CLASS =
+  "amont-scrolltext scroll-fade-x flex min-w-0 max-w-full gap-3 overflow-hidden whitespace-nowrap"
 
 export function scrollText(text: string) {
   const el = document.createElement("span")
@@ -19,7 +20,7 @@ export function scrollText(text: string) {
   return el
 }
 
-/* Un seul texte défile à la fois — celui sous le curseur. */
+/* Only one text scrolls at a time — the one under the cursor. */
 let current: HTMLElement | null = null
 let dup: HTMLElement | null = null
 let raf = 0
@@ -39,18 +40,18 @@ export function scrollTextHover(el: HTMLElement | null) {
   if (!el || el.scrollWidth <= el.clientWidth) return
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
   const first = el.firstElementChild as HTMLElement
-  /* longueur d'un tour : le texte plus l'écart, mesurés avant d'ajouter la copie */
+  /* length of one loop: the text plus the gap, measured before adding the copy */
   const cycle = first.getBoundingClientRect().width + (parseFloat(getComputedStyle(el).columnGap) || 0)
   dup = first.cloneNode(true) as HTMLElement
   dup.setAttribute("aria-hidden", "true")
   el.appendChild(dup)
   current = el
-  /* position en flottant local : `scrollLeft` arrondit au pixel physique et perdrait le cumul */
+  /* position as a local float: `scrollLeft` rounds to the physical pixel and would lose the accumulation */
   let pos = 0
   let last = performance.now()
   const step = (now: number) => {
-    /* élément démonté sans mouseleave (reset du graphe, changement d'onglet) : sans cette
-       sortie, la boucle rAF tournerait indéfiniment sur un nœud détaché */
+    /* element unmounted without a mouseleave (graph reset, tab switch): without this
+       early exit, the rAF loop would run indefinitely on a detached node */
     if (!el.isConnected) return scrollTextStop()
     pos = (pos + ((now - last) / 1000) * SPEED) % cycle
     last = now

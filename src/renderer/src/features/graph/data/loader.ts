@@ -1,16 +1,16 @@
-/* Pipeline d'ingestion (AUDIT.md §6) : un seul point d'entrée, `ingest`, que `fetchMore` (page
-   suivante), `ensureRows` (regarnir des pages évincées) et `growUntil` (sauts par lots) partagent
-   — avant ce module, `fetchMore`/`ensureRows` dupliquaient la même logique de repli
-   (`collapsePairs`/`foldStashes`), validation et pose en page. Possède l'état de layout (`S`) et
-   le cache de pages : le contrôleur (render/interactions) les lit, il ne les mute jamais
-   directement — l'éviction elle-même reste pilotée depuis le contrôleur (`evict`), seul à
-   connaître le viewport et la sélection courants.
+/* Ingestion pipeline (AUDIT.md §6): a single entry point, `ingest`, shared by `fetchMore` (next
+   page), `ensureRows` (refill evicted pages) and `growUntil` (batch jumps)
+   — before this module, `fetchMore`/`ensureRows` duplicated the same folding logic
+   (`collapsePairs`/`foldStashes`), validation, and page insertion. Owns the layout state (`S`) and
+   the page cache: the controller (render/interactions) reads them, never mutates them
+   directly — eviction itself stays driven from the controller (`evict`), the only one to
+   know the current viewport and selection.
 
-   Erreurs : un échec d'`api.log` n'est plus muet (item perf/erreurs) — `onError` est remonté une
-   fois par épisode de panne, pas à chaque retry (le scroll/sync relance sans arrêt tant que rien
-   n'arrive). `jumpTo`/`rowsOf`/`nextMatch` chargent par lots concurrents et annulables (token) au
-   lieu d'attendre une page à la fois : sur un saut lointain (vieille ref), les allers-retours IPC
-   se recouvrent plutôt que de s'enchaîner. */
+   Errors: an `api.log` failure is no longer silent (perf/errors item) — `onError` is surfaced once
+   per failure episode, not on every retry (scroll/sync keeps relaunching as long as nothing
+   arrives). `jumpTo`/`rowsOf`/`nextMatch` load in concurrent, cancellable batches (token) instead
+   of waiting for one page at a time: on a long-distance jump (old ref), IPC round-trips
+   overlap instead of chaining. */
 
 import type { Commit, Stash } from "../../../../../shared/types.ts"
 import type { RepoApi } from "@/lib/git"
@@ -20,18 +20,18 @@ import { createState, type LayoutState } from "../layout/state.ts"
 import { idOf } from "../ids.ts"
 import { createPageCache, type PageCache } from "./page-cache.ts"
 
-/** pages concurrentes par lot lors d'un saut lointain (jumpTo/nextMatch) — au-delà, la
-    concurrence n'apporte plus rien (limite pratique du nombre d'IPC/process git en vol) */
+/** concurrent pages per batch during a long-distance jump (jumpTo/nextMatch) — beyond this,
+    concurrency stops helping (practical limit on the number of in-flight IPC/git processes) */
 const JUMP_BATCH = 4
 
 export interface LoaderOptions {
   api: RepoApi
   pageSize: number
   resident: number
-  /** une page neuve (ou regarnie) vient d'être posée — le contrôleur y scanne les largeurs de
-      colonnes et déclenche son propre `refresh()`/`sync()` */
+  /** a new (or refilled) page was just placed — the controller scans it for column
+      widths and triggers its own `refresh()`/`sync()` */
   onPageLoaded?(commits: Commit[]): void
-  /** un `api.log` a échoué — remonté une fois par épisode de panne, jamais en silence */
+  /** an `api.log` call failed — surfaced once per failure episode, never silently */
   onError?(err: unknown): void
 }
 
@@ -43,7 +43,7 @@ export function createLoader(opts: LoaderOptions) {
   let exhausted = false
   let fetching: Promise<Commit[] | null> | null = null
   const refetching = new Map<number, Promise<boolean>>()
-  let gen = 0 // invalide les fetchs en vol après un reset/destroy
+  let gen = 0 // invalidates in-flight fetches after a reset/destroy
   let stashOf = new Map<string, string>()
   let plumbing = new Set<string>()
   let errorReported = false
@@ -59,11 +59,11 @@ export function createLoader(opts: LoaderOptions) {
     while (S.next < end) layoutChunk(S, (r) => commits[r - rowStart], end)
   }
 
-  /** Point d'entrée unique : pose en page une page BRUTE déjà reçue de `api.log`, neuve
-      (`isNew`, avance le cache) ou regarnissage d'une page évincée (revalidée contre l'état de
-      layout existant — un dépôt qui a bougé sous la page ne monte rien de faux). Ne décide
-      jamais seul de l'éviction : elle dépend du viewport et de la sélection, que seul le
-      contrôleur connaît — c'est lui qui rappelle `evict()` après coup. */
+  /** Single entry point: places a RAW page already received from `api.log`, either new
+      (`isNew`, advances the cache) or refilling an evicted page (revalidated against the existing
+      layout state — a repo that moved under the page won't mount anything wrong). Never
+      decides eviction on its own: that depends on the viewport and selection, which only the
+      controller knows — it calls `evict()` back afterward. */
   function ingest(pi: number, raw: Commit[], isNew: boolean): Commit[] | null {
     const commits = collapsePairs(foldStashes(raw, stashOf, plumbing))
     if (isNew) {
@@ -71,10 +71,10 @@ export function createLoader(opts: LoaderOptions) {
       pageCache.appendPage(rowStart, commits)
       applyPage(rowStart, commits)
       if (raw.length < pageSize) exhausted = true
-      /* le total du serveur ignore les capsules du collapse (deux merges → une ligne) : à
-         l'épuisement de l'historique, le compte réel de lignes fait foi */
+      /* the server total ignores collapse folds (two merges → one row): once
+         history is exhausted, the actual row count is authoritative */
       if (exhausted) TOTAL = S.next
-      errorReported = false // une page arrivée referme l'épisode de panne précédent
+      errorReported = false // a page arriving closes the previous failure episode
       return commits
     }
     const rowStart = pageCache.pageRowStart(pi)
@@ -85,8 +85,8 @@ export function createLoader(opts: LoaderOptions) {
     return commits
   }
 
-  /** Ne rejette jamais : un `git log` qui échoue (timeout, verrou de gc) laisse le cache en
-      l'état et libère `fetching` pour que le prochain déclencheur retente. */
+  /** Never rejects: a `git log` that fails (timeout, gc lock) leaves the cache
+      as-is and frees `fetching` so the next trigger can retry. */
   function fetchMore(): Promise<Commit[] | null> {
     if (exhausted) return Promise.resolve(null)
     if (!fetching) {
@@ -95,7 +95,7 @@ export function createLoader(opts: LoaderOptions) {
       fetching = api.log(pi * pageSize, pageSize).then(
         (raw) => {
           fetching = null
-          if (g !== gen) return null // reset entre-temps : page obsolète
+          if (g !== gen) return null // reset happened in the meantime: stale page
           const commits = ingest(pi, raw, true)
           if (commits) opts.onPageLoaded?.(commits)
           return commits
@@ -110,18 +110,18 @@ export function createLoader(opts: LoaderOptions) {
     return fetching
   }
 
-  /** `fetchMore` avec détection de panne : `false` si rien n'est arrivé (échec de la page). */
+  /** `fetchMore` with failure detection: `false` if nothing arrived (page failed). */
   async function fetchProgress(): Promise<boolean> {
     const before = S.next
     await fetchMore()
     return exhausted || S.next > before
   }
 
-  /** Recharge les pages évincées couvrant [r0, r1]. Le repli et le collapse sont déterministes
-      par page brute : la page revient identique, on ne fait que regarnir les textes. */
+  /** Reloads evicted pages covering [r0, r1]. Folding and collapsing are deterministic
+      per raw page: the page comes back identical, we only refill the texts. */
   async function ensureRows(r0: number, r1: number): Promise<boolean> {
     let ok = true
-    /* séquentiel : un `pin` de segment étalé ne doit pas lancer des dizaines de git en parallèle */
+    /* sequential: a `pin` over a spread-out segment must not launch dozens of git processes in parallel */
     for (let pi = pageCache.pageOfRow(r0), last = pageCache.pageOfRow(r1); pi <= last; pi++) {
       pageCache.touch(pi)
       if (pageCache.has(pi)) continue
@@ -147,11 +147,11 @@ export function createLoader(opts: LoaderOptions) {
     return ok
   }
 
-  /** Charge par lots concurrents jusqu'à ce que `done()` devienne vrai, l'historique s'épuise, ou
-      qu'un reset/destroy périme cet appel (`token`). Remplace la boucle séquentielle
-      page-à-page (un aller-retour IPC à la fois) par des lots de `JUMP_BATCH` pages en vol —
-      leur application au layout reste dans l'ordre de la requête, jamais celui de la résolution
-      réseau (l'allocation de lanes est un automate à état, il ne tolère pas le désordre). */
+  /** Loads in concurrent batches until `done()` becomes true, history is exhausted, or
+      a reset/destroy invalidates this call (`token`). Replaces the sequential
+      page-by-page loop (one IPC round-trip at a time) with batches of `JUMP_BATCH` pages in
+      flight — their application to the layout stays in request order, never the order of
+      network resolution (lane allocation is a state machine, it doesn't tolerate out-of-order). */
   async function growUntil(done: () => boolean, token: number): Promise<void> {
     while (!done() && !exhausted && token === gen) {
       const from = pageCache.pageCount
@@ -163,10 +163,10 @@ export function createLoader(opts: LoaderOptions) {
         const r = raws[k]
         if (r.status === "rejected") {
           reportError(r.reason)
-          break // un échec dans le lot : on ne sait plus quelle page vient ensuite, on arrête le lot
+          break // a failure in the batch: we no longer know which page comes next, stop the batch
         }
         const commits = ingest(pis[k], r.value, true)
-        if (!commits) break // page invalide (dépôt bougé sous nos pieds) : le reset s'en chargera
+        if (!commits) break // invalid page (repo moved under our feet): the reset will handle it
         opts.onPageLoaded?.(commits)
         progressed = true
         if (r.value.length < pageSize) {
@@ -174,7 +174,7 @@ export function createLoader(opts: LoaderOptions) {
           break
         }
       }
-      if (!progressed) return // aucune progression : ne pas boucler indéfiniment sur une panne
+      if (!progressed) return // no progress: don't loop indefinitely on a failure
     }
   }
 
@@ -195,23 +195,24 @@ export function createLoader(opts: LoaderOptions) {
     isResident: (r0: number, r1: number) => pageCache.isResident(r0, r1),
     touch: (pi: number) => pageCache.touch(pi),
     pageOfRow: (row: number) => pageCache.pageOfRow(row),
-    evict: (viewRowRange: readonly [number, number] | null, extraRows: Iterable<number>) => pageCache.evict(viewRowRange, extraRows),
+    evict: (viewRowRange: readonly [number, number] | null, extraRows: Iterable<number>) =>
+      pageCache.evict(viewRowRange, extraRows),
 
     fetchMore,
     fetchProgress,
     ensureRows,
     growUntil,
 
-    /** Réinitialise l'état de layout et le cache pour un dépôt (re)chargé. Rend les stash bruts
-        (le contrôleur y lit les noms d'entrée pour la mesure des colonnes) — ne touche à aucun
-        DOM, ça reste l'affaire du contrôleur (`remount`/`scrollTop`). */
+    /** Resets the layout state and cache for a (re)loaded repo. Returns the raw stashes
+        (the controller reads their names there for column measurement) — doesn't touch any
+        DOM, that stays the controller's business (`remount`/`scrollTop`). */
     async reset(): Promise<{ stashes: Stash[] }> {
-      ++gen // périme les fetchs en vol
+      ++gen // invalidates in-flight fetches
       const [total, stashes] = await Promise.all([api.total(), api.stashes().catch((): Stash[] => [])])
-      /* Ré-init d'un seul tenant, APRÈS l'attente, sous un gen re-bumpé : un scroll pendant
-         l'await peut relancer fetchMore — parti sur l'ancien état, il doit être jeté à
-         l'arrivée, pas semer une page dans l'état neuf. Le contrôleur compare `token` avant/après
-         sa propre suite d'appels (remount, fetchMore initial) pour détecter un reset concurrent. */
+      /* Re-init in one shot, AFTER the await, under a re-bumped gen: a scroll during
+         the await can relaunch fetchMore — started against the old state, it must be discarded
+         on arrival, not seed a page into the fresh state. The controller compares `token` before/after
+         its own sequence of calls (remount, initial fetchMore) to detect a concurrent reset. */
       ++gen
       pageCache.reset()
       fetching = null
@@ -225,7 +226,7 @@ export function createLoader(opts: LoaderOptions) {
       return { stashes }
     },
 
-    /** invalide tout ce qui est en vol, sans toucher au DOM (affaire du contrôleur) */
+    /** invalidates everything in flight, without touching the DOM (controller's business) */
     destroy(): void {
       gen++
     },

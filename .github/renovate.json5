@@ -1,0 +1,46 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended"],
+  timezone: "Europe/Paris",
+  schedule: ["before 6am on monday"],
+  // security-relevant surfaces first: electron ships the runtime + fuses, diff2html renders
+  // untrusted repo content via innerHTML (see SECURITY.md), shiki is on the diff highlighting path
+  packageRules: [
+    {
+      matchPackageNames: ["electron", "@electron/fuses", "electron-builder", "electron-vite"],
+      groupName: "electron",
+      schedule: ["at any time"],
+    },
+    {
+      matchPackageNames: ["diff2html"],
+      groupName: "diff2html",
+      schedule: ["at any time"],
+    },
+    {
+      matchPackageNames: [
+        "shiki",
+        "@shikijs/core",
+        "@shikijs/engine-javascript",
+        "@shikijs/engine-oniguruma",
+      ],
+      groupName: "shiki",
+      schedule: ["at any time"],
+    },
+    {
+      matchDepTypes: ["devDependencies"],
+      matchPackageNames: [
+        "!electron",
+        "!@electron/fuses",
+        "!electron-builder",
+        "!electron-vite",
+        "!diff2html",
+        "!shiki",
+      ],
+      groupName: "other dependencies",
+    },
+  ],
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ["before 6am on monday"],
+  },
+}

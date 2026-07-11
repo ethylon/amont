@@ -1,10 +1,10 @@
-/* Test d'invariants sur fixture réelle (AUDIT.md §6/§10, item tests — "c'est lui qui verrouille
-   B1"). `fixtures/repo-log.json` est l'historique réel de CE dépôt (147 commits, toutes refs),
-   capturé une fois via `git log` avec le même format que `main/git/queries.ts` `logPage`, parsé
-   par le vrai `parseLogPage` — pas une fixture inventée. Rejoue le layout complet et vérifie :
-   `rowOf` est bijectif (verrouille B1 — deux SHA distincts ne peuvent plus jamais revendiquer la
-   même ligne, contrairement à l'ancien `hkey` tronqué à 32 bits), chaque arête est résolue ou
-   pending, et aucune lane n'est partagée par deux arêtes en même temps. */
+/* Invariants test on a real fixture (AUDIT.md §6/§10, tests item — "this is the one that locks
+   in B1"). `fixtures/repo-log.json` is THIS repo's actual history (147 commits, all refs),
+   captured once via `git log` with the same format as `main/git/queries.ts` `logPage`, parsed
+   by the real `parseLogPage` — not a made-up fixture. Replays the full layout and checks:
+   `rowOf` is bijective (locks in B1 — two distinct SHAs can never again claim the
+   same row, unlike the old `hkey` truncated to 32 bits), every edge is resolved or
+   pending, and no lane is shared by two edges at the same time. */
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
@@ -16,52 +16,52 @@ import { layoutChunk } from "./lanes.ts"
 import { createState, type Edge } from "./state.ts"
 
 const fixturePath = fileURLToPath(new URL("./fixtures/repo-log.json", import.meta.url))
-const raw: Commit[] = JSON.parse(readFileSync(fixturePath, "utf8"))
+const raw = JSON.parse(readFileSync(fixturePath, "utf8")) as Commit[]
 const commits = collapsePairs(raw)
 
 const S = createState()
 layoutChunk(S, (r) => commits[r], commits.length)
 const allEdges: Edge[] = [...S.long, ...S.edges.flatMap((es) => es ?? [])]
 
-describe("invariants de layout — fixture réelle (147 commits, toutes refs)", () => {
-  it("charge bien un historique non trivial (garde-fou de la fixture elle-même)", () => {
-    assert.ok(commits.length > 50, "la fixture doit couvrir un historique substantiel")
-    assert.equal(S.next, commits.length, "toutes les lignes de la fixture sont mises en page")
+describe("layout invariants — real fixture (147 commits, all refs)", () => {
+  it("loads a non-trivial history correctly (guard rail for the fixture itself)", () => {
+    assert.ok(commits.length > 50, "the fixture must cover a substantial history")
+    assert.equal(S.next, commits.length, "all rows of the fixture are laid out")
   })
 
-  it("rowOf est bijectif : deux SHA distincts ne revendiquent jamais la même ligne (verrouille B1)", () => {
+  it("rowOf is bijective: two distinct SHAs never claim the same row (locks in B1)", () => {
     const seen = new Set<number>()
     for (const [, row] of S.rowOf) {
-      assert.equal(seen.has(row), false, `ligne ${row} revendiquée par plus d'un hash`)
+      assert.equal(seen.has(row), false, `row ${row} claimed by more than one hash`)
       seen.add(row)
     }
   })
 
-  it("chaque ligne round-trip vers elle-même via ids.ts (internId/hashOf/rowOf cohérents)", () => {
+  it("every row round-trips to itself via ids.ts (internId/hashOf/rowOf consistent)", () => {
     for (let row = 0; row < S.next; row++) {
       const id = S.hashOf[row]
-      assert.notEqual(id, undefined, `ligne ${row} sans id de hash`)
-      assert.equal(S.rowOf.get(id), row, `rowOf(hashOf(${row})) doit revenir à ${row}`)
+      assert.notEqual(id, undefined, `row ${row} has no hash id`)
+      assert.equal(S.rowOf.get(id), row, `rowOf(hashOf(${row})) must return to ${row}`)
     }
   })
 
-  it("chaque arête est résolue ou reste explicitement en attente — aucune ne se perd", () => {
-    // par construction, une arête n'entre dans edges[]/long qu'une fois résolue (e.r2 posé,
-    // cf. layoutChunk) : cette assertion documente l'invariant, pas une simple tautologie —
-    // elle empêche une régression qui pousserait une arête non résolue dans ces tableaux.
-    for (const e of allEdges) assert.notEqual(e.r2, undefined, "arête d'edges[]/long non résolue")
-    // l'historique complet (git log --all, sans --shallow) ne laisse aucun parent hors de portée
-    assert.equal(S.pending.size, 0, "aucune arête ne devrait rester pendante sur un historique complet")
+  it("every edge is resolved or stays explicitly pending — none is lost", () => {
+    // by construction, an edge only enters edges[]/long once resolved (e.r2 set,
+    // cf. layoutChunk): this assertion documents the invariant, not a mere tautology —
+    // it prevents a regression that would push an unresolved edge into these arrays.
+    for (const e of allEdges) assert.notEqual(e.r2, undefined, "unresolved edge in edges[]/long")
+    // the full history (git log --all, no --shallow) leaves no parent out of reach
+    assert.equal(S.pending.size, 0, "no edge should remain pending on a complete history")
   })
 
-  it("aucune lane n'est occupée par deux arêtes indépendantes en même temps (pas de lane doublée)", () => {
-    /* Deux arêtes peuvent légitimement partager une lane sur des lignes qui se chevauchent SI
-       elles convergent vers le même nœud (fin commune) — un fork où plusieurs enfants tiennent
-       leur première-parenté du même commit, ou le second parent d'un merge qui coupe par la lane
-       d'une chaîne déjà en cours pour rejoindre son nœud cible (cf. `edgePath`, la courbe d'une
-       arête adjacente ne « occupe » vraiment la lane qu'à son point d'arrivée, pas tout du long).
-       Un chevauchement qui ne partage NI le début NI la fin serait, lui, une vraie double
-       réservation de la même lane par deux chaînes indépendantes. */
+  it("no lane is occupied by two independent edges at the same time (no doubled-up lane)", () => {
+    /* Two edges can legitimately share a lane over overlapping rows IF
+       they converge on the same node (shared endpoint) — a fork where several children hold
+       their first-parentage from the same commit, or a merge's second parent that cuts through
+       the lane of an already-running chain to reach its target node (cf. `edgePath`, an adjacent
+       edge's curve only truly "occupies" the lane at its arrival point, not along its whole run).
+       An overlap that shares NEITHER the start NOR the end would, on the other hand, be a genuine
+       double reservation of the same lane by two independent chains. */
     const byLane = new Map<number, [number, number][]>()
     for (const e of allEdges) {
       const list = byLane.get(e.travel) ?? []
@@ -77,7 +77,7 @@ describe("invariants de layout — fixture réelle (147 commits, toutes refs)", 
         const sharesEndpoint = cur[1] === prev[1] || cur[0] === prev[0]
         assert.ok(
           !overlaps || sharesEndpoint,
-          `lane ${lane} : chevauchement sans nœud commun entre [${prev}] et [${cur}]`
+          `lane ${lane}: overlap with no shared node between [${prev.join(",")}] and [${cur.join(",")}]`
         )
       }
     }

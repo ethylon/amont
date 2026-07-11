@@ -5,6 +5,7 @@ import { CloudIcon } from "@hugeicons/core-free-icons"
 import type { Commit, FileChange, RepoApi } from "@/lib/git"
 import { parseBody, parseRefs, parseSubject, refColor, typeColor, type RefChip } from "@/lib/commit-parse"
 import { parseMarkdown, type MdToken } from "@/lib/markdown"
+import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
 import { useBodyQuery } from "@/features/repo/repo-queries"
 import type { SelMode } from "@/features/repo/repo-store"
@@ -22,7 +23,7 @@ type Props = {
   api: RepoApi
   repoId: number
   graph: GraphHandle
-  /** indices de lignes, triés croissant */
+  /** line indices, sorted ascending */
   selection: number[]
   selMode: SelMode
   activePath?: string
@@ -30,7 +31,7 @@ type Props = {
   onJump(hash: string): void
 }
 
-const Loading = () => <AsyncHint className="py-1">fichiers…</AsyncHint>
+const Loading = () => <AsyncHint className="py-1">{messages.detail.loadingFiles}</AsyncHint>
 
 const Hint = ({ children }: { children: React.ReactNode }) => (
   <p className="shrink-0 text-xs text-muted-foreground">{children}</p>
@@ -48,7 +49,7 @@ function TypeChip({ commit }: { commit: Commit }) {
 
 const Cloud = () => <HugeiconsIcon icon={CloudIcon} strokeWidth={2} className="shrink-0" />
 
-/* jumeau React de scrollText() : le nom défile au survol au lieu de déborder du panneau */
+/* React twin of scrollText(): the name scrolls on hover instead of overflowing the panel */
 const ScrollName = ({ text }: { text: string }) => (
   <span
     className={SCROLL_TEXT_CLASS}
@@ -59,12 +60,16 @@ const ScrollName = ({ text }: { text: string }) => (
   </span>
 )
 
-/* Même grammaire que le graphe : nuage détaché par un filet = la distante est sur ce commit ;
-   nuage collé à `origin/develop` = la branche locale est ailleurs. */
+/* Same grammar as the graph: cloud detached by a divider = the remote is on this commit;
+   cloud stuck to `origin/develop` = the local branch is elsewhere. */
 function RefBadge({ r }: { r: RefChip }) {
   const synced = r.remotes.length > 0
   return (
-    <Badge shape="squared" color={refColor(r.kind)} className={cn("max-w-full", (r.kind === "remote" || synced) && "ps-1.5")}>
+    <Badge
+      shape="squared"
+      color={refColor(r.kind)}
+      className={cn("max-w-full", (r.kind === "remote" || synced) && "ps-1.5")}
+    >
       {(r.kind === "remote" || synced) && <Cloud />}
       {synced && <span className={badgeSeparator} />}
       <ScrollName text={r.name} />
@@ -81,15 +86,27 @@ function PersonChip({ name, email }: { name: string; email: string }) {
   )
 }
 
-/* Les URLs partent au navigateur : `setWindowOpenHandler` refuse la navigation dans la fenêtre. */
+/* URLs go out to the browser: `setWindowOpenHandler` refuses navigation within the window. */
 const Inline = ({ tokens }: { tokens: MdToken[] }) => (
   <>
     {tokens.map((k, i) =>
-      k.t === "code" ? <code key={i} className="rounded-sm bg-muted px-1 font-mono">{k.v}</code>
-        : k.t === "bold" ? <strong key={i} className="font-medium text-foreground">{k.v}</strong>
-          : k.t === "em" ? <em key={i}>{k.v}</em>
-            : k.t === "link" ? <a key={i} href={k.v} target="_blank" rel="noreferrer" className="text-primary hover:underline">{k.v}</a>
-              : k.v
+      k.t === "code" ? (
+        <code key={i} className="rounded-sm bg-muted px-1 font-mono">
+          {k.v}
+        </code>
+      ) : k.t === "bold" ? (
+        <strong key={i} className="font-medium text-foreground">
+          {k.v}
+        </strong>
+      ) : k.t === "em" ? (
+        <em key={i}>{k.v}</em>
+      ) : k.t === "link" ? (
+        <a key={i} href={k.v} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+          {k.v}
+        </a>
+      ) : (
+        k.v
+      )
     )}
   </>
 )
@@ -104,7 +121,9 @@ const Markdown = ({ text }: { text: string }) => (
       ) : (
         <ul key={i} className="list-disc space-y-0.5 ps-4 text-pretty">
           {b.items.map((it, j) => (
-            <li key={j}><Inline tokens={it} /></li>
+            <li key={j}>
+              <Inline tokens={it} />
+            </li>
           ))}
         </ul>
       )
@@ -112,63 +131,87 @@ const Markdown = ({ text }: { text: string }) => (
   </>
 )
 
-/** Diff net entre le plus ancien sélectionné (son parent) et le plus récent. */
+/** Net diff between the oldest selected commit (its parent) and the most recent one. */
 const spanCtx = (graph: GraphHandle, selection: number[]) => ({
   hash: graph.commit(selection[0])!.h,
   parent: graph.commit(selection[selection.length - 1])!.p[0] || null,
 })
 
 function Files({
-  api, queryKey, queryFn, ctx, ctxOf, activePath, onOpenDiff,
+  api,
+  queryKey,
+  queryFn,
+  ctx,
+  ctxOf,
+  activePath,
+  onOpenDiff,
 }: {
   api: RepoApi
   queryKey: readonly unknown[]
   queryFn(): Promise<FileChange[]>
   ctx: { hash: string; parent: string | null }
-  /** contexte de diff propre à un fichier : les non suivis d'un stash vivent dans un autre commit */
+  /** diff context specific to a file: a stash's untracked files live in another commit */
   ctxOf?(f: FileChange): { hash: string; parent: string | null }
   activePath?: string
   onOpenDiff: Props["onOpenDiff"]
 }) {
   const { data, isError } = useQuery({ queryKey, queryFn })
-  if (isError) return <div className="mt-4 shrink-0 border-t pt-3"><Hint>Diff indisponible.</Hint></div>
-  if (!data) return <div className="mt-4 shrink-0 border-t pt-3"><Loading /></div>
+  if (isError)
+    return (
+      <div className="mt-4 shrink-0 border-t pt-3">
+        <Hint>{messages.diff.unavailable}</Hint>
+      </div>
+    )
+  if (!data)
+    return (
+      <div className="mt-4 shrink-0 border-t pt-3">
+        <Loading />
+      </div>
+    )
   return <FileList files={data} api={api} activePath={activePath} onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)} />
 }
 
-function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
-  api: RepoApi; repoId: number; graph: GraphHandle; row: number; activePath?: string
-  onOpenDiff: Props["onOpenDiff"]; onJump(hash: string): void
+function Single({
+  api,
+  repoId,
+  graph,
+  row,
+  activePath,
+  onOpenDiff,
+  onJump,
+}: {
+  api: RepoApi
+  repoId: number
+  graph: GraphHandle
+  row: number
+  activePath?: string
+  onOpenDiff: Props["onOpenDiff"]
+  onJump(hash: string): void
 }) {
   const c = graph.commit(row)!
   const ps = parseSubject(c.s)
   const ctx = { hash: c.h, parent: c.p[0] || null }
-  /* le corps ne voyage pas avec le log : il est relu pour la seule ligne sélectionnée */
+  /* the body doesn't travel with the log: it's re-fetched only for the selected line */
   const { data: raw } = useBodyQuery(api, repoId, c.h)
   const body = raw === undefined ? null : parseBody(raw)
 
-  /* Un stash montre tout ce qu'il remise : les changements suivis (diff contre sa base) et
-     les fichiers non suivis, remisés dans un commit à part (3e parent), rendus en `?` comme
-     dans l'arbre de travail. Leur diff se lit dans ce commit-là, pas contre la base. */
+  /* A stash shows everything it stashed away: tracked changes (diff against its base) and
+     untracked files, stashed in a separate commit (3rd parent), rendered as `?` like
+     in the working tree. Their diff is read from that commit, not against the base. */
   const untracked = c.stash?.untracked ?? null
   const filesQueryKey = untracked
     ? (["files", "stash", repoId, ctx.hash, untracked] as const)
     : queryKeys.files(repoId, ctx.hash, ctx.parent)
   const loadFiles = untracked
     ? async () => {
-        const [tracked, extra] = await Promise.all([
-          api.files(ctx.hash, ctx.parent),
-          api.files(untracked, null),
-        ])
-        /* un fichier supprimé puis recréé non suivi apparaîtrait deux fois : le `?` gagne,
-           c'est l'état que le stash restaurerait */
+        const [tracked, extra] = await Promise.all([api.files(ctx.hash, ctx.parent), api.files(untracked, null)])
+        /* a file deleted then recreated untracked would appear twice: the `?` wins,
+           that's the state the stash would restore */
         const seen = new Set(extra.map((f) => f.path))
         return [...tracked.filter((f) => !seen.has(f.path)), ...extra.map((f) => ({ ...f, st: "?" }))]
       }
     : () => api.files(ctx.hash, ctx.parent)
-  const ctxFor = untracked
-    ? (f: FileChange) => (f.st === "?" ? { hash: untracked, parent: null } : ctx)
-    : undefined
+  const ctxFor = untracked ? (f: FileChange) => (f.st === "?" ? { hash: untracked, parent: null } : ctx) : undefined
 
   return (
     <>
@@ -177,14 +220,14 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
         {ps.text}
       </h2>
 
-      {/* un corps de cinquante lignes ne pousse pas la liste des fichiers hors de l'écran */}
+      {/* a fifty-line body doesn't push the file list off-screen */}
       {body?.text && (
         <div className="mt-2 max-h-32 shrink-0 space-y-2 overflow-y-auto text-xs/5 text-muted-foreground [overflow-wrap:anywhere]">
           <Markdown text={body.text} />
         </div>
       )}
 
-      {/* 76px : la piste tient "CO-AUTEURS" sur une ligne, interlettrage compris */}
+      {/* 76px: the track fits "CO-AUTHORS" on one line, letter-spacing included */}
       <dl className="mt-3.5 grid shrink-0 grid-cols-[76px_1fr] gap-x-3 gap-y-2">
         {c.stash && (
           <>
@@ -192,13 +235,17 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
             <dd className="font-mono text-xs">{c.stash.name}</dd>
           </>
         )}
-        <Dt>commit</Dt>
-        <dd className="font-mono text-xs" title={c.h}>{shortHash(c.h)}</dd>
-        <Dt>auteur</Dt>
-        <dd className="text-xs"><PersonChip name={c.a} email={c.e} /></dd>
+        <Dt>{messages.detail.commit}</Dt>
+        <dd className="font-mono text-xs" title={c.h}>
+          {shortHash(c.h)}
+        </dd>
+        <Dt>{messages.detail.author}</Dt>
+        <dd className="text-xs">
+          <PersonChip name={c.a} email={c.e} />
+        </dd>
         {!!body?.coAuthors.length && (
           <>
-            <Dt>co-auteurs</Dt>
+            <Dt>{messages.detail.coAuthors}</Dt>
             <dd className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
               {body.coAuthors.map((a) => (
                 <PersonChip key={a.email + a.name} name={a.name} email={a.email} />
@@ -206,11 +253,11 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
             </dd>
           </>
         )}
-        <Dt>date</Dt>
+        <Dt>{messages.detail.date}</Dt>
         <dd className="text-xs tabular-nums">{c.d}</dd>
-        <Dt>{c.p.length > 1 ? "parents" : "parent"}</Dt>
+        <Dt>{c.p.length > 1 ? messages.detail.parents : messages.detail.parent}</Dt>
         <dd className="text-xs">
-          {!c.p.length && "(racine)"}
+          {!c.p.length && messages.detail.root}
           {c.p.map((p, k) => (
             <button
               key={p}
@@ -220,14 +267,14 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
               className="block cursor-pointer font-mono text-primary hover:underline"
             >
               {shortHash(p)}
-              {c.p.length > 1 && (k === 0 ? "  (first-parent)" : "  (mergé)")}
+              {c.p.length > 1 && (k === 0 ? messages.detail.firstParent : messages.detail.mergeParent)}
             </button>
           ))}
         </dd>
       </dl>
 
-      {/* le panneau ne rationne pas : c'est ici qu'on retrouve ce que le "+N" du graphe replie.
-          `--badge-color` descend sur les chips `lane`, comme sur la ligne du graphe. */}
+      {/* the panel doesn't ration: this is where you find what the graph's "+N" collapses.
+          `--badge-color` cascades down to the `lane` chips, just like on the graph row. */}
       {c.r && (
         <div
           className="mt-3 flex shrink-0 flex-wrap gap-1"
@@ -252,25 +299,37 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
   )
 }
 
-/* Compose le texte affiché depuis les données structurées de `chainInfo` (AUDIT.md §6, item 3) :
-   les strings françaises « mergée dans… » sortent du module d'algorithme, React les forme ici. */
+/* Composes the displayed text from `chainInfo`'s structured data (AUDIT.md §6, item 3):
+   presentation strings are out of the algorithm module, React shapes them here. */
 function formatChainInfo(info: ChainInfo): string {
-  if (!info.merged) return info.refs ? `${info.refs} · non mergée` : "segment non mergé"
-  return `${info.refs ? info.refs + " · " : ""}mergée${info.mergedInto ? " dans " + info.mergedInto : ""} (${shortHash(info.mergeHash)})`
+  if (!info.merged) return info.refs ? messages.detail.unmergedSuffix(info.refs) : messages.detail.unmergedSegment
+  return messages.detail.merged(info.refs, info.mergedInto, shortHash(info.mergeHash))
 }
 
-function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
-  api: RepoApi; repoId: number; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
+function Branch({
+  api,
+  repoId,
+  graph,
+  selection,
+  activePath,
+  onOpenDiff,
+}: {
+  api: RepoApi
+  repoId: number
+  graph: GraphHandle
+  selection: number[]
+  activePath?: string
+  onOpenDiff: Props["onOpenDiff"]
 }) {
   const ctx = spanCtx(graph, selection)
   const n = selection.length
   return (
     <>
       <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">
-        Branche · {n} commit{n > 1 ? "s" : ""}
+        {messages.detail.branchHeading(n)}
       </h2>
       <Hint>{formatChainInfo(graph.chainInfo(selection))}</Hint>
-      {/* une seule commande git entre les extrémités */}
+      {/* a single git command between the endpoints */}
       <Files
         api={api}
         queryKey={queryKeys.files(repoId, ctx.hash, ctx.parent)}
@@ -283,13 +342,25 @@ function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
   )
 }
 
-function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
-  api: RepoApi; repoId: number; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
+function Multi({
+  api,
+  repoId,
+  graph,
+  selection,
+  activePath,
+  onOpenDiff,
+}: {
+  api: RepoApi
+  repoId: number
+  graph: GraphHandle
+  selection: number[]
+  activePath?: string
+  onOpenDiff: Props["onOpenDiff"]
 }) {
   const ctx = spanCtx(graph, selection)
 
-  /* fusion : une entrée par fichier ; DATA va du plus récent au plus ancien,
-     on rejoue du plus ancien au plus récent → le statut le plus récent gagne. */
+  /* merge: one entry per file; DATA goes from most recent to oldest,
+     we replay from oldest to most recent → the most recent status wins. */
   const load = async () => {
     const results = await Promise.all(
       selection.map((i) => {
@@ -304,14 +375,18 @@ function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
 
   return (
     <>
-      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">{selection.length} commits sélectionnés</h2>
-      {/* l'en-tête ne pousse pas la liste des fichiers hors de l'écran : au-delà, il scrolle */}
+      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">
+        {messages.detail.commitsSelected(selection.length)}
+      </h2>
+      {/* the header doesn't push the file list off-screen: beyond that, it scrolls */}
       <div className="mt-3 flex max-h-40 shrink-0 flex-col gap-0.5 overflow-y-auto">
         {selection.map((i) => {
           const c = graph.commit(i)!
           return (
             <div key={c.h} className="flex min-w-0 items-baseline gap-2 text-xs">
-              <span className="shrink-0 font-mono text-muted-foreground" title={c.h}>{shortHash(c.h)}</span>
+              <span className="shrink-0 font-mono text-muted-foreground" title={c.h}>
+                {shortHash(c.h)}
+              </span>
               <span className="truncate">{parseSubject(c.s).text}</span>
             </div>
           )
@@ -329,18 +404,38 @@ function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
   )
 }
 
-const Dt = ({ children }: { children: React.ReactNode }) => (
-  <dt className={cn("pt-0.5", LABEL_CLS)}>{children}</dt>
-)
+const Dt = ({ children }: { children: React.ReactNode }) => <dt className={cn("pt-0.5", LABEL_CLS)}>{children}</dt>
 
 export function DetailPanel({ api, repoId, graph, selection, selMode, activePath, onOpenDiff, onJump }: Props) {
-  if (!selection.length) return <Hint>Clique un commit pour le détail.</Hint>
+  if (!selection.length) return <Hint>{messages.repo.clickCommitForDetail}</Hint>
 
   return selection.length === 1 ? (
-    <Single api={api} repoId={repoId} graph={graph} row={selection[0]} activePath={activePath} onOpenDiff={onOpenDiff} onJump={onJump} />
+    <Single
+      api={api}
+      repoId={repoId}
+      graph={graph}
+      row={selection[0]}
+      activePath={activePath}
+      onOpenDiff={onOpenDiff}
+      onJump={onJump}
+    />
   ) : selMode === "branch" ? (
-    <Branch api={api} repoId={repoId} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
+    <Branch
+      api={api}
+      repoId={repoId}
+      graph={graph}
+      selection={selection}
+      activePath={activePath}
+      onOpenDiff={onOpenDiff}
+    />
   ) : (
-    <Multi api={api} repoId={repoId} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
+    <Multi
+      api={api}
+      repoId={repoId}
+      graph={graph}
+      selection={selection}
+      activePath={activePath}
+      onOpenDiff={onOpenDiff}
+    />
   )
 }

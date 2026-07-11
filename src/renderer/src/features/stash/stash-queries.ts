@@ -1,7 +1,7 @@
-/* Requête de la feature stash (AUDIT.md §5/§7) : liste des entrées `git stash list` —
-   colocalisée avec stash-section.tsx, le dossier « copie-moi » de référence pour une feature
-   verticale (composant + requête + actions au même endroit). `placeholderData:
-   keepPreviousData` tient le rendu précédent affiché pendant qu'une nouvelle réponse arrive. */
+/* Stash feature query (AUDIT.md §5/§7): list of `git stash list` entries —
+   colocated with stash-section.tsx, the reference "copy-me" folder for a vertical
+   feature (component + query + actions in the same place). `placeholderData:
+   keepPreviousData` keeps the previous render displayed while a new response is in flight. */
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 

@@ -4,20 +4,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-/* Surcharge du primitive : l'axe `variant` de shadcn ne porte que 6 combinaisons figées.
-   Ici la teinte est un axe à part (`color`) injecté par --badge-color, ce qui laisse
-   variant décrire la seule intensité. Même pattern que Client.Vite. */
-/* pas de `border-transparent` dans la base : cva concatène avec clsx, pas tailwind-merge,
-   et il gagnerait sur la couleur de bordure posée par le variant. */
+/* Overrides the primitive: shadcn's `variant` axis only carries 6 fixed combinations.
+   Here the hue is a separate axis (`color`) injected via --badge-color, which leaves
+   variant to describe intensity alone. Same pattern as Client.Vite. */
+/* no `border-transparent` in the base: cva concatenates with clsx, not tailwind-merge,
+   and it would win over the border color set by the variant. */
 const badgeVariants = cva(
   "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border px-2 py-0.5 text-[0.625rem] font-medium whitespace-nowrap transition-colors focus-visible:border-(--badge-color) focus-visible:ring-[3px] focus-visible:ring-(--badge-color)/20 has-data-[icon=inline-end]:pe-1.5 has-data-[icon=inline-start]:ps-1.5 [&>svg]:pointer-events-none [&>svg]:size-2.5!",
   {
     variants: {
       color: {
-        /* --primary vire au sombre en thème sombre (il sert de fond, pas de texte) :
-           on le mixe vers --foreground pour qu'il reste lisible en tant que texte. */
-        primary:
-          "[--badge-color:var(--primary)] [--badge-fg:color-mix(in_oklab,var(--primary)_70%,var(--foreground))]",
+        /* --primary turns dark in dark theme (it's meant as a background, not text):
+           we mix it toward --foreground so it stays legible as text. */
+        primary: "[--badge-color:var(--primary)] [--badge-fg:color-mix(in_oklab,var(--primary)_70%,var(--foreground))]",
         neutral: "[--badge-color:var(--muted-foreground)] [--badge-fg:var(--muted-foreground)]",
         success: "[--badge-color:var(--success)] [--badge-fg:var(--success)]",
         warning: "[--badge-color:var(--warning)] [--badge-fg:var(--warning)]",
@@ -25,9 +24,9 @@ const badgeVariants = cva(
         danger: "[--badge-color:var(--destructive)] [--badge-fg:var(--destructive)]",
         info: "[--badge-color:var(--info)] [--badge-fg:var(--info)]",
         refactor: "[--badge-color:var(--refactor)] [--badge-fg:var(--refactor)]",
-        /* Le seul axe où la teinte n'a pas de nom : le porteur — ou n'importe lequel de ses
-           ancêtres, --badge-color hérite — la pose. Les lanes du graphe sont assez lisibles
-           dans les deux thèmes pour servir aussi de couleur de texte. */
+        /* The only axis where the hue has no name: the carrier — or any of its
+           ancestors, --badge-color inherits — sets it. Graph lanes are legible enough
+           in both themes to also serve as the text color. */
         lane: "[--badge-fg:var(--badge-color)]",
       },
       variant: {
@@ -63,12 +62,13 @@ function Badge({
   })
 }
 
-/** Filet plein-pot entre deux contenus d'un même badge : `-my-0.5` annule le padding vertical. */
+/** Full-height rule between two pieces of content in the same badge: `-my-0.5` cancels the vertical padding. */
 const badgeSeparator = "-my-0.5 w-px self-stretch bg-(--badge-color)/20"
 
-/** Vocabulaire de teintes du badge, dérivé de `cva` (single source of truth) : le domaine décrit
-    ses couleurs avec le type que possède le composant qui les affiche, pas l'inverse (AUDIT.md
-    §7, phase 5 — `BadgeColor` vivait dans lib/commit-message.ts, sens de dépendance inversé). */
+/** Badge hue vocabulary, derived from `cva` (single source of truth): the domain describes
+    its colors with the type owned by the component that displays them, not the other way
+    around (AUDIT.md §7, phase 5 — `BadgeColor` used to live in lib/commit-message.ts, an
+    inverted dependency direction). */
 export type BadgeColor = NonNullable<VariantProps<typeof badgeVariants>["color"]>
 
 export { Badge, badgeSeparator, badgeVariants }

@@ -1,36 +1,45 @@
-/* Feature stash (AUDIT.md §7, phase 5) : composant + requête (stash-queries.ts) + actions (le
-   store), colocalisés — le dossier « copie-moi » de référence. Auparavant étalée sur
-   refs-sidebar (arbre + menu), detail-panel (aucune ref, juste le clic dans le graphe), repo-view
-   (callbacks) et le graphe (foldStashes) : cette feature ne rassemble que la partie « liste des
-   stashes dans le panneau latéral » — foldStashes reste dans le moteur de graphe (layout/collapse.ts),
-   qui la consomme pour la mise en page, pas pour l'affichage de la liste. */
+/* Stash feature (AUDIT.md §7, phase 5): component + query (stash-queries.ts) + actions (the
+   store), colocated — the reference "copy-me" folder. Previously spread across
+   refs-sidebar (tree + menu), detail-panel (no ref, just the click in the graph), repo-view
+   (callbacks), and the graph engine (foldStashes): this feature only gathers the "list of
+   stashes in the side panel" part — foldStashes stays in the graph engine (layout/collapse.ts),
+   which consumes it for layout, not for rendering the list. */
 
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Archive02Icon, ArchiveArrowUpIcon, ArchiveRestoreIcon, Delete02Icon } from "@hugeicons/core-free-icons"
 
 import type { Stash, StashAct } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useStashesQuery } from "@/features/stash/stash-queries"
 import { useResettableOpen } from "@/features/refs/refs-tree"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { RefGroup } from "@/components/ui/ref-group"
 import {
-  ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 
-/** Filtre par sous-chaîne sur le nom de l'entrée ou le message du WIP — même grammaire que le
-    filtre de branches du sidebar, dont `RefsSidebar` a aussi besoin pour son message « aucune
-    ref ne correspond » (il doit savoir si le stash, lui, a un résultat). */
+/** Substring filter on the entry's name or the WIP message — same grammar as the
+    sidebar's branch filter, which `RefsSidebar` also needs for its "no ref
+    matches" message (it needs to know whether the stash itself has a result). */
 export const matchStash = (s: Stash, q: string) => !q || s.name.includes(q) || s.s.toLowerCase().includes(q)
 
-/* Une entrée de stash n'est pas une ref : pas d'arbre, pas de checkout, pas de focus de
-   branche. Un clic saute à son nœud du graphe ; le menu porte les trois gestes de stash. */
-function StashRow({ s, onFocus, onStash }: {
+/* A stash entry is not a ref: no tree, no checkout, no branch focus.
+   A click jumps to its graph node; the menu carries the three stash actions. */
+function StashRow({
+  s,
+  onFocus,
+  onStash,
+}: {
   s: Stash
   onFocus(s: Stash): void
   onStash(action: StashAct, name: string): void
 }) {
-  /* "WIP on develop: 1a2b3c4 sujet" → le préambule redit le nom : on ne garde que la suite */
+  /* "WIP on develop: 1a2b3c4 subject" → the preamble repeats the name: we only keep the rest */
   const msg = s.s.replace(/^(?:WIP on|On) [^:]+:\s*/, "")
   return (
     <ContextMenu>
@@ -39,7 +48,7 @@ function StashRow({ s, onFocus, onStash }: {
           type="button"
           onClick={() => onFocus(s)}
           title={`${s.name} · ${s.s}`}
-          className="gg-refrow -my-px flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs text-foreground select-none hover:bg-muted"
+          className="amont-refrow -my-px flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs text-foreground select-none hover:bg-muted"
         >
           <HugeiconsIcon icon={Archive02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="shrink-0 font-medium">{s.name}</span>
@@ -49,25 +58,25 @@ function StashRow({ s, onFocus, onStash }: {
       <ContextMenuContent className="max-w-72">
         <ContextMenuItem onClick={() => onStash("apply", s.name)}>
           <HugeiconsIcon icon={ArchiveArrowUpIcon} strokeWidth={2} />
-          <MenuItemWithCmd label="Appliquer" cmd={`git stash apply ${s.name}`} />
+          <MenuItemWithCmd label={messages.stash.apply} cmd={`git stash apply ${s.name}`} />
         </ContextMenuItem>
         <ContextMenuItem onClick={() => onStash("pop", s.name)}>
           <HugeiconsIcon icon={ArchiveRestoreIcon} strokeWidth={2} />
-          <MenuItemWithCmd label="Appliquer et supprimer" cmd={`git stash pop ${s.name}`} />
+          <MenuItemWithCmd label={messages.stash.applyAndDrop} cmd={`git stash pop ${s.name}`} />
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => onStash("drop", s.name)}>
           <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-          <MenuItemWithCmd label="Supprimer" cmd={`git stash drop ${s.name}`} />
+          <MenuItemWithCmd label={messages.stash.drop} cmd={`git stash drop ${s.name}`} />
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   )
 }
 
-/** Section stash du sidebar : requête, filtre et actions au même endroit — rendu `null` quand
-    rien ne correspond au filtre, `RefsSidebar` n'a pas à connaître la forme d'une entrée de
-    stash pour composer son message « aucun résultat ». */
+/** Sidebar stash section: query, filter, and actions in the same place — renders `null` when
+    nothing matches the filter, `RefsSidebar` doesn't need to know the shape of a stash entry
+    to compose its "no results" message. */
 export function StashSection({ filter }: { filter: string }) {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)

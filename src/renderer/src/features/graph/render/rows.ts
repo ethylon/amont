@@ -1,16 +1,23 @@
-/* Fabriques DOM des lignes du graphe (AUDIT.md §6) : une ligne = une grille de chips (branche,
-   type, sujet, auteur, date, hash) plus les colonnes de mesure. Rendu impératif, comme avant ce
-   refactor — React possède la coquille (react/commit-graph.tsx), pas ces lignes. */
+/* DOM factories for graph rows (AUDIT.md §6): a row = a grid of chips (branch,
+   type, subject, author, date, hash) plus the measurement columns. Imperative rendering, as before
+   this refactor — React owns the shell (react/commit-graph.tsx), not these rows. */
 
 import { ArrowRight01Icon, CloudIcon, Fire02Icon, RocketIcon, Tag01Icon } from "@hugeicons/core-free-icons"
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { avatarUrl, initials, tint } from "@/lib/avatar"
+import { messages } from "@/lib/messages"
 import { iconEl } from "./icon-el.ts"
 import { badgeSeparator, badgeVariants, type BadgeColor } from "@/components/ui/badge"
 import {
-  BACKUP_WIP, parseMerge, parseRefs, parseSubject, refColor, typeColor,
-  type ParsedMerge, type RefChip,
+  BACKUP_WIP,
+  parseMerge,
+  parseRefs,
+  parseSubject,
+  refColor,
+  typeColor,
+  type ParsedMerge,
+  type RefChip,
 } from "@/lib/commit-parse"
 import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/lib/gitflow"
 import { scrollText } from "../interactions/scroll-text.ts"
@@ -22,9 +29,9 @@ export const chip = (color: BadgeColor) => badgeVariants({ color, shape: "square
 export const cloud = () => iconEl(CloudIcon, "shrink-0")
 export const tagIcon = () => iconEl(Tag01Icon, "shrink-0")
 
-/* Chip fantôme du survol : le nom de la branche à laquelle appartient le commit survolé, posé dans
-   la colonne branche quand elle est vide. Contour pointillé, estompé — un rappel, pas une ref réelle.
-   Sans `color`, la teinte vient du porteur (le panneau "+N" pose la sienne). */
+/* Hover ghost chip: the name of the branch the hovered commit belongs to, placed in
+   the branch column when it's empty. Dashed outline, faded — a hint, not a real ref.
+   Without `color`, the hue comes from the holder (the "+N" panel sets its own). */
 export function ghostChip(name: string, color: string, maxw = BRANCH_MAX) {
   const el = document.createElement("span")
   el.className =
@@ -34,10 +41,10 @@ export function ghostChip(name: string, color: string, maxw = BRANCH_MAX) {
   return el
 }
 
-/* Plusieurs branches peuvent se partager le tip (branche vide posée sur master : le commit
-   appartient aux deux) : la première en chip, les autres derrière un "+N" au même contour
-   pointillé. Il porte `gg-more-btn` : le survol le déplie dans le panneau flottant, comme les
-   vraies refs — `data-ghost` transporte les noms, un saut de ligne étant impossible dans une ref. */
+/* Several branches can share the tip (empty branch sitting on master: the commit
+   belongs to both): the first as a chip, the others behind a "+N" with the same dashed
+   outline. It carries `amont-more-btn`: hovering unfolds it in the floating panel, like
+   real refs — `data-ghost` carries the names, since a line break is impossible within a ref. */
 export function ghostChips(names: string[], color: string) {
   const wrap = document.createElement("span")
   wrap.className = "flex min-w-0 items-center gap-1.5"
@@ -47,23 +54,23 @@ export function ghostChips(names: string[], color: string) {
     more.type = "button"
     more.className =
       badgeVariants({ color: "neutral", shape: "squared", variant: "outline" }) +
-      " border-dashed opacity-70 gg-more-btn cursor-pointer"
+      " border-dashed opacity-70 amont-more-btn cursor-pointer"
     more.textContent = `+${names.length - 1}`
     more.dataset.ghost = names.slice(1).join("\n")
     more.setAttribute("aria-expanded", "false")
     more.setAttribute("aria-haspopup", "true")
-    more.setAttribute("aria-label", `${names.length - 1} autre${names.length > 2 ? "s" : ""} branche${names.length > 2 ? "s" : ""} sur ce tip`)
-    /* fantôme de survol (AUDIT.md §8) : n'existe dans le DOM que pendant un hover souris — jamais
-       de curseur clavier dessus, donc hors de l'ordre de tabulation (contrairement au vrai "+N" de
-       `refGroup`, dont le tabindex suit la ligne active, cf. interactions/selection.ts). */
+    more.setAttribute("aria-label", messages.graph.extraBranchesOnTip(names.length - 1))
+    /* hover ghost (AUDIT.md §8): only exists in the DOM during a mouse hover — never
+       a keyboard cursor on it, so outside the tab order (unlike the real "+N" of
+       `refGroup`, whose tabindex follows the active row, cf. interactions/selection.ts). */
     more.tabIndex = -1
     wrap.appendChild(more)
   }
   return wrap
 }
 
-/* Jumeau impératif de `<Avatar>` : l'image recouvre le monogramme, un 404 la retire.
-   Une ligne du graphe n'est jamais recyclée — la retirer suffit, rien ne la remontera. */
+/* Imperative twin of `<Avatar>`: the image overlays the monogram, a 404 removes it.
+   A graph row is never recycled — removing it is enough, nothing will remount it. */
 function avatarEl(name: string, email: string) {
   const el = document.createElement("span")
   el.className =
@@ -84,16 +91,18 @@ function avatarEl(name: string, email: string) {
   return el
 }
 
-/* Le nuage dit où est la distante. Détaché du nom par un filet : « ici aussi ». Collé à un nom
-   complet (`origin/develop`) : « la branche locale est ailleurs ». Une branche sans nuage
-   n'a pas de distante du tout. */
+/* The cloud says where the remote is. Detached from the name by a separator: "here too". Stuck to a
+   full name (`origin/develop`): "the local branch is elsewhere". A branch without a cloud
+   has no remote at all. */
 export function refChip(r: RefChip, maxw: string, flow: FlowKind | null = null) {
   const synced = r.remotes.length > 0
-  /* Un tag de version est le jalon d'une release : icône étiquette + teinte du flow (violet/rouge). */
+  /* A version tag is a release's milestone: label icon + flow hue (purple/red). */
   const version = r.kind === "tag" && SEMVER.test(r.name)
   const el = document.createElement("span")
   el.className =
-    chip(version ? tagFlowColor(flow) : refColor(r.kind)) + " " + maxw +
+    chip(version ? tagFlowColor(flow) : refColor(r.kind)) +
+    " " +
+    maxw +
     (!version && (r.kind === "remote" || synced) ? " ps-1.5" : "")
   el.title = synced ? r.remotes.join(", ") : r.name
   if (version) el.appendChild(tagIcon())
@@ -107,47 +116,54 @@ export function refChip(r: RefChip, maxw: string, flow: FlowKind | null = null) 
   return el
 }
 
-/** Les refs d'un groupe, tronquées à `budget`, le reste derrière un "+N" qui les déplie toutes.
-    `active` : la ligne porteuse est la ligne active du roving tabindex (AUDIT.md §8) — seul son
-    "+N", s'il existe, entre dans l'ordre de tabulation ; les autres restent à `tabindex=-1`,
-    sinon ils polluraient Tab avec un arrêt par ligne montée au lieu d'un seul par ligne active. */
-export function refGroup(refs: RefChip[], budget: number, maxw: string, parent: HTMLElement, flow: FlowKind | null = null, active = false) {
+/** A group's refs, truncated to `budget`, the rest behind a "+N" that unfolds them all.
+    `active`: the holding row is the roving tabindex's active row (AUDIT.md §8) — only its
+    "+N", if it exists, enters the tab order; the others stay at `tabindex=-1`,
+    otherwise they'd pollute Tab with one stop per mounted row instead of a single one per active row. */
+export function refGroup(
+  refs: RefChip[],
+  budget: number,
+  maxw: string,
+  parent: HTMLElement,
+  flow: FlowKind | null = null,
+  active = false
+) {
   for (const r of refs.slice(0, budget)) parent.appendChild(refChip(r, maxw, flow))
   const hidden = refs.slice(budget)
   if (!hidden.length) return
   const btn = document.createElement("button")
   btn.type = "button"
-  btn.className = chip("neutral") + " gg-more-btn cursor-pointer" // un compteur, pas une ref : pas de teinte
-  btn.dataset.n = String(budget) // borne de slice pour openMore
+  btn.className = chip("neutral") + " amont-more-btn cursor-pointer" // a counter, not a ref: no hue
+  btn.dataset.n = String(budget) // slice bound for openMore
   btn.textContent = `+${hidden.length}`
   btn.title = hidden.map((r) => r.name).join(", ")
   btn.setAttribute("aria-expanded", "false")
   btn.setAttribute("aria-haspopup", "true")
-  btn.setAttribute("aria-label", `${hidden.length} référence${hidden.length > 1 ? "s" : ""} supplémentaire${hidden.length > 1 ? "s" : ""}`)
+  btn.setAttribute("aria-label", messages.graph.extraRefsCount(hidden.length))
   btn.tabIndex = active ? 0 : -1
   parent.appendChild(btn)
 }
 
-/* Flow d'une ligne. Un merge `hotfix/*`|`release/*` se lit sur son sujet ; mais « Merge tag 'vX'
-   into develop » rapatrie une version sans dire d'où elle vient. On remonte alors au commit tagué
-   (2ᵉ parent, le merge côté master) : si c'est un hotfix, ce re-merge l'est aussi. Sans ça, le
-   retour d'un hotfix sur develop passerait pour une release. */
+/* A row's flow. A `hotfix/*`|`release/*` merge can be read from its subject; but "Merge tag 'vX'
+   into develop" brings in a version without saying where it came from. We then climb back to the
+   tagged commit (2nd parent, the master-side merge): if it's a hotfix, this re-merge is one too.
+   Without this, a hotfix's return to develop would pass for a release. */
 function rowFlow(S: LayoutState, c: Commit, mg: ParsedMerge | null): FlowKind | null {
   if (!mg) return null
   const own = mergeFlow(mg)
   if (!mg.tag) return own
-  /* le merge parsé du parent vit dans l'état de layout : pas besoin que sa page soit résidente.
-     `idOf` rend `undefined` pour un parent hors fenêtre (page pas encore chargée) — aucun id
-     n'a alors été interné pour son hash. */
+  /* the parent's parsed merge lives in the layout state: no need for its page to be resident.
+     `idOf` returns `undefined` for a parent outside the window (page not yet loaded) — no id
+     has been interned for its hash in that case. */
   const pid = idOf(S.ids, c.p[1])
   const pr = pid !== undefined ? S.rowOf.get(pid) : undefined
   const pmg = pr !== undefined ? S.mergeOf.get(pr) : undefined
   return pmg && mergeFlow(pmg) === "hotfix" ? "hotfix" : own
 }
 
-/* Nom accessible d'une ligne : ses colonnes visuelles (chips tronqués, icônes muettes, hash
-   raccourci) ne font pas une phrase lisible bout à bout — un résumé explicite vaut mieux que la
-   concaténation du texte visible pour un lecteur d'écran (AUDIT.md §8). */
+/* Accessible name of a row: its visual columns (truncated chips, silent icons, shortened
+   hash) don't add up to a sentence readable end to end — an explicit summary is better than
+   concatenating the visible text for a screen reader (AUDIT.md §8). */
 function rowLabel(c: Commit): string {
   return `${parseSubject(c.s).text} — ${c.a}, ${c.d}, ${shortHash(c.h)}`
 }
@@ -163,38 +179,38 @@ export function rowDiv(
 ): HTMLDivElement {
   const row = document.createElement("div")
   row.className = ROW_CLASS
-  row.style.setProperty("--gg-cols", GRID_COLS)
+  row.style.setProperty("--amont-cols", GRID_COLS)
   row.dataset.i = String(i)
   row.dataset.selected = String(selected)
   if (matched !== null) row.dataset.match = String(matched)
 
-  /* Grille ARIA (AUDIT.md §8) : chaque ligne est une "option" du listbox du board (cf.
-     react/commit-graph.tsx). `aria-selected`/`tabindex` sont pilotés par interactions/selection.ts
-     (roving tabindex) — posés ici à la création pour que la ligne soit correcte dès son premier
-     montage, avant tout passage de `applySelection()`. `aria-posinset`/`aria-setsize` donnent le
-     rang réel dans l'historique complet à un lecteur d'écran qui ne voit qu'une fenêtre virtualisée
-     de quelques dizaines de lignes montées. */
+  /* ARIA grid (AUDIT.md §8): each row is an "option" of the board's listbox (cf.
+     react/commit-graph.tsx). `aria-selected`/`tabindex` are driven by interactions/selection.ts
+     (roving tabindex) — set here at creation so the row is correct from its first
+     mount, before any `applySelection()` pass. `aria-posinset`/`aria-setsize` give the
+     actual rank in the full history to a screen reader that only sees a virtualized window
+     of a few dozen mounted rows. */
   row.setAttribute("role", "option")
   row.setAttribute("aria-selected", String(selected))
   row.setAttribute("aria-posinset", String(i + 1))
   row.setAttribute("aria-setsize", String(total || i + 1))
   row.tabIndex = active ? 0 : -1
   row.setAttribute("aria-label", rowLabel(c))
-  /* hérité par les chips `lane` de la ligne — les noms de branche portent la couleur du trait */
+  /* inherited by the row's `lane` chips — branch names carry the line's color */
   row.style.setProperty("--badge-color", laneColor(S.laneOf[i]))
 
-  /* Motif release/hotfix : la ligne porte un accent latéral (cf. app.css) et sa teinte irrigue
-     le chip source du merge comme le drapeau du tag. */
+  /* Release/hotfix pattern: the row carries a side accent (cf. app.css) and its hue flows
+     into the merge's source chip as well as the tag's flag. */
   const mg = c.p.length > 1 ? parseMerge(c.s) : null
   const flow = c.cap ? c.cap.flow : rowFlow(S, c, mg)
   if (flow) row.dataset.flow = flow
   if (c.stash) row.dataset.stash = ""
 
-  /* Colonne branche, à gauche du métro : nom(s) de branche puis tags, repliés au budget.
-     Une capsule y met sa version en tête ; sinon le survol y pose un chip fantôme (cf. hover.ts). */
+  /* Branch column, left of the metro: branch name(s) then tags, folded to the budget.
+     A capsule puts its version there up front; otherwise hovering places a ghost chip (cf. hover.ts). */
   const refs = c.r ? parseRefs(c.r) : []
   const branch = document.createElement("div")
-  branch.className = "gg-branchcell flex min-w-0 items-center gap-1.5 px-2.5"
+  branch.className = "amont-branchcell flex min-w-0 items-center gap-1.5 px-2.5"
   if (c.cap) {
     const v = document.createElement("span")
     v.className = chip(tagFlowColor(c.cap.flow)) + " " + BRANCH_MAX
@@ -203,7 +219,7 @@ export function rowDiv(
     v.title = c.cap.version ?? c.cap.from
     branch.appendChild(v)
   } else if (c.stash) {
-    /* Contour pointillé plein régime : une vraie entrée, pas un fantôme de survol. */
+    /* Full-strength dashed outline: a real entry, not a hover ghost. */
     const v = document.createElement("span")
     v.className =
       badgeVariants({ color: "lane", shape: "squared", variant: "outline" }) + " border-dashed " + BRANCH_MAX
@@ -215,7 +231,7 @@ export function rowDiv(
   }
   row.appendChild(branch)
 
-  row.appendChild(document.createElement("div")) // espaceur : la colonne graphe, sous le SVG
+  row.appendChild(document.createElement("div")) // spacer: the graph column, under the SVG
 
   const ps = parseSubject(c.s)
   const badge = document.createElement("div")
@@ -229,11 +245,10 @@ export function rowDiv(
   row.appendChild(badge)
 
   const subj = document.createElement("div")
-  subj.className =
-    "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " opacity-30" : "")
+  subj.className = "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " opacity-30" : "")
 
   if (c.cap) {
-    /* Capsule : le motif entier sur une ligne — `release/x →(fusée/flamme) master · develop`. */
+    /* Capsule: the whole pattern on one row — `release/x →(rocket/flame) master · develop`. */
     subj.title = c.s
     const from = document.createElement("span")
     from.className = chip(tagFlowColor(c.cap.flow)) + " max-w-42"
@@ -270,7 +285,7 @@ export function rowDiv(
     subj.append(from, arrow, to)
   } else {
     const s = scrollText(ps.text)
-    /* l'italique dit le provisoire : ce sujet n'est pas un message de commit choisi */
+    /* the italics signal the provisional: this subject isn't a deliberately chosen commit message */
     if (c.stash) s.className += " italic text-muted-foreground"
     s.title = c.s
     subj.appendChild(s)
@@ -286,8 +301,8 @@ export function rowDiv(
   author.append(avatarEl(c.a, c.e), name)
   row.appendChild(author)
 
-  /* La colonne hash affiche 8 caractères : la troncature à l'affichage, cf. AUDIT.md §6 (fix
-     B1) — l'identité du graphe (rowOf, pending, sélection) reste en SHA complet. */
+  /* The hash column shows 8 characters: display-only truncation, cf. AUDIT.md §6 (fix
+     B1) — the graph's identity (rowOf, pending, selection) stays in full SHA. */
   for (const [cls, val] of [
     ["pe-2.5 text-muted-foreground tabular-nums", c.d],
     ["font-mono text-muted-foreground tabular-nums", shortHash(hashOfId(S.ids, S.hashOf[i]))],
@@ -300,11 +315,11 @@ export function rowDiv(
   return row
 }
 
-/** Un bucket de lignes HTML (cf. constants.ts ROW_BUCKET) : un seul conteneur positionné,
-    des lignes en flux normal dedans — comme l'ancien conteneur par CHUNK, mais dimensionné sur
-    le viewport réel plutôt que sur la granularité du layout (AUDIT.md §6, item perf). Une ligne
-    dont le commit n'est pas résident (page évincée) est omise — l'appelant ne construit un
-    bucket qu'une fois ses pages garanties résidentes (cf. controller.ts). */
+/** An HTML row bucket (cf. constants.ts ROW_BUCKET): a single positioned container,
+    rows in normal flow inside — like the old per-CHUNK container, but sized on
+    the actual viewport rather than on layout granularity (AUDIT.md §6, perf item). A row
+    whose commit isn't resident (evicted page) is omitted — the caller only builds a
+    bucket once its pages are guaranteed resident (cf. controller.ts). */
 export function rowBucket(
   S: LayoutState,
   start: number,

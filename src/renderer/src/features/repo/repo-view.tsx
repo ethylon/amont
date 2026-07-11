@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import { branchFlow } from "@/lib/gitflow"
 import { repoApi, worktreeCount, type Repo } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
 import { useFlowInfoQuery, useFlowQuery } from "@/features/flow/flow-queries"
 import { useStatusQuery } from "@/features/repo/repo-queries"
@@ -22,9 +23,9 @@ import { StatusBar } from "@/features/repo/status-bar"
 import { Toolbar } from "@/features/repo/toolbar"
 import { WorktreePanel } from "@/features/worktree/worktree-panel"
 
-/** Révélation du boot : le squelette survit à son fondu de sortie avant d'être démonté, et
-    `settled` attend la frame suivante pour ne pas rejouer les entrées animées du contenu déjà
-    présent au boot (`gg-drop`/`gg-fadein`, cf. app.css). */
+/** Boot reveal: the skeleton survives its exit fade before being unmounted, and
+    `settled` waits for the next frame so it doesn't replay the animated entrances of content already
+    present at boot (`amont-drop`/`amont-fadein`, see app.css). */
 function useBootReveal(booted: boolean) {
   const [skeleton, setSkeleton] = useState(true)
   const [settled, setSettled] = useState(false)
@@ -42,13 +43,13 @@ function useBootReveal(booted: boolean) {
 
 type Props = {
   repo: Repo
-  /** un onglet en arrière-plan reste monté : il ne prend ni le clavier, ni le titre de fenêtre */
+  /** a background tab stays mounted: it takes neither the keyboard nor the window title */
   active: boolean
 }
 
-/** Layout de slots (AUDIT.md §5) : bannière / sidebar / centre / panneau / statusbar. Chaque
-    panneau s'abonne à sa propre tranche du store ou de la couche requêtes — le prop drilling
-    (10 props vers RefsSidebar, 14 vers WorktreePanel) disparaît avec lui. */
+/** Slot layout (AUDIT.md §5): banner / sidebar / center / panel / statusbar. Each
+    panel subscribes to its own slice of the store or the query layer — the prop drilling
+    (10 props to RefsSidebar, 14 to WorktreePanel) disappears with it. */
 export function RepoView({ repo, active }: Props) {
   const api = useMemo(() => repoApi(repo.id), [repo.id])
   return (
@@ -73,8 +74,8 @@ function RepoViewContent({ repo, active }: Props) {
   const flowInfoQuery = useFlowInfoQuery(api, repoId, status?.branch ?? null, workFlow)
   const flowInfo = flowInfoQuery.data ?? null
 
-  /* l'arbre s'est vidé pendant qu'on le regardait : la vue n'a plus de sujet, et un amend en
-     cours n'a plus de bloc où s'afficher */
+  /* the tree emptied out while we were looking at it: the view no longer has a subject, and an
+     in-progress amend no longer has a block to display in */
   const worktree = worktreeQuery.data && worktreeCount(worktreeQuery.data) ? worktreeQuery.data : null
   useEffect(() => {
     if (!worktreeQuery.data || worktreeCount(worktreeQuery.data) > 0) return
@@ -96,20 +97,20 @@ function RepoViewContent({ repo, active }: Props) {
   const closeDiff = useRepoStore((s) => s.closeDiff)
   const openDiff = useRepoStore((s) => s.openDiff)
   const clearFocus = useRepoStore((s) => s.clearFocus)
-  /* clé de secours de l'ErrorBoundary du détail : la sélection change déjà la clé, ceci
-     couvre le cas d'une erreur qui persisterait sur la même sélection */
+  /* fallback key for the detail's ErrorBoundary: the selection already changes the key, this
+     covers the case of an error that would persist on the same selection */
   const [detailNonce, setDetailNonce] = useState(0)
 
-  /* Boot de l'onglet : status, flow, flowInfo, worktree et graphe arrivent en ordre dispersé —
-     l'union du `isLoading` des requêtes remplace le bitmask `B_STATUS…B_ALL` : une requête
-     désactivée (flowInfo hors flow) ne bloque jamais, `isLoading` y reste `false`. */
+  /* Tab boot: status, flow, flowInfo, worktree and graph arrive in scattered order —
+     the union of the queries' `isLoading` replaces the `B_STATUS…B_ALL` bitmask: a disabled
+     query (flowInfo outside a flow) never blocks, `isLoading` stays `false` there. */
   const booted = !!stats && ![statusQuery, flowQuery, worktreeQuery, flowInfoQuery].some((q) => q.isLoading)
   const { skeleton, settled } = useBootReveal(booted)
 
-  /* onChanged/onOp -> invalidations + resetAndLoad/showOp (cf. repo-store.tsx) */
+  /* onChanged/onOp -> invalidations + resetAndLoad/showOp (see repo-store.tsx) */
   useRepoEvents()
 
-  /* git ne notifie rien : l'arbre a pu bouger dans l'éditeur pendant qu'on regardait ailleurs */
+  /* git doesn't notify anything: the tree may have moved in the editor while we were looking elsewhere */
   useEffect(() => {
     if (!active) return
     const onFocus = () => queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
@@ -117,7 +118,7 @@ function RepoViewContent({ repo, active }: Props) {
     return () => window.removeEventListener("focus", onFocus)
   }, [active, queryClient, repoId])
 
-  /* --- Raccourcis --- */
+  /* --- Shortcuts --- */
   useShortcut(active, PRIORITY.DEFAULT, (ev) => {
     const mod = ev.ctrlKey || ev.metaKey
     if (mod && ev.key.toLowerCase() === "b") {
@@ -132,12 +133,12 @@ function RepoViewContent({ repo, active }: Props) {
     return false
   })
 
-  /* Un clic hors du sidebar, des panneaux détail/diff et des commits du graphe lève le focus.
-     Les commits sont gérés par leur propre clic ; ici on ne traite que le « clic dans le vide ». */
+  /* A click outside the sidebar, the detail/diff panels and the graph's commits clears the focus.
+     Commits are handled by their own click; here we only handle the "click in empty space". */
   useEffect(() => {
     if (!active || !selection.length) return
     const onDown = (ev: MouseEvent) => {
-      if ((ev.target as HTMLElement).closest("[data-gg-keep-focus], .gg-row, .gg-wtrow")) return
+      if ((ev.target as HTMLElement).closest("[data-amont-keep-focus], .amont-row, .amont-wtrow")) return
       clearFocus()
     }
     document.addEventListener("mousedown", onDown)
@@ -159,9 +160,9 @@ function RepoViewContent({ repo, active }: Props) {
         <CommitSearch api={api} repoId={repoId} graph={graphRef} active={active} />
       </Toolbar>
 
-      {/* Boot : le contenu reste invisible tant que toutes les premières lectures ne sont pas
-          arrivées, puis tout se révèle dans la même frame — un fondu au lieu de quatre poussées.
-          `data-settled` arme ensuite les entrées animées des insertions tardives (cf. app.css). */}
+      {/* Boot: the content stays invisible until all the initial reads have
+          arrived, then everything reveals in the same frame — one fade instead of four pop-ins.
+          `data-settled` then arms the animated entrances of late insertions (see app.css). */}
       <div data-settled={settled || undefined} className="relative flex min-h-0 flex-1 flex-col">
         <div
           className={cn(
@@ -169,24 +170,32 @@ function RepoViewContent({ repo, active }: Props) {
             !booted && "opacity-0"
           )}
         >
-          {workFlow && flowInfo && status?.branch && <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />}
+          {workFlow && flowInfo && status?.branch && (
+            <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />
+          )}
 
-          {/* gg-tabbody : le bloc qui glisse au changement d'onglet, toolbar et statut restant fixes */}
-          <div className="gg-tabbody flex min-h-0 flex-1">
+          {/* amont-tabbody: the block that slides on tab change, toolbar and status bar staying fixed */}
+          <div className="amont-tabbody flex min-h-0 flex-1">
             <RefsSidebar />
 
             <main className="flex min-w-0 flex-1 flex-col">
               <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,1fr)_minmax(240px,320px)] grid-rows-[minmax(0,1fr)]">
                 <GraphColumn />
 
-                {/* colonne : l'en-tête du détail est figé, la liste et le diff scrollent chacun chez eux.
-                    Les panneaux rendent des fragments — leurs enfants sont donc les items flex. */}
-                {/* fond opaque : si le graphe déborde de sa colonne, il passe dessous sans transparaître */}
-                <aside data-gg-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4">
+                {/* column: the detail header is fixed, the list and diff each scroll on their own.
+                    The panels render fragments — so their children are the flex items. */}
+                {/* opaque background: if the graph overflows its column, it passes underneath without showing through */}
+                <aside
+                  data-amont-keep-focus
+                  className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4"
+                >
                   {view === "wt" && worktree ? (
                     <WorktreePanel />
                   ) : panelOpen && graphRef.current ? (
-                    <ErrorBoundary key={`${selection.join(",")}:${detailNonce}`} onReset={() => setDetailNonce((n) => n + 1)}>
+                    <ErrorBoundary
+                      key={`${selection.join(",")}:${detailNonce}`}
+                      onReset={() => setDetailNonce((n) => n + 1)}
+                    >
                       <DetailPanel
                         api={api}
                         repoId={repoId}
@@ -201,10 +210,12 @@ function RepoViewContent({ repo, active }: Props) {
                   ) : workFlow && flowInfo && status?.branch ? (
                     <>
                       <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
-                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
+                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">
+                        {messages.repo.clickCommitForDetail}
+                      </p>
                     </>
                   ) : (
-                    <p className="shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
+                    <p className="shrink-0 text-xs text-muted-foreground">{messages.repo.clickCommitForDetail}</p>
                   )}
                 </aside>
               </div>

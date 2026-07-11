@@ -1,9 +1,9 @@
 import { ToggleGroup, ToggleGroupItem as ToggleGroupItemPrimitive } from "@/components/ui/primitives/toggle-group"
 import { cn } from "@/lib/utils"
 
-/* Surcharge du primitive : les items en taille default passent de h-7/min-w-7 à h-6/min-w-6.
-   La taille effective (prop ou contexte du groupe) n'est connue que dans le primitive :
-   on cible son attribut data-size plutôt que la prop. */
+/* Overrides the primitive: items at the default size go from h-7/min-w-7 to h-6/min-w-6.
+   The effective size (prop or group context) is only known inside the primitive:
+   we target its data-size attribute rather than the prop. */
 function ToggleGroupItem({ className, ...props }: React.ComponentProps<typeof ToggleGroupItemPrimitive>) {
   return (
     <ToggleGroupItemPrimitive

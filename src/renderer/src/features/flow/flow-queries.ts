@@ -1,8 +1,8 @@
-/* Requêtes de la feature flow (AUDIT.md §5/§7) : préfixes git-flow du dépôt et contexte de la
-   branche de flow courante — colocalisées avec flow-context.tsx plutôt que dans un
-   lib/queries.ts fourre-tout. Consommées aussi par features/repo (bannière/carte) et
-   features/refs (menu « finish ») : une requête partagée entre features s'importe depuis la
-   feature qui la possède, comme n'importe quel autre export. */
+/* Flow feature queries (AUDIT.md §5/§7): repo's git-flow prefixes and the current flow
+   branch's context — colocated with flow-context.tsx rather than in a
+   catch-all lib/queries.ts. Also consumed by features/repo (banner/card) and
+   features/refs ("finish" menu): a query shared between features is imported from the
+   feature that owns it, like any other export. */
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
@@ -13,8 +13,8 @@ export function useFlowQuery(api: RepoApi, id: number) {
   return useQuery({ queryKey: queryKeys.flow(id), queryFn: () => api.flow(), placeholderData: keepPreviousData })
 }
 
-/** `null` hors flow (tronc, HEAD détachée) : pas de requête, `enabled` la coupe — `isLoading`
-    reste `false` pour une requête désactivée, donc elle ne bloque jamais le boot (cf. RepoView). */
+/** `null` outside of flow (trunk, detached HEAD): no query, `enabled` disables it — `isLoading`
+    stays `false` for a disabled query, so it never blocks boot (see RepoView). */
 export function useFlowInfoQuery(api: RepoApi, id: number, branch: string | null, kind: keyof FlowPrefixes | null) {
   return useQuery({
     queryKey: queryKeys.flowInfo(id, branch, kind),

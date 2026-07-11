@@ -4,18 +4,18 @@ import { prefs } from "@/lib/prefs"
 
 const media = matchMedia("(prefers-color-scheme: dark)")
 
-/** Le choix explicite prime ; sans choix, on suit l'OS. */
+/** An explicit choice takes priority; with no choice, follow the OS. */
 export const isDark = () => (prefs.theme.get() ?? (media.matches ? "dark" : "light")) === "dark"
 
 const listeners = new Set<() => void>()
 
-/** Notifié à chaque bascule (choix explicite ou suivi OS) : les rendus hors classe CSS s'y raccrochent. */
+/** Notified on every toggle (explicit choice or OS follow): renders outside the CSS class hook into this. */
 export function onThemeChange(cb: () => void) {
   listeners.add(cb)
   return () => void listeners.delete(cb)
 }
 
-/** Le preset shadcn pilote le thème par la classe `.dark` sur `<html>`. */
+/** The shadcn preset drives the theme via the `.dark` class on `<html>`. */
 export function applyTheme() {
   document.documentElement.classList.toggle("dark", isDark())
   listeners.forEach((f) => f())
@@ -26,12 +26,12 @@ export function setDark(dark: boolean) {
   applyTheme()
 }
 
-/* sans préférence enregistrée, `isDark()` relit l'OS : la bascule système reste suivie */
+/* with no stored preference, `isDark()` reads the OS again: a system toggle is still followed */
 media.addEventListener("change", applyTheme)
 
-/** Hook partagé (AUDIT.md §5, item 7) : tout consommateur du thème passe par lui plutôt que de
-    recopier `isDark` dans un state local (désync garantie sur un flip OS non explicite, cf.
-    l'ancien bug de tab-strip, fix Phase 0). */
+/** Shared hook (AUDIT.md §5, item 7): every theme consumer goes through it rather than
+    copying `isDark` into local state (guaranteed desync on a non-explicit OS flip, see
+    the old tab-strip bug, fixed in Phase 0). */
 export function useTheme(): boolean {
   return useSyncExternalStore(onThemeChange, isDark)
 }
