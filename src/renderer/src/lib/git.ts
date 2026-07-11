@@ -81,6 +81,8 @@ export type RepoApi = {
   /** icône Windows du fichier, `null` s'il n'existe pas sur le disque */
   fileIcon(path: string): Promise<string | null>
   openFile(path: string): Promise<string>
+  /** kill le process associé à `requestId`, s'il tourne encore (cf. chantier main, AUDIT.md §4) */
+  cancel(requestId: string): Promise<void>
 }
 
 export const repoApi = (id: number): RepoApi => ({
@@ -107,6 +109,7 @@ export const repoApi = (id: number): RepoApi => ({
   stash: (action, arg) => bridge.stash(id, action, arg),
   fileIcon: (path) => bridge.fileIcon(id, path),
   openFile: (path) => bridge.openFile(id, path),
+  cancel: (requestId) => bridge.cancel(id, requestId),
 })
 
 export const worktreeCount = (w: Worktree) =>
