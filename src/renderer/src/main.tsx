@@ -6,10 +6,13 @@ import "./app.css"
 import App from "@/App"
 import { boot } from "@/lib/git"
 import { queryClient } from "@/lib/query-client"
+import { installShortcuts } from "@/lib/shortcuts"
 import { applyTheme } from "@/lib/theme"
 
 /* avant le premier rendu : pas de flash clair au démarrage */
 applyTheme()
+/* un seul listener document pour tout le registre de raccourcis (cf. lib/shortcuts.ts) */
+installShortcuts()
 
 /* boot() ouvre les repos des onglets restaurés : appelé une seule fois ici, explicitement,
    plutôt qu'en side-effect à l'import de lib/git.ts (l'ancien `bootState`). La promesse

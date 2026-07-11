@@ -5,6 +5,7 @@ import { ArrowDown01Icon, ArrowUp01Icon, FileSearchIcon, Search01Icon } from "@h
 import type { RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
 import { SEARCH_MIN, useSearchQuery } from "@/lib/queries"
+import { PRIORITY, useShortcut } from "@/lib/shortcuts"
 import type { GraphHandle } from "@/components/graph-canvas"
 import {
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
@@ -62,20 +63,19 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
   )
 
   /* F3 navigue sans repasser par le champ : la sélection reste sur le graphe. */
-  useEffect(() => {
-    if (!active) return
-    const onKey = (ev: KeyboardEvent) => {
-      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "f") {
-        ev.preventDefault()
-        input.current?.select()
-      } else if (ev.key === "F3") {
-        ev.preventDefault()
-        jump(ev.shiftKey ? -1 : 1)
-      }
+  useShortcut(active, PRIORITY.DEFAULT, (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "f") {
+      ev.preventDefault()
+      input.current?.select()
+      return true
     }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [active, jump])
+    if (ev.key === "F3") {
+      ev.preventDefault()
+      jump(ev.shiftKey ? -1 : 1)
+      return true
+    }
+    return false
+  })
 
   const onKeyDown = (ev: React.KeyboardEvent) => {
     if (ev.key === "Enter") jump(ev.shiftKey ? -1 : 1)
