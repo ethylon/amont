@@ -9,9 +9,8 @@
    chargement ne se fait que depuis app.asar, contenu vérifié — un fichier posé à côté du
    binaire ne peut pas se substituer au code embarqué.
 
-   ponytail: seule la cible win32 (nsis) est packagée aujourd'hui (electron-builder.yml) ; le
-   chemin de l'exécutable ci-dessous est spécifique à Windows. À adapter si mac/linux
-   rejoignent un jour les cibles de release. */
+   Only the win32 (nsis) target is packaged today (electron-builder.yml); the executable path
+   below is Windows-specific. Adapt it if mac/linux ever join the release targets. */
 import { join } from 'node:path';
 import { flipFuses, FuseV1Options, FuseVersion } from '@electron/fuses';
 

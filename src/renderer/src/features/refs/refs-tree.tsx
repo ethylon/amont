@@ -111,7 +111,8 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
   /* un tag se checkout en HEAD détaché, ce qui ne s'annule pas d'un double-clic.
      Une distante bascule sur la locale de suivi (DWIM de git checkout <nom>). */
   const switchable = (r.kind === "head" && !r.head) || r.kind === "remote"
-  /* ponytail: strip du premier segment ; git refuse de lui-même si le nom est ambigu entre remotes */
+  /* Strips the first segment (assumed to be the remote name); git itself refuses the checkout if
+     the resulting name is ambiguous across remotes. */
   const target = r.kind === "remote" ? r.name.split("/").slice(1).join("/") : r.name
 
   /* « allumée » = cette ref est focalisée — à l'identité, `kind` compris : la locale et sa

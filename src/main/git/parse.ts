@@ -128,11 +128,10 @@ export function parseForEachRef(out: string): ParsedRefs {
    (comptage des nouveaux commits après fetch). */
 export const ALL_REFS = ["--exclude=refs/stash", "--all"]
 
-/* --- Validation de nom de branche ---
-   ponytail: filtre de sûreté, pas un parseur de refname — refuse surtout le nom qui
-   commencerait par `-` et se ferait passer pour une option de git (fix B2). Liste noire
-   plutôt que blanche : `[\w./+-]` refusait les lettres accentuées et `@`, pourtant légaux
-   dans un refname. */
+/* --- Branch name validation ---
+   Safety filter, not a refname parser — mainly rejects a name starting with `-` that would pass
+   itself off as a git option (fix B2). Blacklist rather than whitelist: `[\w./+-]` would reject
+   accented letters and `@`, both legal in a refname. */
 export const BRANCH = /^(?!-)(?!.*\.\.)(?!.*@\{)[^\x00-\x20\x7f~^:?*[\\]+$/
 
 /* --- Échecs git (fix : conserve le code de sortie, inspecte stdout) ---

@@ -10,8 +10,10 @@
    epuisées) fermait le watcher pour de bon — le dépôt restait muet jusqu'à la fermeture de
    l'onglet. On retente désormais avec un backoff, jusqu'à un plafond de tentatives.
 
-   ponytail: dans un worktree lié, `--absolute-git-dir` pointe `.git/worktrees/<nom>` — HEAD y est,
-   mais pas les refs. Surveiller aussi `--git-common-dir` le jour où le cas se présente. */
+   Known limitation: in a linked worktree, `--absolute-git-dir` points at `.git/worktrees/<name>` —
+   HEAD lives there, but refs don't. Watching `--git-common-dir` too would fix that; deferred until
+   linked-worktree support is actually on the table, since it needs the common dir plumbed through
+   RepoHandle first. */
 
 import { watch, type FSWatcher } from "node:fs"
 

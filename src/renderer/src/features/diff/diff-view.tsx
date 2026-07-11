@@ -93,7 +93,7 @@ const RAW_CLASS: Record<string, string> = {
   ctx: "",
 }
 
-/* ponytail: au-delà de 3000 lignes, rendu brut sans coloration — diff2html rame, personne ne lit */
+/* Past 3000 lines: plain, uncolored rendering — diff2html chokes, and nobody reads a diff that big anyway */
 function renderRaw(body: HTMLElement, text: string) {
   const lines = text.split("\n")
   body.textContent = ""

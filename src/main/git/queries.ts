@@ -60,8 +60,8 @@ const stashTips = (r: RepoHandle): Promise<string[]> =>
   r.git(["stash", "list", "--format=%H"]).catch(() => "").then((o) => o.split("\n").filter(Boolean))
 
 /* --- Log ---
-   ponytail: git log --skip re-parcourt l'historique à chaque page — OK jusqu'à ~100k commits,
-   passer à un stream spawn persistant si un jour ça rame. */
+   `git log --skip` re-walks history from the start on every page — fine up to roughly 100k
+   commits; switch to a persistent streaming spawn if that ever becomes the bottleneck. */
 export async function logPage(r: RepoHandle, skip: number, count: number, signal?: AbortSignal): Promise<Commit[]> {
   /* --decorate=full : `%D` sort alors `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
      Sous sa forme courte, `origin/x` et une branche locale `origin/x` sont indistinguables. */
@@ -73,11 +73,11 @@ export async function logPage(r: RepoHandle, skip: number, count: number, signal
   return parseLogPage(out)
 }
 
-/* --- Recherche ---
-   git ET-alise `--grep` et `--author` : chaque critère est donc une invocation séparée dont on
-   prend l'union. `-F` rend les motifs littéraux, `-S` fouille le contenu des diffs (la pioche).
-   ponytail: plafond par critère, pas de pagination — la barre n'affiche qu'un compteur et saute
-   de résultat en résultat. */
+/* --- Search ---
+   git ANDs `--grep` and `--author` together, so each criterion is a separate invocation and we
+   take the union. `-F` makes patterns literal, `-S` searches diff content (the pickaxe).
+   Capped per criterion rather than paginated — the search bar only shows a counter and jumps
+   from hit to hit, so a hard cap is simpler than real pagination. */
 const SEARCH_MAX = 2000
 const SEARCH_TIMEOUT = 30_000
 
@@ -163,7 +163,9 @@ export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
      reste que le reflog local, où `branch: Created from origin/x` témoigne du lien passé. Une
      branche née localement n'y mentionne jamais son propre nom distant, et n'est donc pas barrée.
 
-     ponytail: un reflog expiré (gc, 90 j) rend la branche indiscernable d'une branche locale. */
+     A reflog expired by gc (90 days) makes such a branch indistinguishable from a purely local
+     one — a known limitation of this heuristic, not something more code can fix (no other
+     persistent state records the original tracking relationship). */
   const remoteRefs = refs.filter((x) => x.kind === "remote").map((x) => x.name)
   const present = new Set(remoteRefs.map((n) => n.slice(n.indexOf("/") + 1)))
   const remoteNames = [...new Set(remoteRefs.map((n) => n.slice(0, n.indexOf("/"))))]
@@ -226,12 +228,12 @@ export function fileIcon(r: RepoHandle, path: string): Promise<string | null> {
   return app.getFileIcon(inRepo(r, path), { size: "small" }).then((i) => i.toDataURL(), () => null)
 }
 
-/* Extensions que Windows exécute au double-clic (association par défaut ou quasi-systématique) :
-   un dépôt cloné hostile qui en contiendrait une transformerait `repo:openFile` en exécution
-   native. ponytail: liste noire par extension — défense en profondeur, pas une garantie ; elle
-   ne couvre ni les gestionnaires tiers enregistrés sur d'autres extensions, ni un contenu dont
-   le vrai type ne correspondrait pas à l'extension. Pour une extension bloquée, on révèle le
-   fichier dans l'explorateur plutôt que d'échouer en silence (AUDIT.md §2, divers). */
+/* Extensions Windows executes on double-click (default or near-universal association): a hostile
+   cloned repo containing one would turn `repo:openFile` into native execution. Denylist by
+   extension — defense in depth, not a guarantee; it covers neither third-party handlers
+   registered on other extensions nor content whose real type doesn't match its extension. For a
+   blocked extension, the file is revealed in the file explorer instead of failing silently
+   (AUDIT.md §2, misc). */
 const BLOCKED_EXT = new Set([
   ".exe", ".bat", ".cmd", ".com", ".scr", ".msi", ".msp", ".ps1", ".ps1xml", ".vbs", ".vbe",
   ".js", ".jse", ".wsf", ".wsh", ".msc", ".cpl", ".jar", ".pif", ".reg", ".lnk", ".hta",

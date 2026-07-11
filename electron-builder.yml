@@ -14,8 +14,9 @@ directories:
 win:
   target: nsis
 
-# ponytail: pas de signature de code. SmartScreen affichera « éditeur inconnu »
-# jusqu'à l'achat d'un certificat EV — renseigner alors `win.certificateSubjectName`.
+# No code signing for 1.0: SmartScreen will show "unknown publisher" until a certificate is
+# obtained (see README/CONTRIBUTING for the SignPath Foundation route) — set
+# `win.certificateSubjectName` once one is configured.
 
 # Fuses Electron (RunAsNode, inspect CLI, NODE_OPTIONS, intégrité asar) : basculées sur le
 # binaire packagé une fois les fichiers en place, avant toute signature (AUDIT.md §4).

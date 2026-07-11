@@ -38,7 +38,7 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
   if (!parent || !heads.has(parent) || parent === branch) return null
 
   const tagged = kind === "release" || kind === "hotfix"
-  /* ponytail: describe prend le tag le plus proche, semver ou non — le bump s'en protège par regex */
+  /* describe returns the nearest tag, semver or not — the bump logic guards against that with a regex */
   const [commits, lastTag] = await Promise.all([
     r.git(["rev-list", "--count", `${parent}..${branch}`]).then((o) => parseInt(o, 10)),
     tagged ? r.git(["describe", "--tags", "--abbrev=0", branch]).then((o) => o.trim(), () => null) : Promise.resolve(null),
@@ -66,9 +66,9 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
   }
 }
 
-/* `git flow` fait tout — merge, tag, back-merge, suppression de la branche. Le réimplémenter,
-   c'est s'écarter en silence de la sémantique que l'utilisateur attend de son outil.
-   ponytail: l'extension n'est pas installée ? le message de git le dira au clic. */
+/* `git flow` does everything — merge, tag, back-merge, branch deletion. Reimplementing it means
+   silently drifting from the semantics the user expects from their tool. If the extension isn't
+   installed, git's own error message will say so when the user clicks. */
 export async function finishFlow(r: RepoHandle, name: string): Promise<void> {
   const prefixes = (await flowPrefixes(r)) ?? {}
   const type = FLOW_TYPES.find((t) => prefixes[t] && name.startsWith(prefixes[t]!))
