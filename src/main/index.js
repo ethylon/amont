@@ -931,10 +931,24 @@ function createWindow() {
   mainWindow = win;
   /* Un renderer mort laisse une fenêtre noire et sourde (plus de clavier, F5 inopérant) :
      on journalise l'incident puis on recharge d'office. Le journal survit au crash —
-     c'est lui qu'on lit après coup pour comprendre. */
+     c'est lui qu'on lit après coup pour comprendre.
+     Plafonné : un crash déterministe au chargement ferait boucler reload → crash sans fin
+     (CPU à fond, incidents.log qui enfle) — au-delà, une page statique explique la suite. */
+  const RELOAD_MAX = 3;
+  const RELOAD_WINDOW_MS = 60_000;
+  let reloads = [];
   win.webContents.on('render-process-gone', (_ev, d) => {
     report('renderer gone:', d.reason, `(exit ${d.exitCode})`);
-    if (d.reason !== 'clean-exit') win.webContents.reload();
+    if (d.reason === 'clean-exit') return;
+    const now = Date.now();
+    reloads = reloads.filter(t => now - t < RELOAD_WINDOW_MS);
+    if (reloads.length < RELOAD_MAX) {
+      reloads.push(now);
+      return win.webContents.reload();
+    }
+    report('renderer crash loop: reload suspendu, page d\'erreur statique');
+    if (process.env.ELECTRON_RENDERER_URL) win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/crash.html`);
+    else win.loadFile(join(import.meta.dirname, '../renderer/crash.html'));
   });
   win.webContents.on('unresponsive', () => report('renderer unresponsive'));
   win.webContents.on('responsive', () => report('renderer responsive again'));
