@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react"
+
 const media = matchMedia("(prefers-color-scheme: dark)")
 
 /** Le choix explicite prime ; sans choix, on suit l'OS. */
@@ -24,3 +26,10 @@ export function setDark(dark: boolean) {
 
 /* sans préférence enregistrée, `isDark()` relit l'OS : la bascule système reste suivie */
 media.addEventListener("change", applyTheme)
+
+/** Hook partagé (AUDIT.md §5, item 7) : tout consommateur du thème passe par lui plutôt que de
+    recopier `isDark` dans un state local (désync garantie sur un flip OS non explicite, cf.
+    l'ancien bug de tab-strip, fix Phase 0). */
+export function useTheme(): boolean {
+  return useSyncExternalStore(onThemeChange, isDark)
+}

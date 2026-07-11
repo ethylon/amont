@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { Clock01Icon, Folder01Icon, FolderLibraryIcon } from "@hugeicons/core-free-icons"
 
@@ -49,31 +50,32 @@ function Section({ icon, title, action, children }: {
   )
 }
 
-export function HomeScreen({ active, onOpened }: Props) {
-  const [root, setRoot] = useState<string | null>(null)
-  const [recents, setRecents] = useState<RepoRef[]>([])
-  const [found, setFound] = useState<RepoRef[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+const homeKeys = {
+  repos: ["home", "repos"] as const,
+  scan: (root: string | null) => ["home", "scan", root] as const,
+}
 
-  /* l'accueil ne démonte jamais : on rafraîchit les récents à chaque retour dessus */
+export function HomeScreen({ active, onOpened }: Props) {
+  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  /* l'accueil ne démonte jamais : on rafraîchit les récents à chaque retour dessus. TanStack
+     Query encaisse le cas où deux passages rapprochés se chevauchent (démontage/réabonnement
+     de requêtes en vol) sans flag `stale` à recopier à la main. */
+  const { data: repos } = useQuery({ queryKey: homeKeys.repos, queryFn: () => host.repos() })
   useEffect(() => {
-    if (!active) return
-    host.repos().then((s) => {
-      setRoot(s.root)
-      setRecents(s.recents)
-    })
-  }, [active])
+    if (active) queryClient.invalidateQueries({ queryKey: homeKeys.repos })
+  }, [active, queryClient])
+
+  const root = repos?.root ?? null
+  const recents = repos?.recents ?? []
 
   /* le scan traverse le disque : il ne part qu'une fois la racine connue */
-  useEffect(() => {
-    if (!root) return
-    let stale = false
-    setFound(null)
-    host.scanRoot().then((r) => !stale && setFound(r))
-    return () => {
-      stale = true
-    }
-  }, [root])
+  const { data: found = null } = useQuery({
+    queryKey: homeKeys.scan(root),
+    queryFn: () => host.scanRoot(),
+    enabled: !!root,
+  })
 
   /* main renvoie null (dialogue annulé) ou le repo ouvert ; un échec throw désormais une
      erreur structurée (fix chantier « erreurs », AUDIT.md §4) plutôt qu'un `{ error }`. */
@@ -87,7 +89,10 @@ export function HomeScreen({ active, onOpened }: Props) {
   )
   const failed = useCallback((e: unknown) => setError(describeError(e)), [])
 
-  const chooseRoot = useCallback(() => host.chooseRoot().then(setRoot), [])
+  const chooseRoot = useCallback(async () => {
+    const newRoot = await host.chooseRoot()
+    queryClient.setQueryData(homeKeys.repos, (prev) => (prev ? { ...prev, root: newRoot } : { root: newRoot, recents: [] }))
+  }, [queryClient])
   const openPath = useCallback((path: string) => host.openPath(path).then(opened, failed), [failed, opened])
   const openDialog = useCallback(() => host.openDialog().then(opened, failed), [failed, opened])
 

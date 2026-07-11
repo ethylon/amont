@@ -49,8 +49,9 @@ export const boot = () => bridge.state()
 export type RepoApi = {
   log(skip: number, count: number): Promise<Commit[]>
   total(): Promise<number>
-  /** hashes courts des commits correspondants, tous critères confondus ; `content` fouille les diffs */
-  search(q: string, content: boolean): Promise<string[]>
+  /** hashes courts des commits correspondants, tous critères confondus ; `content` fouille les diffs.
+      `requestId` : cf. `cancel` — la couche requêtes (lib/queries.ts) y branche l'AbortSignal. */
+  search(q: string, content: boolean, requestId?: string): Promise<string[]>
   refs(): Promise<GitRef[]>
   /** `null` : le dépôt n'a jamais vu `git flow init` */
   flow(): Promise<FlowPrefixes | null>
@@ -58,10 +59,10 @@ export type RepoApi = {
   flowInfo(branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null>
   /** merge dans HEAD, suppression, pull/push d'une branche donnée, ou `git flow <type> finish` */
   branch(action: BranchAct, name: string): Promise<void>
-  files(hash: string, parent: string | null): Promise<FileChange[]>
+  files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
   /** corps du message (`%b`), trailers compris */
-  body(hash: string): Promise<string>
-  diff(hash: string, parent: string | null, path: string, oldPath: string | null): Promise<string>
+  body(hash: string, requestId?: string): Promise<string>
+  diff(hash: string, parent: string | null, path: string, oldPath: string | null, requestId?: string): Promise<string>
   status(): Promise<Status>
   op(name: OpName): Promise<void>
   worktree(): Promise<Worktree>
@@ -88,14 +89,14 @@ export type RepoApi = {
 export const repoApi = (id: number): RepoApi => ({
   log: (skip, count) => bridge.log(id, skip, count),
   total: () => bridge.total(id),
-  search: (q, content) => bridge.search(id, q, content),
+  search: (q, content, requestId) => bridge.search(id, q, content, requestId),
   refs: () => bridge.refs(id),
   flow: () => bridge.flow(id),
   flowInfo: (branch, kind) => bridge.flowInfo(id, branch, kind),
   branch: (action, name) => bridge.branch(id, action, name),
-  files: (hash, parent) => bridge.files(id, hash, parent),
-  body: (hash) => bridge.body(id, hash),
-  diff: (hash, parent, path, oldPath) => bridge.diff(id, hash, parent, path, oldPath),
+  files: (hash, parent, requestId) => bridge.files(id, hash, parent, requestId),
+  body: (hash, requestId) => bridge.body(id, hash, requestId),
+  diff: (hash, parent, path, oldPath, requestId) => bridge.diff(id, hash, parent, path, oldPath, requestId),
   status: () => bridge.status(id),
   op: (name) => bridge.op(id, name),
   worktree: () => bridge.worktree(id),
