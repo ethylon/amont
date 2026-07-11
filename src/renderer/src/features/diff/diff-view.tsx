@@ -9,8 +9,8 @@ import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/co
 import type { FileChange, RepoApi } from "@/lib/git"
 import { useDiffQuery } from "@/features/diff/diff-queries"
 import { isDark, useTheme } from "@/lib/theme"
+import { AsyncHint } from "@/components/ui/async-hint"
 import { IconButton } from "@/components/ui/icon-button"
-import { Spinner } from "@/components/ui/primitives/spinner"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export type DiffView = "unified" | "sbs"
@@ -213,9 +213,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
       {error ? (
         <p className="shrink-0 text-xs text-muted-foreground">Diff indisponible.</p>
       ) : text === null ? (
-        <p className="flex shrink-0 items-center gap-2 py-1 text-xs text-muted-foreground">
-          <Spinner className="size-3" /> diff…
-        </p>
+        <AsyncHint className="shrink-0 py-1">diff…</AsyncHint>
       ) : (
         <div ref={body} className={DIFF_BODY} />
       )}
