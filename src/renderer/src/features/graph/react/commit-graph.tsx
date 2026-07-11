@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react"
 
 import type { RepoApi } from "@/lib/git"
-import { createGraph, type GraphCallbacks, type GraphHandle } from "@/components/graph-canvas"
+import { createGraph, type GraphCallbacks, type GraphHandle } from "../controller.ts"
 
 type Props = {
   /** rempli au montage, vidé au démontage — RepoView pilote le graphe à travers cette ref */
@@ -11,9 +11,9 @@ type Props = {
   onReady(graph: GraphHandle): void
 }
 
-/* Coque React autour du canvas impératif : elle fournit les trois nœuds DOM et le cycle de
-   vie, rien d'autre. Les callbacks passent par une ref pour qu'un handler qui change
-   d'identité ne remonte jamais le graphe. */
+/* Coque React autour du contrôleur impératif (AUDIT.md §1, à préserver) : elle fournit les trois
+   nœuds DOM et le cycle de vie, rien d'autre. Les callbacks passent par une ref pour qu'un
+   handler qui change d'identité ne remonte jamais le graphe. */
 export function CommitGraph({ graphRef, api, callbacks, onReady }: Props) {
   const board = useRef<HTMLDivElement>(null)
   const inner = useRef<HTMLDivElement>(null)
@@ -31,6 +31,7 @@ export function CommitGraph({ graphRef, api, callbacks, onReady }: Props) {
       onStats: (s) => cb.current.onStats(s),
       onGraphWidth: (px) => cb.current.onGraphWidth(px),
       onBranchWidth: (px) => cb.current.onBranchWidth(px),
+      onError: (message) => cb.current.onError(message),
     })
     graphRef.current = graph
     ready.current(graph)

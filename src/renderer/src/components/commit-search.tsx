@@ -6,7 +6,7 @@ import type { RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
 import { SEARCH_MIN, useSearchQuery } from "@/lib/queries"
 import { PRIORITY, useShortcut } from "@/lib/shortcuts"
-import type { GraphHandle } from "@/components/graph-canvas"
+import type { GraphHandle } from "@/features/graph/controller"
 import {
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
 } from "@/components/ui/input-group"
