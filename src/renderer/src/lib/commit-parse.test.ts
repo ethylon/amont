@@ -136,9 +136,9 @@ describe("parseMerge / mergeSource", () => {
 })
 
 describe("parseSubject", () => {
-  it("reconnaît le badge de type, les alias internes (typos comprises) et Conventional Commits", () => {
+  it("reconnaît le badge de type, les alias de la table et Conventional Commits", () => {
     assert.deepEqual(parseSubject("[FEATURE] ajout du graphe"), { type: "feat", label: "feat", text: "ajout du graphe" })
-    assert.deepEqual(parseSubject("[HOFTIX] vite"), { type: "hotfix", label: "hotfix", text: "vite" }) // typo connue
+    assert.deepEqual(parseSubject("[HOTFIX] vite"), { type: "hotfix", label: "hotfix", text: "vite" })
     assert.deepEqual(parseSubject("[Machin] chose"), { type: "other", label: "machin", text: "chose" })
     assert.deepEqual(parseSubject("feat(graph): lanes"), { type: "feat", label: "feat · graph", text: "lanes" })
     assert.deepEqual(parseSubject("fix: débordement"), { type: "bugfix", label: "bugfix", text: "débordement" })
