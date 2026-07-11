@@ -5,7 +5,8 @@
    rendu) ; elles cohabitent ici avec `layoutChunk` (lanes.ts) dont elles précèdent l'appel. */
 
 import type { Commit } from "../../../../../shared/types.ts"
-import { mergeFlow, parseMerge, parseRefs, SEMVER, type ParsedMerge } from "../../../lib/commit-message.ts"
+import { parseMerge, parseRefs, type ParsedMerge } from "../../../lib/commit-parse.ts"
+import { mergeFlow, SEMVER } from "../../../lib/gitflow.ts"
 
 /* --- Collapse release/hotfix ---
    Une release/hotfix gitflow atterrit en deux merges — un côté master, un côté develop. On les

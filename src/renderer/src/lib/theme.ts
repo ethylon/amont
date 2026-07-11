@@ -1,9 +1,11 @@
 import { useSyncExternalStore } from "react"
 
+import { prefs } from "@/lib/prefs"
+
 const media = matchMedia("(prefers-color-scheme: dark)")
 
 /** Le choix explicite prime ; sans choix, on suit l'OS. */
-export const isDark = () => (localStorage.getItem("gg.theme") ?? (media.matches ? "dark" : "light")) === "dark"
+export const isDark = () => (prefs.theme.get() ?? (media.matches ? "dark" : "light")) === "dark"
 
 const listeners = new Set<() => void>()
 
@@ -20,7 +22,7 @@ export function applyTheme() {
 }
 
 export function setDark(dark: boolean) {
-  localStorage.setItem("gg.theme", dark ? "dark" : "light")
+  prefs.theme.set(dark ? "dark" : "light")
   applyTheme()
 }
 

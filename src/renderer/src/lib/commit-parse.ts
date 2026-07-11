@@ -1,10 +1,7 @@
-import type { FlowPrefixes } from "@/lib/git"
+/* Parsing des messages de commit et des refs `%D` (AUDIT.md §7, phase 5 — anciennement
+   lib/commit-message.ts, éclaté en trois métiers : ce module, markdown.ts et gitflow.ts). */
 
-/* Teintes disponibles pour les chips : le preset n'expose que destructive, on lui adjoint
-   success, warning, release, info et refactor (cf. @theme dans app.css). `lane` n'est pas une
-   teinte mais un relais : le chip prend celle que son porteur lui pose — le trait de branche. */
-export type BadgeColor =
-  | "neutral" | "primary" | "success" | "warning" | "danger" | "release" | "info" | "refactor" | "lane"
+import type { BadgeColor } from "@/components/ui/badge"
 
 /* Badges de type : conventions internes, typos incluses.
    ponytail: table d'alias explicite — passer en config si les conventions bougent. */
@@ -31,7 +28,7 @@ const CONVENTIONAL: Record<string, string> = {
 
 const TYPE_COLOR: Record<string, BadgeColor> = {
   feat: "success",
-  feature: "success", // préfixe de branche `feature/…`, cf. refs-sidebar
+  feature: "success", // préfixe de branche `feature/…`, cf. gitflow.ts
   hotfix: "danger",
   revert: "danger",
   bugfix: "warning",
@@ -140,59 +137,7 @@ export function parseBody(raw: string): CommitBody {
   return { text: lines.join("\n").trim(), coAuthors }
 }
 
-/* --- Markdown du corps ---
-   Sous-ensemble réellement écrit dans un message de commit : paragraphes, puces, `code`,
-   **gras**, *italique*, URLs nues. Le parseur ne rend que des données : aucun HTML n'est injecté.
-   ponytail: ni titres, ni tableaux, ni blocs fencés. Une dep markdown le jour où ça manque. */
-
-export type MdKind = "text" | "code" | "bold" | "em" | "link"
-export type MdToken = { t: MdKind; v: string }
-export type MdBlock = { kind: "p"; tokens: MdToken[] } | { kind: "ul"; items: MdToken[][] }
-
-/* `(?<![*\w])` : l'italique ne coupe pas un `a*b*c`. Un `*` en tête de ligne est déjà une puce. */
-const INLINE = /`([^`]+)`|\*\*(.+?)\*\*|(?<![*\w])\*([^*]+)\*(?!\*)|(https?:\/\/[^\s<>()]+)/g
-const BULLET = /^\s*[-*+]\s+(.*)/
-
-function tokenize(s: string): MdToken[] {
-  const out: MdToken[] = []
-  const push = (t: MdKind, v: string) => void (v && out.push({ t, v }))
-  let last = 0
-  for (const m of s.matchAll(INLINE)) {
-    push("text", s.slice(last, m.index))
-    push(m[1] ? "code" : m[2] ? "bold" : m[3] ? "em" : "link", m[1] ?? m[2] ?? m[3] ?? m[4])
-    last = m.index + m[0].length
-  }
-  push("text", s.slice(last))
-  return out
-}
-
-export function parseMarkdown(text: string): MdBlock[] {
-  const blocks: MdBlock[] = []
-  let para: string[] = []
-  let items: string[] = []
-
-  /* une ligne vide, ou le passage puce ↔ paragraphe, ferme le bloc courant */
-  const flush = () => {
-    if (para.length) blocks.push({ kind: "p", tokens: tokenize(para.join("\n")) })
-    if (items.length) blocks.push({ kind: "ul", items: items.map(tokenize) })
-    para = []
-    items = []
-  }
-
-  for (const line of text.split("\n")) {
-    const m = BULLET.exec(line)
-    if (m) {
-      if (para.length) flush()
-      items.push(m[1])
-    } else if (!line.trim()) flush()
-    else {
-      if (items.length) flush()
-      para.push(line)
-    }
-  }
-  flush()
-  return blocks
-}
+/* --- Merges --- */
 
 export type ParsedMerge = { from: string; to: string | null; tag?: boolean; noise: boolean }
 
@@ -221,66 +166,3 @@ export function mergeSource(s: string): string | null {
   if (pr) return pr[1].includes("/") ? pr[1].slice(pr[1].indexOf("/") + 1) : pr[1]
   return null
 }
-
-export const MAIN_TARGETS = /^(develop|master|main|release\/.+)$/
-
-/* Une release/hotfix gitflow atterrit sur master ET develop, avec un tag de version. Le motif se
-   reconnaît à la source du merge : préfixe `release/`|`hotfix/`, ou — côté develop du « merge tag
-   into develop » — au tag semver lui-même. Un tag semver seul ne distingue pas release de hotfix :
-   on retombe sur release, le rouge du hotfix venant de ses merges `hotfix/`. */
-export type FlowKind = "release" | "hotfix"
-export const SEMVER = /^v?\d+\.\d+\.\d+/
-const RELEASE_BRANCH = /^release\//
-const HOTFIX_BRANCH = /^hotfix\//
-const FLOW_COLOR: Record<FlowKind, BadgeColor> = { release: "release", hotfix: "danger" }
-
-export function mergeFlow(mg: ParsedMerge): FlowKind | null {
-  if (HOTFIX_BRANCH.test(mg.from)) return "hotfix"
-  if (RELEASE_BRANCH.test(mg.from)) return "release"
-  if (mg.tag && SEMVER.test(mg.from)) return "release"
-  return null
-}
-
-/* Teinte du chip source d'un merge. Le motif release/hotfix prime ; sinon un tag reste ambre, et
-   un merge vers un tronc garde son teal. */
-export function mergeColor(mg: ParsedMerge): BadgeColor {
-  const flow = mergeFlow(mg)
-  if (flow) return FLOW_COLOR[flow]
-  if (mg.tag) return "warning"
-  return !mg.noise && mg.to && MAIN_TARGETS.test(mg.to) ? "primary" : "neutral"
-}
-
-/** Teinte d'un tag semver posé sur une ligne : rouge si la ligne est un hotfix, violet sinon. */
-export const tagFlowColor = (flow: FlowKind | null): BadgeColor => (flow === "hotfix" ? "danger" : "release")
-
-/* --- Type de travail d'une branche --- */
-
-export type BranchFlow = keyof FlowPrefixes
-
-/* Conventions usuelles quand git-flow n'est pas configuré : ce dépôt même nomme ses
-   branches `fix/…` et `release/…` sans jamais avoir vu `git flow init`. */
-const BRANCH_PREFIX: [RegExp, BranchFlow][] = [
-  [/^(feature|feat)\//, "feature"],
-  [/^(bugfix|fix)\//, "bugfix"],
-  [RELEASE_BRANCH, "release"],
-  [HOTFIX_BRANCH, "hotfix"],
-]
-
-/* Type de travail porté par le nom d'une branche : préfixes gitflow s'ils sont configurés,
-   sinon les conventions usuelles. Nourrit les indicateurs de contexte (chip et rail de la
-   toolbar), pas le menu `flow finish` — lui exige un vrai gitflow, cf. refs-sidebar. */
-export function branchFlow(name: string, prefixes: FlowPrefixes | null): BranchFlow | null {
-  const flow =
-    prefixes &&
-    (Object.keys(prefixes) as BranchFlow[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]!))
-  return flow || (BRANCH_PREFIX.find(([re]) => re.test(name))?.[1] ?? null)
-}
-
-/* Statuts `git diff --name-status`. Un statut à deux lettres est un conflit (UU, AA, DD…).
-   R et C n'ont plus de teinte propre : ce sont des déplacements, pas des changements de contenu. */
-export const fileStatusColor = (st: string): BadgeColor =>
-  st.length > 1 ? "danger"
-    : st === "A" || st === "?" ? "success"
-      : st === "M" ? "warning"
-        : st === "D" ? "danger"
-          : "neutral"
