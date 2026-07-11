@@ -49,6 +49,9 @@ export function scrollTextHover(el: HTMLElement | null) {
   let pos = 0
   let last = performance.now()
   const step = (now: number) => {
+    /* élément démonté sans mouseleave (reset du graphe, changement d'onglet) : sans cette
+       sortie, la boucle rAF tournerait indéfiniment sur un nœud détaché */
+    if (!el.isConnected) return scrollTextStop()
     pos = (pos + ((now - last) / 1000) * SPEED) % cycle
     last = now
     el.scrollLeft = pos
