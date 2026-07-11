@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils"
-import { Spinner } from "@/components/ui/primitives/spinner"
+import { Spinner } from "@/components/ui/spinner"
 
 /** Trio spinner + texte muted, pour l'attente d'une première réponse (AUDIT.md §7, phase 5 —
     recopié à l'identique dans detail-panel/home-screen/refs-sidebar/diff-view). `className`

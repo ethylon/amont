@@ -14,7 +14,7 @@ import { buildPathTree, type PathTree } from "@/lib/path-tree"
 import type { BadgeColor } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { BranchMenu } from "@/features/refs/refs-menu"
 
