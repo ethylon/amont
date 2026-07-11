@@ -5,6 +5,7 @@ import { Clock01Icon, Folder01Icon, FolderLibraryIcon } from "@hugeicons/core-fr
 
 import { host, type Repo, type RepoRef } from "@/lib/git"
 import { describeError } from "@/lib/errors"
+import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/ui/mark"
 import { AsyncHint } from "@/components/ui/async-hint"
@@ -107,16 +108,15 @@ export function HomeScreen({ active, onOpened }: Props) {
             <EmptyMedia>
               <Mark className="size-11" />
             </EmptyMedia>
-            <EmptyTitle className="text-base">Aucun dépôt</EmptyTitle>
+            <EmptyTitle className="text-base">{messages.home.noRepos}</EmptyTitle>
             <EmptyDescription className="text-pretty">
-              Choisis un dossier racine pour lister les dépôts qu'il contient, ou ouvre un dépôt
-              directement.
+              {messages.home.chooseRootHint}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button onClick={chooseRoot}>Choisir un dossier racine…</Button>
+            <Button onClick={chooseRoot}>{messages.home.chooseRoot}</Button>
             <Button variant="ghost" size="sm" onClick={openDialog}>
-              Ouvrir un dépôt…
+              {messages.home.openRepo}
             </Button>
             {error && (
               <Badge color="danger" shape="squared">
@@ -136,10 +136,10 @@ export function HomeScreen({ active, onOpened }: Props) {
           <Mark className="size-7" />
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold tracking-tight">Amont</h2>
-            <p className="text-xs text-muted-foreground">Ouvre un dépôt dans un nouvel onglet.</p>
+            <p className="text-xs text-muted-foreground">{messages.home.openInNewTab}</p>
           </div>
           <Button variant="outline" size="sm" onClick={openDialog}>
-            Ouvrir un dépôt…
+            {messages.home.openRepo}
           </Button>
         </div>
 
@@ -150,7 +150,7 @@ export function HomeScreen({ active, onOpened }: Props) {
         )}
 
         {!!recents.length && (
-          <Section icon={Clock01Icon} title="Récents">
+          <Section icon={Clock01Icon} title={messages.home.recents}>
             {recents.map((r) => (
               <RepoButton key={r.path} repo={r} onClick={() => openPath(r.path)} />
             ))}
@@ -159,22 +159,22 @@ export function HomeScreen({ active, onOpened }: Props) {
 
         <Section
           icon={FolderLibraryIcon}
-          title="Dossier racine"
+          title={messages.home.rootFolder}
           action={
             <Button variant="ghost" size="xs" className="normal-case" onClick={chooseRoot}>
-              {root ? "Changer…" : "Choisir…"}
+              {root ? messages.home.change : messages.home.choose}
             </Button>
           }
         >
           {root && <p className="truncate px-2.5 pb-1.5 text-[0.625rem] text-muted-foreground">{root}</p>}
           {!root ? (
             <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">
-              Aucun dossier racine. Choisis-en un pour lister ses dépôts.
+              {messages.home.noRootFolder}
             </p>
           ) : found === null ? (
-            <AsyncHint className="px-2.5 py-2">recherche des dépôts…</AsyncHint>
+            <AsyncHint className="px-2.5 py-2">{messages.home.scanningRepos}</AsyncHint>
           ) : !found.length ? (
-            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">Aucun dépôt trouvé sous cette racine.</p>
+            <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">{messages.home.noReposFoundUnderRoot}</p>
           ) : (
             found.map((r) => <RepoButton key={r.path} repo={r} onClick={() => openPath(r.path)} />)
           )}

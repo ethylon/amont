@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import { branchFlow } from "@/lib/gitflow"
 import { repoApi, worktreeCount, type Repo } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
 import { useFlowInfoQuery, useFlowQuery } from "@/features/flow/flow-queries"
 import { useStatusQuery } from "@/features/repo/repo-queries"
@@ -201,10 +202,10 @@ function RepoViewContent({ repo, active }: Props) {
                   ) : workFlow && flowInfo && status?.branch ? (
                     <>
                       <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
-                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
+                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">{messages.repo.clickCommitForDetail}</p>
                     </>
                   ) : (
-                    <p className="shrink-0 text-xs text-muted-foreground">Clique un commit pour le détail.</p>
+                    <p className="shrink-0 text-xs text-muted-foreground">{messages.repo.clickCommitForDetail}</p>
                   )}
                 </aside>
               </div>

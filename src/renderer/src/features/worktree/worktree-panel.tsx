@@ -3,6 +3,7 @@ import type { IconSvgElement } from "@hugeicons/react"
 import { ArchiveArrowDownIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { useStatusQuery } from "@/features/repo/repo-queries"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore } from "@/features/repo/repo-store"
@@ -131,22 +132,22 @@ export function WorktreePanel() {
       }}
     />
   )
-  const stageBtn = (f: WtFile) => wtButton("Indexer", PlusSignIcon, STAGE, false, [f.path])
-  const unstageBtn = (f: WtFile) => wtButton("Désindexer", MinusSignIcon, UNSTAGE, false, [f.path])
-  const stageDir = (files: WtFile[]) => wtButton("Indexer le dossier", PlusSignIcon, STAGE, true, files.map((f) => f.path))
-  const unstageDir = (files: WtFile[]) => wtButton("Désindexer le dossier", MinusSignIcon, UNSTAGE, true, files.map((f) => f.path))
+  const stageBtn = (f: WtFile) => wtButton(messages.worktree.stage, PlusSignIcon, STAGE, false, [f.path])
+  const unstageBtn = (f: WtFile) => wtButton(messages.worktree.unstage, MinusSignIcon, UNSTAGE, false, [f.path])
+  const stageDir = (files: WtFile[]) => wtButton(messages.worktree.stageFolder, PlusSignIcon, STAGE, true, files.map((f) => f.path))
+  const unstageDir = (files: WtFile[]) => wtButton(messages.worktree.unstageFolder, MinusSignIcon, UNSTAGE, true, files.map((f) => f.path))
 
-  const verb = amend ? "Amender" : "Commit"
-  const caption = staged ? `${verb} · ${staged} fichier${staged > 1 ? "s" : ""}` : verb
+  const verb = amend ? messages.worktree.amend : messages.worktree.commit
+  const caption = messages.worktree.commitCaption(verb, staged)
 
   return (
     <>
       <div className="flex shrink-0 items-center justify-between gap-2">
-        <h2 className="text-sm leading-snug font-semibold tracking-tight text-balance">Modifications non validées</h2>
+        <h2 className="text-sm leading-snug font-semibold tracking-tight text-balance">{messages.worktree.uncommittedChanges}</h2>
         <div className="flex items-center gap-1">
           <IconButton
-            label="Stasher les modifications (git stash push -u)"
-            title="Stasher les modifications (git stash push -u)"
+            label={messages.worktree.stashChanges}
+            title={messages.worktree.stashChanges}
             icon={ArchiveArrowDownIcon}
             size="icon-sm"
             onClick={onStash}
@@ -158,7 +159,7 @@ export function WorktreePanel() {
       {/* deux blocs à parts égales, chacun avec son propre défilement, toujours visibles */}
       <div className="mt-4 flex min-h-0 flex-1 flex-col border-t pt-3">
         <WtBlock
-          title="Non indexés"
+          title={messages.worktree.unstaged}
           files={unindexed}
           view={view}
           api={api}
@@ -167,13 +168,13 @@ export function WorktreePanel() {
           action={stageBtn}
           dirAction={stageDir}
           bulk={
-            unindexed.length ? { label: "Tout indexer", cmd: "git add -- …", onClick: () => onRun(STAGE, unindexed.map((f) => f.path)) } : undefined
+            unindexed.length ? { label: messages.worktree.stageAll, cmd: "git add -- …", onClick: () => onRun(STAGE, unindexed.map((f) => f.path)) } : undefined
           }
-          empty="Aucun changement à indexer."
+          empty={messages.worktree.noChangesToStage}
           className="pb-3"
         />
         <WtBlock
-          title="Indexés"
+          title={messages.worktree.staged}
           files={indexed}
           view={view}
           api={api}
@@ -182,20 +183,20 @@ export function WorktreePanel() {
           action={unstageBtn}
           dirAction={unstageDir}
           bulk={
-            indexed.length ? { label: "Tout désindexer", cmd: "git restore --staged -- …", onClick: () => onRun(UNSTAGE, indexed.map((f) => f.path)) } : undefined
+            indexed.length ? { label: messages.worktree.unstageAll, cmd: "git restore --staged -- …", onClick: () => onRun(UNSTAGE, indexed.map((f) => f.path)) } : undefined
           }
-          empty="Aucun fichier indexé."
+          empty={messages.worktree.noStagedFiles}
           className="border-t pt-3"
         />
       </div>
 
       <FieldGroup className="mt-4 shrink-0 border-t pt-3">
         <Field data-invalid={hasConflicts || undefined}>
-          {hasConflicts && <FieldError>Résous les conflits avant de committer.</FieldError>}
+          {hasConflicts && <FieldError>{messages.worktree.resolveConflictsFirst}</FieldError>}
           <Input
             name="subject"
-            aria-label="Message de commit"
-            placeholder="Message de commit"
+            aria-label={messages.worktree.commitMessage}
+            placeholder={messages.worktree.commitMessage}
             value={subject}
             onChange={(e) => onSubjectChange(e.target.value)}
           />
@@ -234,7 +235,7 @@ export function WorktreePanel() {
             >
               <Checkbox id={amendId} checked={amend} disabled={!canAmend} onCheckedChange={(v) => onAmendChange(v)} />
               <label htmlFor={amendId} className="cursor-pointer text-xs text-muted-foreground select-none">
-                Amender
+                {messages.worktree.amend}
               </label>
             </div>
           </div>

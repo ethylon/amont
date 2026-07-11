@@ -3,6 +3,7 @@ import { Bug01Icon, Fire02Icon, GitBranchIcon, GitMergeIcon, RocketIcon } from "
 
 import type { FlowInfo } from "@/lib/git"
 import type { BranchFlow } from "@/lib/gitflow"
+import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 
 /* Signes et teintes de tous les indicateurs de flow (statusbar, cockpit, carte) : mêmes teintes
@@ -14,16 +15,15 @@ export const FLOW_META: Record<BranchFlow, { icon: IconSvgElement; text: string;
   hotfix: { icon: Fire02Icon, text: "text-destructive", bg: "bg-destructive/10" },
 }
 
-/** « 35 min », « 4 h », « 2 j » — l'échelle grossière suffit à situer un cycle. */
+/** "35 min", "4 h", "2 d" — the coarse scale is enough to situate a cycle. */
 function duration(epoch: number): string {
   const s = Math.max(60, Date.now() / 1000 - epoch)
-  if (s < 3600) return `${Math.floor(s / 60)} min`
-  if (s < 86400) return `${Math.floor(s / 3600)} h`
-  return `${Math.floor(s / 86400)} j`
+  if (s < 3600) return messages.flow.minutes(Math.floor(s / 60))
+  if (s < 86400) return messages.flow.hours(Math.floor(s / 3600))
+  return messages.flow.days(Math.floor(s / 86400))
 }
 
-const count = (info: FlowInfo) =>
-  info.commits ? `${info.commits} commit${info.commits > 1 ? "s" : ""}` : "aucun commit"
+const count = (info: FlowInfo) => messages.flow.commitCount(info.commits)
 
 /* Cockpit : bandeau sous la toolbar dès qu'une branche de flow est sortie — masqué sur les
    troncs (master, develop) et HEAD détachée. À droite, où le travail atterrira une fois
@@ -47,8 +47,8 @@ export function FlowBanner({ kind, branch, info }: { kind: BranchFlow; branch: s
       <span className="flex-1" />
       <span className="flex items-center gap-1.5 opacity-80">
         <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} className="size-3.5 shrink-0" />
-        vers {info.targets.join(" + ")}
-        {info.nextTag && ` · tag ${info.nextTag}`}
+        {messages.flow.to(info.targets.join(" + "))}
+        {info.nextTag && messages.flow.tag(info.nextTag)}
       </span>
     </div>
   )
@@ -59,10 +59,10 @@ export function FlowBanner({ kind, branch, info }: { kind: BranchFlow; branch: s
 export function FlowCard({ kind, branch, info }: { kind: BranchFlow; branch: string; info: FlowInfo }) {
   const m = FLOW_META[kind]
   const rows = [
-    ["base", info.base ?? "—"],
-    ["commits", info.commits ? String(info.commits) : "aucun"],
-    [info.targets.length > 1 ? "cibles du finish" : "cible du finish", info.targets.join(" + ") || "—"],
-    ...(info.nextTag ? [["tag attendu", info.nextTag]] : []),
+    [messages.flow.base, info.base ?? "—"],
+    [messages.flow.commits, info.commits ? String(info.commits) : messages.flow.none],
+    [info.targets.length > 1 ? messages.flow.finishTargets : messages.flow.finishTarget, info.targets.join(" + ") || "—"],
+    ...(info.nextTag ? [[messages.flow.expectedTag, info.nextTag]] : []),
   ]
   return (
     <div className="amont-fadein shrink-0 rounded-md border p-3.5">
@@ -73,7 +73,7 @@ export function FlowCard({ kind, branch, info }: { kind: BranchFlow; branch: str
         <span className="min-w-0">
           <span className="block truncate text-xs font-medium">{branch}</span>
           <span className={cn("block text-[0.625rem]", m.text)}>
-            {kind} en cours{info.startedAt ? ` depuis ${duration(info.startedAt)}` : ""}
+            {messages.flow.inProgress(kind, info.startedAt ? duration(info.startedAt) : null)}
           </span>
         </span>
       </div>

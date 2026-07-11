@@ -8,6 +8,7 @@ import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/co
 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { useDiffQuery } from "@/features/diff/diff-queries"
+import { messages } from "@/lib/messages"
 import { isDark, useTheme } from "@/lib/theme"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { IconButton } from "@/components/ui/icon-button"
@@ -116,7 +117,7 @@ function renderRaw(body: HTMLElement, text: string) {
   if (lines.length > MAX_LINES) {
     const more = document.createElement("div")
     more.className = "min-w-max px-2 text-muted-foreground"
-    more.textContent = `… ${(lines.length - MAX_LINES).toLocaleString()} lignes tronquées`
+    more.textContent = messages.diff.truncated((lines.length - MAX_LINES).toLocaleString())
     body.appendChild(more)
   }
 }
@@ -201,21 +202,21 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
             value={[view]}
             onValueChange={(v) => v[0] && onViewChange(v[0] as DiffViewMode)}
           >
-            <ToggleGroupItem value="unified" aria-label="Diff unifié">
+            <ToggleGroupItem value="unified" aria-label={messages.diff.unified}>
               <HugeiconsIcon icon={MenuSquareIcon} strokeWidth={2} />
             </ToggleGroupItem>
-            <ToggleGroupItem value="sbs" aria-label="Côte à côte">
+            <ToggleGroupItem value="sbs" aria-label={messages.diff.sideBySide}>
               <HugeiconsIcon icon={LayoutTwoColumnIcon} strokeWidth={2} />
             </ToggleGroupItem>
           </ToggleGroup>
-          <IconButton label="Fermer (Échap)" icon={Cancel01Icon} onClick={onClose} />
+          <IconButton label={messages.diff.close} icon={Cancel01Icon} onClick={onClose} />
         </div>
       </div>
 
       {error ? (
-        <p className="shrink-0 text-xs text-muted-foreground">Diff indisponible.</p>
+        <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
       ) : text === null ? (
-        <AsyncHint className="shrink-0 py-1">diff…</AsyncHint>
+        <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
       ) : (
         <div ref={body} className={DIFF_BODY} />
       )}

@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, File01Icon, FolderOpenIcon, Folder01Icon, ListTreeIcon, Menu01Icon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { buildPathTree, type PathTree } from "@/lib/path-tree"
 import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
@@ -33,10 +34,10 @@ export function FileViewToggle({ view, onChange }: { view: FileView; onChange(v:
       value={[view]}
       onValueChange={(v) => v[0] && onChange(v[0] as FileView)}
     >
-      <ToggleGroupItem value="flat" aria-label="Vue à plat">
+      <ToggleGroupItem value="flat" aria-label={messages.repo.flatView}>
         <HugeiconsIcon icon={Menu01Icon} strokeWidth={2} />
       </ToggleGroupItem>
-      <ToggleGroupItem value="tree" aria-label="Arborescence">
+      <ToggleGroupItem value="tree" aria-label={messages.repo.treeView}>
         <HugeiconsIcon icon={ListTreeIcon} strokeWidth={2} />
       </ToggleGroupItem>
     </ToggleGroup>
@@ -111,7 +112,7 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
       <ContextMenuContent>
         <ContextMenuItem onClick={onOpenFile}>
           <HugeiconsIcon icon={FolderOpenIcon} strokeWidth={2} />
-          Ouvrir dans l'explorateur
+          {messages.repo.openInFileExplorer}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -291,7 +292,7 @@ export function FileList({ files, api, activePath, onOpen }: {
   return (
     <div className="mt-4 flex min-h-0 flex-1 flex-col border-t pt-3">
       <FileListHeader actions={files.length > 0 && <FileViewToggle view={view} onChange={setView} />}>
-        {files.length ? `${files.length} fichier${files.length > 1 ? "s" : ""}` : "aucun fichier"}
+        {messages.repo.fileCount(files.length)}
       </FileListHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
