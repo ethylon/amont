@@ -23,8 +23,9 @@ function semverTag(refs: string): string | null {
   return parseRefs(refs).find((r) => r.kind === "tag" && SEMVER.test(r.name))?.name ?? null
 }
 
-/* ponytail: appariement page par page — une paire à cheval sur deux pages de log reste en 2 lignes.
-   Rare (les deux merges naissent à la seconde près d'un `git flow finish`), non régressif. */
+/* Pairing happens page by page — a pair straddling two log pages stays as 2 rows instead of
+   collapsing into one. Rare (both merges are born within a second of each other from a single
+   `git flow finish`), and non-regressive: worst case is an extra row, never wrong data. */
 export function collapsePairs(commits: Commit[]): Commit[] {
   const at = new Map(commits.map((c, i) => [c.h, i]))
   const drop = new Set<number>()

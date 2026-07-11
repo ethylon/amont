@@ -256,7 +256,8 @@
      n'animent que les insertions ultérieures — l'arbre qui se salit, un checkout vers une branche
      de flow. `data-settled` n'est posé qu'une frame après la révélation, les éléments présents au
      boot ne rejouent donc pas leur entrée. La courbe de décélération est celle des onglets.
-     ponytail: pas d'animation de sortie — le démontage reste net, machinerie de rétention sinon. */
+     No exit animation: unmounting stays instant, an exit animation would need retention
+     machinery (keep the DOM node alive until the animation finishes) for a purely cosmetic gain. */
   [data-settled] .amont-drop {
     /* clip vertical seul : le bandeau flow garde son défilement horizontal (overflow-x-auto) */
     overflow-y: clip;

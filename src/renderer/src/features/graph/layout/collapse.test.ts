@@ -1,6 +1,6 @@
 /* Migré depuis lib/graph-layout.test.ts (AUDIT.md §6/§10, item tests) : mêmes cas pour
    `collapsePairs`, y compris la paire à cheval sur deux pages de log (dernier test), qui verrouille
-   la limitation documentée en ponytail dans collapse.ts (« appariement page par page »). */
+   la limitation documentée dans collapse.ts (« appariement page par page »). */
 import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
@@ -61,7 +61,7 @@ describe("collapsePairs", () => {
   })
 
   it("rend un merge develop orphelin tel quel (le côté master est sur une autre page)", () => {
-    /* verrouille la limitation documentée en ponytail dans collapse.ts : l'appariement se fait
+    /* verrouille la limitation documentée dans collapse.ts : l'appariement se fait
        page par page, une paire à cheval sur deux pages de log reste en 2 lignes. */
     const dev = c("d1", ["dp", "rt"], "Merge branch 'release/1.2.0' into develop")
     assert.deepEqual(collapsePairs([dev]), [dev])
