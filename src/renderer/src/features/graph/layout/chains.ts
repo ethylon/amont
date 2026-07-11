@@ -1,36 +1,36 @@
-/* Chaînes de branche (AUDIT.md §6) : remontée du tronc, segment net pour le diff, et résumé
-   structuré de ce à quoi une sélection appartient. Pur, comme le reste de layout/. */
+/* Branch chains (AUDIT.md §6): trunk climb, clean segment for the diff, and structured
+   summary of what a selection belongs to. Pure, like the rest of layout/. */
 
 import { parseRefs } from "../../../lib/commit-parse.ts"
 import { hashOfId } from "../ids.ts"
 import type { LayoutState } from "./state.ts"
 
-/* Refs de branche d'une ligne, nom court côté remote : `origin/x` désigne la branche `x`.
-   Frontières de segment — la base d'une branche est souvent le tip d'une autre (develop sans
-   commit depuis le fork), qu'aucun fork topologique ne signale. Le marqueur HEAD détaché et
-   les tags n'en sont pas. Lues dans l'état de layout : les chaînes se parcourent sans les
-   commits, dont la page a pu être évincée. */
+/* Branch refs of a row, short name on the remote side: `origin/x` designates branch `x`.
+   Segment boundaries — a branch's base is often another branch's tip (develop with no
+   commit since the fork), which no topological fork signals. The detached HEAD marker and
+   tags aren't among them. Read from the layout state: chains are walked without the
+   commits, whose page may have been evicted. */
 export const branchRefs = (S: LayoutState, row: number) =>
   parseRefs(S.refsOf.get(row) ?? "")
     .filter((r) => r.kind !== "tag" && r.name !== "HEAD")
     .map((r) => (r.kind === "remote" ? r.name.slice(r.name.indexOf("/") + 1) : r.name))
 
-/** Ligne du tip de la chaîne de `i` : remonte le tronc first-parent jusqu'au commit qui porte
-    le nom de branche (ou jusqu'à un fork sans nom). O(montée), sans tableau — remplace l'ancien
-    `branchChain(S, i)[0]`, dont la construction du tableau entier (avec `unshift` quadratique)
-    ne servait qu'à lire son premier élément à chaque survol (AUDIT.md §6, item perf : « fini le
-    branchChain jusqu'à la racine à chaque mouseover »). */
+/** Row of the tip of `i`'s chain: climbs the first-parent trunk up to the commit carrying
+    the branch name (or up to an unnamed fork). O(climb), no array — replaces the old
+    `branchChain(S, i)[0]`, whose building of the entire array (with quadratic `unshift`)
+    only served to read its first element on every hover (AUDIT.md §6, perf item: "no more
+    walking branchChain to the root on every mouseover"). */
 export function chainTip(S: LayoutState, i: number): number {
   let r = i
   for (;;) {
-    /* on ne grimpe pas au-dessus d'un tip : ce qui est plus haut appartient à une descendante
-       (hover du tip de develop quand une feature est posée dessus, linéaire donc sans fork) */
+    /* we don't climb past a tip: whatever is higher belongs to a descendant
+       (hovering develop's tip while a feature branch sits on top of it, linear so no fork) */
     if (branchRefs(S, r).length) break
     const kids = S.fpChildren.get(r)
     if (!kids || !kids.length) break
-    /* Fork (une release, un hotfix branchés ici) : plusieurs enfants ont ce commit pour first-parent.
-       Le tronc est celui qui garde le couloir — même lane. Sans ça la remontée s'arrête au fork, et
-       un commit sans ref y perd le nom de sa branche (ex. un WIP juste sous un « Merge tag … into develop »). */
+    /* Fork (a release, a hotfix branched here): several children have this commit as first-parent.
+       The trunk is the one that keeps the lane — same lane. Without this the climb would stop at the fork, and
+       a ref-less commit would lose its branch name there (e.g. a WIP right under a "Merge tag … into develop"). */
     const up = kids.length === 1 ? kids[0] : kids.find((k) => S.laneOf[k] === S.laneOf[r])
     if (up === undefined) break
     r = up
@@ -38,42 +38,42 @@ export function chainTip(S: LayoutState, i: number): number {
   return r
 }
 
-/** Comme `chainTip`, mais borné au fork point ou à la première ref étrangère, et rend le segment
-    entier (chaîne descendante + tronc jusqu'à la frontière) : sert au diff net d'une branche. */
+/** Like `chainTip`, but bounded by the fork point or the first foreign ref, and returns the
+    entire segment (descendant chain + trunk up to the boundary): used for a branch's clean diff. */
 export function branchSegment(S: LayoutState, i: number) {
   const rows = [i]
   let r = i
   for (;;) {
-    if (branchRefs(S, r).length) break // on ne grimpe pas au-dessus d'un tip
+    if (branchRefs(S, r).length) break // we don't climb past a tip
     const kids = S.fpChildren.get(r)
     if (!kids || kids.length !== 1) break
     r = kids[0]
     rows.unshift(r)
   }
-  /* les refs du haut du segment : sa distante en retard (`origin/x` posé plus bas) ne coupe pas */
+  /* refs at the top of the segment: its lagging remote (`origin/x` set further down) doesn't cut it off */
   const own = new Set(branchRefs(S, rows[0]))
   r = i
   for (;;) {
     const pr = S.fpRow[r]
     if (pr === undefined) break
-    if ((S.fpChildren.get(pr) || []).length !== 1) break // le parent est un fork : tronc commun
-    if (branchRefs(S, pr).some((n) => !own.has(n))) break // le parent est le tip d'une autre branche
+    if ((S.fpChildren.get(pr) || []).length !== 1) break // the parent is a fork: common trunk
+    if (branchRefs(S, pr).some((n) => !own.has(n))) break // the parent is another branch's tip
     rows.push(pr)
     r = pr
   }
   return rows
 }
 
-/** Résumé structuré de la sélection courante : à quelles branches son tip appartient, et si le
-    segment a été mergé. Données brutes — plus de prose française dans le module d'algorithme
-    (AUDIT.md §6, item 3) : c'est React qui compose le texte affiché (cf. detail-panel.tsx). */
+/** Structured summary of the current selection: which branches its tip belongs to, and whether the
+    segment has been merged. Raw data — no more prose baked into the algorithm module
+    (AUDIT.md §6, item 3): React is the one that composes the displayed text (cf. detail-panel.tsx). */
 export type ChainInfo =
   | { refs: string | null; merged: true; mergedInto: string | null; mergeHash: string }
   | { refs: string | null; merged: false }
 
 export function chainInfo(S: LayoutState, rows: number[]): ChainInfo {
   const tip = rows[0]
-  /* toutes les branches du tip : une branche vide posée sur master partage ses commits */
+  /* all of the tip's branches: an empty branch sitting on master shares its commits */
   const refs = parseRefs(S.refsOf.get(tip) ?? "").filter((r) => r.kind !== "tag").map((r) => r.name).join(", ") || null
   const mrow = S.mergedBy.get(tip)
   if (mrow !== undefined) {

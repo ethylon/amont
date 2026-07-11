@@ -1,7 +1,7 @@
-/* SHA-256 (FIPS 180-4), en pur TypeScript. `crypto.subtle` ne hache qu'en asynchrone et le
-   graphe pose ses avatars en impératif, ligne à ligne ; la version Node du preload exigeait
-   `sandbox: false`. Quelques dizaines d'octets par e-mail d'auteur : le coût est invisible.
-   Vérifié contre node:crypto par scripts/check-sha256.ts. */
+/* SHA-256 (FIPS 180-4), in pure TypeScript. `crypto.subtle` only hashes asynchronously and the
+   graph sets its avatars imperatively, line by line; the Node version in the preload required
+   `sandbox: false`. A few dozen bytes per author email: the cost is invisible.
+   Checked against node:crypto by scripts/check-sha256.ts. */
 
 const K = new Uint32Array([
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -16,10 +16,10 @@ const K = new Uint32Array([
 
 const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n))
 
-/** hex minuscule du SHA-256 de `text` (encodé UTF-8) */
+/** lowercase hex of the SHA-256 of `text` (UTF-8 encoded) */
 export function sha256(text: string): string {
   const data = new TextEncoder().encode(text)
-  /* padding : 0x80, des zéros, puis la longueur en bits sur 64 bits big-endian */
+  /* padding: 0x80, zeros, then the bit length as 64-bit big-endian */
   const padded = new Uint8Array((((data.length + 8) >> 6) + 1) << 6)
   padded.set(data)
   padded[data.length] = 0x80

@@ -6,8 +6,8 @@ import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 
-/* Signes et teintes de tous les indicateurs de flow (statusbar, cockpit, carte) : mêmes teintes
-   que les pastilles du sidebar, mêmes icônes release/hotfix que les chips de merge du graphe. */
+/* Colors and hues of all flow indicators (statusbar, cockpit, card): same hues
+   as the sidebar badges, same release/hotfix icons as the graph's merge chips. */
 export const FLOW_META: Record<BranchFlow, { icon: IconSvgElement; text: string; bg: string }> = {
   feature: { icon: GitBranchIcon, text: "text-success", bg: "bg-success/10" },
   bugfix: { icon: Bug01Icon, text: "text-warning", bg: "bg-warning/10" },
@@ -25,15 +25,15 @@ function duration(epoch: number): string {
 
 const count = (info: FlowInfo) => messages.flow.commitCount(info.commits)
 
-/* Cockpit : bandeau sous la toolbar dès qu'une branche de flow est sortie — masqué sur les
-   troncs (master, develop) et HEAD détachée. À droite, où le travail atterrira une fois
-   terminé (merge du finish, tag posé). */
+/* Cockpit: banner under the toolbar as soon as a flow branch is checked out — hidden on
+   trunks (master, develop) and detached HEAD. On the right, where the work will land once
+   finished (finish merge, tag set). */
 export function FlowBanner({ kind, branch, info }: { kind: BranchFlow; branch: string; info: FlowInfo }) {
   const m = FLOW_META[kind]
   return (
     <div
       className={cn(
-        /* amont-drop : après le boot, l'insertion pousse le contenu en douceur (cf. app.css) */
+        /* amont-drop: after boot, the insertion pushes the content in smoothly (see app.css) */
         "amont-drop flex h-8 shrink-0 items-center gap-3 overflow-x-auto border-b px-3.5 text-xs whitespace-nowrap",
         m.bg,
         m.text
@@ -54,8 +54,8 @@ export function FlowBanner({ kind, branch, info }: { kind: BranchFlow; branch: s
   )
 }
 
-/* Carte contexte : l'état vide du panneau détail résume le travail en cours au lieu de ne
-   rien dire. Tous les types de flow, feature comprise. */
+/* Context card: the detail panel's empty state summarizes the work in progress instead of
+   saying nothing. All flow types, feature included. */
 export function FlowCard({ kind, branch, info }: { kind: BranchFlow; branch: string; info: FlowInfo }) {
   const m = FLOW_META[kind]
   const rows = [

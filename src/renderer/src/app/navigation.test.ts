@@ -7,16 +7,16 @@ import { afterClose, HOME, navKeyEquals, repoKey, transitionKind } from "./navig
 const repo = (id: number, name = `r${id}`): Repo => ({ id, path: `/repo/${name}`, name })
 
 describe("navKeyEquals", () => {
-  it("deux HOME sont égales", () => {
+  it("two HOME are equal", () => {
     assert.equal(navKeyEquals(HOME, HOME), true)
   })
-  it("deux repoKey du même id sont égales", () => {
+  it("two repoKey with the same id are equal", () => {
     assert.equal(navKeyEquals(repoKey(1), repoKey(1)), true)
   })
-  it("HOME et un repoKey ne sont jamais égaux", () => {
+  it("HOME and a repoKey are never equal", () => {
     assert.equal(navKeyEquals(HOME, repoKey(1)), false)
   })
-  it("deux repoKey d'ids différents ne sont pas égales", () => {
+  it("two repoKey with different ids are not equal", () => {
     assert.equal(navKeyEquals(repoKey(1), repoKey(2)), false)
   })
 })
@@ -24,23 +24,23 @@ describe("navKeyEquals", () => {
 describe("transitionKind", () => {
   const tabs = [repo(1), repo(2), repo(3)]
 
-  it("une clé absente des onglets ouvre de face", () => {
+  it("a key absent from the tabs opens head-on", () => {
     assert.equal(transitionKind(tabs, HOME, repoKey(42)), "open")
   })
 
-  it("l'accueil n'est jamais 'open' : il est toujours en position 0", () => {
+  it("home is never 'open': it's always at position 0", () => {
     assert.equal(transitionKind(tabs, repoKey(1), HOME), "prev")
   })
 
-  it("avancer vers un onglet plus à droite glisse en 'next'", () => {
+  it("moving to a tab further right slides as 'next'", () => {
     assert.equal(transitionKind(tabs, repoKey(1), repoKey(3)), "next")
   })
 
-  it("revenir vers un onglet plus à gauche glisse en 'prev'", () => {
+  it("going back to a tab further left slides as 'prev'", () => {
     assert.equal(transitionKind(tabs, repoKey(3), repoKey(1)), "prev")
   })
 
-  it("de l'accueil vers le premier onglet : 'next'", () => {
+  it("from home to the first tab: 'next'", () => {
     assert.equal(transitionKind(tabs, HOME, repoKey(1)), "next")
   })
 })
@@ -48,27 +48,27 @@ describe("transitionKind", () => {
 describe("afterClose", () => {
   const tabs = [repo(1), repo(2), repo(3)]
 
-  it("fermer un onglet qui n'est pas actif laisse l'actif inchangé", () => {
+  it("closing a tab that isn't active leaves the active one unchanged", () => {
     assert.deepEqual(afterClose(tabs, repoKey(2), 3), repoKey(2))
   })
 
-  it("fermer l'onglet actif retombe sur son voisin de droite (même index)", () => {
+  it("closing the active tab falls back to its right neighbor (same index)", () => {
     assert.deepEqual(afterClose(tabs, repoKey(1), 1), repoKey(2))
   })
 
-  it("fermer le dernier onglet actif retombe sur son voisin de gauche", () => {
+  it("closing the last active tab falls back to its left neighbor", () => {
     assert.deepEqual(afterClose(tabs, repoKey(3), 3), repoKey(2))
   })
 
-  it("fermer le seul onglet actif retombe sur l'accueil", () => {
+  it("closing the only active tab falls back to home", () => {
     assert.deepEqual(afterClose([repo(1)], repoKey(1), 1), HOME)
   })
 
-  it("fermer un onglet inconnu (déjà fermé) est un no-op", () => {
+  it("closing an unknown tab (already closed) is a no-op", () => {
     assert.deepEqual(afterClose(tabs, repoKey(2), 99), repoKey(2))
   })
 
-  it("l'accueil actif n'est jamais affecté par une fermeture", () => {
+  it("active home is never affected by a close", () => {
     assert.deepEqual(afterClose(tabs, HOME, 2), HOME)
   })
 })

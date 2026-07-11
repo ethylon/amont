@@ -2,12 +2,12 @@ import { useEffect, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
-/* Squelette du boot d'un onglet : recouvre bandeau, sidebar et corps le temps que status, flow,
-   worktree et graphe arrivent (cf. RepoView), puis se fond en croix avec le contenu révélé.
-   Il n'apparaît qu'après 150 ms — un dépôt local rapide passe du fond nu au contenu sans
-   flash de fantômes. */
+/* Boot skeleton for a tab: covers the header, sidebar and body while status, flow,
+   worktree and graph arrive (see RepoView), then cross-fades with the revealed content.
+   It only appears after 150 ms — a fast local repo goes from bare background to content
+   without a flash of ghosts. */
 
-/* Largeurs figées, pseudo-aléatoires : un squelette stable d'un rendu à l'autre. */
+/* Fixed, pseudo-random widths: a skeleton stable across renders. */
 const ROWS = ["w-40", "w-24", "w-36", "w-28", "w-44", "w-32", "w-24", "w-36", "w-28", "w-40", "w-32", "w-24", "w-36", "w-28"]
 const REFS = ["w-28", "w-20", "w-24", "w-32", "w-16", "w-24", "w-20"]
 
@@ -42,7 +42,7 @@ export function BootSkeleton({ out, sidebar }: { out: boolean; sidebar: boolean 
           </div>
         </div>
       )}
-      {/* même grille que le contenu réel : le bord du panneau détail ne saute pas au fondu */}
+      {/* same grid as the real content: the detail panel border doesn't jump during the fade */}
       <div className="grid min-w-0 flex-1 grid-cols-[minmax(280px,1fr)_minmax(240px,320px)]">
         <div className="animate-pulse overflow-hidden motion-reduce:animate-none">
           {ROWS.map((w, i) => (

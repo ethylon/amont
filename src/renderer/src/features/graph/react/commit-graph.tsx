@@ -6,15 +6,15 @@ import { createGraph, type GraphCallbacks, type GraphHandle } from "../controlle
 type Props = {
   api: RepoApi
   callbacks: GraphCallbacks
-  /** appelé avec le graphe au montage, avec `null` au démontage — un seul canal au lieu de
-      `graphRef`+`onReady` (AUDIT.md §7, phase 5, item 6) : à l'appelant d'écrire `graph` dans
-      sa propre ref s'il a besoin d'un accès synchrone hors rendu. */
+  /** called with the graph on mount, with `null` on unmount — a single channel instead of
+      `graphRef`+`onReady` (AUDIT.md §7, phase 5, item 6): it's up to the caller to write `graph`
+      into its own ref if it needs synchronous access outside of render. */
   onReady(graph: GraphHandle | null): void
 }
 
-/* Coque React autour du contrôleur impératif (AUDIT.md §1, à préserver) : elle fournit les trois
-   nœuds DOM et le cycle de vie, rien d'autre. Les callbacks passent par une ref pour qu'un
-   handler qui change d'identité ne remonte jamais le graphe. */
+/* React shell around the imperative controller (AUDIT.md §1, preserve as-is): it provides the
+   three DOM nodes and the lifecycle, nothing else. Callbacks go through a ref so that a
+   handler changing identity never remounts the graph. */
 export function CommitGraph({ api, callbacks, onReady }: Props) {
   const board = useRef<HTMLDivElement>(null)
   const inner = useRef<HTMLDivElement>(null)
@@ -42,14 +42,14 @@ export function CommitGraph({ api, callbacks, onReady }: Props) {
   }, [api])
 
   return (
-    /* Grille ARIA (AUDIT.md §8) : "listbox" plutôt que "grid" — l'unité de navigation/sélection
-       est la ligne entière (pas la cellule), ce que "listbox"/"option" décrit plus fidèlement ;
-       l'audit laissait ce choix ouvert. Roving tabindex sur les lignes (interactions/selection.ts),
-       flèches/PageUp/Down/Home/End/Enter pilotés par board.ts (posés sur `board`, cf. controller.ts). */
+    /* ARIA grid (AUDIT.md §8): "listbox" rather than "grid" — the navigation/selection unit
+       is the entire row (not the cell), which "listbox"/"option" describes more faithfully;
+       the audit left this choice open. Roving tabindex on rows (interactions/selection.ts),
+       arrows/PageUp/Down/Home/End/Enter driven by board.ts (attached to `board`, cf. controller.ts). */
     <div ref={board} role="listbox" aria-label="Commits" aria-multiselectable="true" className="relative overflow-auto">
       <div ref={inner} className="relative">
-        {/* décalé de la colonne branche : le métro commence après elle — décoratif, les commits
-            se lisent dans les lignes HTML, pas dans ce tracé SVG */}
+        {/* offset by the branch column: the metro starts after it — decorative, commits
+            are read from the HTML rows, not from this SVG trace */}
         <svg
           ref={svg}
           aria-hidden="true"

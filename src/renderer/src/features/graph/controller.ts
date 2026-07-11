@@ -1,10 +1,10 @@
-/* Assemblage du moteur de graphe (AUDIT.md §6) : ce module rejoue exactement le contrat de
-   l'ancien `graph-canvas.ts` (mêmes `GraphHandle`/`GraphCallbacks`, même comportement visible) en
-   composant les couches décomposées — layout/ (pur), data/ (pages + ingestion), render/ (DOM),
-   interactions/ (sélection, survol, popover). React possède la coquille
-   (react/commit-graph.tsx, inchangée) ; ce contrôleur ne fait qu'un : virtualisation à deux
-   étages (chunks SVG + cache de pages LRU épinglé), layout en streaming append-only, theming
-   100% var() CSS, flux « React possède la sélection ». À préserver tel quel (AUDIT.md §1). */
+/* Graph engine assembly (AUDIT.md §6): this module replays exactly the contract of
+   the former `graph-canvas.ts` (same `GraphHandle`/`GraphCallbacks`, same visible behavior) by
+   composing the decomposed layers — layout/ (pure), data/ (pages + ingestion), render/ (DOM),
+   interactions/ (selection, hover, popover). React owns the shell
+   (react/commit-graph.tsx, unchanged); this controller is a single piece: two-stage
+   virtualization (SVG chunks + pinned LRU page cache), append-only streaming layout, 100% CSS
+   var() theming, "React owns the selection" flow. Preserve as-is (AUDIT.md §1). */
 
 import type { Commit, RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
@@ -33,37 +33,37 @@ export type GraphCallbacks = {
   onStats(stats: Stats): void
   onGraphWidth(px: number): void
   onBranchWidth(px: number): void
-  /** un `api.log` a échoué — remonté une fois par épisode de panne (cf. data/loader.ts), pas à
-      chaque retry. Le graphe reste lisible et court simplement moins que le total tant que la
-      panne dure : à l'appelant de décider de l'affichage (toast, pastille de statut…). */
+  /** an `api.log` call failed — surfaced once per failure episode (cf. data/loader.ts), not on
+      every retry. The graph stays readable and simply shows fewer rows than the total while the
+      failure lasts: it's up to the caller to decide the display (toast, status badge…). */
   onError(message: string): void
 }
 
 export type GraphHandle = {
   reset(): Promise<void>
   jumpTo(hash: string): Promise<void>
-  /** `active` : ligne qui vient d'agir (clic, ctrl-clic…) — porte le curseur clavier (roving
-      tabindex, AUDIT.md §8). Omis, le curseur ne bouge pas (cf. interactions/selection.ts). */
+  /** `active`: row that just acted (click, ctrl-click…) — carries the keyboard cursor (roving
+      tabindex, AUDIT.md §8). If omitted, the cursor doesn't move (cf. interactions/selection.ts). */
   setSelection(rows: Iterable<number>, active?: number): void
-  /** `null` : plus de recherche en cours, les lignes reprennent leur teinte normale */
+  /** `null`: no more search in progress, rows go back to their normal hue */
   setMatches(hashes: string[] | null): void
-  /** ligne du prochain résultat après `from` dans le sens `dir`, `null` s'il n'y en a plus */
+  /** row of the next result after `from` in direction `dir`, `null` if there are no more */
   nextMatch(from: number, dir: 1 | -1): Promise<number | null>
-  /** lignes des commits donnés, chargées à la demande ; les hash introuvables sont omis */
+  /** rows of the given commits, loaded on demand; hashes not found are omitted */
   rowsOf(hashes: string[]): Promise<number[]>
-  /** ramène en résidence les pages de commits couvrant ces lignes — à appeler avant de poser
-      une sélection étendue, dont le détail lira `commit(row)` en synchrone */
+  /** brings back into residence the commit pages covering these rows — call before setting
+      an extended selection, whose detail view will read `commit(row)` synchronously */
   pin(rows: number[]): Promise<void>
-  /** commit d'une ligne, `undefined` si sa page de cache a été évincée (cf. `pin`) */
+  /** commit of a row, `undefined` if its cache page was evicted (cf. `pin`) */
   commit(row: number): Commit | undefined
   branchSegment(row: number): number[]
   chainInfo(rows: number[]): ChainInfo
-  /** branches de la ligne : ses refs propres, sinon celles du tip de sa chaîne, sinon la
-      branche absorbée par son merge ; ordonnées HEAD, locales, distantes — vide faute de nom */
+  /** branches of the row: its own refs, otherwise those of its chain's tip, otherwise the
+      branch absorbed by its merge; ordered HEAD, local, remote — empty if no name */
   branchesOf(row: number): { name: string; kind: "head" | "remote" }[]
-  /** teinte du trait de la ligne, à poser en `--badge-color` sur les chips de branche */
+  /** hue of the row's line, to set as `--badge-color` on branch chips */
   laneColor(row: number): string
-  /** position et teinte du point d'arbre de travail, aligné sur la lane de HEAD */
+  /** position and hue of the working-tree dot, aligned on HEAD's lane */
   headDot(headSha: string | null): { left: number; color: string } | null
   destroy(): void
 }
@@ -97,7 +97,7 @@ export function createGraph(
     onError: (err) => cb.onError(describeError(err)),
   })
 
-  let destroyed = false // un reset en vol pendant destroy() (double montage StrictMode) ne doit plus toucher le DOM
+  let destroyed = false // an in-flight reset during destroy() (StrictMode double-mount) must no longer touch the DOM
   const mountedG = new Map<number, SVGGElement>()
   const mountedRows = new Map<number, HTMLDivElement>()
   let statsScheduled = false
@@ -116,10 +116,10 @@ export function createGraph(
     ]
   }
 
-  /* Fenêtre des lignes HTML : ~2 hauteurs de viewport, découplée de CHUNK (AUDIT.md §6, item
-     perf) — le bucket SVG reste CHUNK, coûteux à monter mais bon marché à construire ; les
-     lignes HTML (chips, avatars, texte défilant) sont l'inverse, elles se montent donc sur une
-     fenêtre bien plus étroite que 3 chunks entiers. */
+  /* HTML row window: ~2 viewport heights, decoupled from CHUNK (AUDIT.md §6, perf item)
+     — the SVG bucket stays CHUNK, expensive to mount but cheap to build; HTML
+     rows (chips, avatars, scrolling text) are the opposite, so they mount over a
+     window much narrower than 3 whole chunks. */
   const viewRows = (): [number, number] => {
     const margin = board.clientHeight
     return [
@@ -153,12 +153,12 @@ export function createGraph(
   }
 
   function sync() {
-    if (destroyed) return // l'overlay n'est plus dans le SVG : insertBefore échouerait
+    if (destroyed) return // the overlay is no longer in the SVG: insertBefore would fail
     const S = loader.state
     const [c0, c1] = viewChunks()
     const need = (c1 + 1) * CHUNK
-    /* on ne rechaîne sync() que si des données sont arrivées : en cas d'échec, pas de boucle
-       de retentative — le prochain scroll suffira à relancer */
+    /* sync() is only rechained if data actually arrived: on failure, no retry
+       loop — the next scroll will be enough to relaunch it */
     if (need > S.next && !loader.exhausted) {
       const token = loader.token
       const before = S.next
@@ -180,15 +180,15 @@ export function createGraph(
       mountedG.set(ci, g)
     }
 
-    /* Lignes HTML : fenêtre plus étroite (viewRows), bucketée à ROW_BUCKET — la géométrie SVG
-       reste montrable dès que le layout l'a posée, les lignes HTML exigent leurs commits : un
-       trou de cache se recharge puis re-sync, le métro reste visible en attendant les textes. */
+    /* HTML rows: narrower window (viewRows), bucketed at ROW_BUCKET — SVG geometry
+       stays displayable as soon as layout has placed it, HTML rows need their commits: a
+       cache miss reloads then re-syncs, the metro stays visible while waiting for the texts. */
     const [r0, r1] = viewRows()
     const b0 = Math.floor(r0 / ROW_BUCKET)
     const b1 = Math.floor(r1 / ROW_BUCKET)
-    /* Bucket du curseur clavier (roving tabindex, AUDIT.md §8) : gardé monté même hors fenêtre —
-       sinon un scroll souris loin de la ligne active ferait disparaître son `tabindex=0` du DOM et
-       Tab échouerait à ratraper le graphe tant que le clavier n'a pas d'abord bougé la sélection. */
+    /* Keyboard cursor bucket (roving tabindex, AUDIT.md §8): kept mounted even outside the window —
+       otherwise a mouse scroll far from the active row would make its `tabindex=0` disappear from
+       the DOM and Tab would fail to catch back up to the graph until the keyboard first moved the selection. */
     const activeBucket = selectionCtl.active !== null ? Math.floor(selectionCtl.active / ROW_BUCKET) : null
     mountedRows.forEach((d, bi) => {
       if ((bi < b0 || bi > b1) && bi !== activeBucket) {
@@ -223,7 +223,7 @@ export function createGraph(
   }
 
   function remount() {
-    scrollTextStop() // les lignes partent sans mouseleave : la boucle rAF s'arrête avec elles
+    scrollTextStop() // rows leave without a mouseleave: the rAF loop stops along with them
     mountedG.forEach((g) => g.remove())
     mountedG.clear()
     mountedRows.forEach((d) => d.remove())
@@ -231,8 +231,8 @@ export function createGraph(
     sync()
   }
 
-  /* amène une ligne déjà mise en page au centre de l'écran, la sélectionne et la fait clignoter ;
-     attend le retour de sa page si elle a été évincée — la sélection lira le commit en synchrone */
+  /* brings an already-laid-out row to the center of the screen, selects it and makes it flash;
+     waits for its page to come back if it was evicted — the selection will read the commit synchronously */
   async function reveal(row: number, token: number) {
     refresh()
     board.scrollTop = row * ROW - board.clientHeight / 2
@@ -250,15 +250,15 @@ export function createGraph(
     }
   }
 
-  /* Nombre de lignes d'une page d'écran (PageUp/PageDown, AUDIT.md §8). */
+  /* Number of rows in one screen page (PageUp/PageDown, AUDIT.md §8). */
   const pageRows = () => Math.max(1, Math.floor(board.clientHeight / ROW))
 
-  /* Déplacement clavier du curseur (grille ARIA, AUDIT.md §8) : contrairement à `reveal` (saut
-     lointain — jumpTo/nextMatch — qui centre l'écran et fait clignoter), une flèche ne doit
-     bouger le scroll que du nécessaire (`scrollIntoView({ block: "nearest" })`, comme un listbox
-     natif). La ligne cible est mise en page à travers la virtualisation exactement comme `reveal`
-     (page puis bucket garantis avant de sélectionner) : les lignes non montées se montent au
-     passage. `additive` reproduit Shift/Ctrl comme le ctrl-clic (cf. `onClick`). */
+  /* Keyboard cursor movement (ARIA grid, AUDIT.md §8): unlike `reveal` (a long-distance
+     jump — jumpTo/nextMatch — which centers the screen and flashes), an arrow key should only
+     move the scroll as much as necessary (`scrollIntoView({ block: "nearest" })`, like a native
+     listbox). The target row is laid out through virtualization exactly like `reveal`
+     (page then bucket guaranteed before selecting): unmounted rows get mounted along the
+     way. `additive` reproduces Shift/Ctrl like ctrl-click (cf. `onClick`). */
   async function moveActive(target: number, additive: boolean) {
     const token = loader.token
     target = Math.max(0, target)
@@ -275,7 +275,7 @@ export function createGraph(
     cb.onSelect(target, additive)
     const el = inner.querySelector<HTMLElement>(`.amont-row[data-i="${target}"]`)
     el?.scrollIntoView({ block: "nearest" })
-    el?.focus({ preventScroll: true }) // le scroll est déjà fait juste au-dessus, pas la peine que focus() le refasse à sa façon
+    el?.focus({ preventScroll: true }) // the scroll was already done just above, no need for focus() to redo it its own way
   }
 
   function resolveRow(hash: string): number | undefined {
@@ -283,9 +283,9 @@ export function createGraph(
     return id !== undefined ? loader.state.rowOf.get(id) : undefined
   }
 
-  /* chunk paresseux (cf. layout/state.ts) : `nodes[ci]` peut ne pas exister encore — `?.` évite
-     le crash si le dépôt grandit entre l'estimation de `total()` et la pagination réelle
-     (AUDIT.md §6, item perf). */
+  /* lazy chunk (cf. layout/state.ts): `nodes[ci]` may not exist yet — `?.` avoids
+     a crash if the repo grows between the `total()` estimate and actual pagination
+     (AUDIT.md §6, perf item). */
   const nodeAt = (row: number) => loader.state.nodes[Math.floor(row / CHUNK)]?.[row % CHUNK]
 
   const rowIndex = (ev: Event) => {
@@ -296,7 +296,7 @@ export function createGraph(
   const onScroll = () => {
     popoverCtl.closeMore()
     scrollTextStop()
-    hoverCtl.clearHover() // le scroll démonte la ligne survolée : le chip fantôme part avec elle
+    hoverCtl.clearHover() // scrolling unmounts the hovered row: the ghost chip leaves with it
     sync()
   }
   const onMouseOver = (ev: MouseEvent) => {
@@ -306,11 +306,11 @@ export function createGraph(
     if (btn) {
       popoverCtl.cancelClose()
       if (btn !== popoverCtl.openBtn) popoverCtl.openMore(btn)
-    } else if (t.closest(".amont-more")) popoverCtl.cancelClose() // sur le panneau : on le garde ouvert
+    } else if (t.closest(".amont-more")) popoverCtl.cancelClose() // over the panel itself: keep it open
     const i = rowIndex(ev)
     if (i !== null) hoverCtl.hoverRow(loader.state, i, !!nodeAt(i)?.stash)
   }
-  /* Quitter le bouton ou le panneau vers l'extérieur arme la fermeture ; y revenir l'annule. */
+  /* Leaving the button or panel toward the outside arms the close; coming back to it cancels it. */
   const onMouseOut = (ev: MouseEvent) => {
     if (!popoverCtl.openBtn) return
     const from = (ev.target as HTMLElement).closest(".amont-more-btn, .amont-more")
@@ -328,17 +328,17 @@ export function createGraph(
   }
   const onClick = (ev: MouseEvent) => {
     const t = ev.target as HTMLElement
-    /* le "+N" togglable au clic ET au clavier (AUDIT.md §8) : Entrée/Espace sur le bouton
-       déclenchent ce même `click` nativement, un vrai bouton n'a besoin d'aucun code séparé.
-       Avant ce refactor le clic était explicitement avalé (ouverture au survol seulement) — les
-       refs cachées étaient inatteignables sans souris. */
+    /* the "+N" is toggleable by click AND by keyboard (AUDIT.md §8): Enter/Space on the button
+       trigger this same `click` natively, a real button needs no separate code.
+       Before this refactor the click was explicitly swallowed (hover-only opening) — hidden
+       refs were unreachable without a mouse. */
     const moreBtn = t.closest<HTMLElement>(".amont-more-btn")
     if (moreBtn) {
       if (moreBtn === popoverCtl.openBtn) popoverCtl.closeMore()
       else popoverCtl.openMore(moreBtn, { focus: true })
       return
     }
-    if (t.closest(".amont-more")) return // clic dans le panneau lui-même (une ref n'est pas cliquable) : rien à faire
+    if (t.closest(".amont-more")) return // click inside the panel itself (a ref isn't clickable): nothing to do
     popoverCtl.closeMore()
     const i = rowIndex(ev)
     if (i !== null) cb.onSelect(i, ev.ctrlKey || ev.metaKey)
@@ -350,10 +350,10 @@ export function createGraph(
     if (i !== null) cb.onBranchSelect(i)
   }
 
-  /* Navigation clavier du board (AUDIT.md §8) : posé sur `board` (pas `document`) — ne réagit
-     donc que si le focus est dans le graphe, sans registre de raccourcis global à traverser.
-     Ignore tout ce qui vient du panneau "+N" ou de son bouton : Escape/Entrée y ont leur propre
-     sens (cf. interactions/popover.ts), une flèche n'y navigue rien. */
+  /* Board keyboard navigation (AUDIT.md §8): attached to `board` (not `document`) — so it only
+     reacts when focus is within the graph, with no global shortcut registry to go through.
+     Ignores anything coming from the "+N" panel or its button: Escape/Enter have their own
+     meaning there (cf. interactions/popover.ts), an arrow key navigates nothing there. */
   const onBoardKeyDown = (ev: KeyboardEvent) => {
     if ((ev.target as HTMLElement).closest(".amont-more, .amont-more-btn")) return
     const cur = selectionCtl.active ?? 0
@@ -365,8 +365,8 @@ export function createGraph(
       case "PageDown": target = cur + pageRows(); break
       case "PageUp": target = cur - pageRows(); break
       case "Home": target = 0; break
-      /* pas de borne connue tant que l'historique n'est pas épuisé : `moveActive` grossit par
-         lots jusqu'à l'épuisement puis clampe — MAX_SAFE_INTEGER est juste « aussi loin que possible ». */
+      /* no known bound as long as history isn't exhausted: `moveActive` grows in
+         batches until exhaustion then clamps — MAX_SAFE_INTEGER just means "as far as possible". */
       case "End": target = loader.exhausted ? loader.state.next - 1 : Number.MAX_SAFE_INTEGER; break
       case "Enter": target = cur; break
       default: return
@@ -375,7 +375,7 @@ export function createGraph(
     void moveActive(target, additive)
   }
 
-  /* pas de throttle : sync() est un no-op quand la plage de chunks/buckets visibles n'a pas changé */
+  /* no throttle: sync() is a no-op when the visible chunk/bucket range hasn't changed */
   board.addEventListener("scroll", onScroll, { passive: true })
   board.addEventListener("mouseleave", onMouseLeave)
   board.addEventListener("keydown", onBoardKeyDown)
@@ -385,15 +385,15 @@ export function createGraph(
   inner.addEventListener("dblclick", onDblClick)
   document.addEventListener("keydown", onKeyDown)
 
-  /* Pas de ResizeObserver avant ce refactor : `sync()` ne tournait que sur scroll/fetch, la
-     correction tenait au mou de 14 000 px des chunks (AUDIT.md §6, item perf) — la fenêtre de
-     lignes plus étroite (viewRows) rend la recalibration au resize nécessaire. */
+  /* No ResizeObserver before this refactor: `sync()` only ran on scroll/fetch, correctness
+     relied on the 14,000 px slack of chunks (AUDIT.md §6, perf item) — the narrower
+     row window (viewRows) makes recalibration on resize necessary. */
   const resizeObserver = new ResizeObserver(() => sync())
   resizeObserver.observe(board)
 
   let stashNames: string[] = []
-  /* Les chips sont mesurés à la police réelle. Tant que Geist n'a pas remplacé le fallback,
-     les largeurs sont fausses : une seule reprise, depuis les sources persistées, suffit. */
+  /* Chips are measured against the actual font. As long as Geist hasn't replaced the fallback,
+     widths are wrong: a single re-run, from the persisted sources, is enough. */
   document.fonts.ready.then(() => {
     if (!svg.isConnected || destroyed) return
     measurer.requeueAll(stashNames)
@@ -417,10 +417,10 @@ export function createGraph(
       evictNow()
       refresh()
       sync()
-      /* amorce le curseur clavier sur la première ligne si rien ne l'a encore posé (AUDIT.md §8) :
-         sans ça, Tab n'atteindrait jamais le graphe avant un premier clic. No-op si une sélection
-         restaurée par `reresolveSelection` (appelée juste après par repo-store.tsx) l'a déjà fait,
-         et no-op aux resets suivants (pull/checkout/stash) — le curseur y survit déjà tel quel. */
+      /* primes the keyboard cursor on the first row if nothing has set it yet (AUDIT.md §8):
+         without this, Tab would never reach the graph before a first click. No-op if a selection
+         restored by `reresolveSelection` (called right after by repo-store.tsx) already did it,
+         and no-op on subsequent resets (pull/checkout/stash) — the cursor already survives those as-is. */
       if (loader.state.next > 0) {
         selectionCtl.primeActive(0)
         sync()
@@ -463,8 +463,8 @@ export function createGraph(
       selectionCtl.setMatches(ids, loader.state.hashOf)
     },
 
-    /* balaye les lignes — l'ordre du graphe — en chargeant à la demande : le résultat suivant
-       peut vivre plusieurs pages plus bas. */
+    /* sweeps rows — the graph's order — loading on demand: the next result
+       may live several pages further down. */
     async nextMatch(from, dir) {
       if (!selectionCtl.matches?.size) return null
       const token = loader.token
@@ -484,7 +484,7 @@ export function createGraph(
     branchSegment: (row) => branchSegment(loader.state, row),
     chainInfo: (rows) => chainInfo(loader.state, rows),
     branchesOf: (row) => {
-      if (nodeAt(row)?.stash) return [] // un stash ne focalise aucune branche du sidebar
+      if (nodeAt(row)?.stash) return [] // a stash doesn't focus any sidebar branch
       const own = refChips(loader.state, row)
       return own.length ? own : tipBranches(loader.state, chainTip(loader.state, row))
     },
@@ -501,7 +501,7 @@ export function createGraph(
     destroy() {
       destroyed = true
       loader.destroy()
-      scrollTextStop() // même raison qu'à remount : le texte survolé part sans mouseleave
+      scrollTextStop() // same reason as in remount: the hovered text leaves without a mouseleave
       resizeObserver.disconnect()
       board.removeEventListener("scroll", onScroll)
       board.removeEventListener("mouseleave", onMouseLeave)

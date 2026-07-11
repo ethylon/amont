@@ -1,5 +1,5 @@
-/* Point d'entrée du main (AUDIT.md §4) : câblage du cycle de vie de l'app, rien d'autre — la
-   logique vit dans state.ts, repos.ts, security.ts, window.ts, ipc.ts et git/. */
+/* Entry point of main (AUDIT.md §4): wiring of the app lifecycle, nothing else — the
+   logic lives in state.ts, repos.ts, security.ts, window.ts, ipc.ts and git/. */
 
 import { app } from "electron"
 
@@ -8,9 +8,9 @@ import { hardenSession } from "./security.ts"
 import { loadState } from "./state.ts"
 import { createWindow, focusExisting } from "./window.ts"
 
-/* Une seule instance : une seconde ouverture concurrente écraserait state.json en
-   dernier-écrivain (fix hygiène) — on la refuse et on ramène la première fenêtre au premier
-   plan plutôt que d'ouvrir une fenêtre muette en doublon. */
+/* Single instance only: a second concurrent launch would overwrite state.json in a
+   last-writer-wins race (hygiene fix) — we refuse it and bring the first window to the
+   foreground instead of opening a silent duplicate window. */
 const gotLock = app.requestSingleInstanceLock()
 
 if (!gotLock) {
@@ -18,7 +18,7 @@ if (!gotLock) {
 } else {
   app.on("second-instance", focusExisting)
 
-  /* Port de debug distant : jamais dans un paquet publié (fix durcissement). */
+  /* Remote debug port: never in a published package (hardening fix). */
   if (process.env.AMONT_DEBUG && !app.isPackaged) {
     app.commandLine.appendSwitch("remote-debugging-port", process.env.AMONT_DEBUG)
   }

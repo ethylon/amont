@@ -1,9 +1,9 @@
-/* Feature stash (AUDIT.md §7, phase 5) : composant + requête (stash-queries.ts) + actions (le
-   store), colocalisés — le dossier « copie-moi » de référence. Auparavant étalée sur
-   refs-sidebar (arbre + menu), detail-panel (aucune ref, juste le clic dans le graphe), repo-view
-   (callbacks) et le graphe (foldStashes) : cette feature ne rassemble que la partie « liste des
-   stashes dans le panneau latéral » — foldStashes reste dans le moteur de graphe (layout/collapse.ts),
-   qui la consomme pour la mise en page, pas pour l'affichage de la liste. */
+/* Stash feature (AUDIT.md §7, phase 5): component + query (stash-queries.ts) + actions (the
+   store), colocated — the reference "copy-me" folder. Previously spread across
+   refs-sidebar (tree + menu), detail-panel (no ref, just the click in the graph), repo-view
+   (callbacks), and the graph engine (foldStashes): this feature only gathers the "list of
+   stashes in the side panel" part — foldStashes stays in the graph engine (layout/collapse.ts),
+   which consumes it for layout, not for rendering the list. */
 
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Archive02Icon, ArchiveArrowUpIcon, ArchiveRestoreIcon, Delete02Icon } from "@hugeicons/core-free-icons"
@@ -19,19 +19,19 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 
-/** Filtre par sous-chaîne sur le nom de l'entrée ou le message du WIP — même grammaire que le
-    filtre de branches du sidebar, dont `RefsSidebar` a aussi besoin pour son message « aucune
-    ref ne correspond » (il doit savoir si le stash, lui, a un résultat). */
+/** Substring filter on the entry's name or the WIP message — same grammar as the
+    sidebar's branch filter, which `RefsSidebar` also needs for its "no ref
+    matches" message (it needs to know whether the stash itself has a result). */
 export const matchStash = (s: Stash, q: string) => !q || s.name.includes(q) || s.s.toLowerCase().includes(q)
 
-/* Une entrée de stash n'est pas une ref : pas d'arbre, pas de checkout, pas de focus de
-   branche. Un clic saute à son nœud du graphe ; le menu porte les trois gestes de stash. */
+/* A stash entry is not a ref: no tree, no checkout, no branch focus.
+   A click jumps to its graph node; the menu carries the three stash actions. */
 function StashRow({ s, onFocus, onStash }: {
   s: Stash
   onFocus(s: Stash): void
   onStash(action: StashAct, name: string): void
 }) {
-  /* "WIP on develop: 1a2b3c4 sujet" → le préambule redit le nom : on ne garde que la suite */
+  /* "WIP on develop: 1a2b3c4 subject" → the preamble repeats the name: we only keep the rest */
   const msg = s.s.replace(/^(?:WIP on|On) [^:]+:\s*/, "")
   return (
     <ContextMenu>
@@ -66,9 +66,9 @@ function StashRow({ s, onFocus, onStash }: {
   )
 }
 
-/** Section stash du sidebar : requête, filtre et actions au même endroit — rendu `null` quand
-    rien ne correspond au filtre, `RefsSidebar` n'a pas à connaître la forme d'une entrée de
-    stash pour composer son message « aucun résultat ». */
+/** Sidebar stash section: query, filter, and actions in the same place — renders `null` when
+    nothing matches the filter, `RefsSidebar` doesn't need to know the shape of a stash entry
+    to compose its "no results" message. */
 export function StashSection({ filter }: { filter: string }) {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)

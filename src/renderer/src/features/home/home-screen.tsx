@@ -62,9 +62,9 @@ export function HomeScreen({ active, onOpened }: Props) {
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
-  /* l'accueil ne démonte jamais : on rafraîchit les récents à chaque retour dessus. TanStack
-     Query encaisse le cas où deux passages rapprochés se chevauchent (démontage/réabonnement
-     de requêtes en vol) sans flag `stale` à recopier à la main. */
+  /* the home screen never unmounts: we refresh the recents on every return to it. TanStack
+     Query absorbs the case where two close-together visits overlap (unmount/resubscribe
+     of in-flight queries) without a `stale` flag to copy by hand. */
   const { data: repos } = useQuery({ queryKey: homeKeys.repos, queryFn: () => host.repos() })
   useEffect(() => {
     if (active) queryClient.invalidateQueries({ queryKey: homeKeys.repos })
@@ -73,15 +73,15 @@ export function HomeScreen({ active, onOpened }: Props) {
   const root = repos?.root ?? null
   const recents = repos?.recents ?? []
 
-  /* le scan traverse le disque : il ne part qu'une fois la racine connue */
+  /* the scan walks the disk: it only starts once the root is known */
   const { data: found = null } = useQuery({
     queryKey: homeKeys.scan(root),
     queryFn: () => host.scanRoot(),
     enabled: !!root,
   })
 
-  /* main renvoie null (dialogue annulé) ou le repo ouvert ; un échec throw désormais une
-     erreur structurée (fix chantier « erreurs », AUDIT.md §4) plutôt qu'un `{ error }`. */
+  /* main returns null (dialog cancelled) or the opened repo; a failure now throws a
+     structured error (error-handling overhaul fix, AUDIT.md §4) rather than a `{ error }`. */
   const opened = useCallback(
     (res: Repo | null) => {
       if (!res) return
@@ -101,7 +101,7 @@ export function HomeScreen({ active, onOpened }: Props) {
 
   if (!root && !recents.length) {
     return (
-      /* le halo radial ne relève d'aucune primitive : il vit sur le conteneur, pas sur Empty */
+      /* the radial halo isn't part of any primitive: it lives on the container, not on Empty */
       <div className="relative grid flex-1 place-items-center overflow-hidden before:pointer-events-none before:absolute before:top-1/2 before:left-1/2 before:size-[min(70vw,620px)] before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-radial before:from-primary/12 before:to-transparent before:to-66%">
         <Empty className="relative">
           <EmptyHeader>

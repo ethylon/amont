@@ -8,8 +8,8 @@ import {
 } from "@/components/ui/primitives/input-group"
 import { cn } from "@/lib/utils"
 
-/* Surcharge du primitive : h-7 → h-6 sur le conteneur et sur l'input
-   (qui hérite sinon du h-7 du primitive Input). */
+/* Overrides the primitive: h-7 → h-6 on the container and on the input
+   (which otherwise inherits the h-7 from the primitive Input). */
 function InputGroup({ className, ...props }: React.ComponentProps<typeof InputGroupPrimitive>) {
   return <InputGroupPrimitive className={cn("h-6", className)} {...props} />
 }
@@ -18,7 +18,7 @@ function InputGroupInput({ className, ...props }: React.ComponentProps<typeof In
   return <InputGroupInputPrimitive className={cn("h-6", className)} {...props} />
 }
 
-/* icon-sm : size-7 → size-6. */
+/* icon-sm: size-7 → size-6. */
 function InputGroupButton({
   className,
   size = "xs",

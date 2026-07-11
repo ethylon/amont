@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 
-/* Essai UI : la commande git qu'un contrôle déclenche, en sous-texte muted mono. */
+/* UI experiment: the git command a control triggers, shown as muted mono subtext. */
 export function GitCmd({ cmd, className }: { cmd: string; className?: string }) {
   return (
     <span className={cn("block max-w-full truncate font-mono text-[0.625rem] leading-tight font-normal text-muted-foreground", className)}>
@@ -9,9 +9,9 @@ export function GitCmd({ cmd, className }: { cmd: string; className?: string }) 
   )
 }
 
-/** Item de menu contextuel à deux lignes : le libellé, puis la commande git qu'il déclenche en
-    sous-texte (AUDIT.md §7, phase 5 — `item(label, cmd)` était redéfini à l'identique dans
-    refs-menu.tsx et stash-section.tsx). */
+/** Two-line context menu item: the label, then the git command it triggers as
+    subtext (AUDIT.md §7, phase 5 — `item(label, cmd)` used to be redefined identically in
+    refs-menu.tsx and stash-section.tsx). */
 export function MenuItemWithCmd({ label, cmd }: { label: React.ReactNode; cmd: string }) {
   return (
     <span className="flex min-w-0 flex-col items-start">

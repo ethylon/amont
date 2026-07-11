@@ -37,14 +37,14 @@ function RefGroupSection({ title, icon, refs, ctx, openDirs, forceOpen }: {
   )
 }
 
-/** Store et requêtes plutôt que 10 props (AUDIT.md §5) : `open`/`focusedKeys` viennent du
-    store, `flow`/refs/stashes de TanStack Query — plus de `refreshKey` bricolé en chaîne, les
-    invalidations de la couche requêtes suffisent à faire relire l'arbre.
+/** Store and queries rather than 10 props (AUDIT.md §5): `open`/`focusedKeys` come from the
+    store, `flow`/refs/stashes from TanStack Query — no more `refreshKey` rigged up in a chain,
+    the query layer's invalidations are enough to re-read the tree.
 
-    Éclaté en cinq modules (AUDIT.md §7, phase 5 — l'ancien fichier en faisait 514 lignes) :
-    ce fichier orchestre le filtre et l'assemblage ; refs-tree.tsx porte l'arbre et la ligne de
-    ref, refs-menu.tsx le menu de branche, refs-focus-paint.ts la peinture des contours, et la
-    section stash vit désormais dans features/stash/ (feature verticale à part entière). */
+    Split into five modules (AUDIT.md §7, phase 5 — the old file was 514 lines): this
+    file orchestrates the filter and assembly; refs-tree.tsx carries the tree and the ref
+    row, refs-menu.tsx the branch menu, refs-focus-paint.ts the outline painting, and the
+    stash section now lives in features/stash/ (a full-fledged vertical feature). */
 export function RefsSidebar() {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
@@ -55,31 +55,31 @@ export function RefsSidebar() {
   const onFocusRef = useRepoStore((s) => s.focusRef)
 
   const { data: flow = null } = useFlowQuery(api, repoId)
-  /* pas de flag `stale` à recopier : `placeholderData: keepPreviousData` (cf. lib/queries.ts)
-     tient l'ancien rendu affiché pendant qu'une nouvelle réponse arrive, sans le clignotement
-     que `useAsync` (vidé à chaque clé) aurait produit toutes les cinq minutes (auto-fetch). */
+  /* no `stale` flag to copy over: `placeholderData: keepPreviousData` (see lib/queries.ts)
+     keeps the old render displayed while a new response arrives, without the flicker
+     `useAsync` (cleared on every key) would have produced every five minutes (auto-fetch). */
   const { data, isError: error } = useRefsQuery(api, repoId)
-  /* seul le comptage nous intéresse ici (message « aucun résultat ») : le rendu de la liste vit
-     dans <StashSection>, qui appelle la même requête — TanStack Query dédoublonne par clé. */
+  /* only the count matters to us here ("no results" message): the list's rendering lives
+     in <StashSection>, which calls the same query — TanStack Query dedupes by key. */
   const { data: stashes = [] } = useStashesQuery(api, repoId)
   const [filter, setFilter] = useState("")
   const navRef = useRef<HTMLElement>(null)
 
-  /* filtre par sous-chaîne sur le nom complet, préfixe compris : `feat` attrape `feature/x` */
+  /* substring filter on the full name, prefix included: `feat` catches `feature/x` */
   const q = filter.trim().toLowerCase()
   const match = (r: GitRef) => !q || r.name.toLowerCase().includes(q)
 
   const paint = useCallback(() => paintFocusRuns(navRef.current), [])
 
-  useLayoutEffect(paint, [paint, focusedKeys, data, q]) // le filtre déplace les refs allumées
-  /* Un focus posé depuis le graphe peut viser une ref hors de la fenêtre du sidebar : une fois
-     les plis ouverts (cf. refs-tree.tsx), on amène la première allumée en vue. */
+  useLayoutEffect(paint, [paint, focusedKeys, data, q]) // the filter moves the lit refs around
+  /* A focus set from the graph may target a ref outside the sidebar's viewport: once
+     the folds are open (see refs-tree.tsx), we bring the first lit ref into view. */
   useEffect(() => {
     if (!focusedKeys.size) return
     navRef.current?.querySelector(".amont-refrow[data-lit]")?.scrollIntoView({ block: "nearest" })
   }, [focusedKeys])
-  /* Un repli/dépli de dossier ne rerend pas le sidebar (état interne du Collapsible) : on repeint
-     après chaque clic dans la nav, une fois le DOM stabilisé. */
+  /* Collapsing/expanding a folder doesn't rerender the sidebar (Collapsible's internal state):
+     we repaint after every click in the nav, once the DOM has settled. */
   useEffect(() => {
     const root = navRef.current
     if (!root) return
@@ -98,15 +98,15 @@ export function RefsSidebar() {
   }
 
   return (
-    /* replié = largeur nulle, pas démonté : le contenu garde sa largeur et se fait rogner,
-       sinon les champs et les libellés se tasseraient pendant l'animation. */
+    /* collapsed = zero width, not unmounted: the content keeps its width and gets clipped,
+       otherwise the fields and labels would squeeze together during the animation. */
     <nav
       ref={navRef}
       data-amont-keep-focus
       aria-label={messages.refs.branches}
       inert={!open}
       className={cn(
-        /* min-w-0 : sans lui, le minimum automatique du flex item se cale sur le contenu (236px) */
+        /* min-w-0: without it, the flex item's automatic minimum locks onto the content (236px) */
         "flex min-w-0 shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none",
         open ? "w-59 border-r" : "w-0"
       )}
@@ -128,10 +128,10 @@ export function RefsSidebar() {
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 overflow-auto px-2 pt-2 pb-4">
-          {error && <p className="px-1.5 text-xs text-muted-foreground">Branches indisponibles.</p>}
-          {!data && !error && <AsyncHint className="px-1.5">branches…</AsyncHint>}
+          {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
+          {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
           {data && q && !data.some(match) && !stashes.some((s) => matchStash(s, q)) && (
-            <p className="px-1.5 text-xs text-muted-foreground">Aucune ref ne correspond.</p>
+            <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
           )}
           {data &&
             GROUPS.map((g) => {

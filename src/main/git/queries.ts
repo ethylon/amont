@@ -1,6 +1,6 @@
-/* Opérations de lecture (AUDIT.md §4) : statut, arbre de travail, log, refs, recherche,
-   fichiers/diff, et les deux poignées shell (icône, ouverture) confinées au dépôt. Aucune
-   mutation ici — pas de mutex, comme avant ce refactor. */
+/* Read operations (AUDIT.md §4): status, working tree, log, refs, search,
+   files/diff, and the two shell handles (icon, opening) confined to the repo. No
+   mutation here — no mutex, same as before this refactor. */
 
 import { extname } from "node:path"
 import { app, shell } from "electron"
@@ -20,12 +20,12 @@ function assertHash(hash: string, parent?: string | null): void {
   if (!HASH.test(hash) || (parent != null && !HASH.test(parent))) throw new AppError("BAD_ARG", "hash")
 }
 
-/* --- Statut ---
-   Branche courante + décalage avec sa distante. Absence d'upstream ou HEAD détachée
-   ne sont pas des erreurs : le renderer affiche simplement des tirets. */
+/* --- Status ---
+   Current branch + divergence from its remote. No upstream or detached HEAD
+   aren't errors: the renderer simply displays dashes. */
 export async function repoStatus(r: RepoHandle): Promise<Status> {
-  /* HEAD unborn (dépôt fraîchement init) : rev-parse échoue alors que rien n'est anormal —
-     statut vide plutôt qu'un rejet, comme repo:unstage sait déjà le faire */
+  /* unborn HEAD (freshly-init repo): rev-parse fails even though nothing is wrong —
+     empty status rather than a rejection, as repo:unstage already knows to do */
   const branch = (await r.git(["rev-parse", "--abbrev-ref", "HEAD"]).catch(() => "")).trim()
   if (!branch) return { branch: null, head: null, ahead: null, behind: null }
   const head = (await r.git(["rev-parse", "HEAD"]).catch(() => "")).trim() || null
@@ -39,7 +39,7 @@ export async function repoStatus(r: RepoHandle): Promise<Status> {
   }
 }
 
-/* --- Arbre de travail --- */
+/* --- Working tree --- */
 export const worktree = (r: RepoHandle): Promise<Worktree> =>
   r.git(["status", "--porcelain=v1", "-z", "-uall"]).then(parsePorcelain)
 
@@ -63,8 +63,8 @@ const stashTips = (r: RepoHandle): Promise<string[]> =>
    `git log --skip` re-walks history from the start on every page — fine up to roughly 100k
    commits; switch to a persistent streaming spawn if that ever becomes the bottleneck. */
 export async function logPage(r: RepoHandle, skip: number, count: number, signal?: AbortSignal): Promise<Commit[]> {
-  /* --decorate=full : `%D` sort alors `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
-     Sous sa forme courte, `origin/x` et une branche locale `origin/x` sont indistinguables. */
+  /* --decorate=full: `%D` then outputs `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
+     In its short form, `origin/x` and a local branch named `origin/x` are indistinguishable. */
   const out = await r.git([
     "log", ...ALL_REFS, ...(await stashTips(r)), "--date-order", "--date=short", "--decorate=full",
     `--skip=${skip}`, `-n${count}`,
@@ -87,20 +87,20 @@ export async function searchCommits(r: RepoHandle, q: string, content: boolean, 
     r.git([...base, `--grep=${q}`], { signal }),
     r.git([...base, `--author=${q}`], { signal }),
   ]
-  /* un préfixe de hash n'est pas un motif : rev-parse le résout, ou échoue (inconnu, ambigu) */
+  /* a hash prefix isn't a pattern: rev-parse resolves it, or fails (unknown, ambiguous) */
   if (/^[0-9a-f]{4,40}$/i.test(q))
     runs.push(r.git(["rev-parse", "--verify", "-q", `${q}^{commit}`], { signal }).catch(() => ""))
-  /* la pioche relit le diff de chaque commit : lente, donc jamais implicite */
+  /* the pickaxe rereads the diff of every commit: slow, so never implicit */
   if (content) runs.push(r.git([...base, `-S${q}`], { timeout: SEARCH_TIMEOUT, signal }))
 
   const outs = await Promise.all(runs)
   return [...new Set(outs.join("\n").split("\n").filter(Boolean))]
 }
 
-/* Le comptage embarque les tips de stash, comme le log. Chaque entrée traîne 1 à 2 commits
-   de plomberie (index, non suivis) que le renderer replie : on les soustrait pour que
-   `total` reste le nombre de lignes réellement affichables. Dédupliqués : deux stash créés
-   dans la même seconde partagent le même commit d'index (même arbre, même parent, même date). */
+/* The count includes stash tips, same as the log. Each entry drags along 1 to 2
+   plumbing commits (index, untracked) that the renderer collapses: we subtract them so that
+   `total` stays the number of lines actually displayable. Deduplicated: two stashes created
+   in the same second share the same index commit (same tree, same parent, same date). */
 export async function total(r: RepoHandle): Promise<number> {
   const stashes = await stashList(r)
   const plumbing = new Set(stashes.flatMap((s) => s.p.slice(1)))
@@ -109,11 +109,11 @@ export async function total(r: RepoHandle): Promise<number> {
 }
 
 /* --- Refs ---
-   Branches d'intégration : jamais signalées « fusionnées », on ne les nettoie pas. */
+   Integration branches: never flagged as "merged", we don't clean them up. */
 const TRUNK = new Set(["main", "master", "develop"])
-/* Un `git reflog` par branche candidate : en Promise.all nu, 200 branches locales sans
-   upstream = 200 process concurrents à chaque rafraîchissement. Petit pool de travailleurs
-   qui épuisent une file commune à la place. */
+/* One `git reflog` per candidate branch: with a bare Promise.all, 200 local branches with no
+   upstream = 200 concurrent processes on every refresh. A small worker pool that drains a
+   shared queue instead. */
 const REFLOG_POOL = 8
 
 export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
@@ -124,23 +124,23 @@ export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
   ])
   const { refs, base: symrefBase } = parseForEachRef(out)
 
-  /* Sans distante, on retombe sur la convention. Sans convention non plus, personne n'est
-     « mergé » : mieux vaut ne rien dire que désigner une base arbitraire. */
+  /* Without a remote, we fall back to convention. Without convention either, nobody is
+     "merged": better to say nothing than to designate an arbitrary base. */
   const base = symrefBase || ["main", "master", "develop"].find((b) => refs.some((x) => x.kind === "head" && x.name === b)) || ""
   if (base) {
-    /* `origin/main` → `main` ; une base déjà locale traverse inchangée. La branche
-       d'intégration est ancêtre d'elle-même : la marquer n'apprendrait rien. */
+    /* `origin/main` → `main`; a base that's already local passes through unchanged. The
+       integration branch is its own ancestor: flagging it would teach us nothing. */
     const mainline = base.slice(base.indexOf("/") + 1)
     const mergedOut = await r.git(["for-each-ref", "--merged", base, "--format=%(refname:short)", "refs/heads"])
     const merged = new Set(mergedOut.split("\n").filter(Boolean))
-    /* `--merged` inclut tout ancêtre de la base : une branche fraîche ou en retard, posée sur un
-       commit du tronc, y figure sans rien avoir « fini ». Son tip est alors sur la chaîne
-       first-parent de la base — un simple signet dans l'historique. Seule une branche dont le tip
-       quitte le tronc (côté second parent d'un merge) a réellement été fusionnée : on écarte tout
-       ce qui pointe sur le tronc, tip courant comme commit ancien.
+    /* `--merged` includes every ancestor of the base: a fresh or lagging branch, sitting on a
+       trunk commit, shows up there without having "finished" anything. Its tip then sits on the
+       first-parent chain of the base — just a bookmark in the history. Only a branch whose tip
+       leaves the trunk (on the second-parent side of a merge) has actually been merged: we
+       discard anything that points at the trunk, whether a current tip or an old commit.
 
-       La chaîne parcourt tout l'historique et les refs sont relues à chaque rafraîchissement :
-       on la met en cache tant que le tip de la base n'a pas bougé. */
+       The chain walks the entire history and the refs are reread on every refresh:
+       we cache it as long as the base's tip hasn't moved. */
     const baseTip = (await r.git(["rev-parse", base])).trim()
     if (r.trunk?.key !== `${base} ${baseTip}`) {
       const chain = (await r.git(["rev-list", "--first-parent", base])).split("\n").filter(Boolean)
@@ -155,13 +155,13 @@ export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
         !trunk.has(ref.tip) &&
         merged.has(ref.name)
   }
-  /* le graphe interne les SHA complets en ids entiers à l'ingestion (fix B1) : le tip voyage
-     tel quel, plus de troncature ici — `merged` s'en sert déjà tel quel juste au-dessus */
+  /* the graph interns full SHAs into integer ids at ingestion (fix B1): the tip travels
+     as-is, no truncation here — `merged` already uses it as-is right above */
 
-  /* Une branche suivie annonce `gone` d'elle-même. Sans upstream — poussée sans `-u`, ou config
-     jamais posée — la suppression distante emporte jusqu'au reflog de `refs/remotes/…` : ne
-     reste que le reflog local, où `branch: Created from origin/x` témoigne du lien passé. Une
-     branche née localement n'y mentionne jamais son propre nom distant, et n'est donc pas barrée.
+  /* A tracked branch reports `gone` on its own. Without an upstream — pushed without `-u`, or
+     config never set — the remote deletion takes down even the reflog of `refs/remotes/…`: all
+     that's left is the local reflog, where `branch: Created from origin/x` attests to the past
+     link. A branch born locally never mentions its own remote name there, and so isn't flagged.
 
      A reflog expired by gc (90 days) makes such a branch indistinguishable from a purely local
      one — a known limitation of this heuristic, not something more code can fix (no other
@@ -182,10 +182,10 @@ export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
   return refs
 }
 
-/* --- Fichiers / diff --- */
+/* --- Files / diff --- */
 
-/* Fichiers touchés. Pour un merge, le renderer passe le first-parent :
-   le diff montre ce que le merge a apporté sur la branche cible. */
+/* Files touched. For a merge, the renderer passes the first-parent:
+   the diff shows what the merge brought onto the target branch. */
 export function files(r: RepoHandle, hash: string, parent: string | null, signal?: AbortSignal): Promise<FileChange[]> {
   assertHash(hash, parent)
   const args = parent
@@ -194,15 +194,15 @@ export function files(r: RepoHandle, hash: string, parent: string | null, signal
   return r.git(args, { signal }).then(parseNameStatus)
 }
 
-/* Corps du message, à la demande. Le joindre au log coûterait, pour n'en afficher qu'un,
-   une copie de tous les messages longs de l'historique. */
+/* Message body, on demand. Joining it to the log would cost, just to display one,
+   a copy of every long message in the history. */
 export function body(r: RepoHandle, hash: string, signal?: AbortSignal): Promise<string> {
   assertHash(hash)
   return r.git(["show", "-s", "--format=%b", hash], { signal })
 }
 
-/* Sujet et corps du dernier commit, pour préremplir un amend. `%B` est le message brut :
-   la première ligne est le sujet, le reste (après la ligne vide) la description. */
+/* Subject and body of the last commit, to prefill an amend. `%B` is the raw message:
+   the first line is the subject, the rest (after the blank line) is the description. */
 export async function headMessage(r: RepoHandle): Promise<CommitMessage> {
   const raw = await r.git(["show", "-s", "--format=%B", "HEAD"])
   const nl = raw.indexOf("\n")
@@ -221,9 +221,9 @@ export function diff(
   return r.git(args, { signal })
 }
 
-/* --- Shell : icône et ouverture ---
-   Icône Windows du fichier. Absent du disque (supprimé, vieux commit) : le renderer retombe
-   sur son icône générique. */
+/* --- Shell: icon and opening ---
+   Windows icon of the file. Missing from disk (deleted, old commit): the renderer falls back
+   to its generic icon. */
 export function fileIcon(r: RepoHandle, path: string): Promise<string | null> {
   return app.getFileIcon(inRepo(r, path), { size: "small" }).then((i) => i.toDataURL(), () => null)
 }

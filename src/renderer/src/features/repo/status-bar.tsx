@@ -17,11 +17,11 @@ export type OpState = {
 
 type Props = {
   branch: string | null
-  /** type de travail de la branche courante, `null` hors flow (master, HEAD détachée…) */
+  /** work type of the current branch, `null` outside a flow (master, detached HEAD…) */
   flow: BranchFlow | null
   opState: OpState | null
   stats: Stats | null
-  /** la console git, en slot — nommé pour ne pas ombrer le `console` global (AUDIT.md §7,
+  /** the git console, as a slot — named this way to avoid shadowing the global `console` (AUDIT.md §7,
       phase 5, item 6). */
   consoleSlot?: React.ReactNode
 }
@@ -33,19 +33,19 @@ const Num = ({ children }: { children: React.ReactNode }) => (
 )
 
 export function StatusBar({ branch, flow, opState, stats, consoleSlot }: Props) {
-  /* le type de travail teinte le segment branche : signes partagés de flow-context */
+  /* the work type tints the branch segment: shared signals from flow-context */
   const f = flow && FLOW_META[flow]
   return (
     <footer className="flex h-7 shrink-0 items-center gap-3 border-t pr-3 pl-3.5 text-[0.625rem] text-muted-foreground">
-      {/* issue des opérations git annoncée aux lecteurs d'écran ; le survol (hoverInfo) reste muet */}
+      {/* outcome of git operations announced to screen readers; the hover (hoverInfo) stays silent */}
       <span aria-live="polite" className="sr-only">{opState?.text ?? ""}</span>
-      {/* stats de chargement du graphe (AUDIT.md §8) : poli, pas assertif — ne coupe pas une
-          annonce de sélection en cours pour un simple avancement de pagination. */}
+      {/* graph loading stats (AUDIT.md §8): polite, not assertive — doesn't interrupt an
+          ongoing selection announcement for a mere pagination progress update. */}
       <span aria-live="polite" className="sr-only">
         {stats ? messages.graph.commitsLoaded(nf.format(stats.loaded), nf.format(stats.total)) : ""}
       </span>
 
-      {/* min-w-0 + truncate : une branche longue s'ellipse au lieu de pousser stats hors champ */}
+      {/* min-w-0 + truncate: a long branch name ellipses instead of pushing stats out of view */}
       <span className={cn("flex min-w-0 shrink items-center gap-1.5", f && `font-medium ${f.text}`)}>
         <HugeiconsIcon icon={f ? f.icon : GitBranchIcon} strokeWidth={2} className="size-3 shrink-0" />
         <span className="truncate">{branch ?? "—"}</span>

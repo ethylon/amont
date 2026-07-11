@@ -1,22 +1,22 @@
-/* Store client par dépôt (AUDIT.md §5, chantier « état renderer ») : un store vanilla zustand
-   par onglet ouvert, créé dans un `<RepoProvider>` et consommé par sélecteur — l'antidote au
-   god-component `repo-view.tsx` (22 `useState`, 14 `useEffect`, 10 props vers RefsSidebar, 14
-   vers WorktreePanel). Quatre slices :
-   - `selection` : clavée par HASH de commit (pas par index de ligne) — l'invariant
-     additif/soustractif du ctrl-clic vit dans `toggleAdditive`, un seul endroit pour les
-     commits (`selectRow`) et les refs (`focusRef`). Après un reset du graphe, `resetAndLoad`
-     re-résout les lignes via `graph.rowsOf(hashes)` : la sélection survit à pull/checkout/stash
-     tant que les commits existent encore, plutôt que d'être vidée d'office.
-   - `commitDraft` : sujet/description/amend du brouillon de commit.
-   - `ui` : panneau latéral, vue courante, diff ouvert.
-   - `ops` : opération réseau en cours, pastille de statut (auto-nettoyée par timer).
-   `graphRef` vit dans le store comme ref non réactive (même forme que le `RefObject` que
-   `CommitGraph` attend) : sa mutation ne notifie aucun abonné, seul un effet mince
-   (composant du graphe) synchronise `selection.rows` → `graphRef.current.setSelection`.
+/* Per-repo client store (AUDIT.md §5, "renderer state" workstream): a vanilla zustand store
+   per open tab, created inside a `<RepoProvider>` and consumed by selector — the antidote to
+   the `repo-view.tsx` god-component (22 `useState`, 14 `useEffect`, 10 props to RefsSidebar, 14
+   to WorktreePanel). Four slices:
+   - `selection`: keyed by commit HASH (not by row index) — the additive/subtractive
+     ctrl-click invariant lives in `toggleAdditive`, a single place for both
+     commits (`selectRow`) and refs (`focusRef`). After a graph reset, `resetAndLoad`
+     re-resolves rows via `graph.rowsOf(hashes)`: the selection survives pull/checkout/stash
+     as long as the commits still exist, rather than being cleared outright.
+   - `commitDraft`: subject/description/amend of the commit draft.
+   - `ui`: side panel, current view, open diff.
+   - `ops`: in-flight network operation, status badge (auto-cleared by a timer).
+   `graphRef` lives in the store as a non-reactive ref (same shape as the `RefObject` that
+   `CommitGraph` expects): mutating it notifies no subscriber, only a thin effect
+   (in the graph component) syncs `selection.rows` → `graphRef.current.setSelection`.
 
-   Le quatuor « op git → refresh → resetAndLoad → showOp », recopié quatre fois dans l'ancien
-   repo-view.tsx (checkout, stash, branche — le commit a sa propre forme, l'échec n'y recharge
-   rien), devient `runGitAction`. */
+   The "git op → refresh → resetAndLoad → showOp" quartet, copy-pasted four times in the old
+   repo-view.tsx (checkout, stash, branch — the commit has its own shape, a failure doesn't
+   reload there), becomes `runGitAction`. */
 
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -38,13 +38,13 @@ export type SelMode = "multi" | "branch"
 export interface RepoStoreState {
   readonly repoId: number
   readonly api: RepoApi
-  /** ref non réactive, même forme qu'un `RefObject<GraphHandle | null>` — remplie/vidée depuis
-      le seul canal `onReady` de `<CommitGraph>` (AUDIT.md §7, phase 5, item 6) */
+  /** non-reactive ref, same shape as a `RefObject<GraphHandle | null>` — filled/cleared from
+      the sole `onReady` channel of `<CommitGraph>` (AUDIT.md §7, phase 5, item 6) */
   readonly graphRef: { current: GraphHandle | null }
 
   selection: {
     hashes: string[]
-    /** lignes résolues, triées croissant — ce que le canvas et DetailPanel consomment */
+    /** resolved rows, sorted ascending — what the canvas and DetailPanel consume */
     rows: number[]
     mode: SelMode
     focusedKeys: Set<string>
@@ -73,14 +73,14 @@ export interface RepoStoreState {
   focusRef(r: GitRef, additive: boolean): Promise<void>
   focusStash(s: Stash): Promise<void>
   clearFocus(): void
-  /** re-résout `selection.hashes` en lignes après un reset du graphe (pull/checkout/stash) ;
-      un hash devenu introuvable (amend, rebase) est silencieusement abandonné. */
+  /** re-resolves `selection.hashes` into rows after a graph reset (pull/checkout/stash);
+      a hash that's become unfindable (amend, rebase) is silently dropped. */
   reresolveSelection(): Promise<void>
 
   setSubject(v: string): void
   setDescription(v: string): void
-  /** coche : emprunte sujet/corps du dernier commit, en gardant le brouillon de côté ;
-      décoche : rend le brouillon mis de côté */
+  /** checked: borrows subject/body of the last commit, setting the draft aside;
+      unchecked: restores the draft that was set aside */
   toggleAmend(on: boolean): Promise<void>
 
   toggleSidebar(): void
@@ -95,9 +95,9 @@ export interface RepoStoreState {
   clearOp(): void
   setStats(stats: Stats): void
 
-  /** referme le diff, revient à la vue commits, relance le graphe et re-résout la sélection */
+  /** closes the diff, returns to the commits view, restarts the graph and re-resolves the selection */
   resetAndLoad(): Promise<void>
-  /** op git → invalidation du statut → resetAndLoad → pastille d'erreur, en un seul endroit */
+  /** git op → status invalidation → resetAndLoad → error badge, in a single place */
   runGitAction(action: () => Promise<void>, opts?: { onSuccess?(): void }): Promise<void>
   doCommit(): Promise<void>
   runStash(action: StashAct, name?: string): Promise<void>
@@ -106,9 +106,9 @@ export interface RepoStoreState {
   runWt(act: WtAct, paths: string[]): Promise<void>
 }
 
-/** Ctrl-clic : bascule un ensemble d'éléments d'un coup — retire si le premier y est déjà,
-    ajoute sinon. Même invariant pour les lignes de commit (`selectRow`) et les segments de
-    branche (`focusRef`) : un seul endroit décide de « retirer » vs « ajouter ». */
+/** Ctrl-click: toggles a set of items at once — removes if the first is already in,
+    adds otherwise. Same invariant for commit rows (`selectRow`) and branch
+    segments (`focusRef`): a single place decides "remove" vs "add". */
 function toggleAdditive<T>(set: Set<T>, items: T[]): boolean {
   const removing = items.length > 0 && set.has(items[0])
   for (const it of items) removing ? set.delete(it) : set.add(it)
@@ -122,7 +122,7 @@ const keyOfRow = (g: GraphHandle, row: number): string | null => {
 
 export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStoreState> {
   let okTimer = 0
-  /* brouillon de message mis de côté le temps qu'un amend emprunte celui du dernier commit */
+  /* message draft set aside while an amend borrows the last commit's */
   let draftBackup: { subject: string; description: string } | null = null
 
   return createStore<RepoStoreState>((set, get) => ({
@@ -165,9 +165,9 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
           ui: { ...s.ui, view: "commits", diff: null },
         }
       })
-      /* `active` explicite : `row` est la ligne qui vient d'agir (clic, ctrl-clic, flèche…) — le
-         curseur clavier (roving tabindex, AUDIT.md §8) la suit, qu'elle reste ou non triée en
-         tête de `rows` une fois le Set remis en ordre croissant. */
+      /* explicit `active`: `row` is the row that just acted (click, ctrl-click, arrow…) — the
+         keyboard cursor (roving tabindex, AUDIT.md §8) follows it, whether or not it ends up
+         sorted at the head of `rows` once the Set is put back in ascending order. */
       g.setSelection(get().selection.rows, row)
     },
 
@@ -175,7 +175,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       const g = get().graphRef.current
       if (!g) return
       const rows = g.branchSegment(row).sort((a, b) => a - b)
-      await g.pin(rows) // le détail lit `commit(row)` en synchrone sur toute la sélection
+      await g.pin(rows) // the detail panel reads `commit(row)` synchronously across the whole selection
       const key = keyOfRow(g, row)
       const hashes = rows.map((r) => g.commit(r)!.h)
       set((s) => ({
@@ -194,7 +194,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       const row = (await g.rowsOf([r.tip]))[0]
       if (row === undefined) return
       const seg = r.kind === "tag" ? [row] : g.branchSegment(row)
-      await g.pin(seg) // le détail lit `commit(row)` en synchrone sur toute la sélection
+      await g.pin(seg) // the detail panel reads `commit(row)` synchronously across the whole selection
 
       if (!additive) {
         const sorted = [...seg].sort((a, b) => a - b)
@@ -245,9 +245,9 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       await g.pin(rows)
       const resolvedHashes = rows.map((r) => g.commit(r)!.h)
       set((s) => ({ selection: { ...s.selection, rows, hashes: resolvedHashes } }))
-      /* re-réclame le curseur clavier (AUDIT.md §8) : sans ça, la sélection restaurée après un
-         pull/checkout/stash resterait affichée alors que le curseur clavier — amorcé sur la ligne 0
-         par controller.ts `reset()` juste avant — pointerait ailleurs. */
+      /* reclaims the keyboard cursor (AUDIT.md §8): without this, the selection restored after a
+         pull/checkout/stash would stay displayed while the keyboard cursor — primed on row 0
+         by controller.ts `reset()` just before — would point elsewhere. */
       g.setSelection(rows, rows[0])
     },
 
@@ -294,7 +294,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
     setBusyOp(op) {
       set((s) => ({ ops: { ...s.ops, busyOp: op } }))
     },
-    /* la pastille s'efface d'elle-même ; seule une action (« Recharger ») la garde en place */
+    /* the badge clears itself; only an action ("Reload") keeps it in place */
     showOp(text, color, action) {
       clearTimeout(okTimer)
       set((s) => ({ ops: { ...s.ops, opState: { text, color, action } } }))
@@ -370,15 +370,15 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
 const RepoStoreContext = createContext<StoreApi<RepoStoreState> | null>(null)
 
 export function RepoProvider({ repoId, api, children }: { repoId: number; api: RepoApi; children: ReactNode }) {
-  /* créé une fois par onglet monté : App garde les onglets visités montés (keep-mounted), le
-     store suit la même durée de vie que RepoView pour ce dépôt. */
+  /* created once per mounted tab: App keeps visited tabs mounted (keep-mounted), the
+     store follows the same lifetime as RepoView for this repo. */
   const store = useRef<StoreApi<RepoStoreState> | null>(null)
   store.current ??= createRepoStore(repoId, api)
   return <RepoStoreContext.Provider value={store.current}>{children}</RepoStoreContext.Provider>
 }
 
-/** Accès à l'instance de store (pour `.getState()`/`.setState()` impératifs — abonnements aux
-    événements git, callbacks du graphe). Préférer `useRepoStore(selector)` dans le rendu. */
+/** Access to the store instance (for imperative `.getState()`/`.setState()` — git event
+    subscriptions, graph callbacks). Prefer `useRepoStore(selector)` in render. */
 export function useRepoStoreApi(): StoreApi<RepoStoreState> {
   const store = useContext(RepoStoreContext)
   if (!store) throw new Error("useRepoStoreApi must be used inside <RepoProvider>")
@@ -389,16 +389,16 @@ export function useRepoStore<T>(selector: (s: RepoStoreState) => T): T {
   return useStore(useRepoStoreApi(), selector)
 }
 
-/** Abonnements aux événements git du dépôt (`git:changed`, `git:op`) — un seul endroit qui
-    traduit le pousser du main en invalidations de requêtes et en actions du store, plutôt que
-    de vivre en ligne dans le layout de RepoView. */
+/** Subscriptions to the repo's git events (`git:changed`, `git:op`) — a single place that
+    translates main's push into query invalidations and store actions, rather than
+    living inline in RepoView's layout. */
 export function useRepoEvents(): void {
   const store = useRepoStoreApi()
   const repoId = useRepoStore((s) => s.repoId)
   const queryClient = useQueryClient()
 
-  /* Les refs ont bougé hors de l'application : commit, rebase ou checkout depuis un terminal.
-     Main ne prévient qu'au premier plan et se tait après nos propres commandes. */
+  /* Refs moved outside the application: commit, rebase or checkout from a terminal.
+     Main only notifies when in the foreground and stays quiet after our own commands. */
   useEffect(
     () =>
       onChanged((p) => {
@@ -409,8 +409,8 @@ export function useRepoEvents(): void {
     [repoId, queryClient, store]
   )
 
-  /* --- Opérations git : le clic lance, mais tout le retour passe par onOp (l'auto-fetch du
-     process main émet sans avoir d'appelant côté renderer). --- */
+  /* --- Git operations: the click launches, but all the feedback goes through onOp (main
+     process auto-fetch emits without a renderer-side caller). --- */
   useEffect(
     () =>
       onOp(async (p) => {
@@ -426,7 +426,7 @@ export function useRepoEvents(): void {
         if (p.op === "pull") {
           await s.resetAndLoad()
         } else if (p.added > 0) {
-          /* le graphe n'est pas rechargé d'office : ça perdrait le scroll et la sélection */
+          /* the graph isn't reloaded automatically: that would lose the scroll and the selection */
           s.showOp(messages.app.newCommits(p.added), "primary", {
             label: messages.app.reload,
             run: () => {

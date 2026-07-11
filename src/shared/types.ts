@@ -1,89 +1,89 @@
-/* Types du domaine, partagés par les trois process (main, preload, renderer). Déménagés
-   depuis renderer/lib/git.ts : ils décrivent la forme des données qui traversent l'IPC,
-   pas seulement ce que le renderer en attend — main les produit, preload les relaie tels
-   quels. Voir ipc-contract.ts pour la map des canaux qui les transporte. */
+/* Domain types, shared by the three processes (main, preload, renderer). Moved
+   from renderer/lib/git.ts: they describe the shape of the data that crosses the IPC boundary,
+   not just what the renderer expects of it — main produces them, preload relays them as-is.
+   See ipc-contract.ts for the map of channels that carries them. */
 
 import type { ErrorPayload } from "./errors.ts"
 
-/** `Omit` qui distribue sur les membres d'une union discriminée plutôt que de s'effondrer sur
-    leurs seules clés communes (`keyof (A | B)` ne garde que l'intersection des clés — `Omit`
-    non distribuée y perdrait les champs propres à chaque variante). Utile pour construire le
-    payload d'un événement (`TraceLine`, `OpEvent`) sans son `id`, ajouté au dernier moment par
-    l'émetteur qui le connaît déjà (cf. main/ipc.ts `makeHooks`). */
+/** `Omit` that distributes over the members of a discriminated union rather than collapsing
+    onto their common keys alone (`keyof (A | B)` keeps only the intersection of keys —
+    a non-distributed `Omit` would lose the fields specific to each variant here). Useful for
+    building the payload of an event (`TraceLine`, `OpEvent`) without its `id`, added at the
+    last moment by the emitter that already knows it (cf. main/ipc.ts `makeHooks`). */
 export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 export type Commit = {
-  /** SHA complet (40 caractères) — fix B1 (AUDIT.md §2) : le renderer interne ces hash en ids
-      entiers séquentiels à l'ingestion (cf. renderer/features/graph/ids.ts), la troncature à
-      8 caractères redevient une affaire d'affichage. */
+  /** Full SHA (40 characters) — fix B1 (AUDIT.md §2): the renderer interns these hashes into
+      sequential integer ids at ingestion (cf. renderer/features/graph/ids.ts), 8-character
+      truncation becomes a display-only concern again. */
   h: string
-  /** parents, SHA complets ; le premier est le first-parent */
+  /** parents, full SHAs; the first is the first-parent */
   p: string[]
   d: string
   a: string
-  /** e-mail de l'auteur, seule clé d'avatar que git connaisse */
+  /** author's e-mail, the only avatar key git knows */
   e: string
-  /** refs brutes de `%D --decorate=full` : "HEAD -> refs/heads/develop, tag: refs/tags/v4.2.0" */
+  /** raw refs from `%D --decorate=full`: "HEAD -> refs/heads/develop, tag: refs/tags/v4.2.0" */
   r: string
   s: string
-  /** posé par le collapse release/hotfix (cf. renderer/features/graph/layout/collapse.ts) : cette ligne fusionne les deux merges
-      d'une version — côté master (absorbé) et côté develop (survivant). */
+  /** set by the release/hotfix collapse (cf. renderer/features/graph/layout/collapse.ts): this line merges the two merges
+      of a version — the master side (absorbed) and the develop side (surviving). */
   cap?: {
-    /** SHA complet du merge master fusionné ; reste résolu par la capsule dans layoutChunk */
+    /** full SHA of the absorbed master merge; still resolved by the capsule in layoutChunk */
     absorbed: string
-    /** tag semver de la release, `null` si la paire n'en portait pas */
+    /** semver tag of the release, `null` if the pair didn't carry one */
     version: string | null
-    /** branche source : "release/1.6.2", "hotfix/1.6.3" */
+    /** source branch: "release/1.6.2", "hotfix/1.6.3" */
     from: string
     flow: "release" | "hotfix"
-    /** [cible master, cible develop] */
+    /** [master target, develop target] */
     targets: [string, string]
   }
-  /** posé par le repli des stash (cf. renderer/features/graph/layout/collapse.ts) : cette ligne est une entrée de stash,
-      ses parents de plomberie ont été retirés — seul le parent de base reste. */
+  /** set by the stash collapse (cf. renderer/features/graph/layout/collapse.ts): this line is a stash entry,
+      its plumbing parents have been removed — only the base parent remains. */
   stash?: {
-    /** nom d'entrée `stash@{N}`, la poignée des actions apply/pop/drop */
+    /** entry name `stash@{N}`, the handle for apply/pop/drop actions */
     name: string
-    /** SHA complet du commit des fichiers non suivis (`stash push -u`), `null` sans eux */
+    /** full SHA of the untracked-files commit (`stash push -u`), `null` without them */
     untracked: string | null
   }
 }
 
-/** Une entrée de `git stash list`. `p` garde tous les parents : base, index, non suivis. */
+/** An entry from `git stash list`. `p` keeps all parents: base, index, untracked. */
 export type Stash = {
   name: string
-  /** SHA complet du commit de stash, sa ligne dans le graphe */
+  /** full SHA of the stash commit, its line in the graph */
   h: string
   p: string[]
   d: string
   a: string
   e: string
-  /** sujet du reflog : "WIP on x: …" ou "On x: message" */
+  /** reflog subject: "WIP on x: …" or "On x: message" */
   s: string
 }
 
 export type StashAct = "push" | "apply" | "pop" | "drop"
 
 export type FileChange = {
-  /** A, M, D, R, C, ? ou un couple de conflit (UU, AA…) */
+  /** A, M, D, R, C, ? or a conflict pair (UU, AA…) */
   st: string
   path: string
   old?: string | null
 }
 
-/** Un dépôt ouvert. `id` est l'unique poignée acceptée par les appels git. */
+/** An open repo. `id` is the only handle accepted by git calls. */
 export type Repo = { id: number; path: string; name: string }
-/** Un dépôt connu mais pas ouvert : récent, ou trouvé sous la racine. */
+/** A known but unopened repo: recent, or found under the root. */
 export type RepoRef = { path: string; name: string }
-/** `null` : dialogue annulé. Un échec d'ouverture (pas un dépôt…) throw désormais une AppError
-    structurée (fix chantier « erreurs », AUDIT.md §4) plutôt que de rendre `{ error }` — même
-    convention que le reste du contrat. */
+/** `null`: dialog cancelled. An opening failure (not a repo…) now throws a structured
+    AppError (fix from the "errors" workstream, AUDIT.md §4) instead of returning `{ error }` —
+    same convention as the rest of the contract. */
 export type OpenResult = Repo | null
 
 export type BootState = {
   root: string | null
   recents: RepoRef[]
-  /** onglets restaurés, déjà ouverts côté main */
+  /** restored tabs, already open on the main side */
   tabs: Repo[]
   active: number | null
 }
@@ -95,38 +95,38 @@ export type Status = {
   behind: number | null
 }
 
-/** Une ref de `for-each-ref`. `ahead`/`behind` ne sont renseignés que pour une branche suivie. */
+/** A ref from `for-each-ref`. `ahead`/`behind` are only populated for a tracked branch. */
 export type GitRef = {
-  /** sans le préfixe `refs/…/` : "feature/x", "origin/master", "v4.2.0" */
+  /** without the `refs/…/` prefix: "feature/x", "origin/master", "v4.2.0" */
   name: string
   kind: "head" | "remote" | "tag"
   head: boolean
-  /** distante suivie, forme courte ("origin/master") ; vide si la branche n'en a pas */
+  /** tracked remote, short form ("origin/master"); empty if the branch has none */
   upstream: string
   ahead: number
   behind: number
-  /** branche locale déjà fusionnée dans la branche d'intégration */
+  /** local branch already merged into the integration branch */
   merged: boolean
-  /** branche locale dont la contrepartie distante a été supprimée */
+  /** local branch whose remote counterpart has been deleted */
   gone: boolean
-  /** SHA complet du commit pointé, pelé pour un tag annoté : la cible d'un focus dans le graphe */
+  /** full SHA of the commit pointed to, peeled for an annotated tag: the target of a focus in the graph */
   tip: string
 }
 
-/** Les préfixes de `git flow init`, ou `null` si le dépôt ignore git-flow. */
+/** The prefixes from `git flow init`, or `null` if the repo doesn't use git-flow. */
 export type FlowPrefixes = Partial<Record<"feature" | "bugfix" | "release" | "hotfix", string>>
 
-/** Contexte read-only de la branche de flow courante : cockpit et carte contexte. */
+/** Read-only context of the current flow branch: cockpit and context card. */
 export type FlowInfo = {
-  /** commits propres à la branche, absents de sa base */
+  /** commits specific to the branch, absent from its base */
   commits: number
-  /** epoch (s) du premier commit propre, `null` tant que la branche n'a rien */
+  /** epoch (s) of the first specific commit, `null` as long as the branch has nothing */
   startedAt: number | null
-  /** point de départ affichable : dernier tag (release/hotfix) ou tronc (feature/bugfix) */
+  /** displayable starting point: last tag (release/hotfix) or trunk (feature/bugfix) */
   base: string | null
-  /** branches où le finish atterrira */
+  /** branches where the finish will land */
   targets: string[]
-  /** tag que le finish posera — version du nom de branche, sinon bump du dernier tag */
+  /** tag that the finish will create — version from the branch name, otherwise a bump of the last tag */
   nextTag: string | null
 }
 
@@ -134,28 +134,28 @@ export type BranchAct = "merge" | "delete" | "pull" | "push" | "finish"
 
 export type WtSource = "staged" | "unstaged" | "untracked"
 
-/** Sujet (première ligne) et description (corps) d'un message de commit, tels que saisis. */
+/** Subject (first line) and description (body) of a commit message, as entered. */
 export type CommitMessage = { subject: string; body: string }
 
 export type Worktree = Record<"staged" | "unstaged" | "untracked" | "conflicts", FileChange[]>
 
 export type OpName = "fetch" | "pull" | "push"
 
-/* Le cas "error" transporte un code structuré plutôt qu'un message français pré-formaté (fix
-   chantier « erreurs », AUDIT.md §4) : le renderer compose le texte affiché. Ce canal étant un
-   événement (`webContents.send`), pas une erreur d'`invoke`, il échappe à la restriction
-   d'Electron qui ne laisse passer que `.message` sur un throw — `code`/`detail` voyagent tels
-   quels, sans le détour JSON qu'exige `shared/errors.ts` côté invoke. */
+/* The "error" case carries a structured code rather than a pre-formatted French message (fix
+   from the "errors" workstream, AUDIT.md §4): the renderer composes the displayed text. Since
+   this channel is an event (`webContents.send`), not an `invoke` error, it escapes Electron's
+   restriction that only lets `.message` through on a throw — `code`/`detail` travel as-is,
+   without the JSON detour that `shared/errors.ts` requires on the invoke side. */
 export type OpEvent = { id: number } & (
   | { op: OpName; state: "start"; auto: boolean }
   | { op: OpName; state: "done"; auto: boolean; added: number }
   | ({ op: OpName; state: "error"; auto: boolean } & ErrorPayload)
 )
 
-/** `.git` a bougé sous nos pieds. Main ne l'émet qu'application au premier plan. */
+/** `.git` moved under our feet. Main only emits it when the app is in the foreground. */
 export type ChangeEvent = { id: number }
 
-/** Une ligne de la console : en-tête d'opération, commande lancée, sortie stderr, ou issue. */
+/** A console line: operation header, launched command, stderr output, or outcome. */
 export type TraceLine = { id: number } & (
   | { kind: "group"; text: string; ts: number }
   | { kind: "cmd"; text: string }

@@ -1,12 +1,12 @@
-/* Frontière d'erreur (AUDIT.md §5, item 8) : avant ce composant, un throw de rendu blanchissait
-   toute la fenêtre, rattrapé seulement par le reload complet du main (render-process-gone).
-   Une par onglet (autour de RepoView) et une autour de DetailPanel/DiffView — un panneau qui
-   plante n'emporte plus le reste de l'onglet.
+/* Error boundary (AUDIT.md §5, item 8): before this component, a render throw blanked
+   the entire window, only caught by main's full reload (render-process-gone).
+   One per tab (around RepoView) and one around DetailPanel/DiffView — a panel that
+   crashes no longer takes down the rest of the tab.
 
-   React n'offre pas de "réessayer" un rendu qui a déjà jeté sans repartir d'un sous-arbre
-   neuf : la vraie récupération est un changement de `key` côté appelant, qui démonte et
-   remonte tout — `onReset` le déclenche. Le clic vide aussi l'état local en secours pour les
-   frontières qui n'auraient pas câblé de `key` (l'affichage réessaie, sans garantie). */
+   React doesn't offer a way to "retry" a render that has already thrown without starting
+   from a fresh subtree: true recovery is a `key` change on the caller's side, which unmounts
+   and remounts everything — `onReset` triggers it. The click also clears local state as a
+   fallback for boundaries that haven't wired up a `key` (the display retries, without guarantee). */
 
 import { Component, type ErrorInfo, type ReactNode } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -18,7 +18,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 
 type Props = {
   children: ReactNode
-  /** libellé du bouton de récupération */
+  /** recovery button label */
   label?: string
   onReset?(): void
 }

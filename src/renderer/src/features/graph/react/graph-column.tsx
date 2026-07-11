@@ -18,10 +18,10 @@ const WT_COUNTERS = [
   { key: "untracked", color: "neutral" },
 ] as const
 
-/* Le moteur du graphe (createGraph, features/graph/controller.ts, décomposé en phase 4) : ce
-   composant reste la coque React qui lui fournit ses trois nœuds DOM et ses callbacks. Les
-   mesures (graphW/branchW) ne repassent plus par du state React — `onGraphWidth`/`onBranchWidth`
-   écrivent directement les propriétés CSS sur le conteneur, lues par `.amont-wtrow`/le moteur via
+/* The graph engine (createGraph, features/graph/controller.ts, decomposed in phase 4): this
+   component remains the React shell that provides it its three DOM nodes and callbacks. The
+   measurements (graphW/branchW) no longer go through React state — `onGraphWidth`/`onBranchWidth`
+   write CSS properties directly on the container, read by `.amont-wtrow`/the engine via
    `var()` (cf. app.css). */
 export function GraphColumn() {
   const storeApi = useRepoStoreApi()
@@ -42,7 +42,7 @@ export function GraphColumn() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [diffNonce, setDiffNonce] = useState(0)
 
-  /* --- Sélection : la source de vérité est le store, le canvas ne fait qu'appliquer les classes --- */
+  /* --- Selection: the store is the source of truth, the canvas only applies the classes --- */
   useEffect(() => {
     graphRef.current?.setSelection(rows)
   }, [rows, graphRef])
@@ -54,8 +54,8 @@ export function GraphColumn() {
       onStats: (stats) => storeApi.getState().setStats(stats),
       onGraphWidth: (px) => wrapRef.current?.style.setProperty("--graphw", `${px}px`),
       onBranchWidth: (px) => wrapRef.current?.style.setProperty("--amont-branch", `${px}px`),
-      /* les échecs de `api.log` ne sont plus muets (AUDIT.md §6) : la pastille de statut existante
-         (op git → refresh → resetAndLoad → showOp) porte aussi celle-ci */
+      /* `api.log` failures are no longer silent (AUDIT.md §6): the existing status badge
+         (git op → refresh → resetAndLoad → showOp) carries this one too */
       onError: (message) => storeApi.getState().showOp(message, "danger"),
     }),
     [storeApi]
@@ -84,8 +84,8 @@ export function GraphColumn() {
         </div>
       )}
 
-      {/* le diff recouvre le graphe au lieu de le démonter : scroll, sélection et mise en
-          page du canvas survivent à la fermeture */}
+      {/* the diff overlays the graph instead of unmounting it: scroll, selection and layout
+          of the canvas survive its closing */}
       <div className="relative grid min-h-0">
         <CommitGraph
           api={api}

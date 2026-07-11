@@ -6,19 +6,19 @@ import { cn } from "@/lib/utils"
 type Props = Omit<React.ComponentProps<typeof Button>, "children"> & {
   label: string
   icon: IconSvgElement
-  /** icône du second état d'une bascule : le passage se fond au lieu de claquer */
+  /** icon for a toggle's second state: the transition fades instead of snapping */
   swapIcon?: IconSvgElement
-  /** `true` : `swapIcon` est visible, `icon` s'efface */
+  /** `true`: `swapIcon` is visible, `icon` fades out */
   swapped?: boolean
 }
 
-/* Fondu opacité + échelle + flou, même courbe que les transitions d'onglet (cf. app.css). */
+/* Opacity + scale + blur fade, same curve as tab transitions (see app.css). */
 const FADE =
   "transition-[opacity,scale,filter] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none"
 const ON = "scale-100 opacity-100 blur-none"
 const OFF = "scale-25 opacity-0 blur-xs"
 
-/** Bouton sans libellé visible : aria-label porte l'accessibilité. */
+/** Button with no visible label: aria-label carries the accessibility. */
 export function IconButton({
   label,
   icon,
@@ -40,7 +40,7 @@ export function IconButton({
       {swapIcon ? (
         <>
           <HugeiconsIcon icon={icon} strokeWidth={2} className={cn(FADE, swapped ? OFF : ON)} />
-          {/* les deux icônes restent montées, superposées : le fondu est interruptible */}
+          {/* both icons stay mounted, stacked: the fade is interruptible */}
           <HugeiconsIcon
             icon={swapIcon}
             strokeWidth={2}
