@@ -5,7 +5,7 @@ import { Clock01Icon, Folder01Icon, FolderLibraryIcon } from "@hugeicons/core-fr
 
 import { host, type Repo, type RepoRef } from "@/lib/git"
 import { describeError } from "@/lib/errors"
-import { Mark } from "@/components/mark"
+import { Mark } from "@/components/ui/mark"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/primitives/empty"

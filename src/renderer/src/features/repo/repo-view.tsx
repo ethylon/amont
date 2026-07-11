@@ -3,21 +3,24 @@ import { useQueryClient } from "@tanstack/react-query"
 
 import { branchFlow } from "@/lib/commit-message"
 import { repoApi, worktreeCount, type Repo } from "@/lib/git"
-import { queryKeys, useFlowInfoQuery, useFlowQuery, useStatusQuery, useWorktreeQuery } from "@/lib/queries"
-import { RepoProvider, useRepoEvents, useRepoStore, useRepoStoreApi } from "@/lib/repo-store"
-import { PRIORITY, useShortcut } from "@/lib/shortcuts"
+import { queryKeys } from "@/lib/queries"
+import { useFlowInfoQuery, useFlowQuery } from "@/features/flow/flow-queries"
+import { useStatusQuery } from "@/features/repo/repo-queries"
+import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
+import { RepoProvider, useRepoEvents, useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
+import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
-import { BootSkeleton } from "@/components/boot-skeleton"
-import { CommitSearch } from "@/components/commit-search"
-import { DetailPanel } from "@/components/detail-panel"
-import { ErrorBoundary } from "@/components/error-boundary"
-import { FlowBanner, FlowCard } from "@/components/flow-context"
-import { GitConsole } from "@/components/git-console"
-import { GraphColumn } from "@/components/graph-column"
-import { RefsSidebar } from "@/components/refs-sidebar"
-import { StatusBar } from "@/components/status-bar"
-import { Toolbar } from "@/components/toolbar"
-import { WorktreePanel } from "@/components/worktree-panel"
+import { BootSkeleton } from "@/features/repo/boot-skeleton"
+import { CommitSearch } from "@/features/search/commit-search"
+import { DetailPanel } from "@/features/repo/detail-panel"
+import { ErrorBoundary } from "@/app/error-boundary"
+import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
+import { GitConsole } from "@/features/console/git-console"
+import { GraphColumn } from "@/features/graph/react/graph-column"
+import { RefsSidebar } from "@/features/refs/refs-sidebar"
+import { StatusBar } from "@/features/repo/status-bar"
+import { Toolbar } from "@/features/repo/toolbar"
+import { WorktreePanel } from "@/features/worktree/worktree-panel"
 
 /** Révélation du boot : le squelette survit à son fondu de sortie avant d'être démonté, et
     `settled` attend la frame suivante pour ne pas rejouer les entrées animées du contenu déjà
@@ -103,7 +106,7 @@ function RepoViewContent({ repo, active }: Props) {
   const booted = !!stats && ![statusQuery, flowQuery, worktreeQuery, flowInfoQuery].some((q) => q.isLoading)
   const { skeleton, settled } = useBootReveal(booted)
 
-  /* onChanged/onOp -> invalidations + resetAndLoad/showOp (cf. lib/repo-store.tsx) */
+  /* onChanged/onOp -> invalidations + resetAndLoad/showOp (cf. repo-store.tsx) */
   useRepoEvents()
 
   /* git ne notifie rien : l'arbre a pu bouger dans l'éditeur pendant qu'on regardait ailleurs */
