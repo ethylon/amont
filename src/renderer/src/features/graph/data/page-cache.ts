@@ -77,8 +77,9 @@ export function createPageCache(resident: number) {
     return pageRows[pi + 1]
   }
 
-  /* ponytail: une sélection étalée (segment de tronc entier) épingle toutes ses pages — la borne
-     `resident` est relâchée le temps de la sélection, elle se resserre quand elle se vide. */
+  /* A spread-out selection (an entire trunk segment) pins all of its pages — the `resident` bound
+     is intentionally allowed to stretch for the duration of the selection, and tightens back up
+     once it's cleared. */
   function evict(viewRowRange: readonly [number, number] | null, extraRows: Iterable<number>): void {
     if (pages.size <= resident || !pageRows.length) return
     const pinned = new Set<number>()

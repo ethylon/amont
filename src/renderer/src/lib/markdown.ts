@@ -1,7 +1,8 @@
 /* Markdown du corps de commit (AUDIT.md §7, phase 5 — anciennement lib/commit-message.ts).
    Sous-ensemble réellement écrit dans un message de commit : paragraphes, puces, `code`,
    **gras**, *italique*, URLs nues. Le parseur ne rend que des données : aucun HTML n'est injecté.
-   ponytail: ni titres, ni tableaux, ni blocs fencés. Une dep markdown le jour où ça manque. */
+   No headings, no tables, no fenced code blocks — pull in a real markdown dependency the day
+   one of those is actually missing. */
 
 export type MdKind = "text" | "code" | "bold" | "em" | "link"
 export type MdToken = { t: MdKind; v: string }

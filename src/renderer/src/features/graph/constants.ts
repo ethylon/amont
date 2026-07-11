@@ -26,12 +26,11 @@ export const RESIDENT = 12
     des rangs 0 et 1. */
 export const LANES = 10
 
-/* ponytail: plafond de la colonne métro — au-delà, les lanes profondes sont rognées par le
-   viewport du SVG plutôt que de pousser le sujet hors champ. Écart connu avec `LANES` (10) :
-   les lanes 10 et 11 sont dessinées mais recyclent une teinte déjà utilisée plus à gauche ;
-   étendre la palette (`--lane-10`/`--lane-11`) est un choix de designer qui dépasse ce
-   refactor (AUDIT.md §6 le signale comme dette de constantes, pas comme bug visuel à corriger
-   ici) — laissé en l'état, signalé dans la PR. */
+/* Cap on the metro column: past this, deep lanes get clipped by the SVG viewport rather than
+   pushing the subject out of view. Known mismatch with `LANES` (10): lanes 10 and 11 are drawn but
+   recycle a hue already used further left; extending the palette (`--lane-10`/`--lane-11`) is a
+   designer's call that's out of scope here (AUDIT.md §6 flags it as a constants-debt note, not a
+   visual bug to fix in this pass) — left as is. */
 export const MAX_LANES = 12
 
 /* Les teintes vivent dans :root / .dark (cf. app.css) : un var() dans un attribut de
@@ -43,9 +42,9 @@ export const GAP = 10
 export const TYPE_MAX = "max-w-28"
 /** plafond du nom de branche : 96px, au-delà il défile au survol */
 export const BRANCH_MAX = "max-w-24"
-/* ponytail: budget fixe à 1 — la colonne fait la largeur d'un chip, en afficher deux demanderait
-   de mesurer chaque ligne. Compter, pas mesurer. Les refs sont triées branche → tag (cf.
-   parseRefs), donc `slice(0, 1)` garde bien le nom de branche prioritaire. */
+/* Fixed budget of 1: the column is one chip wide, showing two would require measuring every row
+   instead of just counting. Refs are sorted branch → tag (cf. parseRefs), so `slice(0, 1)`
+   correctly keeps the higher-priority branch name. */
 export const BRANCH_BUDGET = 1
 
 /* --- Largeurs de colonnes fixes : une seule source pour le grid-template ET pour FIXED_W ---
