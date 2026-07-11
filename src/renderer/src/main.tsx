@@ -3,15 +3,15 @@ import { createRoot } from "react-dom/client"
 import { QueryClientProvider } from "@tanstack/react-query"
 
 import "./app.css"
-import App from "@/App"
+import App from "@/app/App"
 import { boot } from "@/lib/git"
 import { queryClient } from "@/lib/query-client"
-import { installShortcuts } from "@/lib/shortcuts"
+import { installShortcuts } from "@/app/shortcuts"
 import { applyTheme } from "@/lib/theme"
 
 /* avant le premier rendu : pas de flash clair au démarrage */
 applyTheme()
-/* un seul listener document pour tout le registre de raccourcis (cf. lib/shortcuts.ts) */
+/* un seul listener document pour tout le registre de raccourcis (cf. app/shortcuts.ts) */
 installShortcuts()
 
 /* boot() ouvre les repos des onglets restaurés : appelé une seule fois ici, explicitement,

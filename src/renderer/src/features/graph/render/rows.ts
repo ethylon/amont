@@ -6,14 +6,14 @@ import { ArrowRight01Icon, CloudIcon, Fire02Icon, RocketIcon, Tag01Icon } from "
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { avatarUrl, initials, tint } from "@/lib/avatar"
-import { iconEl } from "@/lib/utils"
-import { badgeSeparator, badgeVariants } from "@/components/ui/badge"
+import { iconEl } from "./icon-el.ts"
+import { badgeSeparator, badgeVariants, type BadgeColor } from "@/components/ui/badge"
 import {
-  BACKUP_WIP, mergeColor, mergeFlow, parseMerge, parseRefs, parseSubject, refColor,
-  SEMVER, tagFlowColor, typeColor,
-  type BadgeColor, type FlowKind, type ParsedMerge, type RefChip,
-} from "@/lib/commit-message"
-import { scrollText } from "@/components/scroll-text"
+  BACKUP_WIP, parseMerge, parseRefs, parseSubject, refColor, typeColor,
+  type ParsedMerge, type RefChip,
+} from "@/lib/commit-parse"
+import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/lib/gitflow"
+import { scrollText } from "../interactions/scroll-text.ts"
 import { BRANCH_BUDGET, BRANCH_MAX, GRID_COLS, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
 import type { LayoutState } from "../layout/state.ts"
 import { hashOfId, idOf, shortHash } from "../ids.ts"
