@@ -18,11 +18,12 @@
    repo-view.tsx (checkout, stash, branche — le commit a sa propre forme, l'échec n'y recharge
    rien), devient `runGitAction`. */
 
-import { createContext, useContext, useRef, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useRef, type ReactNode } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { createStore, useStore, type StoreApi } from "zustand"
 
-import { describeError } from "@/lib/errors"
-import type { BranchAct, FileChange, GitRef, OpName, RepoApi, Stash, StashAct } from "@/lib/git"
+import { describeError, describePayload } from "@/lib/errors"
+import { onChanged, onOp, type BranchAct, type FileChange, type GitRef, type OpName, type RepoApi, type Stash, type StashAct } from "@/lib/git"
 import { invalidateRepo, queryKeys } from "@/lib/queries"
 import { queryClient } from "@/lib/query-client"
 import type { DiffCtx, DiffView as DiffViewMode } from "@/components/diff-view"
@@ -378,4 +379,56 @@ export function useRepoStoreApi(): StoreApi<RepoStoreState> {
 
 export function useRepoStore<T>(selector: (s: RepoStoreState) => T): T {
   return useStore(useRepoStoreApi(), selector)
+}
+
+/** Abonnements aux événements git du dépôt (`git:changed`, `git:op`) — un seul endroit qui
+    traduit le pousser du main en invalidations de requêtes et en actions du store, plutôt que
+    de vivre en ligne dans le layout de RepoView. */
+export function useRepoEvents(): void {
+  const store = useRepoStoreApi()
+  const repoId = useRepoStore((s) => s.repoId)
+  const queryClient = useQueryClient()
+
+  /* Les refs ont bougé hors de l'application : commit, rebase ou checkout depuis un terminal.
+     Main ne prévient qu'au premier plan et se tait après nos propres commandes. */
+  useEffect(
+    () =>
+      onChanged((p) => {
+        if (p.id !== repoId) return
+        invalidateRepo(queryClient, repoId)
+        void store.getState().resetAndLoad()
+      }),
+    [repoId, queryClient, store]
+  )
+
+  /* --- Opérations git : le clic lance, mais tout le retour passe par onOp (l'auto-fetch du
+     process main émet sans avoir d'appelant côté renderer). --- */
+  useEffect(
+    () =>
+      onOp(async (p) => {
+        if (p.id !== repoId) return
+        const s = store.getState()
+        s.setBusyOp(p.state === "start" ? p.op : null)
+        if (p.state === "start") return
+        if (p.state === "error") {
+          queryClient.invalidateQueries({ queryKey: queryKeys.status(repoId) })
+          return s.showOp(describePayload(p), "danger")
+        }
+        invalidateRepo(queryClient, repoId)
+        if (p.op === "pull") {
+          await s.resetAndLoad()
+        } else if (p.added > 0) {
+          const suffix = p.added > 1 ? "s" : ""
+          /* le graphe n'est pas rechargé d'office : ça perdrait le scroll et la sélection */
+          s.showOp(`${p.added} nouveau${suffix} commit${suffix}`, "primary", {
+            label: "Recharger",
+            run: () => {
+              s.clearOp()
+              void s.resetAndLoad()
+            },
+          })
+        }
+      }),
+    [repoId, queryClient, store]
+  )
 }
