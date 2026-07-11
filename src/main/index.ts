@@ -1,20 +1,42 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type IpcMainInvokeEvent } from 'electron';
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, watch } from 'node:fs';
+import { existsSync, watch, type FSWatcher } from 'node:fs';
 import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 
-import { parseNameStatus } from './name-status.js';
+import { parseNameStatus } from './name-status.ts';
+import type { InvokeChannel, InvokeChannels } from '../shared/ipc-contract.ts';
+import type {
+  BootState, BranchAct, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes, GitRef, OpEvent,
+  OpName, Repo, Stash, StashAct, Status, TraceLine, Worktree,
+} from '../shared/types.ts';
 
 /* Repos ouverts, côté main uniquement : le renderer ne les désigne que par un id opaque.
    Un onglet = un repo ouvert ; la fermeture d'onglet passe par repo:close. */
-const repos = new Map();
+interface RepoHandle {
+  id: number;
+  path: string;
+  name: string;
+  gitDir: string;
+  /** nom de l'opération réseau ou de l'action de branche en cours ; `null` = libre */
+  running: string | null;
+  /** epoch (ms) jusqu'où le watcher s'ignore lui-même après nos propres commandes */
+  muted: number;
+  /** rafraîchissement d'arbre de travail en retard, pris hors focus de la fenêtre */
+  dirty: boolean;
+  timer: NodeJS.Timeout | null;
+  watcher: FSWatcher | null;
+  /** cache de la chaîne first-parent du tronc (cf. repo:refs), invalidé si son tip bouge */
+  trunk: { key: string; set: Set<string> } | null;
+}
+
+const repos = new Map<number, RepoHandle>();
 let nextId = 1;
-let mainWindow = null;
+let mainWindow: BrowserWindow | null = null;
 
 /* Journal d'incidents (crash renderer, erreurs console) : `incidents.log` sous userData.
    En dev il double sur stderr. L'écriture est best-effort — un disque plein ne casse rien. */
-function report(...parts) {
+function report(...parts: string[]): void {
   const line = `${new Date().toISOString()} ${parts.join(' ')}`;
   console.error(line);
   appendFile(join(app.getPath('userData'), 'incidents.log'), line + '\n').catch(() => {});
@@ -28,8 +50,10 @@ if (process.env.GG_DEBUG) app.commandLine.appendSwitch('remote-debugging-port', 
    lui, en réclame un pour son tag annoté. `true` le transforme en échec propre. */
 const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true', GIT_MERGE_AUTOEDIT: 'no' };
 
+type GitErrLike = { message: string; killed?: boolean };
+
 /* git noie ses erreurs sous des lignes `hint:` : on ne garde que les fatal/error. */
-function gitError(err, stderr) {
+function gitError(err: GitErrLike, stderr: string): string {
   if (err.killed) return 'git ne répond pas (délai dépassé)';
   const lines = (stderr || err.message).split('\n').map(l => l.trim()).filter(Boolean);
   const fatal = lines.filter(l => /^(fatal|error):/.test(l)).slice(0, 2);
@@ -42,17 +66,17 @@ function gitError(err, stderr) {
    l'app exécute. On streame stderr ligne à ligne — progression, résumés fetch/push, hints —,
    la seule sortie que git destine à un humain ; stdout est la donnée machine que le renderer
    consomme, jamais affichée. La trace est taguée par l'id de l'onglet, comme `git:op`. */
-const emitTrace = payload => mainWindow?.webContents.send('git:trace', payload);
-const traceId = repo => { for (const r of repos.values()) if (r.path === repo) return r.id; return 0; };
+const emitTrace = (payload: TraceLine) => mainWindow?.webContents.send('git:trace', payload);
+const traceId = (repo: string) => { for (const r of repos.values()) if (r.path === repo) return r.id; return 0; };
 
 /* En-tête d'opération : borne le flux au niveau de l'action utilisateur (un push, un pull,
    l'auto-fetch), là où `git()` ne voit que des commandes isolées. Les lectures de fond
    (statut, pages de log) restent sans en-tête, ce qui les distingue à l'œil. */
-const traceGroup = (id, text) => emitTrace({ id, kind: 'group', text, ts: Date.now() });
+const traceGroup = (id: number, text: string) => emitTrace({ id, kind: 'group', text, ts: Date.now() });
 
 /* `input` part sur stdin (`--stdin` de rev-list) : des listes d'oids y passent sans buter
    sur la limite de longueur de ligne de commande de Windows. */
-function git(repo, args, timeout = 0, input = '') {
+function git(repo: string, args: string[], timeout = 0, input = ''): Promise<string> {
   const id = traceId(repo);
   emitTrace({ id, kind: 'cmd', text: `git ${args.join(' ')}` });
   const started = Date.now();
@@ -72,10 +96,10 @@ function git(repo, args, timeout = 0, input = '') {
       errAll += d;
       pending += d;
       const lines = pending.split('\n');
-      pending = lines.pop();
+      pending = lines.pop() ?? '';
       for (const l of lines) { const t = l.replace(/\r+$/, ''); if (t) emitTrace({ id, kind: 'out', text: t }); }
     });
-    const timer = timeout ? setTimeout(() => { killed = true; child.kill(); }, timeout) : null;
+    const timer = timeout ? setTimeout(() => { killed = true; child.kill(); }, timeout) : undefined;
     child.on('error', err => { clearTimeout(timer); emitTrace({ id, kind: 'exit', ok: false, ms: Date.now() - started }); reject(new Error(gitError(err, errAll))); });
     child.on('close', code => {
       clearTimeout(timer);
@@ -90,10 +114,10 @@ function git(repo, args, timeout = 0, input = '') {
   });
 }
 
-const basename = p => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
-const pub = r => ({ id: r.id, path: r.path, name: r.name });
+const basename = (p: string) => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? p;
+const pub = (r: RepoHandle): Repo => ({ id: r.id, path: r.path, name: r.name });
 
-function use(id) {
+function use(id: number): RepoHandle {
   const r = repos.get(id);
   if (!r) throw new Error('no repo open');
   return r;
@@ -102,22 +126,29 @@ function use(id) {
 /* --- État persisté ---
    userData/state.json. Fichier minuscule, écrit à chaque mutation : une perte au crash
    ne coûte qu'une liste d'onglets. */
-let persisted = { root: null, recents: [], tabs: [], active: null };
+interface PersistedState {
+  root: string | null;
+  recents: string[];
+  tabs: string[];
+  active: string | null;
+}
+
+const persisted: PersistedState = { root: null, recents: [], tabs: [], active: null };
 const stateFile = () => join(app.getPath('userData'), 'state.json');
 const saveState = () => writeFile(stateFile(), JSON.stringify(persisted)).catch(() => {});
 
 /* Le renderer n'ouvre que des chemins qu'on lui a montrés : récents, résultats de scan,
    ou choix dans le dialogue système. Sans ce filtre, un renderer compromis (le diff affiche
    du contenu arbitraire) pourrait pointer git — et ses hooks — sur n'importe quel dossier. */
-const openable = new Set();
+const openable = new Set<string>();
 
-async function loadState() {
+async function loadState(): Promise<void> {
   try {
     Object.assign(persisted, JSON.parse(await readFile(stateFile(), 'utf8')));
   } catch { /* premier lancement */ }
   /* un state.json corrompu (JSON valide, forme inattendue) ne doit pas empêcher la fenêtre
      de s'ouvrir : on rabote vers la forme attendue au lieu de laisser le boot échouer */
-  const paths = list => (Array.isArray(list) ? list.filter(p => typeof p === 'string') : []);
+  const paths = (list: unknown): string[] => (Array.isArray(list) ? list.filter(p => typeof p === 'string') : []);
   persisted.tabs = paths(persisted.tabs);
   persisted.recents = paths(persisted.recents).filter(isRepo);
   if (typeof persisted.root !== 'string') persisted.root = null;
@@ -125,20 +156,20 @@ async function loadState() {
   persisted.recents.forEach(p => openable.add(p));
 }
 
-const isRepo = p => existsSync(join(p, '.git'));
+const isRepo = (p: string) => existsSync(join(p, '.git'));
 
-function remember(path) {
+function remember(path: string): void {
   persisted.recents = [path, ...persisted.recents.filter(p => p !== path)].slice(0, 12);
   openable.add(path);
   saveState();
 }
 
 /* --- Cycle de vie d'un repo --- */
-async function openRepo(path) {
+async function openRepo(path: string): Promise<Repo | { error: string }> {
   const already = [...repos.values()].find(r => r.path === path);
   if (already) return pub(already);
 
-  let gitDir;
+  let gitDir: string;
   try {
     gitDir = (await git(path, ['rev-parse', '--absolute-git-dir'])).trim();
   } catch {
@@ -146,7 +177,10 @@ async function openRepo(path) {
   }
   /* pas de comptage de commits à l'ouverture : le renderer demandera `total` quand il en
      aura besoin, et restaurer N onglets ne doit pas coûter N `rev-list --all --count`. */
-  const r = { id: nextId++, path, name: basename(path), gitDir, running: null, muted: 0, dirty: false, timer: null, watcher: null, trunk: null };
+  const r: RepoHandle = {
+    id: nextId++, path, name: basename(path), gitDir,
+    running: null, muted: 0, dirty: false, timer: null, watcher: null, trunk: null,
+  };
   r.timer = setInterval(() => runOp(r, 'fetch', true), AUTOFETCH_MS);
   watchGit(r);
   repos.set(r.id, r);
@@ -154,17 +188,17 @@ async function openRepo(path) {
   return pub(r);
 }
 
-function closeRepo(id) {
+function closeRepo(id: number): void {
   const r = repos.get(id);
   if (!r) return;
-  clearInterval(r.timer);
+  if (r.timer) clearInterval(r.timer);
   r.watcher?.close();
   repos.delete(id);
 }
 
 /* Branche courante + décalage avec sa distante. Absence d'upstream ou HEAD détachée
    ne sont pas des erreurs : le renderer affiche simplement des tirets. */
-async function repoStatus(r) {
+async function repoStatus(r: RepoHandle): Promise<Status> {
   /* HEAD unborn (dépôt fraîchement init) : rev-parse échoue alors que rien n'est anormal —
      statut vide plutôt qu'un rejet, comme repo:unstage sait déjà le faire */
   const branch = (await git(r.path, ['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => '')).trim();
@@ -185,9 +219,9 @@ async function repoStatus(r) {
    Pour un rename, l'ancien chemin occupe le champ NUL suivant — d'où le ++i. */
 const CONFLICT = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']);
 
-function parsePorcelain(out) {
+function parsePorcelain(out: string): Worktree {
   const parts = out.split('\0');
-  const wt = { staged: [], unstaged: [], untracked: [], conflicts: [] };
+  const wt: Worktree = { staged: [], unstaged: [], untracked: [], conflicts: [] };
   for (let i = 0; i < parts.length; i++) {
     const e = parts[i];
     if (e.length < 4) continue;
@@ -203,7 +237,7 @@ function parsePorcelain(out) {
 
 /* Un fichier non suivi n'a pas de contrepartie dans l'index : on le diffe contre le vide.
    `--no-index` sort en 1 dès qu'il y a une différence, ce qui est le cas nominal ici. */
-function diffUntracked(repo, path) {
+function diffUntracked(repo: string, path: string): Promise<string> {
   return new Promise(resolve => {
     execFile('git', ['-C', repo, 'diff', '--no-index', '--', '/dev/null', path],
       { maxBuffer: 64 * 1024 * 1024, env: GIT_ENV, windowsHide: true },
@@ -222,7 +256,7 @@ const ALL_REFS = ['--exclude=refs/stash', '--all'];
    `refs/stash` ne pointe que la dernière entrée : les autres vivent dans le reflog, d'où
    `stash list`. `%as` plutôt que `--date=short` : ce dernier daterait aussi `%gd`, et
    « stash@{2026-07-08} » n'est plus un nom d'entrée exploitable. */
-async function stashList(r) {
+async function stashList(r: RepoHandle): Promise<Stash[]> {
   const out = await git(r.path, [
     'stash', 'list', '--format=%H%x1f%P%x1f%gd%x1f%as%x1f%an%x1f%ae%x1f%gs%x1e',
   ]).catch(() => '');
@@ -236,12 +270,12 @@ async function stashList(r) {
     }));
 }
 
-const stashTips = r => git(r.path, ['stash', 'list', '--format=%H']).catch(() => '')
+const stashTips = (r: RepoHandle) => git(r.path, ['stash', 'list', '--format=%H']).catch(() => '')
   .then(o => o.split('\n').filter(Boolean));
 
 /* ponytail: git log --skip re-parcourt l'historique à chaque page — OK jusqu'à ~100k commits,
    passer à un stream spawn persistant si un jour ça rame. */
-async function logPage(r, skip, count) {
+async function logPage(r: RepoHandle, skip: number, count: number): Promise<Commit[]> {
   /* --decorate=full : `%D` sort alors `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
      Sous sa forme courte, `origin/x` et une branche locale `origin/x` sont indistinguables. */
   const out = await git(r.path, [
@@ -270,7 +304,7 @@ async function logPage(r, skip, count) {
 const SEARCH_MAX = 2000;
 const SEARCH_TIMEOUT = 30_000;
 
-async function searchCommits(r, q, content) {
+async function searchCommits(r: RepoHandle, q: string, content: boolean): Promise<string[]> {
   const base = ['log', ...ALL_REFS, '--format=%H', `-n${SEARCH_MAX}`, '-i', '-F'];
   const runs = [
     git(r.path, [...base, `--grep=${q}`]),
@@ -291,29 +325,29 @@ async function searchCommits(r, q, content) {
    même dépôt se soldent par une erreur inutile). Le résultat part par événement, pas par
    retour d'invoke : l'auto-fetch n'a pas d'appelant côté renderer. */
 /* --progress : sans TTY git tait sa progression ; on la force pour que la console la streame. */
-const OPS = {
+const OPS: Record<OpName, string[]> = {
   fetch: ['fetch', '--all', '--prune', '--progress'],
   pull:  ['pull', '--ff-only', '--progress'],
   push:  ['push', '--progress'],
 };
-const OP_GROUP = { fetch: 'Fetch', pull: 'Pull', push: 'Push' };
+const OP_GROUP: Record<OpName, string> = { fetch: 'Fetch', pull: 'Pull', push: 'Push' };
 const OP_TIMEOUT = 90_000;
 const AUTOFETCH_MS = 5 * 60_000;
 
-const emit = payload => mainWindow?.webContents.send('git:op', payload);
+const emit = (payload: OpEvent) => mainWindow?.webContents.send('git:op', payload);
 
 /* Tips de toutes les refs, dédupliqués et triés : deux instantanés égaux = rien n'a bougé.
    Bien moins cher que le `rev-list --all --count` intégral qu'on payait deux fois par fetch. */
-const refTips = r => git(r.path, ['for-each-ref', '--format=%(objectname)', 'refs/heads', 'refs/remotes', 'refs/tags'])
+const refTips = (r: RepoHandle) => git(r.path, ['for-each-ref', '--format=%(objectname)', 'refs/heads', 'refs/remotes', 'refs/tags'])
   .then(o => [...new Set(o.split('\n').filter(Boolean))].sort());
 
 /* Commits joignables des refs actuelles mais pas des anciens tips : les « nouveaux » du fetch.
    Plus juste que la différence de deux comptages, qu'un `--prune` faisait mentir. */
-const countNew = (r, before) =>
+const countNew = (r: RepoHandle, before: string[]) =>
   git(r.path, ['rev-list', '--count', ...ALL_REFS, '--stdin'], 0, before.map(h => `^${h}\n`).join(''))
     .then(o => parseInt(o, 10));
 
-async function runOp(r, name, auto = false) {
+async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<void> {
   if (r.running) {
     /* jamais en silence : la fenêtre entre le clic et l'état `busy` du renderer est réelle */
     if (!auto) emit({ id: r.id, op: name, state: 'error', auto, message: 'Une opération est déjà en cours' });
@@ -333,7 +367,7 @@ async function runOp(r, name, auto = false) {
     }
     emit({ id: r.id, op: name, state: 'done', auto, added });
   } catch (e) {
-    emit({ id: r.id, op: name, state: 'error', auto, message: e.message });
+    emit({ id: r.id, op: name, state: 'error', auto, message: e instanceof Error ? e.message : String(e) });
   } finally {
     mute(r);
     r.running = null;
@@ -359,12 +393,12 @@ const WATCHED = /^(?:HEAD|packed-refs)$|^refs[\\/](?:heads|tags)[\\/]|^(?:logs[\
 
 /* Nos propres commandes réveillent le watcher, alors que le renderer a déjà rechargé derrière
    elles. On ne sait pas distinguer ces événements des autres : on se tait un instant. */
-const mute = r => { r.muted = Date.now() + MUTE_MS; };
+const mute = (r: RepoHandle) => { r.muted = Date.now() + MUTE_MS; };
 
-const emitChange = r => mainWindow?.webContents.send('git:changed', { id: r.id });
+const emitChange = (r: RepoHandle) => mainWindow?.webContents.send('git:changed', { id: r.id });
 
-function watchGit(r) {
-  let timer;
+function watchGit(r: RepoHandle): void {
+  let timer: NodeJS.Timeout | undefined;
   const fire = () => {
     if (r.running || Date.now() < r.muted) return;
     if (mainWindow?.isFocused()) emitChange(r);
@@ -392,7 +426,7 @@ app.on('browser-window-focus', () => repos.forEach(r => {
 const DEPTH = 3;
 const SKIP = new Set(['node_modules', 'bin', 'obj', 'dist', 'out', 'target', 'vendor']);
 
-async function scan(dir, depth, found) {
+async function scan(dir: string, depth: number, found: string[]): Promise<void> {
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -406,16 +440,40 @@ async function scan(dir, depth, found) {
     .map(e => scan(join(dir, e.name), depth + 1, found)));
 }
 
+/* --- IPC : registrar générique ---
+   Un seul point de passage pour tous les `ipcMain.handle` : vérifie que l'appel vient de la
+   fenêtre principale (aucune autre webContents ne devrait jamais atteindre ces handlers — pas
+   de vue additionnelle dans cette app) et type les arguments/le retour contre le contrat
+   partagé. Un canal renommé ou un argument ajouté au contrat casse désormais à la compilation
+   dans les trois process, plus seulement à l'exécution. */
+function handle<K extends InvokeChannel>(
+  channel: K,
+  fn: (event: IpcMainInvokeEvent, ...args: Parameters<InvokeChannels[K]>) => ReturnType<InvokeChannels[K]>
+): void {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (event.sender !== mainWindow?.webContents) throw new Error('canal IPC refusé : expéditeur inattendu');
+    return fn(event, ...(args as Parameters<InvokeChannels[K]>));
+  });
+}
+
 /* --- IPC : état de l'application --- */
 
-/* Appelé une fois au démarrage du renderer. Ouvre les repos des onglets restaurés — ceux
-   qui ont disparu du disque sont simplement omis. */
-ipcMain.handle('app:state', async () => {
-  const paths = process.env.GG_REPO ? [process.env.GG_REPO, ...persisted.tabs] : persisted.tabs;
-  const tabs = [];
-  for (const path of [...new Set(paths)]) {
-    const r = await openRepo(path);
-    if (!r.error) tabs.push(r);
+/* Appelé une fois au démarrage du renderer (cf. boot() dans lib/git.ts). Idempotent : un
+   second appel ne rouvre rien, il reflète juste le registre courant — au cas où boot()
+   serait un jour invoqué plus d'une fois (StrictMode, futur appelant). */
+let booted = false;
+
+handle('app:state', async (): Promise<BootState> => {
+  const tabs: Repo[] = [];
+  if (!booted) {
+    booted = true;
+    const paths = process.env.GG_REPO ? [process.env.GG_REPO, ...persisted.tabs] : persisted.tabs;
+    for (const path of [...new Set(paths)]) {
+      const r = await openRepo(path);
+      if (!('error' in r)) tabs.push(r);
+    }
+  } else {
+    tabs.push(...[...repos.values()].map(pub));
   }
   return {
     root: persisted.root,
@@ -426,41 +484,42 @@ ipcMain.handle('app:state', async () => {
 });
 
 /* Ce que l'écran d'accueil connaît des dépôts. Séparé de app:state, qui ouvre des repos. */
-ipcMain.handle('app:repos', () => ({
+handle('app:repos', () => Promise.resolve({
   root: persisted.root,
   recents: persisted.recents.map(path => ({ path, name: basename(path) })),
 }));
 
-ipcMain.handle('app:tabs', (_ev, paths, active) => {
+handle('app:tabs', (_ev, paths, active) => {
   persisted.tabs = paths.filter(p => openable.has(p));
   persisted.active = active;
   saveState();
+  return Promise.resolve();
 });
 
-ipcMain.handle('repo:openDialog', async () => {
-  const res = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
+handle('repo:openDialog', async () => {
+  const res = await dialog.showOpenDialog(mainWindow!, { properties: ['openDirectory'] });
   if (res.canceled || !res.filePaths.length) return null;
   return openRepo(res.filePaths[0]);
 });
 
-ipcMain.handle('repo:openPath', (_ev, path) => {
+handle('repo:openPath', (_ev, path) => {
   if (!openable.has(path)) throw new Error('bad path');
   return openRepo(path);
 });
 
-ipcMain.handle('repo:close', (_ev, id) => closeRepo(id));
+handle('repo:close', (_ev, id) => { closeRepo(id); return Promise.resolve(); });
 
-ipcMain.handle('root:choose', async () => {
-  const res = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
+handle('root:choose', async () => {
+  const res = await dialog.showOpenDialog(mainWindow!, { properties: ['openDirectory'] });
   if (res.canceled || !res.filePaths.length) return persisted.root;
   persisted.root = res.filePaths[0];
   saveState();
   return persisted.root;
 });
 
-ipcMain.handle('root:scan', async () => {
+handle('root:scan', async () => {
   if (!persisted.root) return [];
-  const found = [];
+  const found: string[] = [];
   await scan(persisted.root, 0, found);
   found.forEach(p => openable.add(p));
   return found
@@ -470,21 +529,21 @@ ipcMain.handle('root:scan', async () => {
 
 /* --- IPC : opérations sur un repo, id en premier argument --- */
 
-ipcMain.handle('repo:op', (_ev, id, name) => {
+handle('repo:op', (_ev, id, name) => {
   if (!OPS[name]) throw new Error('bad op');
   return runOp(use(id), name);
 });
 
-ipcMain.handle('repo:status', (_ev, id) => repoStatus(use(id)));
+handle('repo:status', (_ev, id) => repoStatus(use(id)));
 
 /* Les chemins arrivent du renderer : ils passent toujours après `--`, jamais comme options. */
-function assertPaths(paths) {
+function assertPaths(paths: string[]): void {
   if (!Array.isArray(paths) || !paths.length || paths.some(p => typeof p !== 'string' || !p))
     throw new Error('bad paths');
 }
 
 /* Chemin absolu confiné au dépôt : git nous protège du `--`, pas d'un `../..` passé à shell. */
-function inRepo(r, path) {
+function inRepo(r: RepoHandle, path: string): string {
   assertPaths([path]);
   const full = resolve(r.path, path);
   if (!full.startsWith(r.path + sep)) throw new Error('bad path');
@@ -493,22 +552,22 @@ function inRepo(r, path) {
 
 /* Icône Windows du fichier. Absent du disque (supprimé, vieux commit) : le renderer retombe
    sur son icône générique. */
-ipcMain.handle('repo:fileIcon', (_ev, id, path) =>
+handle('repo:fileIcon', (_ev, id, path) =>
   app.getFileIcon(inRepo(use(id), path), { size: 'small' }).then(i => i.toDataURL(), () => null));
 
-ipcMain.handle('repo:openFile', (_ev, id, path) => shell.openPath(inRepo(use(id), path)));
+handle('repo:openFile', (_ev, id, path) => shell.openPath(inRepo(use(id), path)));
 
-ipcMain.handle('repo:worktree', (_ev, id) =>
+handle('repo:worktree', (_ev, id) =>
   git(use(id).path, ['status', '--porcelain=v1', '-z', '-uall']).then(parsePorcelain));
 
-const WT_DIFF = { staged: ['diff', '--cached'], unstaged: ['diff'] };
+const WT_DIFF: Record<'staged' | 'unstaged', string[]> = { staged: ['diff', '--cached'], unstaged: ['diff'] };
 
-ipcMain.handle('repo:wtdiff', (_ev, id, path, source) => {
+handle('repo:wtdiff', (_ev, id, path, source) => {
   const r = use(id);
   assertPaths([path]);
   /* `--no-index` lit n'importe quel chemin du disque : confiné au dépôt, comme fileIcon */
   if (source === 'untracked') return diffUntracked(r.path, inRepo(r, path));
-  if (!WT_DIFF[source]) throw new Error('bad source');
+  if (source !== 'staged' && source !== 'unstaged') throw new Error('bad source');
   return git(r.path, [...WT_DIFF[source], '--', path]);
 });
 
@@ -517,13 +576,13 @@ ipcMain.handle('repo:wtdiff', (_ev, id, path, source) => {
    `git()` sait déjà écrire stdin (cf. rev-list --stdin). */
 const PATHSPEC = ['--pathspec-from-file=-', '--pathspec-file-nul'];
 
-ipcMain.handle('repo:stage', (_ev, id, paths) => {
+handle('repo:stage', (_ev, id, paths) => {
   const r = use(id);
   assertPaths(paths);
   return git(r.path, ['add', ...PATHSPEC], 0, paths.join('\0')).then(() => {});
 });
 
-ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
+handle('repo:unstage', async (_ev, id, paths) => {
   const r = use(id);
   assertPaths(paths);
   /* avant le premier commit il n'y a pas de HEAD, donc rien à restaurer depuis :
@@ -533,7 +592,7 @@ ipcMain.handle('repo:unstage', async (_ev, id, paths) => {
   await git(r.path, [...cmd, ...PATHSPEC], 0, paths.join('\0'));
 });
 
-ipcMain.handle('repo:commit', (_ev, id, message, amend) => {
+handle('repo:commit', (_ev, id, message, amend) => {
   const r = use(id);
   if (typeof message !== 'string' || !message.trim()) throw new Error('empty message');
   traceGroup(r.id, amend ? 'Amend' : 'Commit');
@@ -550,7 +609,7 @@ const BRANCH = /^(?!-)(?!.*\.\.)(?!.*@\{)[^\x00-\x20\x7f~^:?*[\\]+$/;
    où on l'a trouvé. `pop` en conflit : git garde l'entrée de stash et pose ses marqueurs —
    on le dit et on n'essaie pas de rattraper, l'utilisateur est déjà sur la bonne branche.
    Son message part sur stdout, que gitError ne voit pas : d'où le nôtre. */
-ipcMain.handle('repo:checkout', async (_ev, id, name) => {
+handle('repo:checkout', async (_ev, id, name) => {
   const r = use(id);
   if (typeof name !== 'string' || !BRANCH.test(name)) throw new Error('bad branch');
   traceGroup(r.id, `Checkout ${name}`);
@@ -576,34 +635,35 @@ ipcMain.handle('repo:checkout', async (_ev, id, name) => {
    `running` est le verrou des opérations réseau — il tient l'auto-fetch et le watcher à l'écart
    le temps d'un merge ou d'un `git flow finish`. */
 
-const FLOW_TYPES = ['feature', 'bugfix', 'release', 'hotfix'];
-const BRANCH_GROUP = { merge: 'Fusion', delete: 'Suppression', pull: 'Pull', push: 'Push', finish: 'Clôture flow' };
+const FLOW_TYPES = ['feature', 'bugfix', 'release', 'hotfix'] as const;
+const BRANCH_GROUP: Record<BranchAct, string> = { merge: 'Fusion', delete: 'Suppression', pull: 'Pull', push: 'Push', finish: 'Clôture flow' };
 
 /** Les préfixes posés par `git flow init` dans la config, ou `null` : le dépôt ignore git-flow. */
-async function flowPrefixes(r) {
+async function flowPrefixes(r: RepoHandle): Promise<FlowPrefixes | null> {
   const out = await git(r.path, ['config', '--get-regexp', '^gitflow\\.prefix\\.']).catch(() => '');
-  const prefixes = {};
+  const prefixes: FlowPrefixes = {};
   for (const line of out.split('\n').filter(Boolean)) {
     const [key, value = ''] = line.split(' ');
-    prefixes[key.slice('gitflow.prefix.'.length)] = value;
+    const kind = key.slice('gitflow.prefix.'.length);
+    if (kind === 'feature' || kind === 'bugfix' || kind === 'release' || kind === 'hotfix') prefixes[kind] = value;
   }
   return FLOW_TYPES.some(t => prefixes[t]) ? prefixes : null;
 }
 
 /** La distante suivie par une branche, telle que sa config la déclare. */
-async function upstreamOf(r, name) {
-  const read = key => git(r.path, ['config', '--get', `branch.${name}.${key}`]).then(o => o.trim(), () => '');
+async function upstreamOf(r: RepoHandle, name: string): Promise<{ remote: string; merge: string }> {
+  const read = (key: string) => git(r.path, ['config', '--get', `branch.${name}.${key}`]).then(o => o.trim(), () => '');
   const [remote, merge] = await Promise.all([read('remote'), read('merge')]);
   if (!remote || !merge) throw new Error(`${name} ne suit aucune branche distante`);
   return { remote, merge };
 }
 
-const BRANCH_OPS = {
-  merge: (r, name) => git(r.path, ['merge', name], OP_TIMEOUT),
+const BRANCH_OPS: Record<BranchAct, (r: RepoHandle, name: string) => Promise<void>> = {
+  merge: (r, name) => git(r.path, ['merge', name], OP_TIMEOUT).then(() => {}),
 
   /* `-d`, jamais `-D` : le refus de git sur une branche non fusionnée est le seul garde-fou
      qu'on ait — le menu ne demande pas confirmation. La distante, elle, reste en place. */
-  delete: (r, name) => git(r.path, ['branch', '-d', name]),
+  delete: (r, name) => git(r.path, ['branch', '-d', name]).then(() => {}),
 
   /* On ne fetche pas dans une branche sortie : sur HEAD, c'est un pull. Ailleurs, le refspec
      explicite est fast-forward-only, et git en profite pour remettre `refs/remotes/…` à jour. */
@@ -627,9 +687,9 @@ const BRANCH_OPS = {
      ponytail: l'extension n'est pas installée ? le message de git le dira au clic. */
   async finish(r, name) {
     const prefixes = (await flowPrefixes(r)) ?? {};
-    const type = FLOW_TYPES.find(t => prefixes[t] && name.startsWith(prefixes[t]));
+    const type = FLOW_TYPES.find(t => prefixes[t] && name.startsWith(prefixes[t]!));
     if (!type) throw new Error(`${name} n'est pas une branche git-flow`);
-    const version = name.slice(prefixes[type].length);
+    const version = name.slice(prefixes[type]!.length);
     /* BRANCH n'interdit le `-` qu'en tête du nom complet : `feature/-D` donnerait
        version = '-D', que git-flow lirait comme une option (suppression forcée) */
     if (version.startsWith('-')) throw new Error(`${name} : suffixe de branche invalide`);
@@ -639,15 +699,15 @@ const BRANCH_OPS = {
   },
 };
 
-ipcMain.handle('repo:flow', (_ev, id) => flowPrefixes(use(id)));
+handle('repo:flow', (_ev, id) => flowPrefixes(use(id)));
 
 /* --- Contexte de flow de la branche courante ---
    Lecture seule : ce que la branche a produit et où son finish atterrira. Le renderer classe
    la branche (préfixes gitflow ou conventions) ; main ne fait que mesurer. */
 const SEMVER_RE = /^v?\d+\.\d+\.\d+/;
-const cfgOf = (r, key) => git(r.path, ['config', '--get', key]).then(o => o.trim(), () => '');
+const cfgOf = (r: RepoHandle, key: string) => git(r.path, ['config', '--get', key]).then(o => o.trim(), () => '');
 
-async function flowInfo(r, branch, kind) {
+async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null> {
   const [headsOut, cfgMaster, cfgDevelop] = await Promise.all([
     git(r.path, ['for-each-ref', '--format=%(refname:short)', 'refs/heads']),
     cfgOf(r, 'gitflow.branch.master'),
@@ -664,7 +724,7 @@ async function flowInfo(r, branch, kind) {
   /* ponytail: describe prend le tag le plus proche, semver ou non — le bump s'en protège par regex */
   const [commits, lastTag] = await Promise.all([
     git(r.path, ['rev-list', '--count', `${parent}..${branch}`]).then(o => parseInt(o, 10)),
-    tagged ? git(r.path, ['describe', '--tags', '--abbrev=0', branch]).then(o => o.trim(), () => null) : null,
+    tagged ? git(r.path, ['describe', '--tags', '--abbrev=0', branch]).then(o => o.trim(), () => null) : Promise.resolve(null),
   ]);
   const startedAt = commits
     ? parseInt((await git(r.path, ['log', '--format=%ct', '--reverse', `${parent}..${branch}`])).split('\n', 1)[0], 10)
@@ -672,10 +732,10 @@ async function flowInfo(r, branch, kind) {
 
   /* le tag du finish : gitflow nomme la branche par sa version ; sinon, bump du dernier tag —
      patch pour un hotfix, minor pour une release */
-  let nextTag = null;
+  let nextTag: string | null = null;
   if (tagged) {
     const prefixes = (await flowPrefixes(r)) ?? {};
-    const prefix = prefixes[kind] && branch.startsWith(prefixes[kind]) ? prefixes[kind] : `${kind}/`;
+    const prefix = prefixes[kind] && branch.startsWith(prefixes[kind]!) ? prefixes[kind]! : `${kind}/`;
     /* même garde que finish : un suffixe en `-…` n'est jamais une version */
     const raw = branch.startsWith(prefix) ? branch.slice(prefix.length) : '';
     const suffix = raw.startsWith('-') ? '' : raw;
@@ -689,19 +749,19 @@ async function flowInfo(r, branch, kind) {
     commits,
     startedAt: Number.isFinite(startedAt) ? startedAt : null,
     base: lastTag ?? parent,
-    targets: tagged ? [master, develop].filter(Boolean) : [parent],
+    targets: tagged ? [master, develop].filter((x): x is string => x !== null) : [parent],
     nextTag,
   };
 }
 
-ipcMain.handle('repo:flowInfo', (_ev, id, branch, kind) => {
+handle('repo:flowInfo', (_ev, id, branch, kind) => {
   const r = use(id);
   if (typeof branch !== 'string' || !BRANCH.test(branch)) throw new Error('bad branch');
   if (!FLOW_TYPES.includes(kind)) throw new Error('bad kind');
   return flowInfo(r, branch, kind);
 });
 
-ipcMain.handle('repo:branch', async (_ev, id, action, name) => {
+handle('repo:branch', async (_ev, id, action, name) => {
   const r = use(id);
   if (!Object.hasOwn(BRANCH_OPS, action)) throw new Error('bad action');
   if (typeof name !== 'string' || !BRANCH.test(name)) throw new Error('bad branch');
@@ -716,7 +776,7 @@ ipcMain.handle('repo:branch', async (_ev, id, action, name) => {
   }
 });
 
-ipcMain.handle('repo:log', (_ev, id, skip, count) => {
+handle('repo:log', (_ev, id, skip, count) => {
   const r = use(id);
   if (!Number.isInteger(skip) || !Number.isInteger(count) || skip < 0 || count < 1 || count > 5000)
     throw new Error('bad page args');
@@ -725,11 +785,11 @@ ipcMain.handle('repo:log', (_ev, id, skip, count) => {
 
 /* Refs telles que git les voit. `origin/HEAD` est un alias d'affichage : il ferait doublon
    avec la branche par défaut de la distante. */
-const REF_KINDS = [['refs/heads/', 'head'], ['refs/remotes/', 'remote'], ['refs/tags/', 'tag']];
+const REF_KINDS: [string, GitRef['kind']][] = [['refs/heads/', 'head'], ['refs/remotes/', 'remote'], ['refs/tags/', 'tag']];
 /* Branches d'intégration : jamais signalées « fusionnées », on ne les nettoie pas. */
 const TRUNK = new Set(['main', 'master', 'develop']);
 
-ipcMain.handle('repo:refs', async (_ev, id) => {
+handle('repo:refs', async (_ev, id) => {
   const r = use(id);
   const out = await git(r.path, [
     'for-each-ref', '--sort=refname',
@@ -740,7 +800,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
   /* `<remote>/HEAD` est un symref vers la branche par défaut de la distante : c'est la référence
      de fusion. Plusieurs distantes ? la première dans l'ordre alphabétique tranche. */
   let base = '';
-  const refs = out.split('\n').filter(Boolean).flatMap(line => {
+  const refs: GitRef[] = out.split('\n').filter(Boolean).flatMap((line): GitRef[] => {
     const [refname, head, track = '', symref = '', upstream = '', oid = '', peeled = ''] = line.split('\x1f');
     /* `%(*objectname)` pèle un tag annoté vers son commit ; vide pour une branche ou un tag léger */
     const tip = peeled || oid;
@@ -788,7 +848,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
       const chain = (await git(r.path, ['rev-list', '--first-parent', base])).split('\n').filter(Boolean);
       r.trunk = { key: `${base} ${baseTip}`, set: new Set(chain) };
     }
-    const trunk = r.trunk.set;
+    const trunk = r.trunk!.set;
     for (const ref of refs)
       ref.merged =
         ref.kind === 'head' &&
@@ -814,13 +874,13 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
      upstream = 200 process concurrents à chaque rafraîchissement. Petit pool de
      travailleurs qui épuisent une file commune à la place. */
   const REFLOG_POOL = 8;
-  const candidates = remoteNames.length
+  const candidates: GitRef[] = remoteNames.length
     ? refs.filter(ref => ref.kind === 'head' && !ref.gone && !present.has(ref.name))
     : [];
   await Promise.all(Array.from({ length: Math.min(REFLOG_POOL, candidates.length) }, async () => {
-    for (let ref; (ref = candidates.shift()) !== undefined; ) {
+    for (let ref: GitRef | undefined; (ref = candidates.shift()) !== undefined; ) {
       const reflog = await git(r.path, ['reflog', 'show', '--format=%gs', ref.name]).catch(() => '');
-      ref.gone = remoteNames.some(remote => reflog.includes(`${remote}/${ref.name}`));
+      ref.gone = remoteNames.some(remote => reflog.includes(`${remote}/${ref!.name}`));
     }
   }));
   return refs;
@@ -828,7 +888,7 @@ ipcMain.handle('repo:refs', async (_ev, id) => {
 
 /* Fichiers touchés. Pour un merge, le renderer passe le first-parent :
    le diff montre ce que le merge a apporté sur la branche cible. */
-ipcMain.handle('repo:files', async (_ev, id, hash, parent) => {
+handle('repo:files', async (_ev, id, hash, parent): Promise<FileChange[]> => {
   const r = use(id);
   if (!/^[0-9a-f]{7,40}$/.test(hash) || (parent != null && !/^[0-9a-f]{7,40}$/.test(parent)))
     throw new Error('bad hash');
@@ -840,7 +900,7 @@ ipcMain.handle('repo:files', async (_ev, id, hash, parent) => {
 
 /* Corps du message, à la demande. Le joindre au log coûterait, pour n'en afficher qu'un,
    une copie de tous les messages longs de l'historique. */
-ipcMain.handle('repo:body', (_ev, id, hash) => {
+handle('repo:body', (_ev, id, hash) => {
   const r = use(id);
   if (!/^[0-9a-f]{7,40}$/.test(hash)) throw new Error('bad hash');
   return git(r.path, ['show', '-s', '--format=%b', hash]);
@@ -848,7 +908,7 @@ ipcMain.handle('repo:body', (_ev, id, hash) => {
 
 /* Sujet et corps du dernier commit, pour préremplir un amend. `%B` est le message brut :
    la première ligne est le sujet, le reste (après la ligne vide) la description. */
-ipcMain.handle('repo:headMessage', async (_ev, id) => {
+handle('repo:headMessage', async (_ev, id): Promise<CommitMessage> => {
   const r = use(id);
   const raw = await git(r.path, ['show', '-s', '--format=%B', 'HEAD']);
   const nl = raw.indexOf('\n');
@@ -857,7 +917,7 @@ ipcMain.handle('repo:headMessage', async (_ev, id) => {
   return { subject, body };
 });
 
-ipcMain.handle('repo:diff', async (_ev, id, hash, parent, path, oldPath) => {
+handle('repo:diff', async (_ev, id, hash, parent, path, oldPath) => {
   const r = use(id);
   if (!/^[0-9a-f]{7,40}$/.test(hash) || (parent != null && !/^[0-9a-f]{7,40}$/.test(parent)))
     throw new Error('bad hash');
@@ -870,9 +930,9 @@ ipcMain.handle('repo:diff', async (_ev, id, hash, parent, path, oldPath) => {
   return git(r.path, args);
 });
 
-ipcMain.handle('repo:search', (_ev, id, q, content) => {
+handle('repo:search', (_ev, id, q, content) => {
   const r = use(id);
-  if (typeof q !== 'string' || q.trim().length < 2) return [];
+  if (typeof q !== 'string' || q.trim().length < 2) return Promise.resolve([]);
   return searchCommits(r, q.trim(), content === true);
 });
 
@@ -880,7 +940,7 @@ ipcMain.handle('repo:search', (_ev, id, q, content) => {
    de plomberie (index, non suivis) que le renderer replie : on les soustrait pour que
    `total` reste le nombre de lignes réellement affichables. Dédupliqués : deux stash créés
    dans la même seconde partagent le même commit d'index (même arbre, même parent, même date). */
-ipcMain.handle('repo:total', async (_ev, id) => {
+handle('repo:total', async (_ev, id) => {
   const r = use(id);
   const stashes = await stashList(r);
   const plumbing = new Set(stashes.flatMap(s => s.p.slice(1)));
@@ -889,19 +949,19 @@ ipcMain.handle('repo:total', async (_ev, id) => {
   return count - plumbing.size;
 });
 
-ipcMain.handle('repo:stashes', (_ev, id) => stashList(use(id)));
+handle('repo:stashes', (_ev, id) => stashList(use(id)));
 
 /* --- Actions de stash ---
    apply/pop/drop visent une entrée par son nom `stash@{N}` — les indices glissent après un
    drop, le renderer recharge la liste derrière chaque action. push remise l'arbre entier,
    non suivis compris, avec le message fourni. */
 const STASH_NAME = /^stash@\{\d+\}$/;
-const STASH_GROUP = { push: 'Stash', apply: 'Stash apply', pop: 'Stash pop', drop: 'Stash drop' };
+const STASH_GROUP: Record<StashAct, string> = { push: 'Stash', apply: 'Stash apply', pop: 'Stash pop', drop: 'Stash drop' };
 
-ipcMain.handle('repo:stash', async (_ev, id, action, arg) => {
+handle('repo:stash', async (_ev, id, action, arg) => {
   const r = use(id);
   if (!Object.hasOwn(STASH_GROUP, action)) throw new Error('bad stash action');
-  let args;
+  let args: string[];
   if (action === 'push') {
     const msg = typeof arg === 'string' && arg.trim() ? arg.trim() : null;
     args = ['stash', 'push', '-u', ...(msg ? ['-m', msg] : [])];
@@ -917,7 +977,7 @@ ipcMain.handle('repo:stash', async (_ev, id, action, arg) => {
   }
 });
 
-function createWindow() {
+function createWindow(): void {
   /* pas de menu File|Edit|View : l'app n'en expose aucun, les raccourcis vivent dans le renderer */
   Menu.setApplicationMenu(null);
   const win = new BrowserWindow({
@@ -949,7 +1009,7 @@ function createWindow() {
      (CPU à fond, incidents.log qui enfle) — au-delà, une page statique explique la suite. */
   const RELOAD_MAX = 3;
   const RELOAD_WINDOW_MS = 60_000;
-  let reloads = [];
+  let reloads: number[] = [];
   win.webContents.on('render-process-gone', (_ev, d) => {
     report('renderer gone:', d.reason, `(exit ${d.exitCode})`);
     if (d.reason === 'clean-exit') return;
@@ -965,13 +1025,10 @@ function createWindow() {
   });
   win.webContents.on('unresponsive', () => report('renderer unresponsive'));
   win.webContents.on('responsive', () => report('renderer responsive again'));
-  win.webContents.on('console-message', (...a) => {
-    /* Electron ≥ 32 passe un objet évènement ; forme positionnelle (level 3 = error) en repli.
-       Les 404 de ressources (avatars) ne sont pas des incidents. */
-    const m = a[0] && a[0].message !== undefined ? a[0] : { level: a[1], message: a[2] };
-    const error = m.level === 'error' || Number(m.level) >= 3;
-    if (error && !String(m.message).includes('Failed to load resource')) {
-      report('[renderer]', String(m.message).slice(0, 500));
+  win.webContents.on('console-message', (details) => {
+    /* Les 404 de ressources (avatars) ne sont pas des incidents. */
+    if (details.level === 'error' && !details.message.includes('Failed to load resource')) {
+      report('[renderer]', details.message.slice(0, 500));
     }
   });
   win.once('ready-to-show', () => win.show());
@@ -987,7 +1044,7 @@ function createWindow() {
   });
   win.on('closed', () => {
     mainWindow = null;
-    repos.forEach(r => { clearInterval(r.timer); r.watcher?.close(); });
+    repos.forEach(r => { if (r.timer) clearInterval(r.timer); r.watcher?.close(); });
     repos.clear();
   });
 
