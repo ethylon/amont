@@ -4,7 +4,7 @@
    découvre en runtime, silencieusement. Centralisées ici, une clé qui change de nom ou de type
    se détecte à la compilation partout où elle est utilisée. */
 
-import type { DiffView } from "@/features/diff/diff-view"
+import type { DiffViewMode } from "@/features/diff/diff-view"
 import type { FileView } from "@/features/repo/file-list"
 
 function pref<T extends string>(key: string) {
@@ -17,8 +17,6 @@ function pref<T extends string>(key: string) {
 export const prefs = {
   /** choix explicite de thème ; `null` = pas de choix, suivre l'OS (cf. lib/theme.ts) */
   theme: pref<"dark" | "light">("gg.theme"),
-  /** `DiffView` = le type des deux modes d'affichage (`"unified" | "sbs"`), pas le composant
-      React homonyme — cf. renommage `DiffViewMode` (AUDIT.md §7, phase 5, item 6). */
-  diffView: pref<DiffView>("gg.diffview"),
+  diffView: pref<DiffViewMode>("gg.diffview"),
   fileView: pref<FileView>("gg.fileview"),
 }

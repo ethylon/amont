@@ -1,20 +1,21 @@
-import { useEffect, useRef, type RefObject } from "react"
+import { useEffect, useRef } from "react"
 
 import type { RepoApi } from "@/lib/git"
 import { createGraph, type GraphCallbacks, type GraphHandle } from "../controller.ts"
 
 type Props = {
-  /** rempli au montage, vidé au démontage — RepoView pilote le graphe à travers cette ref */
-  graphRef: RefObject<GraphHandle | null>
   api: RepoApi
   callbacks: GraphCallbacks
-  onReady(graph: GraphHandle): void
+  /** appelé avec le graphe au montage, avec `null` au démontage — un seul canal au lieu de
+      `graphRef`+`onReady` (AUDIT.md §7, phase 5, item 6) : à l'appelant d'écrire `graph` dans
+      sa propre ref s'il a besoin d'un accès synchrone hors rendu. */
+  onReady(graph: GraphHandle | null): void
 }
 
 /* Coque React autour du contrôleur impératif (AUDIT.md §1, à préserver) : elle fournit les trois
    nœuds DOM et le cycle de vie, rien d'autre. Les callbacks passent par une ref pour qu'un
    handler qui change d'identité ne remonte jamais le graphe. */
-export function CommitGraph({ graphRef, api, callbacks, onReady }: Props) {
+export function CommitGraph({ api, callbacks, onReady }: Props) {
   const board = useRef<HTMLDivElement>(null)
   const inner = useRef<HTMLDivElement>(null)
   const svg = useRef<SVGSVGElement>(null)
@@ -33,13 +34,12 @@ export function CommitGraph({ graphRef, api, callbacks, onReady }: Props) {
       onBranchWidth: (px) => cb.current.onBranchWidth(px),
       onError: (message) => cb.current.onError(message),
     })
-    graphRef.current = graph
     ready.current(graph)
     return () => {
       graph.destroy()
-      graphRef.current = null
+      ready.current(null)
     }
-  }, [api, graphRef])
+  }, [api])
 
   return (
     <div ref={board} className="relative overflow-auto">

@@ -220,7 +220,7 @@ function RepoViewContent({ repo, active }: Props) {
         flow={workFlow}
         opState={opState}
         stats={stats}
-        console={<GitConsole repoId={repo.id} />}
+        consoleSlot={<GitConsole repoId={repo.id} />}
       />
     </>
   )
