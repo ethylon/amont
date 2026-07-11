@@ -4,7 +4,7 @@ import { GitBranchIcon } from "@hugeicons/core-free-icons"
 import type { Stats } from "@/features/graph/controller"
 import type { BranchFlow } from "@/lib/commit-message"
 import { cn } from "@/lib/utils"
-import { FLOW_META } from "@/components/flow-context"
+import { FLOW_META } from "@/features/flow/flow-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 

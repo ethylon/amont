@@ -13,7 +13,7 @@ import {
   SEMVER, tagFlowColor, typeColor,
   type BadgeColor, type FlowKind, type ParsedMerge, type RefChip,
 } from "@/lib/commit-message"
-import { scrollText } from "@/components/scroll-text"
+import { scrollText } from "../interactions/scroll-text.ts"
 import { BRANCH_BUDGET, BRANCH_MAX, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
 import type { LayoutState } from "../layout/state.ts"
 import { hashOfId, idOf, shortHash } from "../ids.ts"

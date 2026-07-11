@@ -7,7 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
-import { useDiffQuery } from "@/lib/queries"
+import { useDiffQuery } from "@/features/diff/diff-queries"
 import { isDark, useTheme } from "@/lib/theme"
 import { IconButton } from "@/components/ui/icon-button"
 import { Spinner } from "@/components/ui/primitives/spinner"

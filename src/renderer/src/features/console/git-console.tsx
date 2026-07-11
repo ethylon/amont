@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { TerminalIcon, Delete02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 
 import { onTrace, type TraceLine } from "@/lib/git"
-import { PRIORITY, useShortcut } from "@/lib/shortcuts"
+import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
