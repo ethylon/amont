@@ -3,6 +3,15 @@
    pas seulement ce que le renderer en attend — main les produit, preload les relaie tels
    quels. Voir ipc-contract.ts pour la map des canaux qui les transporte. */
 
+import type { ErrorPayload } from "./errors.ts"
+
+/** `Omit` qui distribue sur les membres d'une union discriminée plutôt que de s'effondrer sur
+    leurs seules clés communes (`keyof (A | B)` ne garde que l'intersection des clés — `Omit`
+    non distribuée y perdrait les champs propres à chaque variante). Utile pour construire le
+    payload d'un événement (`TraceLine`, `OpEvent`) sans son `id`, ajouté au dernier moment par
+    l'émetteur qui le connaît déjà (cf. main/ipc.ts `makeHooks`). */
+export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
+
 export type Commit = {
   /** hash court, 8 caractères */
   h: string
@@ -64,7 +73,10 @@ export type FileChange = {
 export type Repo = { id: number; path: string; name: string }
 /** Un dépôt connu mais pas ouvert : récent, ou trouvé sous la racine. */
 export type RepoRef = { path: string; name: string }
-export type OpenResult = Repo | { error: string } | null
+/** `null` : dialogue annulé. Un échec d'ouverture (pas un dépôt…) throw désormais une AppError
+    structurée (fix chantier « erreurs », AUDIT.md §4) plutôt que de rendre `{ error }` — même
+    convention que le reste du contrat. */
+export type OpenResult = Repo | null
 
 export type BootState = {
   root: string | null
@@ -127,10 +139,15 @@ export type Worktree = Record<"staged" | "unstaged" | "untracked" | "conflicts",
 
 export type OpName = "fetch" | "pull" | "push"
 
+/* Le cas "error" transporte un code structuré plutôt qu'un message français pré-formaté (fix
+   chantier « erreurs », AUDIT.md §4) : le renderer compose le texte affiché. Ce canal étant un
+   événement (`webContents.send`), pas une erreur d'`invoke`, il échappe à la restriction
+   d'Electron qui ne laisse passer que `.message` sur un throw — `code`/`detail` voyagent tels
+   quels, sans le détour JSON qu'exige `shared/errors.ts` côté invoke. */
 export type OpEvent = { id: number } & (
   | { op: OpName; state: "start"; auto: boolean }
   | { op: OpName; state: "done"; auto: boolean; added: number }
-  | { op: OpName; state: "error"; auto: boolean; message: string }
+  | ({ op: OpName; state: "error"; auto: boolean } & ErrorPayload)
 )
 
 /** `.git` a bougé sous nos pieds. Main ne l'émet qu'application au premier plan. */
