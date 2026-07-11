@@ -1,7 +1,10 @@
 import { useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@hugeicons/core-free-icons"
+import {
+  Cancel01Icon, EyeIcon, EyeOffIcon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon,
+} from "@hugeicons/core-free-icons"
 
+import { setAvatarsEnabled, useAvatarsEnabled } from "@/lib/avatar"
 import { setDark, useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/ui/mark"
@@ -31,6 +34,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
   /* abonné au thème plutôt qu'une copie locale : un flip de l'OS (sans choix explicite
      enregistré) doit retourner l'icône aussi */
   const dark = useTheme()
+  const avatarsOn = useAvatarsEnabled()
 
   const toggleTheme = () => setDark(!dark)
 
@@ -116,7 +120,20 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
       </div>
 
       <IconButton
-        label={dark ? "Thème clair" : "Thème sombre"}
+        label={
+          avatarsOn
+            ? "Disable network avatars (Gravatar/GitHub)"
+            : "Enable network avatars (Gravatar/GitHub) — off by default for privacy"
+        }
+        icon={EyeOffIcon}
+        swapIcon={EyeIcon}
+        swapped={avatarsOn}
+        onClick={() => setAvatarsEnabled(!avatarsOn)}
+        className="shrink-0"
+      />
+
+      <IconButton
+        label={dark ? "Light theme" : "Dark theme"}
         icon={Moon02Icon}
         swapIcon={Sun03Icon}
         swapped={dark}

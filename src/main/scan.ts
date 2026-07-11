@@ -1,11 +1,12 @@
 /* Découverte des dépôts sous la racine (AUDIT.md §4).
-   ponytail: profondeur 3 et pas de dépôt dans un dépôt. Couvre `~/Projets/<client>/<repo>` ;
-   à revoir si des dépôts se cachent plus bas. */
+   Profondeur fixe et pas de dépôt dans un dépôt : couvre les arborescences imbriquées à deux ou
+   trois niveaux (espace de travail / groupe / dépôt) les plus courantes. Réglable via
+   AMONT_SCAN_DEPTH si des dépôts se cachent plus bas dans une arborescence donnée. */
 
 import { readdir } from "node:fs/promises"
 import { join } from "node:path"
 
-const DEPTH = 3
+const DEPTH = Number(process.env.AMONT_SCAN_DEPTH) || 3
 const SKIP = new Set(["node_modules", "bin", "obj", "dist", "out", "target", "vendor"])
 
 export async function scan(dir: string, depth: number, found: string[]): Promise<void> {
