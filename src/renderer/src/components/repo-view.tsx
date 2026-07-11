@@ -6,6 +6,7 @@ import {
   type Stash, type StashAct, type Status, type Worktree,
 } from "@/lib/git"
 import { branchFlow } from "@/lib/commit-message"
+import { describeError, describePayload } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { BootSkeleton } from "@/components/boot-skeleton"
@@ -214,7 +215,7 @@ export function RepoView({ repo, active }: Props) {
         if (p.state === "start") return
         if (p.state === "error") {
           refreshStatus()
-          return showOp(p.message, "danger")
+          return showOp(describePayload(p), "danger")
         }
         await refreshStatus()
         if (p.op === "pull") {
@@ -347,7 +348,7 @@ export function RepoView({ repo, active }: Props) {
       try {
         await act(api, paths)
       } catch (e) {
-        return showOp((e as Error).message, "danger")
+        return showOp(describeError(e), "danger")
       }
       await refreshWorktree()
     },
@@ -397,7 +398,7 @@ export function RepoView({ repo, active }: Props) {
   /* on recharge dans tous les cas : un `stash pop` en conflit échoue alors que HEAD a déjà bougé */
   const checkout = useCallback(
     async (name: string) => {
-      const err = await api.checkout(name).then(() => null, (e: Error) => e.message)
+      const err = await api.checkout(name).then(() => null, describeError)
       await refreshStatus()
       await resetAndLoad()
       if (err) showOp(err, "danger")
@@ -410,7 +411,7 @@ export function RepoView({ repo, active }: Props) {
      consommé par le stash : le champ sujet se vide, le brouillon de description reste. */
   const runStash = useCallback(
     async (action: StashAct, name?: string) => {
-      const err = await api.stash(action, name).then(() => null, (e: Error) => e.message)
+      const err = await api.stash(action, name).then(() => null, describeError)
       if (!err && action === "push") setSubject("")
       await refreshStatus()
       await resetAndLoad()
@@ -428,7 +429,7 @@ export function RepoView({ repo, active }: Props) {
      déplacés. On recharge dans tous les cas, comme pour le checkout. */
   const runBranch = useCallback(
     async (action: BranchAct, name: string) => {
-      const err = await api.branch(action, name).then(() => null, (e: Error) => e.message)
+      const err = await api.branch(action, name).then(() => null, describeError)
       await refreshStatus()
       await resetAndLoad()
       if (err) showOp(err, "danger")
