@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import { html as d2hHtml } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
@@ -7,7 +7,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
-import { isDark, onThemeChange } from "@/lib/theme"
+import { useDiffQuery } from "@/lib/queries"
+import { isDark, useTheme } from "@/lib/theme"
 import { IconButton } from "@/components/ui/icon-button"
 import { Spinner } from "@/components/ui/primitives/spinner"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -19,9 +20,6 @@ export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" |
 const MAX_LINES = 3000
 /* Réappliqué à chaque rendu — les effets réécrivent `className` de fond en comble. */
 const DIFF_BODY = "gg-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
-
-const diffText = (api: RepoApi, ctx: DiffCtx, f: FileChange) =>
-  "wt" in ctx ? api.wtdiff(f.path, ctx.wt) : api.diff(ctx.hash, ctx.parent, f.path, f.old || null)
 
 /* extensions maison -> grammaire shiki ; les projets/props MSBuild sont du XML */
 const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
@@ -140,6 +138,7 @@ function syncSides(body: HTMLElement) {
 
 type Props = {
   api: RepoApi
+  repoId: number
   ctx: DiffCtx
   file: FileChange
   view: DiffView
@@ -147,15 +146,12 @@ type Props = {
   onClose(): void
 }
 
-export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props) {
+export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }: Props) {
   const root = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
-  const [text, setText] = useState<string | null>(null)
-  const [error, setError] = useState(false)
   /* le diff est peint hors de la classe `.dark` (diff2html + shiki reçoivent le thème en dur) :
      un re-rendu explicite à chaque bascule, sinon il reste figé sur le thème d'ouverture */
-  const [dark, setDarkState] = useState(isDark)
-  useEffect(() => onThemeChange(() => setDarkState(isDark())), [])
+  const dark = useTheme()
 
   /* Le diff recouvre le graphe : on y amène le focus à l'ouverture (Échap et fermeture
      atteignables au clavier) et on le rend à l'élément précédent à la fermeture. */
@@ -165,18 +161,7 @@ export function DiffView({ api, ctx, file, view, onViewChange, onClose }: Props)
     return () => prev?.focus?.()
   }, [])
 
-  useEffect(() => {
-    let stale = false
-    setText(null)
-    setError(false)
-    diffText(api, ctx, file).then(
-      (t) => !stale && setText(t),
-      () => !stale && setError(true)
-    )
-    return () => {
-      stale = true
-    }
-  }, [api, ctx, file])
+  const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null)
 
   useEffect(() => {
     const el = body.current

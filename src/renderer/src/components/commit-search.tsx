@@ -4,18 +4,18 @@ import { ArrowDown01Icon, ArrowUp01Icon, FileSearchIcon, Search01Icon } from "@h
 
 import type { RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
+import { SEARCH_MIN, useSearchQuery } from "@/lib/queries"
 import type { GraphHandle } from "@/components/graph-canvas"
 import {
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/primitives/spinner"
 
-/* Sous ce seuil, `git log -S` balaierait l'historique entier pour rien. */
-const MIN = 2
 const DEBOUNCE = 300
 
 type Props = {
   api: RepoApi
+  repoId: number
   graph: RefObject<GraphHandle | null>
   /** un onglet en arrière-plan ne capte pas Ctrl+F */
   active: boolean
@@ -23,49 +23,35 @@ type Props = {
 
 /* Barre de recherche façon « find in page » : le graphe n'est jamais filtré — il perdrait ses
    lanes — mais estompe les lignes hors résultat, et Entrée saute de résultat en résultat. */
-export function CommitSearch({ api, graph, active }: Props) {
+export function CommitSearch({ api, repoId, graph, active }: Props) {
   const [q, setQ] = useState("")
+  const [term, setTerm] = useState("") // débattu de `q`, seule identité que la requête retient
   const [content, setContent] = useState(false)
-  const [hits, setHits] = useState<string[] | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const input = useRef<HTMLInputElement>(null)
   const cursor = useRef(-1) // dernière ligne atteinte, -1 = avant la première
 
   useEffect(() => {
-    const term = q.trim()
     cursor.current = -1
-    if (term.length < MIN) {
-      setHits(null)
-      setError(null)
-      setBusy(false)
-      graph.current?.setMatches(null)
+    const trimmed = q.trim()
+    /* sous le seuil : on efface tout de suite, pas la peine d'attendre le débat */
+    if (trimmed.length < SEARCH_MIN) {
+      setTerm(trimmed)
       return
     }
-    setBusy(true)
-    let alive = true
-    const t = window.setTimeout(async () => {
-      try {
-        const found = await api.search(term, content)
-        if (!alive) return
-        setHits(found)
-        setError(null)
-        graph.current?.setMatches(found)
-      } catch (e) {
-        if (!alive) return
-        setHits(null)
-        setError(describeError(e))
-        graph.current?.setMatches(null)
-      } finally {
-        if (alive) setBusy(false)
-      }
-    }, DEBOUNCE)
-    return () => {
-      alive = false
-      clearTimeout(t)
-    }
-  }, [api, content, graph, q])
+    const t = window.setTimeout(() => setTerm(trimmed), DEBOUNCE)
+    return () => clearTimeout(t)
+  }, [q])
+
+  /* TanStack Query annule lui-même le fetch superflu quand `term`/`content` changent avant la
+     résolution (AbortSignal fourni à la queryFn, cf. lib/queries.ts) : plus de flag `alive` à
+     recopier à la main pour ignorer une réponse tardive. */
+  const { data: hits = null, isFetching: busy, error: queryError } = useSearchQuery(api, repoId, term, content)
+  const error = queryError ? describeError(queryError) : null
+
+  useEffect(() => {
+    graph.current?.setMatches(term.length >= SEARCH_MIN ? (hits ?? null) : null)
+  }, [graph, hits, term])
 
   const jump = useCallback(
     async (dir: 1 | -1) => {

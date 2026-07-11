@@ -1,8 +1,8 @@
-import { useRef, useSyncExternalStore } from "react"
+import { useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@hugeicons/core-free-icons"
 
-import { isDark, onThemeChange, setDark } from "@/lib/theme"
+import { setDark, useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/mark"
 import { Button } from "@/components/ui/button"
@@ -30,7 +30,7 @@ const tabClass =
 export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
   /* abonné au thème plutôt qu'une copie locale : un flip de l'OS (sans choix explicite
      enregistré) doit retourner l'icône aussi */
-  const dark = useSyncExternalStore(onThemeChange, isDark)
+  const dark = useTheme()
 
   const toggleTheme = () => setDark(!dark)
 
