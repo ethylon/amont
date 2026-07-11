@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { TerminalIcon, Delete02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 
 import { onTrace, type TraceLine } from "@/lib/git"
+import { PRIORITY, useShortcut } from "@/lib/shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -31,12 +32,13 @@ export function GitConsole({ repoId }: { repoId: number }) {
     [repoId]
   )
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false)
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [open])
+  /* priorité haute : la console est un overlay flottant au-dessus du reste — un Escape qui la
+     ferme ne doit pas descendre plus bas (fermer le diff en même temps serait surprenant). */
+  useShortcut(open, PRIORITY.OVERLAY, (e) => {
+    if (e.key !== "Escape") return false
+    setOpen(false)
+    return true
+  })
 
   /* à l'ouverture : montrer le plus récent */
   useLayoutEffect(() => {

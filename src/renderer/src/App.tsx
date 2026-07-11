@@ -3,6 +3,7 @@ import { flushSync } from "react-dom"
 
 import { host, type BootState, type Repo } from "@/lib/git"
 import { afterClose, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/lib/navigation"
+import { PRIORITY, useShortcut } from "@/lib/shortcuts"
 import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { HomeScreen } from "@/components/home-screen"
@@ -65,14 +66,12 @@ export default function App({ boot }: Props) {
 
   /* F5 : rechargement complet de la fenêtre — l'issue de secours quand l'UI se coince.
      Un renderer mort ne reçoit plus de clavier : ce cas est couvert par le reload
-     automatique du main (render-process-gone). */
-  useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "F5") window.location.reload()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
+     automatique du main (render-process-gone). Toujours actif, quel que soit l'onglet. */
+  useShortcut(true, PRIORITY.GLOBAL, (ev) => {
+    if (ev.key !== "F5") return false
+    window.location.reload()
+    return true
+  })
 
   /* restauration : pas d'animation, il n'y a pas d'état précédent à quitter */
   useEffect(() => {
