@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { flushSync } from "react-dom"
 
-import { bootState, host, type Repo } from "@/lib/git"
+import { host, type BootState, type Repo } from "@/lib/git"
 import { cn } from "@/lib/utils"
 import { HomeScreen } from "@/components/home-screen"
 import { RepoView } from "@/components/repo-view"
@@ -15,7 +15,12 @@ function transition(type: "next" | "prev" | "open", update: () => void) {
   document.startViewTransition({ types: [type], update: () => flushSync(update) })
 }
 
-export default function App() {
+type Props = {
+  /** promesse posée une fois par main.tsx (cf. boot() dans lib/git.ts) */
+  boot: Promise<BootState>
+}
+
+export default function App({ boot }: Props) {
   /* l'accueil n'est pas dans `tabs` : il est épinglé, toujours là, jamais fermé */
   const [tabs, setTabs] = useState<Repo[]>([])
   const [active, setActive] = useState(HOME)
@@ -60,7 +65,7 @@ export default function App() {
 
   /* restauration : pas d'animation, il n'y a pas d'état précédent à quitter */
   useEffect(() => {
-    bootState.then((s) => {
+    boot.then((s) => {
       if (s.tabs.length) {
         const key = s.active ?? s.tabs[0].id
         setTabs(s.tabs)
@@ -69,7 +74,7 @@ export default function App() {
       }
       setBooted(true)
     })
-  }, [])
+  }, [boot])
 
   /* pas avant le boot : on écraserait les onglets persistés avec l'état initial vide */
   useEffect(() => {
