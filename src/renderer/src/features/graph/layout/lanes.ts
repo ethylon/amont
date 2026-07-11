@@ -5,7 +5,7 @@
    exécutable sous Node (cf. lanes.test.ts). */
 
 import type { Commit } from "../../../../../shared/types.ts"
-import { mergeSource, parseMerge } from "../../../lib/commit-message.ts"
+import { mergeSource, parseMerge } from "../../../lib/commit-parse.ts"
 import { CHUNK } from "../constants.ts"
 import { internId } from "../ids.ts"
 import { chunkOf, type Edge, type LayoutState } from "./state.ts"

@@ -1,5 +1,5 @@
 /* Sélection et surbrillance de recherche (AUDIT.md §6) : React possède la vérité (cf.
-   lib/repo-store.tsx), ce module ne fait qu'appliquer `data-selected`/`data-match` sur les
+   features/repo/repo-store.tsx), ce module ne fait qu'appliquer `data-selected`/`data-match` sur les
    lignes montées — flux à sens unique, comme avant ce refactor (AUDIT.md §1, à préserver). */
 
 export function createSelection(inner: HTMLDivElement) {

@@ -8,27 +8,13 @@
 
 @theme inline {
     /* Palette Tailwind coupée : seuls les tokens du preset produisent des utilities, donc
-       `bg-slate-800` fait échouer le build. black survit pour l'overlay de dialog.tsx. */
+       `bg-slate-800` fait échouer le build. */
     --color-*: initial;
-    --color-black: #000;
 
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
     --font-mono: 'Geist Mono Variable', Consolas, ui-monospace, monospace;
 
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -83,20 +69,7 @@
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.865 0.127 207.078);
-    --chart-2: oklch(0.715 0.143 215.221);
-    --chart-3: oklch(0.609 0.126 221.723);
-    --chart-4: oklch(0.52 0.105 223.128);
-    --chart-5: oklch(0.45 0.085 224.283);
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.609 0.126 221.723);
-    --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
 
     --success: oklch(0.52 0.14 150);
     --warning: oklch(0.56 0.13 70);
@@ -140,19 +113,6 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.865 0.127 207.078);
-    --chart-2: oklch(0.715 0.143 215.221);
-    --chart-3: oklch(0.609 0.126 221.723);
-    --chart-4: oklch(0.52 0.105 223.128);
-    --chart-5: oklch(0.45 0.085 224.283);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.715 0.143 215.221);
-    --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
 
     --success: oklch(0.74 0.15 150);
     --warning: oklch(0.80 0.14 70);
@@ -291,10 +251,6 @@
     ::view-transition-new(gg-tabbody),
     :root:active-view-transition-type(open)::view-transition-new(gg-tabbody) { animation-name: gg-tab-fade-in; }
   }
-
-  /* Palette de commandes : ouverte au clavier (Ctrl+K), une action clavier n'anime pas de
-     déplacement. On neutralise le zoom (aucune origine d'où grandir) et on garde le seul fondu. */
-  [data-slot="dialog-content"]:has([data-slot="command"]) { --tw-enter-scale: 1; --tw-exit-scale: 1; }
 
   /* --- Boot d'un onglet : la révélation se fait en une seule frame (cf. RepoView) ; ces entrées
      n'animent que les insertions ultérieures — l'arbre qui se salit, un checkout vers une branche
