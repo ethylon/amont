@@ -4,6 +4,7 @@ import { flushSync } from "react-dom"
 import { host, type BootState, type Repo } from "@/lib/git"
 import { afterClose, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/lib/navigation"
 import { cn } from "@/lib/utils"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { HomeScreen } from "@/components/home-screen"
 import { RepoView } from "@/components/repo-view"
 import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/components/tab-strip"
@@ -34,6 +35,10 @@ export default function App({ boot }: Props) {
   /* un onglet visité reste monté : y revenir ne recharge pas son graphe, ne perd pas son scroll */
   const [mounted, setMounted] = useState<number[]>([])
   const [booted, setBooted] = useState(false)
+  /* bump = démonte et remonte tout l'onglet (store compris) : le levier « recharger l'onglet »
+     de l'ErrorBoundary qui l'entoure (AUDIT.md §5, item 8). */
+  const [resetNonce, setResetNonce] = useState<Record<number, number>>({})
+  const bumpReset = useCallback((id: number) => setResetNonce((n) => ({ ...n, [id]: (n[id] ?? 0) + 1 })), [])
 
   /* Le sens du glissement suit la barre d'onglets, l'accueil en position 0. Un dépôt qui n'y
      figure pas encore vient d'être ouvert : il arrive de face plutôt que par le côté.
@@ -149,7 +154,13 @@ export default function App({ boot }: Props) {
                 data-tab-active={tabActive || undefined}
                 className={cn("absolute inset-0 flex flex-col", !tabActive && "invisible")}
               >
-                <RepoView repo={r} active={tabActive} />
+                <ErrorBoundary
+                  key={resetNonce[r.id] ?? 0}
+                  label="Recharger l'onglet"
+                  onReset={() => bumpReset(r.id)}
+                >
+                  <RepoView repo={r} active={tabActive} />
+                </ErrorBoundary>
               </div>
             )
           })}
