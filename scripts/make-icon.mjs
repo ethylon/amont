@@ -1,11 +1,9 @@
-/* Génère resources/icon.png à partir du Mark. La rasterisation est faite par Chromium via
-   Electron, déjà présent : aucune dépendance d'image à porter. À relancer si le logo bouge.
+/* Génère resources/icon.png : le Mark (cf. src/renderer/src/components/mark.tsx — garder
+   les tracés synchronisés) posé sur une plaque sombre arrondie, pour tenir sur n'importe
+   quel fond de taskbar. La rasterisation est faite par Chromium via Electron, déjà
+   présent : aucune dépendance d'image à porter. À relancer si le logo bouge.
 
-     pnpm exec electron scripts/make-icon.mjs
-
-   Tous les tracés sont en stroke et se rejoignent bord à bord (les segments partent du bord des
-   cercles, jamais de leur centre) : rien ne se recouvre, le fond transparent ne pose donc pas de
-   problème et aucun masque n'est nécessaire. */
+     pnpm exec electron scripts/make-icon.mjs */
 import { app, BrowserWindow } from 'electron';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,23 +12,36 @@ import { join } from 'node:path';
 const SIZE = 512;
 const DIR = join(import.meta.dirname, '../resources');
 
-/* lightness relevée par rapport aux lanes du thème clair : l'icône doit tenir sur fond noir */
-const A = 'oklch(0.62 0.16 250)';
-const B = 'oklch(0.62 0.19 322)';
+/* La barre du Mark est `currentColor` dans l'app ; l'icône n'a pas de thème sous elle —
+   c'est l'écume (le foreground du thème sombre), lisible sur la plaque. */
+const BAR = '#ECECF2';
+/* Le Mark occupe ~2/3 de la plaque, centré : plein cadre, les fioritures d'OS (coins,
+   ombres) rogneraient les pentes. */
+const MARK = SIZE * (2 / 3);
+const PAD = (SIZE - MARK) / 2;
 
 const HTML = `<!doctype html><html>
 <style>html,body{margin:0;overflow:hidden;background:transparent}svg{display:block}</style>
-<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 24 24"
-     fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <g stroke="${A}">
-    <circle cx="5" cy="6" r="3"/>
-    <path d="M5 9v6"/>
-    <circle cx="5" cy="18" r="3"/>
-    <path d="M12 3v18"/>
-  </g>
-  <g stroke="${B}">
-    <circle cx="19" cy="6" r="3"/>
-    <path d="M16 15.7C16.9428 14.8567 17.6972 13.8242 18.2142 12.6698C18.7311 11.5153 18.9988 10.2649 19 9"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" fill="none">
+  <defs>
+    <linearGradient id="plaque" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1C1C23"/>
+      <stop offset="1" stop-color="#101015"/>
+    </linearGradient>
+    <linearGradient id="courant" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#6AA6E8"/>
+      <stop offset="1" stop-color="#8F8FE8"/>
+    </linearGradient>
+  </defs>
+  <rect width="${SIZE}" height="${SIZE}" rx="103" fill="url(#plaque)"/>
+  <rect x="1.5" y="1.5" width="${SIZE - 3}" height="${SIZE - 3}" rx="101.5"
+        stroke="${BAR}" stroke-opacity="0.07" stroke-width="3"/>
+  <g transform="translate(${PAD} ${PAD}) scale(${MARK / 240})"
+     stroke-width="22" stroke-linecap="round">
+    <path d="M62,192 C62,132 92,112 114,70" stroke="url(#courant)"/>
+    <path d="M178,192 C178,132 148,112 126,70" stroke="url(#courant)"/>
+    <path d="M94,148 H146" stroke="${BAR}" stroke-width="16"/>
+    <circle cx="120" cy="40" r="13" fill="#F272A8" stroke="none"/>
   </g>
 </svg></html>`;
 
@@ -54,9 +65,13 @@ app.whenReady().then(async () => {
     skipTaskbar: true,
   });
 
-  await win.loadFile(page);
+  await win.loadFile(page); // résolu à did-finish-load
   win.showInactive();
-  await new Promise(r => setTimeout(r, 200)); // laisser passer une frame composée
+  /* aller-retour requestAnimationFrame : le second rAF ne tourne qu'une fois la première
+     frame réellement composée — là où un setTimeout pariait sur un délai */
+  await win.webContents.executeJavaScript(
+    'new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'
+  );
 
   /* la capture sort à la résolution physique de l'écran (facteur DPI) : on ramène à SIZE */
   const shot = await win.webContents.capturePage();
