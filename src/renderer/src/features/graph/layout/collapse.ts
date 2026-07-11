@@ -44,7 +44,8 @@ function capsuleAt(commits: Commit[], i: number, at: Map<string, number>, drop: 
   if (!md || md.to !== "develop" || !mergeFlow(md)) return null // the surviving row: the develop merge
 
   let mi: number | undefined
-  if (md.tag) mi = at.get(d.p[1]) // pattern B: "merge tag" — the tag points to the master merge
+  if (md.tag)
+    mi = at.get(d.p[1]) // pattern B: "merge tag" — the tag points to the master merge
   else
     for (let j = i + 1; j < commits.length; j++) {
       // pattern A: two branch merges, twinned by the release tip (2nd common parent)
@@ -69,7 +70,13 @@ function capsuleAt(commits: Commit[], i: number, at: Map<string, number>, drop: 
     h: d.h,
     p,
     r,
-    cap: { absorbed: m.h, version: semverTag(r) ?? (md.tag ? md.from : null), from: mm.from, flow, targets: [mm.to || "master", md.to] },
+    cap: {
+      absorbed: m.h,
+      version: semverTag(r) ?? (md.tag ? md.from : null),
+      from: mm.from,
+      flow,
+      targets: [mm.to || "master", md.to],
+    },
   }
 }
 

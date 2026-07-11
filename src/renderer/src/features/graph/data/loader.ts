@@ -195,7 +195,8 @@ export function createLoader(opts: LoaderOptions) {
     isResident: (r0: number, r1: number) => pageCache.isResident(r0, r1),
     touch: (pi: number) => pageCache.touch(pi),
     pageOfRow: (row: number) => pageCache.pageOfRow(row),
-    evict: (viewRowRange: readonly [number, number] | null, extraRows: Iterable<number>) => pageCache.evict(viewRowRange, extraRows),
+    evict: (viewRowRange: readonly [number, number] | null, extraRows: Iterable<number>) =>
+      pageCache.evict(viewRowRange, extraRows),
 
     fetchMore,
     fetchProgress,

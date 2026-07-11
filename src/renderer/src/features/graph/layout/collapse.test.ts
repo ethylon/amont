@@ -37,7 +37,7 @@ describe("collapsePairs", () => {
     assert.deepEqual(cap.cap?.targets, ["main", "develop"])
   })
 
-  it("recognizes the \"Merge tag\" pattern (the develop merge's 2nd parent IS the master merge)", () => {
+  it('recognizes the "Merge tag" pattern (the develop merge\'s 2nd parent IS the master merge)', () => {
     const dev = c("d1", ["dp", "m1"], "Merge tag 'v1.2.0' into develop")
     const mas = c("m1", ["mp", "rt"], "Merge branch 'release/1.2.0'")
     const out = collapsePairs([dev, mas])
@@ -50,7 +50,10 @@ describe("collapsePairs", () => {
   })
 
   it("doesn't merge a feature merge into develop (not a version pattern)", () => {
-    const rows = [c("d1", ["dp", "ft"], "Merge branch 'feature/x' into develop"), c("m1", ["mp", "ft"], "Merge branch 'feature/x'")]
+    const rows = [
+      c("d1", ["dp", "ft"], "Merge branch 'feature/x' into develop"),
+      c("m1", ["mp", "ft"], "Merge branch 'feature/x'"),
+    ]
     assert.deepEqual(collapsePairs(rows), rows)
   })
 
@@ -73,7 +76,10 @@ describe("collapsePairs", () => {
     const dev1 = c("d1", ["dp", "r1"], "Merge branch 'release/1.2.0' into develop")
     const mas1 = c("m1", ["mp", "r1"], "Merge branch 'release/1.2.0'")
     const out = collapsePairs([dev2, mas2, dev1, mas1])
-    assert.deepEqual(out.map((x) => x.h), ["d2", "d1"])
+    assert.deepEqual(
+      out.map((x) => x.h),
+      ["d2", "d1"]
+    )
     assert.equal(out[0].cap?.absorbed, "m2")
     assert.equal(out[1].cap?.absorbed, "m1")
   })
@@ -91,7 +97,11 @@ describe("foldStashes", () => {
     const plumbing = new Set(["ee2", "ee3"])
     const out = foldStashes(page, stashOf, plumbing)
 
-    assert.deepEqual(out.map((c) => c.h), ["ee1", "a1"], "the plumbing (index, untracked) disappears")
+    assert.deepEqual(
+      out.map((c) => c.h),
+      ["ee1", "a1"],
+      "the plumbing (index, untracked) disappears"
+    )
     assert.deepEqual(out[0].p, ["a1"], "only the base parent survives")
     assert.deepEqual(out[0].stash, { name: "stash@{0}", untracked: "ee3" })
   })

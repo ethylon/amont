@@ -19,5 +19,5 @@
       "@/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src/main", "src/preload", "src/shared", "scripts"]
+  "include": ["src/main", "src/preload", "src/shared", "scripts", "vitest.config.ts"]
 }

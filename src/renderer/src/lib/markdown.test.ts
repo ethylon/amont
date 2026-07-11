@@ -9,9 +9,7 @@ describe("parseMarkdown", () => {
   /** "p(text)" / "ul(item|item)"; inline tokens come out tagged: code[x], bold[x], em[x], link[x] */
   const md = (raw: string) =>
     parseMarkdown(raw).map((b) =>
-      b.kind === "p"
-        ? `p(${fmtTokens(b.tokens)})`
-        : `ul(${b.items.map(fmtTokens).join("|")})`
+      b.kind === "p" ? `p(${fmtTokens(b.tokens)})` : `ul(${b.items.map(fmtTokens).join("|")})`
     )
   const fmtTokens = (ts: MdToken[]) => ts.map((k) => (k.t === "text" ? k.v : `${k.t}[${k.v}]`)).join("")
 

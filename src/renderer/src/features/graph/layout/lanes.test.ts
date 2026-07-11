@@ -35,7 +35,11 @@ describe("layoutChunk — lane allocation and continuity", () => {
     /* row0: merge opening a lane for "b" (immediate root); row1 closes "b" and frees its
        lane; row2 is an independent root that must reclaim this free lane instead
        of allocating a third one. */
-    const data = [c("m", ["a", "b"], "Merge"), c("b", [], "feature racine"), c("z", [], "racine indépendante, plus tard")]
+    const data = [
+      c("m", ["a", "b"], "Merge"),
+      c("b", [], "feature racine"),
+      c("z", [], "racine indépendante, plus tard"),
+    ]
     const S = createState()
     layoutChunk(S, (r) => data[r], data.length)
     const featureLane = S.laneOf[1]

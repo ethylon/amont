@@ -11,8 +11,10 @@ export const stroke = (e: Edge) => laneColor(e.travel)
 
 export const edgesSvg = (list: Edge[]) =>
   list
-    .map((e) =>
-      `<path d="${edgePath(e)}" fill="none" stroke="${stroke(e)}" stroke-width="1.6"${e.dash ? ' stroke-dasharray="3 3"' : ""}/>`)
+    .map(
+      (e) =>
+        `<path d="${edgePath(e)}" fill="none" stroke="${stroke(e)}" stroke-width="1.6"${e.dash ? ' stroke-dasharray="3 3"' : ""}/>`
+    )
     .join("")
 
 export const nodesSvg = (list: GraphNode[]) =>
@@ -27,7 +29,9 @@ export const nodesSvg = (list: GraphNode[]) =>
       if (n.cap) {
         /* Milestone diamond: the release/hotfix lands here, flow hue, not lane hue. */
         const col = n.cap === "hotfix" ? "var(--destructive)" : "var(--release)"
-        const x = X(n.lane), y = Y(n.row), r = R + 1.5
+        const x = X(n.lane),
+          y = Y(n.row),
+          r = R + 1.5
         return `<path d="M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z" fill="${col}" stroke="var(--background)" stroke-width="1.5"/>`
       }
       return n.merge

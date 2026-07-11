@@ -21,7 +21,11 @@ import { ghostChip, refChip } from "../render/rows.ts"
 
 const CLOSE_DELAY = 120
 
-export function createPopover(board: HTMLDivElement, inner: HTMLDivElement, commitAt: (row: number) => Commit | undefined) {
+export function createPopover(
+  board: HTMLDivElement,
+  inner: HTMLDivElement,
+  commitAt: (row: number) => Commit | undefined
+) {
   const el = document.createElement("div")
   el.className = MORE_CLASS
   el.setAttribute("role", "group")

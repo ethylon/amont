@@ -9,7 +9,11 @@ import { SEARCH_MIN, useSearchQuery } from "@/features/search/search-queries"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import type { GraphHandle } from "@/features/graph/controller"
 import {
-  InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -72,14 +76,14 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
     }
     if (ev.key === "F3") {
       ev.preventDefault()
-      jump(ev.shiftKey ? -1 : 1)
+      void jump(ev.shiftKey ? -1 : 1)
       return true
     }
     return false
   })
 
   const onKeyDown = (ev: React.KeyboardEvent) => {
-    if (ev.key === "Enter") jump(ev.shiftKey ? -1 : 1)
+    if (ev.key === "Enter") void jump(ev.shiftKey ? -1 : 1)
     else if (ev.key === "Escape" && q) {
       ev.stopPropagation() // otherwise RepoView closes the diff instead of clearing the field
       setQ("")
@@ -106,7 +110,13 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
 
       {/* search result announced to screen readers */}
       <span aria-live="polite" className="sr-only">
-        {error ? messages.search.error(error) : empty ? messages.search.noResults : hits ? messages.search.results(hits.length) : ""}
+        {error
+          ? messages.search.error(error)
+          : empty
+            ? messages.search.noResults
+            : hits
+              ? messages.search.results(hits.length)
+              : ""}
       </span>
 
       <InputGroupAddon align="inline-end">

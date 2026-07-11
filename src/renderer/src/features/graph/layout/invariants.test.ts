@@ -16,7 +16,7 @@ import { layoutChunk } from "./lanes.ts"
 import { createState, type Edge } from "./state.ts"
 
 const fixturePath = fileURLToPath(new URL("./fixtures/repo-log.json", import.meta.url))
-const raw: Commit[] = JSON.parse(readFileSync(fixturePath, "utf8"))
+const raw = JSON.parse(readFileSync(fixturePath, "utf8")) as Commit[]
 const commits = collapsePairs(raw)
 
 const S = createState()
@@ -77,7 +77,7 @@ describe("layout invariants — real fixture (147 commits, all refs)", () => {
         const sharesEndpoint = cur[1] === prev[1] || cur[0] === prev[0]
         assert.ok(
           !overlaps || sharesEndpoint,
-          `lane ${lane}: overlap with no shared node between [${prev}] and [${cur}]`
+          `lane ${lane}: overlap with no shared node between [${prev.join(",")}] and [${cur.join(",")}]`
         )
       }
     }

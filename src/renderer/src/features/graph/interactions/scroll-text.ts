@@ -8,7 +8,8 @@
 const SPEED = 30 // px/s, independent of text length
 
 /** container classes, shared with React renders (cf. detail-panel) */
-export const SCROLL_TEXT_CLASS = "amont-scrolltext scroll-fade-x flex min-w-0 max-w-full gap-3 overflow-hidden whitespace-nowrap"
+export const SCROLL_TEXT_CLASS =
+  "amont-scrolltext scroll-fade-x flex min-w-0 max-w-full gap-3 overflow-hidden whitespace-nowrap"
 
 export function scrollText(text: string) {
   const el = document.createElement("span")

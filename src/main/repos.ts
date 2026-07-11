@@ -16,7 +16,7 @@ import { AppError } from "../shared/errors.ts"
 import type { DistributiveOmit, OpEvent, Repo, TraceLine } from "../shared/types.ts"
 import { createGitRunner, killAll, type GitRunner } from "./git/exec.ts"
 import { basename } from "./util.ts"
-import { openable, remember } from "./state.ts"
+import { remember } from "./state.ts"
 import { watchGit, type Watchable } from "./watcher.ts"
 
 /** Hooks provided by the window layer (window.ts), injected at opening rather than read from
@@ -136,11 +136,23 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
   const runner = createGitRunner({ path, trace: (line) => events.trace(line), children })
 
   const r: RepoHandle = {
-    id, path, name: basename(path), gitDir,
+    id,
+    path,
+    name: basename(path),
+    gitDir,
     realRoot: safeRealpath(path),
-    running: null, muted: 0, dirty: false, timer: null, watcher: null, watchRetries: 0,
-    trunk: null, children, requests: new Map(),
-    events, git: runner.git, diffNoIndex: runner.diffNoIndex,
+    running: null,
+    muted: 0,
+    dirty: false,
+    timer: null,
+    watcher: null,
+    watchRetries: 0,
+    trunk: null,
+    children,
+    requests: new Map(),
+    events,
+    git: runner.git,
+    diffNoIndex: runner.diffNoIndex,
   }
   r.timer = setInterval(() => autofetch?.(r), AUTOFETCH_MS)
   watchGit(r)

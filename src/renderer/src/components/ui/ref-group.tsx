@@ -8,7 +8,13 @@ import { LABEL_CLS } from "@/components/ui/typography"
 /** Collapsible group header for the refs sidebar: title + count, chevron that rotates on
     open. Copied identically between the ref groups (Branches/Remotes/Tags) and the
     Stash group before this refactor (AUDIT.md §7, phase 5). */
-export function RefGroup({ title, count, open, onOpenChange, children }: {
+export function RefGroup({
+  title,
+  count,
+  open,
+  onOpenChange,
+  children,
+}: {
   title: string
   count: number
   open: boolean

@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowRight01Icon, File01Icon, FolderOpenIcon, Folder01Icon, ListTreeIcon, Menu01Icon } from "@hugeicons/core-free-icons"
+import {
+  ArrowRight01Icon,
+  File01Icon,
+  FolderOpenIcon,
+  Folder01Icon,
+  ListTreeIcon,
+  Menu01Icon,
+} from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { messages } from "@/lib/messages"
@@ -58,10 +65,14 @@ const STATUS_TEXT: Record<string, string> = {
    function stays private to this module rather than exposing a `BadgeColor` that no one else
    reads. */
 const fileStatusColor = (st: string): keyof typeof STATUS_TEXT =>
-  st.length > 1 ? "danger"
-    : st === "A" || st === "?" ? "success"
-      : st === "M" ? "warning"
-        : st === "D" ? "danger"
+  st.length > 1
+    ? "danger"
+    : st === "A" || st === "?"
+      ? "success"
+      : st === "M"
+        ? "warning"
+        : st === "D"
+          ? "danger"
           : "neutral"
 
 export type FileRowProps = {
@@ -89,14 +100,21 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
      and would break focus/AT) — `action`'s `onClick` already stops its propagation (worktree-panel.tsx). */
   const inner = (
     <>
-      <button type="button" onClick={onClick} onDoubleClick={onDoubleClick} className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
+      <button
+        type="button"
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+        className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+      >
         <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
           {file.st}
         </span>
         {icon}
         {/* flat: the folder truncates, the file name stays whole */}
         <span className="flex min-w-0 text-xs whitespace-nowrap">
-          {!nameOnly && cut >= 0 && <span className="truncate text-muted-foreground">{file.path.slice(0, cut + 1)}</span>}
+          {!nameOnly && cut >= 0 && (
+            <span className="truncate text-muted-foreground">{file.path.slice(0, cut + 1)}</span>
+          )}
           <span className="shrink-0 truncate">{file.path.slice(cut + 1)}</span>
         </span>
       </button>
@@ -137,7 +155,7 @@ function FileIcon({ api, path }: { api: RepoApi; path: string }) {
     const cached = iconByExt.get(ext)
     if (cached) return setUrl(cached)
     let live = true
-    api.fileIcon(path).then((d) => {
+    void api.fileIcon(path).then((d) => {
       if (d) iconByExt.set(ext, d)
       if (live) setUrl(d ?? undefined)
     })
@@ -151,7 +169,13 @@ function FileIcon({ api, path }: { api: RepoApi; path: string }) {
   )
 }
 
-function TreeFile<T extends FileChange>({ api, file, active, onOpen, action }: {
+function TreeFile<T extends FileChange>({
+  api,
+  file,
+  active,
+  onOpen,
+  action,
+}: {
   api: RepoApi
   file: T
   active?: boolean
@@ -180,10 +204,16 @@ const countFiles = <T,>(d: PathTree<T>): number =>
   d.items.length + [...d.dirs.values()].reduce((n, c) => n + countFiles(c), 0)
 
 /** All files of a subtree, flattened — to stage / unstage a folder in one go. */
-const collectFiles = <T,>(d: PathTree<T>): T[] =>
-  [...d.items, ...[...d.dirs.values()].flatMap((c) => collectFiles(c))]
+const collectFiles = <T,>(d: PathTree<T>): T[] => [...d.items, ...[...d.dirs.values()].flatMap((c) => collectFiles(c))]
 
-function Tree<T extends FileChange>({ node, api, activePath, onOpen, action, dirAction }: {
+function Tree<T extends FileChange>({
+  node,
+  api,
+  activePath,
+  onOpen,
+  action,
+  dirAction,
+}: {
   node: PathTree<T>
   api: RepoApi
   activePath?: string
@@ -209,14 +239,25 @@ function Tree<T extends FileChange>({ node, api, activePath, onOpen, action, dir
                     strokeWidth={2}
                     className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]/dir:rotate-90 motion-reduce:transition-none"
                   />
-                  <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+                  <HugeiconsIcon
+                    icon={Folder01Icon}
+                    strokeWidth={2}
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                  />
                   <span className="truncate font-medium">{k}</span>
                   <span className="text-[0.625rem] text-muted-foreground tabular-nums">{countFiles(d)}</span>
                 </CollapsibleTrigger>
                 {dirAction?.(collectFiles(d))}
               </div>
               <CollapsibleContent className="ml-2 border-l pl-2">
-                <Tree node={d} api={api} activePath={activePath} onOpen={onOpen} action={action} dirAction={dirAction} />
+                <Tree
+                  node={d}
+                  api={api}
+                  activePath={activePath}
+                  onOpen={onOpen}
+                  action={action}
+                  dirAction={dirAction}
+                />
               </CollapsibleContent>
             </Collapsible>
           )
@@ -224,7 +265,14 @@ function Tree<T extends FileChange>({ node, api, activePath, onOpen, action, dir
       {[...node.items]
         .sort((a, b) => a.path.localeCompare(b.path))
         .map((f) => (
-          <TreeFile key={f.path} api={api} file={f} active={f.path === activePath} onOpen={onOpen} action={action?.(f)} />
+          <TreeFile
+            key={f.path}
+            api={api}
+            file={f}
+            active={f.path === activePath}
+            onOpen={onOpen}
+            action={action?.(f)}
+          />
         ))}
     </>
   )
@@ -241,7 +289,15 @@ export function FileListHeader({ children, actions }: { children: React.ReactNod
 
 /* Bare rendering of files, flat or tree — without header or scroll container, which
    the caller owns. `action` grafts a button per file (stage / unstage). */
-export function FileEntries<T extends FileChange>({ files, view, api, activePath, onOpen, action, dirAction }: {
+export function FileEntries<T extends FileChange>({
+  files,
+  view,
+  api,
+  activePath,
+  onOpen,
+  action,
+  dirAction,
+}: {
   files: T[]
   view: FileView
   api: RepoApi
@@ -281,7 +337,12 @@ export function FileEntries<T extends FileChange>({ files, view, api, activePath
   )
 }
 
-export function FileList({ files, api, activePath, onOpen }: {
+export function FileList({
+  files,
+  api,
+  activePath,
+  onOpen,
+}: {
   files: FileChange[]
   api: RepoApi
   activePath?: string

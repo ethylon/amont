@@ -65,7 +65,11 @@ const ScrollName = ({ text }: { text: string }) => (
 function RefBadge({ r }: { r: RefChip }) {
   const synced = r.remotes.length > 0
   return (
-    <Badge shape="squared" color={refColor(r.kind)} className={cn("max-w-full", (r.kind === "remote" || synced) && "ps-1.5")}>
+    <Badge
+      shape="squared"
+      color={refColor(r.kind)}
+      className={cn("max-w-full", (r.kind === "remote" || synced) && "ps-1.5")}
+    >
       {(r.kind === "remote" || synced) && <Cloud />}
       {synced && <span className={badgeSeparator} />}
       <ScrollName text={r.name} />
@@ -86,11 +90,23 @@ function PersonChip({ name, email }: { name: string; email: string }) {
 const Inline = ({ tokens }: { tokens: MdToken[] }) => (
   <>
     {tokens.map((k, i) =>
-      k.t === "code" ? <code key={i} className="rounded-sm bg-muted px-1 font-mono">{k.v}</code>
-        : k.t === "bold" ? <strong key={i} className="font-medium text-foreground">{k.v}</strong>
-          : k.t === "em" ? <em key={i}>{k.v}</em>
-            : k.t === "link" ? <a key={i} href={k.v} target="_blank" rel="noreferrer" className="text-primary hover:underline">{k.v}</a>
-              : k.v
+      k.t === "code" ? (
+        <code key={i} className="rounded-sm bg-muted px-1 font-mono">
+          {k.v}
+        </code>
+      ) : k.t === "bold" ? (
+        <strong key={i} className="font-medium text-foreground">
+          {k.v}
+        </strong>
+      ) : k.t === "em" ? (
+        <em key={i}>{k.v}</em>
+      ) : k.t === "link" ? (
+        <a key={i} href={k.v} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+          {k.v}
+        </a>
+      ) : (
+        k.v
+      )
     )}
   </>
 )
@@ -105,7 +121,9 @@ const Markdown = ({ text }: { text: string }) => (
       ) : (
         <ul key={i} className="list-disc space-y-0.5 ps-4 text-pretty">
           {b.items.map((it, j) => (
-            <li key={j}><Inline tokens={it} /></li>
+            <li key={j}>
+              <Inline tokens={it} />
+            </li>
           ))}
         </ul>
       )
@@ -120,7 +138,13 @@ const spanCtx = (graph: GraphHandle, selection: number[]) => ({
 })
 
 function Files({
-  api, queryKey, queryFn, ctx, ctxOf, activePath, onOpenDiff,
+  api,
+  queryKey,
+  queryFn,
+  ctx,
+  ctxOf,
+  activePath,
+  onOpenDiff,
 }: {
   api: RepoApi
   queryKey: readonly unknown[]
@@ -132,14 +156,37 @@ function Files({
   onOpenDiff: Props["onOpenDiff"]
 }) {
   const { data, isError } = useQuery({ queryKey, queryFn })
-  if (isError) return <div className="mt-4 shrink-0 border-t pt-3"><Hint>{messages.diff.unavailable}</Hint></div>
-  if (!data) return <div className="mt-4 shrink-0 border-t pt-3"><Loading /></div>
+  if (isError)
+    return (
+      <div className="mt-4 shrink-0 border-t pt-3">
+        <Hint>{messages.diff.unavailable}</Hint>
+      </div>
+    )
+  if (!data)
+    return (
+      <div className="mt-4 shrink-0 border-t pt-3">
+        <Loading />
+      </div>
+    )
   return <FileList files={data} api={api} activePath={activePath} onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)} />
 }
 
-function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
-  api: RepoApi; repoId: number; graph: GraphHandle; row: number; activePath?: string
-  onOpenDiff: Props["onOpenDiff"]; onJump(hash: string): void
+function Single({
+  api,
+  repoId,
+  graph,
+  row,
+  activePath,
+  onOpenDiff,
+  onJump,
+}: {
+  api: RepoApi
+  repoId: number
+  graph: GraphHandle
+  row: number
+  activePath?: string
+  onOpenDiff: Props["onOpenDiff"]
+  onJump(hash: string): void
 }) {
   const c = graph.commit(row)!
   const ps = parseSubject(c.s)
@@ -157,19 +204,14 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
     : queryKeys.files(repoId, ctx.hash, ctx.parent)
   const loadFiles = untracked
     ? async () => {
-        const [tracked, extra] = await Promise.all([
-          api.files(ctx.hash, ctx.parent),
-          api.files(untracked, null),
-        ])
+        const [tracked, extra] = await Promise.all([api.files(ctx.hash, ctx.parent), api.files(untracked, null)])
         /* a file deleted then recreated untracked would appear twice: the `?` wins,
            that's the state the stash would restore */
         const seen = new Set(extra.map((f) => f.path))
         return [...tracked.filter((f) => !seen.has(f.path)), ...extra.map((f) => ({ ...f, st: "?" }))]
       }
     : () => api.files(ctx.hash, ctx.parent)
-  const ctxFor = untracked
-    ? (f: FileChange) => (f.st === "?" ? { hash: untracked, parent: null } : ctx)
-    : undefined
+  const ctxFor = untracked ? (f: FileChange) => (f.st === "?" ? { hash: untracked, parent: null } : ctx) : undefined
 
   return (
     <>
@@ -194,9 +236,13 @@ function Single({ api, repoId, graph, row, activePath, onOpenDiff, onJump }: {
           </>
         )}
         <Dt>{messages.detail.commit}</Dt>
-        <dd className="font-mono text-xs" title={c.h}>{shortHash(c.h)}</dd>
+        <dd className="font-mono text-xs" title={c.h}>
+          {shortHash(c.h)}
+        </dd>
         <Dt>{messages.detail.author}</Dt>
-        <dd className="text-xs"><PersonChip name={c.a} email={c.e} /></dd>
+        <dd className="text-xs">
+          <PersonChip name={c.a} email={c.e} />
+        </dd>
         {!!body?.coAuthors.length && (
           <>
             <Dt>{messages.detail.coAuthors}</Dt>
@@ -260,8 +306,20 @@ function formatChainInfo(info: ChainInfo): string {
   return messages.detail.merged(info.refs, info.mergedInto, shortHash(info.mergeHash))
 }
 
-function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
-  api: RepoApi; repoId: number; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
+function Branch({
+  api,
+  repoId,
+  graph,
+  selection,
+  activePath,
+  onOpenDiff,
+}: {
+  api: RepoApi
+  repoId: number
+  graph: GraphHandle
+  selection: number[]
+  activePath?: string
+  onOpenDiff: Props["onOpenDiff"]
 }) {
   const ctx = spanCtx(graph, selection)
   const n = selection.length
@@ -284,8 +342,20 @@ function Branch({ api, repoId, graph, selection, activePath, onOpenDiff }: {
   )
 }
 
-function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
-  api: RepoApi; repoId: number; graph: GraphHandle; selection: number[]; activePath?: string; onOpenDiff: Props["onOpenDiff"]
+function Multi({
+  api,
+  repoId,
+  graph,
+  selection,
+  activePath,
+  onOpenDiff,
+}: {
+  api: RepoApi
+  repoId: number
+  graph: GraphHandle
+  selection: number[]
+  activePath?: string
+  onOpenDiff: Props["onOpenDiff"]
 }) {
   const ctx = spanCtx(graph, selection)
 
@@ -305,14 +375,18 @@ function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
 
   return (
     <>
-      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">{messages.detail.commitsSelected(selection.length)}</h2>
+      <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">
+        {messages.detail.commitsSelected(selection.length)}
+      </h2>
       {/* the header doesn't push the file list off-screen: beyond that, it scrolls */}
       <div className="mt-3 flex max-h-40 shrink-0 flex-col gap-0.5 overflow-y-auto">
         {selection.map((i) => {
           const c = graph.commit(i)!
           return (
             <div key={c.h} className="flex min-w-0 items-baseline gap-2 text-xs">
-              <span className="shrink-0 font-mono text-muted-foreground" title={c.h}>{shortHash(c.h)}</span>
+              <span className="shrink-0 font-mono text-muted-foreground" title={c.h}>
+                {shortHash(c.h)}
+              </span>
               <span className="truncate">{parseSubject(c.s).text}</span>
             </div>
           )
@@ -330,18 +404,38 @@ function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
   )
 }
 
-const Dt = ({ children }: { children: React.ReactNode }) => (
-  <dt className={cn("pt-0.5", LABEL_CLS)}>{children}</dt>
-)
+const Dt = ({ children }: { children: React.ReactNode }) => <dt className={cn("pt-0.5", LABEL_CLS)}>{children}</dt>
 
 export function DetailPanel({ api, repoId, graph, selection, selMode, activePath, onOpenDiff, onJump }: Props) {
   if (!selection.length) return <Hint>{messages.repo.clickCommitForDetail}</Hint>
 
   return selection.length === 1 ? (
-    <Single api={api} repoId={repoId} graph={graph} row={selection[0]} activePath={activePath} onOpenDiff={onOpenDiff} onJump={onJump} />
+    <Single
+      api={api}
+      repoId={repoId}
+      graph={graph}
+      row={selection[0]}
+      activePath={activePath}
+      onOpenDiff={onOpenDiff}
+      onJump={onJump}
+    />
   ) : selMode === "branch" ? (
-    <Branch api={api} repoId={repoId} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
+    <Branch
+      api={api}
+      repoId={repoId}
+      graph={graph}
+      selection={selection}
+      activePath={activePath}
+      onOpenDiff={onOpenDiff}
+    />
   ) : (
-    <Multi api={api} repoId={repoId} graph={graph} selection={selection} activePath={activePath} onOpenDiff={onOpenDiff} />
+    <Multi
+      api={api}
+      repoId={repoId}
+      graph={graph}
+      selection={selection}
+      activePath={activePath}
+      onOpenDiff={onOpenDiff}
+    />
   )
 }

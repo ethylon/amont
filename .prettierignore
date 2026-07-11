@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+out/
+node_modules/
+resources/
+dist/
+
+# Frozen historical documents (audit snapshot + refactor session prompts): their embedded
+# code blocks quote past states of the codebase verbatim, reformatting would corrupt that record.
+AUDIT.md
+REFACTOR-PROMPTS.md

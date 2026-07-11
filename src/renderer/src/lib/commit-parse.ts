@@ -19,10 +19,21 @@ Object.entries({
 /* Conventional Commits: only known types get a badge,
    any random "thing: stuff" stays plain text. */
 const CONVENTIONAL: Record<string, string> = {
-  feat: "feat", fix: "bugfix", hotfix: "hotfix", perf: "perf",
-  refactor: "refactor", chore: "chore", docs: "docs", test: "test",
-  tests: "test", style: "style", ci: "ci", build: "build",
-  release: "release", revert: "revert", wip: "wip",
+  feat: "feat",
+  fix: "bugfix",
+  hotfix: "hotfix",
+  perf: "perf",
+  refactor: "refactor",
+  chore: "chore",
+  docs: "docs",
+  test: "test",
+  tests: "test",
+  style: "style",
+  ci: "ci",
+  build: "build",
+  release: "release",
+  revert: "revert",
+  wip: "wip",
 }
 
 const TYPE_COLOR: Record<string, BadgeColor> = {
@@ -95,7 +106,8 @@ export function parseRefs(raw: string): RefChip[] {
   for (const entry of raw.split(", ").filter(Boolean)) {
     const head = entry.startsWith("HEAD -> ")
     const ref = head ? entry.slice(8) : entry
-    if (ref === "HEAD") add("HEAD", "head") // detached
+    if (ref === "HEAD")
+      add("HEAD", "head") // detached
     else if (ref.startsWith("tag: refs/tags/")) add(ref.slice(15), "tag")
     else if (ref.startsWith("refs/heads/")) {
       const name = ref.slice(11)

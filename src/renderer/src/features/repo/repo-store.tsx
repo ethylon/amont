@@ -23,7 +23,17 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createStore, useStore, type StoreApi } from "zustand"
 
 import { describeError, describePayload } from "@/lib/errors"
-import { onChanged, onOp, type BranchAct, type FileChange, type GitRef, type OpName, type RepoApi, type Stash, type StashAct } from "@/lib/git"
+import {
+  onChanged,
+  onOp,
+  type BranchAct,
+  type FileChange,
+  type GitRef,
+  type OpName,
+  type RepoApi,
+  type Stash,
+  type StashAct,
+} from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { prefs } from "@/lib/prefs"
 import { invalidateRepo, queryKeys } from "@/lib/queries"
@@ -261,7 +271,9 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       if (!on) {
         const draft = draftBackup
         draftBackup = null
-        set(() => ({ commitDraft: { subject: draft?.subject ?? "", description: draft?.description ?? "", amend: false } }))
+        set(() => ({
+          commitDraft: { subject: draft?.subject ?? "", description: draft?.description ?? "", amend: false },
+        }))
         return
       }
       const msg = await api.headMessage().catch(() => null)
@@ -312,7 +324,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       set((s) => ({ ui: { ...s.ui, diff: null, view: "commits" } }))
       await get().graphRef.current?.reset()
       await get().reresolveSelection()
-      queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
     },
 
     async runGitAction(action, opts) {
@@ -362,7 +374,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
         get().showOp(describeError(e), "danger")
         return
       }
-      queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
     },
   }))
 }
@@ -419,7 +431,7 @@ export function useRepoEvents(): void {
         s.setBusyOp(p.state === "start" ? p.op : null)
         if (p.state === "start") return
         if (p.state === "error") {
-          queryClient.invalidateQueries({ queryKey: queryKeys.status(repoId) })
+          await queryClient.invalidateQueries({ queryKey: queryKeys.status(repoId) })
           return s.showOp(describePayload(p), "danger")
         }
         invalidateRepo(queryClient, repoId)

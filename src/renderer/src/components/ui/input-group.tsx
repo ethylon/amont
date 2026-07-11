@@ -24,13 +24,7 @@ function InputGroupButton({
   size = "xs",
   ...props
 }: React.ComponentProps<typeof InputGroupButtonPrimitive>) {
-  return (
-    <InputGroupButtonPrimitive
-      size={size}
-      className={cn(size === "icon-sm" && "size-6", className)}
-      {...props}
-    />
-  )
+  return <InputGroupButtonPrimitive size={size} className={cn(size === "icon-sm" && "size-6", className)} {...props} />
 }
 
 export { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText, InputGroupTextarea }
