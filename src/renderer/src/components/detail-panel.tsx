@@ -5,6 +5,7 @@ import { CloudIcon } from "@hugeicons/core-free-icons"
 import type { Commit, FileChange, RepoApi } from "@/lib/git"
 import { parseBody, parseMarkdown, parseRefs, parseSubject, refColor, typeColor, type MdToken, type RefChip } from "@/lib/commit-message"
 import { queryKeys, useBodyQuery } from "@/lib/queries"
+import type { SelMode } from "@/lib/repo-store"
 import { cn } from "@/lib/utils"
 import type { GraphHandle } from "@/components/graph-canvas"
 import { SCROLL_TEXT_CLASS, scrollTextHover, scrollTextStop } from "@/components/scroll-text"
@@ -12,8 +13,6 @@ import { Avatar } from "@/components/ui/avatar"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
 import { FileList } from "@/components/file-list"
 import { Spinner } from "@/components/ui/primitives/spinner"
-
-export type SelMode = "multi" | "branch"
 
 type Props = {
   api: RepoApi
