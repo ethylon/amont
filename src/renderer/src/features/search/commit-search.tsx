@@ -10,7 +10,7 @@ import type { GraphHandle } from "@/features/graph/controller"
 import {
   InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupText,
 } from "@/components/ui/input-group"
-import { Spinner } from "@/components/ui/primitives/spinner"
+import { Spinner } from "@/components/ui/spinner"
 
 const DEBOUNCE = 300
 
