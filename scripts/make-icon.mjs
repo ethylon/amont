@@ -1,4 +1,4 @@
-/* Génère resources/icon.png : le Mark (cf. src/renderer/src/components/mark.tsx — garder
+/* Génère resources/icon.png : le Mark (cf. src/renderer/src/components/ui/mark.tsx — garder
    les tracés synchronisés) posé sur une plaque sombre arrondie, pour tenir sur n'importe
    quel fond de taskbar. La rasterisation est faite par Chromium via Electron, déjà
    présent : aucune dépendance d'image à porter. À relancer si le logo bouge.

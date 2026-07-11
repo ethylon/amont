@@ -3,7 +3,7 @@
    chip. Perf (AUDIT.md §6, item perf) : s'appuie sur `chainTip` (O(montée), sans tableau) plutôt
    que sur l'ancien `branchChain` reconstruit en entier à chaque mouseover. */
 
-import { parseRefs } from "@/lib/commit-message"
+import { parseRefs } from "@/lib/commit-parse"
 import { laneColor } from "../constants.ts"
 import { chainTip } from "../layout/chains.ts"
 import type { LayoutState } from "../layout/state.ts"

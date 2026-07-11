@@ -1,7 +1,7 @@
 /* Chaînes de branche (AUDIT.md §6) : remontée du tronc, segment net pour le diff, et résumé
    structuré de ce à quoi une sélection appartient. Pur, comme le reste de layout/. */
 
-import { parseRefs } from "../../../lib/commit-message.ts"
+import { parseRefs } from "../../../lib/commit-parse.ts"
 import { hashOfId } from "../ids.ts"
 import type { LayoutState } from "./state.ts"
 

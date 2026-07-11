@@ -4,7 +4,8 @@
    caractères, et les textes (refs, merges parsés) seulement pour les lignes qui en portent. Les
    commits eux-mêmes vivent dans un cache de pages évincable (cf. ../data/page-cache.ts). */
 
-import type { FlowKind, ParsedMerge } from "../../../lib/commit-message.ts"
+import type { ParsedMerge } from "../../../lib/commit-parse.ts"
+import type { FlowKind } from "../../../lib/gitflow.ts"
 import { createIdTable, type HashId, type IdTable } from "../ids.ts"
 
 export type Edge = {
