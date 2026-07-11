@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react"
 import { html as d2hHtml } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
-import { codeToTokens, type BundledLanguage } from "shiki"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/core-free-icons"
 
@@ -29,7 +28,9 @@ const DIFF_BODY =
 const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
 
 /* Shiki coloring on top of the diff2html render.
-   <ins>/<del> segments (word-diff) are preserved by redistributing the tokens. */
+   <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.
+   The highlighter (shiki/core + the JS regex engine, cf. shiki-highlighter.ts) is loaded
+   dynamically here — its own module graph never touches the app's initial bundle. */
 async function shikiPass(body: HTMLElement) {
   let lang = body.querySelector(".d2h-file-wrapper")?.getAttribute("data-lang")
   if (!lang || lang === "txt") return
@@ -38,8 +39,10 @@ async function shikiPass(body: HTMLElement) {
   if (!ctns.length) return
   let lines
   try {
-    const res = await codeToTokens(ctns.map((e) => e.textContent).join("\n"), {
-      lang: lang as BundledLanguage,
+    const { codeToTokens, getHighlighter } = await import("./shiki-highlighter")
+    const highlighter = await getHighlighter()
+    const res = codeToTokens(highlighter, ctns.map((e) => e.textContent).join("\n"), {
+      lang,
       theme: isDark() ? "github-dark" : "github-light",
     })
     lines = res.tokens
