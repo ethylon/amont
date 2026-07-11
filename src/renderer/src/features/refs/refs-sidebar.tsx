@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
-import { ArrowRight01Icon, CloudIcon, GitBranchIcon, Search01Icon, Tag01Icon } from "@hugeicons/core-free-icons"
+import { CloudIcon, GitBranchIcon, Search01Icon, Tag01Icon } from "@hugeicons/core-free-icons"
 
 import type { GitRef } from "@/lib/git"
 import { cn } from "@/lib/utils"
@@ -11,9 +11,9 @@ import { matchStash, StashSection } from "@/features/stash/stash-section"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { buildTree, refKey, Tree, useResettableOpen, type Ctx } from "@/features/refs/refs-tree"
 import { paintFocusRuns } from "@/features/refs/refs-focus-paint"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
+import { AsyncHint } from "@/components/ui/async-hint"
+import { RefGroup } from "@/components/ui/ref-group"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
-import { Spinner } from "@/components/ui/primitives/spinner"
 
 const GROUPS = [
   { title: "Branches", kind: "head", icon: GitBranchIcon },
@@ -28,22 +28,11 @@ function RefGroupSection({ title, icon, refs, ctx, openDirs, forceOpen }: {
   const { open, onOpenChange } = useResettableOpen(true, forceOpen, focused)
 
   return (
-    <Collapsible open={open} onOpenChange={onOpenChange}>
-      <CollapsibleTrigger className="group/trigger flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          strokeWidth={2}
-          className="size-3 transition-transform group-data-[panel-open]/trigger:rotate-90 motion-reduce:transition-none"
-        />
-        {title}
-        <span className="ms-auto tabular-nums">{refs.length}</span>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="mt-0.5">
-          <Tree node={buildTree(refs)} icon={icon} ctx={ctx} openDirs={openDirs} forceOpen={forceOpen} />
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+    <RefGroup title={title} count={refs.length} open={open} onOpenChange={onOpenChange}>
+      <div className="mt-0.5">
+        <Tree node={buildTree(refs)} icon={icon} ctx={ctx} openDirs={openDirs} forceOpen={forceOpen} />
+      </div>
+    </RefGroup>
   )
 }
 
@@ -139,11 +128,7 @@ export function RefsSidebar() {
 
         <div className="flex flex-1 flex-col gap-1.5 overflow-auto px-2 pt-2 pb-4">
           {error && <p className="px-1.5 text-xs text-muted-foreground">Branches indisponibles.</p>}
-          {!data && !error && (
-            <p className="flex items-center gap-2 px-1.5 text-xs text-muted-foreground">
-              <Spinner className="size-3" /> branches…
-            </p>
-          )}
+          {!data && !error && <AsyncHint className="px-1.5">branches…</AsyncHint>}
           {data && q && !data.some(match) && !stashes.some((s) => matchStash(s, q)) && (
             <p className="px-1.5 text-xs text-muted-foreground">Aucune ref ne correspond.</p>
           )}

@@ -5,11 +5,13 @@ import { Clock01Icon, Folder01Icon, FolderLibraryIcon } from "@hugeicons/core-fr
 
 import { host, type Repo, type RepoRef } from "@/lib/git"
 import { describeError } from "@/lib/errors"
+import { cn } from "@/lib/utils"
 import { Mark } from "@/components/ui/mark"
+import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/primitives/empty"
-import { Spinner } from "@/components/ui/primitives/spinner"
+import { LABEL_CLS } from "@/components/ui/typography"
 
 type Props = {
   active: boolean
@@ -40,7 +42,7 @@ function Section({ icon, title, action, children }: {
 }) {
   return (
     <section className="min-w-0">
-      <h3 className="mb-1 flex items-center gap-2 px-2.5 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
+      <h3 className={cn("mb-1 flex items-center gap-2 px-2.5", LABEL_CLS)}>
         <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3" />
         {title}
         {action && <span className="ms-auto">{action}</span>}
@@ -170,9 +172,7 @@ export function HomeScreen({ active, onOpened }: Props) {
               Aucun dossier racine. Choisis-en un pour lister ses dépôts.
             </p>
           ) : found === null ? (
-            <p className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
-              <Spinner className="size-3" /> recherche des dépôts…
-            </p>
+            <AsyncHint className="px-2.5 py-2">recherche des dépôts…</AsyncHint>
           ) : !found.length ? (
             <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">Aucun dépôt trouvé sous cette racine.</p>
           ) : (

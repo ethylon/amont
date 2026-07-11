@@ -13,9 +13,10 @@ import type { ChainInfo, GraphHandle } from "@/features/graph/controller"
 import { shortHash } from "@/features/graph/ids"
 import { SCROLL_TEXT_CLASS, scrollTextHover, scrollTextStop } from "@/features/graph/interactions/scroll-text"
 import { Avatar } from "@/components/ui/avatar"
+import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
+import { LABEL_CLS } from "@/components/ui/typography"
 import { FileList } from "@/features/repo/file-list"
-import { Spinner } from "@/components/ui/primitives/spinner"
 
 type Props = {
   api: RepoApi
@@ -29,11 +30,7 @@ type Props = {
   onJump(hash: string): void
 }
 
-const Loading = () => (
-  <p className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
-    <Spinner className="size-3" /> fichiers…
-  </p>
-)
+const Loading = () => <AsyncHint className="py-1">fichiers…</AsyncHint>
 
 const Hint = ({ children }: { children: React.ReactNode }) => (
   <p className="shrink-0 text-xs text-muted-foreground">{children}</p>
@@ -334,7 +331,7 @@ function Multi({ api, repoId, graph, selection, activePath, onOpenDiff }: {
 }
 
 const Dt = ({ children }: { children: React.ReactNode }) => (
-  <dt className="pt-0.5 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase">{children}</dt>
+  <dt className={cn("pt-0.5", LABEL_CLS)}>{children}</dt>
 )
 
 export function DetailPanel({ api, repoId, graph, selection, selMode, activePath, onOpenDiff, onJump }: Props) {

@@ -6,19 +6,17 @@
    qui la consomme pour la mise en page, pas pour l'affichage de la liste. */
 
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  Archive02Icon, ArchiveArrowUpIcon, ArchiveRestoreIcon, ArrowRight01Icon, Delete02Icon,
-} from "@hugeicons/core-free-icons"
+import { Archive02Icon, ArchiveArrowUpIcon, ArchiveRestoreIcon, Delete02Icon } from "@hugeicons/core-free-icons"
 
 import type { Stash, StashAct } from "@/lib/git"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useStashesQuery } from "@/features/stash/stash-queries"
 import { useResettableOpen } from "@/features/refs/refs-tree"
-import { GitCmd } from "@/components/ui/git-cmd"
+import { MenuItemWithCmd } from "@/components/ui/git-cmd"
+import { RefGroup } from "@/components/ui/ref-group"
 import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
 
 /** Filtre par sous-chaîne sur le nom de l'entrée ou le message du WIP — même grammaire que le
     filtre de branches du sidebar, dont `RefsSidebar` a aussi besoin pour son message « aucune
@@ -34,12 +32,6 @@ function StashRow({ s, onFocus, onStash }: {
 }) {
   /* "WIP on develop: 1a2b3c4 sujet" → le préambule redit le nom : on ne garde que la suite */
   const msg = s.s.replace(/^(?:WIP on|On) [^:]+:\s*/, "")
-  const item = (label: React.ReactNode, cmd: string) => (
-    <span className="flex min-w-0 flex-col items-start">
-      <span>{label}</span>
-      <GitCmd cmd={cmd} />
-    </span>
-  )
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<li />}>
@@ -57,16 +49,16 @@ function StashRow({ s, onFocus, onStash }: {
       <ContextMenuContent className="max-w-72">
         <ContextMenuItem onClick={() => onStash("apply", s.name)}>
           <HugeiconsIcon icon={ArchiveArrowUpIcon} strokeWidth={2} />
-          {item("Appliquer", `git stash apply ${s.name}`)}
+          <MenuItemWithCmd label="Appliquer" cmd={`git stash apply ${s.name}`} />
         </ContextMenuItem>
         <ContextMenuItem onClick={() => onStash("pop", s.name)}>
           <HugeiconsIcon icon={ArchiveRestoreIcon} strokeWidth={2} />
-          {item("Appliquer et supprimer", `git stash pop ${s.name}`)}
+          <MenuItemWithCmd label="Appliquer et supprimer" cmd={`git stash pop ${s.name}`} />
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => onStash("drop", s.name)}>
           <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-          {item("Supprimer", `git stash drop ${s.name}`)}
+          <MenuItemWithCmd label="Supprimer" cmd={`git stash drop ${s.name}`} />
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -89,23 +81,12 @@ export function StashSection({ filter }: { filter: string }) {
   if (!matches.length) return null
 
   return (
-    <Collapsible open={open} onOpenChange={onOpenChange}>
-      <CollapsibleTrigger className="group/trigger flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          strokeWidth={2}
-          className="size-3 transition-transform group-data-[panel-open]/trigger:rotate-90 motion-reduce:transition-none"
-        />
-        Stash
-        <span className="ms-auto tabular-nums">{matches.length}</span>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul role="list" className="mt-0.5 flex flex-col">
-          {matches.map((s) => (
-            <StashRow key={s.name + s.h} s={s} onFocus={onFocusStash} onStash={onStash} />
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
+    <RefGroup title="Stash" count={matches.length} open={open} onOpenChange={onOpenChange}>
+      <ul role="list" className="mt-0.5 flex flex-col">
+        {matches.map((s) => (
+          <StashRow key={s.name + s.h} s={s} onFocus={onFocusStash} onStash={onStash} />
+        ))}
+      </ul>
+    </RefGroup>
   )
 }

@@ -1,4 +1,5 @@
 import { useId, useState } from "react"
+import type { IconSvgElement } from "@hugeicons/react"
 import { ArchiveArrowDownIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
@@ -116,55 +117,24 @@ export function WorktreePanel() {
 
   const openDiff = (f: WtFile) => onOpenDiff({ wt: f.source }, f)
 
-  const stageBtn = (f: WtFile) => (
+  /* Les 4 boutons stage/unstage × fichier/dossier ne différaient que par le libellé, l'icône, la
+     classe (isolée vs par-dossier) et les chemins visés — une seule fabrique (AUDIT.md §7, phase 5). */
+  const wtButton = (label: string, icon: IconSvgElement, act: WtAct, dirScoped: boolean, paths: string[]) => (
     <IconButton
-      label="Indexer"
-      icon={PlusSignIcon}
+      label={label}
+      icon={icon}
       size="icon-xs"
-      className={ACTION_CLS}
+      className={dirScoped ? DIR_ACTION_CLS : ACTION_CLS}
       onClick={(ev) => {
         ev.stopPropagation()
-        onRun(STAGE, [f.path])
+        onRun(act, paths)
       }}
     />
   )
-  const unstageBtn = (f: WtFile) => (
-    <IconButton
-      label="Désindexer"
-      icon={MinusSignIcon}
-      size="icon-xs"
-      className={ACTION_CLS}
-      onClick={(ev) => {
-        ev.stopPropagation()
-        onRun(UNSTAGE, [f.path])
-      }}
-    />
-  )
-
-  const stageDir = (files: WtFile[]) => (
-    <IconButton
-      label="Indexer le dossier"
-      icon={PlusSignIcon}
-      size="icon-xs"
-      className={DIR_ACTION_CLS}
-      onClick={(ev) => {
-        ev.stopPropagation()
-        onRun(STAGE, files.map((f) => f.path))
-      }}
-    />
-  )
-  const unstageDir = (files: WtFile[]) => (
-    <IconButton
-      label="Désindexer le dossier"
-      icon={MinusSignIcon}
-      size="icon-xs"
-      className={DIR_ACTION_CLS}
-      onClick={(ev) => {
-        ev.stopPropagation()
-        onRun(UNSTAGE, files.map((f) => f.path))
-      }}
-    />
-  )
+  const stageBtn = (f: WtFile) => wtButton("Indexer", PlusSignIcon, STAGE, false, [f.path])
+  const unstageBtn = (f: WtFile) => wtButton("Désindexer", MinusSignIcon, UNSTAGE, false, [f.path])
+  const stageDir = (files: WtFile[]) => wtButton("Indexer le dossier", PlusSignIcon, STAGE, true, files.map((f) => f.path))
+  const unstageDir = (files: WtFile[]) => wtButton("Désindexer le dossier", MinusSignIcon, UNSTAGE, true, files.map((f) => f.path))
 
   const verb = amend ? "Amender" : "Commit"
   const caption = staged ? `${verb} · ${staged} fichier${staged > 1 ? "s" : ""}` : verb
