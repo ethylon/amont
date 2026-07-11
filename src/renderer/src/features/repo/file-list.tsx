@@ -8,6 +8,7 @@ import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { LABEL_CLS } from "@/components/ui/typography"
 
 export type FileView = "flat" | "tree"
 
@@ -220,7 +221,7 @@ function Tree<T extends FileChange>({ node, api, activePath, onOpen, action, dir
 
 export function FileListHeader({ children, actions }: { children: React.ReactNode; actions?: React.ReactNode }) {
   return (
-    <div className="mb-2 flex min-h-6 shrink-0 items-center justify-between text-[0.625rem] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
+    <div className={cn("mb-2 flex min-h-6 shrink-0 items-center justify-between", LABEL_CLS)}>
       <span>{children}</span>
       {actions}
     </div>
