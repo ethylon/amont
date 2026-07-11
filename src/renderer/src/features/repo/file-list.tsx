@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowRight01Icon, File01Icon, Folder01Icon, ListTreeIcon, Menu01Icon } from "@hugeicons/core-free-icons"
+import { ArrowRight01Icon, File01Icon, FolderOpenIcon, Folder01Icon, ListTreeIcon, Menu01Icon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { buildPathTree, type PathTree } from "@/lib/path-tree"
 import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LABEL_CLS } from "@/components/ui/typography"
 
@@ -69,31 +70,51 @@ export type FileRowProps = {
   icon?: React.ReactNode
   onClick?(): void
   onDoubleClick?(): void
+  /** ouvre le fichier dans l'OS — greffe une entrée de menu contextuel en plus du double-clic
+      (AUDIT.md §8) : la liste de fichiers est une interaction cœur, elle ne peut pas rester
+      souris-only pour cette action. */
+  onOpenFile?(): void
   action?: React.ReactNode
 }
 
-export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, action }: FileRowProps) {
+export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, onOpenFile, action }: FileRowProps) {
   const cut = file.path.lastIndexOf("/")
-  return (
-    <div
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      className={cn(
-        "group/file flex cursor-pointer items-baseline gap-2 rounded-sm border border-transparent px-1.5 py-0.5 hover:bg-muted",
-        active && "border-primary bg-primary/30"
-      )}
-    >
-      <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
-        {file.st}
-      </span>
-      {icon}
-      {/* à plat : le dossier se tronque, le nom de fichier reste entier */}
-      <span className="flex min-w-0 text-xs whitespace-nowrap">
-        {!nameOnly && cut >= 0 && <span className="truncate text-muted-foreground">{file.path.slice(0, cut + 1)}</span>}
-        <span className="shrink-0 truncate">{file.path.slice(cut + 1)}</span>
-      </span>
+  const rowCls = cn(
+    "group/file flex items-baseline gap-2 rounded-sm border border-transparent px-1.5 py-0.5 hover:bg-muted",
+    active && "border-primary bg-primary/30"
+  )
+  /* Le bouton stage/unstage (`action`) est un vrai <button> lui aussi : il reste un frère du
+     bouton principal, jamais imbriqué dedans (deux <button> l'un dans l'autre seraient invalides
+     et casseraient le focus/AT) — `onClick` de `action` stoppe déjà sa propagation (worktree-panel.tsx). */
+  const inner = (
+    <>
+      <button type="button" onClick={onClick} onDoubleClick={onDoubleClick} className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
+        <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
+          {file.st}
+        </span>
+        {icon}
+        {/* à plat : le dossier se tronque, le nom de fichier reste entier */}
+        <span className="flex min-w-0 text-xs whitespace-nowrap">
+          {!nameOnly && cut >= 0 && <span className="truncate text-muted-foreground">{file.path.slice(0, cut + 1)}</span>}
+          <span className="shrink-0 truncate">{file.path.slice(cut + 1)}</span>
+        </span>
+      </button>
       {action}
-    </div>
+    </>
+  )
+
+  if (!onOpenFile) return <div className={rowCls}>{inner}</div>
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={<div className={rowCls} />}>{inner}</ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={onOpenFile}>
+          <HugeiconsIcon icon={FolderOpenIcon} strokeWidth={2} />
+          Ouvrir dans l'explorateur
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -129,10 +150,6 @@ function FileIcon({ api, path }: { api: RepoApi; path: string }) {
   )
 }
 
-/* Le simple-clic attend la fenêtre de double-clic : sinon ouvrir le fichier ouvrirait aussi
-   son diff au passage. Windows laisse 500 ms par défaut, non lisible depuis le renderer. */
-const DBLCLICK_MS = 250
-
 function TreeFile<T extends FileChange>({ api, file, active, onOpen, action }: {
   api: RepoApi
   file: T
@@ -140,9 +157,10 @@ function TreeFile<T extends FileChange>({ api, file, active, onOpen, action }: {
   onOpen?(f: T): void
   action?: React.ReactNode
 }) {
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
-
+  /* Simple clic instantané (AUDIT.md §8) : plus de délai de désambiguïsation avec le double-clic
+     — le cas chaud (voir le diff) ne doit pas payer une latence artificielle pour le cas rare
+     (ouvrir dans l'OS). Un double-clic déclenche donc les deux à la suite (diff puis ouverture),
+     effet secondaire assumé et sans conséquence : ouvrir le fichier ne fait rien de destructif. */
   return (
     <FileRow
       file={file}
@@ -150,17 +168,9 @@ function TreeFile<T extends FileChange>({ api, file, active, onOpen, action }: {
       icon={<FileIcon api={api} path={file.path} />}
       active={active}
       action={action}
-      onClick={
-        onOpen &&
-        (() => {
-          clearTimeout(timer.current)
-          timer.current = setTimeout(() => onOpen(file), DBLCLICK_MS)
-        })
-      }
-      onDoubleClick={() => {
-        clearTimeout(timer.current)
-        api.openFile(file.path)
-      }}
+      onClick={onOpen && (() => onOpen(file))}
+      onDoubleClick={() => api.openFile(file.path)}
+      onOpenFile={() => api.openFile(file.path)}
     />
   )
 }
@@ -259,6 +269,10 @@ export function FileEntries<T extends FileChange>({ files, view, api, activePath
           file={f}
           active={f.path === activePath}
           onClick={onOpen && (() => onOpen(f))}
+          /* la vue arbre (TreeFile) a toujours ouvert dans l'OS au double-clic ; la vue à plat ne
+             l'avait jamais gagné (AUDIT.md §8, écart audit/code réel) — les deux vues du même
+             bascule (FileViewToggle) doivent offrir la même action. */
+          onOpenFile={() => api.openFile(f.path)}
           action={action?.(f)}
         />
       ))}

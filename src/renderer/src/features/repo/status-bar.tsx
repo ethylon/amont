@@ -38,6 +38,11 @@ export function StatusBar({ branch, flow, opState, stats, consoleSlot }: Props) 
     <footer className="flex h-7 shrink-0 items-center gap-3 border-t pr-3 pl-3.5 text-[0.625rem] text-muted-foreground">
       {/* issue des opérations git annoncée aux lecteurs d'écran ; le survol (hoverInfo) reste muet */}
       <span aria-live="polite" className="sr-only">{opState?.text ?? ""}</span>
+      {/* stats de chargement du graphe (AUDIT.md §8) : poli, pas assertif — ne coupe pas une
+          annonce de sélection en cours pour un simple avancement de pagination. */}
+      <span aria-live="polite" className="sr-only">
+        {stats ? `${nf.format(stats.loaded)} sur ${nf.format(stats.total)} commits chargés` : ""}
+      </span>
 
       {/* min-w-0 + truncate : une branche longue s'ellipse au lieu de pousser stats hors champ */}
       <span className={cn("flex min-w-0 shrink items-center gap-1.5", f && `font-medium ${f.text}`)}>

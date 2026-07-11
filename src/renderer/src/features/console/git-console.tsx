@@ -6,6 +6,7 @@ import { onTrace, type TraceLine } from "@/lib/git"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 /* `key` : les lignes n'ont pas d'identité propre côté main ; un compteur local suffit à React. */
 type Entry = TraceLine & { key: number }
@@ -13,7 +14,12 @@ type Entry = TraceLine & { key: number }
 /* Tampon borné : une console de debug, pas un journal. Au-delà, les plus vieilles tombent. */
 const CAP = 500
 
-/** Console git en lecture seule : dernière ligne dans la barre de statut, tout l'historique au clic. */
+/** Console git en lecture seule : dernière ligne dans la barre de statut, tout l'historique au clic.
+
+    Popover Base UI plutôt que popover fait main (AUDIT.md §8) : role="dialog" de la Popup posé par
+    la primitive, focus initial dans le panneau et rendu au déclencheur à la fermeture, Escape et
+    clic hors du panneau gérés nativement — l'ancien bouton `fixed inset-0` qui simulait un clic
+    hors-panneau disparaît avec. */
 export function GitConsole({ repoId }: { repoId: number }) {
   const [lines, setLines] = useState<Entry[]>([])
   const [open, setOpen] = useState(false)
@@ -32,8 +38,9 @@ export function GitConsole({ repoId }: { repoId: number }) {
     [repoId]
   )
 
-  /* priorité haute : la console est un overlay flottant au-dessus du reste — un Escape qui la
-     ferme ne doit pas descendre plus bas (fermer le diff en même temps serait surprenant). */
+  /* priorité haute, en plus de l'Escape natif de la primitive : la console est un overlay flottant
+     au-dessus du reste, son Escape ne doit jamais descendre jusqu'à celui qui ferme le diff (cf.
+     app/shortcuts.ts) — garde explicite, quel que soit l'ordre des listeners internes de Base UI. */
   useShortcut(open, PRIORITY.OVERLAY, (e) => {
     if (e.key !== "Escape") return false
     setOpen(false)
@@ -65,60 +72,71 @@ export function GitConsole({ repoId }: { repoId: number }) {
   }
   const busy = lines.length > 0 && lines[lines.length - 1].kind !== "exit"
 
+  /* dernière commande en échec, annoncée aux lecteurs d'écran (AUDIT.md §8) — indépendant du
+     panneau ouvert ou non, comme le fil d'opérations de la barre de statut (opState). */
+  let lastFailure: string | null = null
+  for (let i = lines.length - 1; i >= 0 && lastFailure === null; i--) {
+    const l = lines[i]
+    if (l.kind !== "exit" || l.ok) continue
+    lastFailure = "commande"
+    for (let j = i - 1; j >= 0; j--) {
+      const p = lines[j]
+      if (p.kind === "cmd") {
+        lastFailure = p.text
+        break
+      }
+    }
+  }
+
   return (
-    <div className="relative flex min-w-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className={cn(
-          "flex min-w-0 items-center gap-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-          open && "bg-muted text-foreground"
-        )}
-      >
-        <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 shrink-0" />
-        <span className="max-w-[52ch] truncate">{last?.text ?? "Prêt"}</span>
-        {busy && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />}
-      </button>
+    <div className="flex min-w-0">
+      <span aria-live="polite" className="sr-only">
+        {lastFailure ? `Commande échouée : ${lastFailure}` : ""}
+      </span>
 
-      {open && (
-        <>
-          {/* clic hors panneau : ferme */}
-          <button
-            aria-hidden
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 cursor-default"
-          />
-          <div className="absolute bottom-full left-0 z-50 mb-1.5 flex max-h-[min(60vh,24rem)] w-[min(90vw,44rem)] flex-col overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10">
-            <div className="flex shrink-0 items-center gap-2 border-b px-2.5 py-1.5">
-              <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 text-muted-foreground" />
-              <span className="text-[0.6875rem] font-medium">Console git</span>
-              <span className="text-[0.625rem] text-muted-foreground tabular-nums">{lines.length}</span>
-              <div className="ms-auto flex items-center gap-1">
-                <Button variant="ghost" size="xs" onClick={clear} disabled={!lines.length}>
-                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-                  Effacer
-                </Button>
-                <Button variant="ghost" size="icon-xs" className="relative after:absolute after:-inset-1" onClick={() => setOpen(false)}>
-                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-                </Button>
-              </div>
-            </div>
+      <Popover open={open} onOpenChange={setOpen} modal="trap-focus">
+        <PopoverTrigger
+          aria-busy={busy}
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-popup-open:bg-muted data-popup-open:text-foreground"
+          )}
+        >
+          <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 shrink-0" />
+          <span className="max-w-[52ch] truncate">{last?.text ?? "Prêt"}</span>
+          {busy && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />}
+        </PopoverTrigger>
 
-            <div
-              ref={scrollRef}
-              className="min-h-0 flex-1 overflow-auto px-2.5 py-2 font-mono text-[0.6875rem] leading-relaxed"
-            >
-              {lines.length === 0 ? (
-                <p className="text-muted-foreground">Aucune commande pour l'instant.</p>
-              ) : (
-                lines.map((l) => <Line key={l.key} line={l} />)
-              )}
+        <PopoverContent aria-label="Console git" className="flex w-[min(90vw,44rem)] flex-col">
+          <div className="flex shrink-0 items-center gap-2 border-b px-2.5 py-1.5">
+            <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 text-muted-foreground" />
+            <span className="text-[0.6875rem] font-medium">Console git</span>
+            <span className="text-[0.625rem] text-muted-foreground tabular-nums">{lines.length}</span>
+            <div className="ms-auto flex items-center gap-1">
+              <Button variant="ghost" size="xs" onClick={clear} disabled={!lines.length}>
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+                Effacer
+              </Button>
+              <PopoverClose
+                render={<Button variant="ghost" size="icon-xs" className="relative after:absolute after:-inset-1" />}
+              >
+                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+                <span className="sr-only">Fermer</span>
+              </PopoverClose>
             </div>
           </div>
-        </>
-      )}
+
+          <div
+            ref={scrollRef}
+            className="min-h-0 max-h-[min(60vh,24rem)] flex-1 overflow-auto px-2.5 py-2 font-mono text-[0.6875rem] leading-relaxed"
+          >
+            {lines.length === 0 ? (
+              <p className="text-muted-foreground">Aucune commande pour l'instant.</p>
+            ) : (
+              lines.map((l) => <Line key={l.key} line={l} />)
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

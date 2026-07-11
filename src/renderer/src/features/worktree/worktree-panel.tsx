@@ -211,6 +211,7 @@ export function WorktreePanel() {
             <Button
               className="h-auto flex-1 flex-col gap-0 py-1"
               disabled={!ready || committing}
+              aria-busy={committing}
               onClick={async () => {
                 setCommitting(true)
                 /* le contrat « onCommit ne rejette pas » n'est écrit nulle part : sans finally,
