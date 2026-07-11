@@ -672,6 +672,10 @@ export function createGraph(
           if (raw.length < PAGE) exhausted = true
           const end = rowStart + commits.length
           while (S.next < end) layoutChunk(S, (r) => commits[r - rowStart], end)
+          /* le total du serveur ignore les capsules du collapse (deux merges → une ligne) :
+             à l'épuisement de l'historique, le compte réel de lignes fait foi — sans ça,
+             « loaded/total » ne converge jamais sur un dépôt gitflow */
+          if (exhausted) TOTAL = S.next
           scanPage(commits)
           evict()
           refresh()
