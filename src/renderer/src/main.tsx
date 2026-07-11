@@ -1,13 +1,18 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+import { QueryClientProvider } from "@tanstack/react-query"
 
 import "./app.css"
 import App from "@/App"
 import { boot } from "@/lib/git"
+import { queryClient } from "@/lib/query-client"
+import { installShortcuts } from "@/lib/shortcuts"
 import { applyTheme } from "@/lib/theme"
 
 /* avant le premier rendu : pas de flash clair au démarrage */
 applyTheme()
+/* un seul listener document pour tout le registre de raccourcis (cf. lib/shortcuts.ts) */
+installShortcuts()
 
 /* boot() ouvre les repos des onglets restaurés : appelé une seule fois ici, explicitement,
    plutôt qu'en side-effect à l'import de lib/git.ts (l'ancien `bootState`). La promesse
@@ -16,6 +21,8 @@ const bootState = boot()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App boot={bootState} />
+    <QueryClientProvider client={queryClient}>
+      <App boot={bootState} />
+    </QueryClientProvider>
   </StrictMode>
 )
