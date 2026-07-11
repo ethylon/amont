@@ -7,49 +7,49 @@
 <body>
 <div id="root"></div>
 <script type="module">
-  /* Harnais de vérification : monte le vrai renderer avec une API git simulée.
-     window.amont doit exister avant l'import — lib/git.ts le capture au chargement. */
-  /* `r` est au format `%D --decorate=full`. Les cas que la ligne doit tenir :
-     branche + son remote + origin/HEAD (un seul chip), remote orphelin, tags en surnombre, tag isolé. */
-  /* adresse `users.noreply.github.com` : avatar déduit de l'id, sans requête d'API */
+  /* Verification harness: mounts the real renderer with a simulated git API.
+     window.amont must exist before the import — lib/git.ts captures it on load. */
+  /* `r` follows the `%D --decorate=full` format. Cases the row rendering must hold up to:
+     branch + its remote + origin/HEAD (a single chip), orphan remote, too many tags, lone tag. */
+  /* `users.noreply.github.com` address: avatar derived from the id, no API call needed */
   const ME = '1+octocat@users.noreply.github.com';
-  /* SHA complets (fix B1, AUDIT.md §2/§6) : le main ne tronque plus à 8 caractères, le harnais
-     doit rester représentatif. Les seeds courts ci-dessous restent lisibles dans ce fichier —
-     `sha()` les étend à 40 caractères hex, seule forme que le renderer accepte désormais. */
+  /* Full SHAs (fix B1, AUDIT.md §2/§6): the main process no longer truncates to 8 characters, so
+     the harness needs to stay representative. The short seeds below stay readable in this file —
+     `sha()` extends them to 40 hex characters, the only form the renderer now accepts. */
   const sha = s => s.repeat(Math.ceil(40 / s.length)).slice(0, 40);
-  /* Un stash arrive du log sous sa forme brute : le commit d'entrée (3 parents) suivi de sa
-     plomberie — index, non suivis — que le renderer doit replier (cf. foldStashes). */
+  /* A stash arrives from the log in its raw form: the entry commit (3 parents) followed by its
+     plumbing — index, untracked — that the renderer has to fold back up (cf. foldStashes). */
   const C = [
-    { h: sha('ee01aa02'), p: [sha('a1b2c3d4'), sha('ee02bb03'), sha('ee03cc04')], d: '2026-07-08', a: 'Grace Hopper', e: ME, r: '', s: 'On develop: calibrage des seuils du solver' },
+    { h: sha('ee01aa02'), p: [sha('a1b2c3d4'), sha('ee02bb03'), sha('ee03cc04')], d: '2026-07-08', a: 'Grace Hopper', e: ME, r: '', s: 'On develop: solver threshold calibration' },
     { h: sha('ee02bb03'), p: [sha('a1b2c3d4')], d: '2026-07-08', a: 'Grace Hopper', e: ME, r: '', s: 'index on develop: a1b2c3d4 Merge…' },
     { h: sha('ee03cc04'), p: [], d: '2026-07-08', a: 'Grace Hopper', e: ME, r: '', s: 'untracked files on develop: a1b2c3d4 Merge…' },
-    { h: sha('a1b2c3d4'), p: [sha('9f8e7d6c'), sha('5a6b7c8d')], d: '2026-07-07', a: 'Grace Hopper', e: ME, r: 'HEAD -> refs/heads/develop, refs/remotes/origin/develop, refs/remotes/origin/HEAD', s: "Merge branch 'feature/optim-cout' into develop" },
-    { h: sha('5a6b7c8d'), p: [sha('9f8e7d6c')], d: '2026-07-07', a: 'Ada Lovelace', e: 'ada@analytical.engine', r: 'refs/remotes/origin/release/4.2', s: 'feat(solver): optimisation du coût de formulation' },
-    { h: sha('9f8e7d6c'), p: [sha('7e8f9a0b')], d: '2026-07-06', a: 'Grace Hopper', e: ME, r: 'refs/heads/master, refs/heads/hotfix/matrice-vide, refs/heads/release/4.3, refs/remotes/origin/master, tag: refs/tags/v4.3.0', s: '[HOTFIX] plantage sur matrice vide' },
+    { h: sha('a1b2c3d4'), p: [sha('9f8e7d6c'), sha('5a6b7c8d')], d: '2026-07-07', a: 'Grace Hopper', e: ME, r: 'HEAD -> refs/heads/develop, refs/remotes/origin/develop, refs/remotes/origin/HEAD', s: "Merge branch 'feature/cost-optim' into develop" },
+    { h: sha('5a6b7c8d'), p: [sha('9f8e7d6c')], d: '2026-07-07', a: 'Ada Lovelace', e: 'ada@analytical.engine', r: 'refs/remotes/origin/release/4.2', s: 'feat(solver): formulation cost optimization' },
+    { h: sha('9f8e7d6c'), p: [sha('7e8f9a0b')], d: '2026-07-06', a: 'Grace Hopper', e: ME, r: 'refs/heads/master, refs/heads/hotfix/empty-matrix, refs/heads/release/4.3, refs/remotes/origin/master, tag: refs/tags/v4.3.0', s: '[HOTFIX] crash on empty matrix' },
     { h: sha('7e8f9a0b'), p: [sha('2b3c4d5e')], d: '2026-07-06', a: 'Grace Hopper', e: ME, r: 'tag: refs/tags/reflection/v3.0.1, tag: refs/tags/maths/v2.1.0, tag: refs/tags/helpers/v5.5.0, tag: refs/tags/extensions/v3.3.0, tag: refs/tags/exceptions/v1.0.0, tag: refs/tags/collections/v3.0.1', s: 'feat: per-package CI/CD triggers + MinVer versioning' },
-    { h: sha('2b3c4d5e'), p: [sha('4d5e6f70')], d: '2026-07-05', a: 'Grace Hopper', e: ME, r: 'tag: refs/tags/holidays/v1.0.0, tag: refs/tags/helpers/v5.9.0', s: 'Helpers v5.9.0: Holidays France & Mexique (Holidays v1.0.0)' },
+    { h: sha('2b3c4d5e'), p: [sha('4d5e6f70')], d: '2026-07-05', a: 'Grace Hopper', e: ME, r: 'tag: refs/tags/holidays/v1.0.0, tag: refs/tags/helpers/v5.9.0', s: 'Helpers v5.9.0: Holidays France & Mexico (Holidays v1.0.0)' },
     { h: sha('4d5e6f70'), p: [sha('3c4d5e6f')], d: '2026-07-05', a: 'Grace Hopper', e: ME, r: '', s: '[BACKUP] WIP 2026-07-05 18:42' },
-    { h: sha('3c4d5e6f'), p: [sha('00025000')], d: '2026-07-05', a: 'Grace Hopper', e: ME, r: 'tag: refs/tags/v4.2.0', s: 'chore: reprise' },
+    { h: sha('3c4d5e6f'), p: [sha('00025000')], d: '2026-07-05', a: 'Grace Hopper', e: ME, r: 'tag: refs/tags/v4.2.0', s: 'chore: resume' },
   ];
 
-  /* Traîne synthétique linéaire (~25k commits) : de quoi dépasser la fenêtre résidente du cache
-     de pages et exercer la vraie virtualisation — éviction, refetch au retour, saut lointain. */
+  /* Linear synthetic tail (~25k commits): enough to exceed the page cache's resident window and
+     exercise real virtualization — eviction, refetch on return, long-distance jump. */
   const TAIL = 25_000;
-  const th = i => sha(String(TAIL - i).padStart(8, '0')); // hex valides : que des chiffres
+  const th = i => sha(String(TAIL - i).padStart(8, '0')); // valid hex: digits only
   for (let i = 0; i < TAIL; i++) {
     C.push({
       h: th(i), p: i === TAIL - 1 ? [] : [th(i + 1)], d: '2026-07-04',
       a: i % 3 ? 'Grace Hopper' : 'Ada Lovelace', e: i % 3 ? ME : 'ada@analytical.engine',
-      r: '', s: `chore: itération ${TAIL - i}`,
+      r: '', s: `chore: iteration ${TAIL - i}`,
     });
   }
 
-  /* corps de message : description + co-auteurs, description seule, rien.
-     Aucun des trois co-auteurs n'a de Gravatar : ils retombent tous sur leur monogramme
-     (avatars réseau désactivés par défaut de toute façon, cf. lib/avatar). */
+  /* message body: description + co-authors, description only, none.
+     None of the three co-authors has a Gravatar: they all fall back to their monogram
+     (network avatars are off by default anyway, cf. lib/avatar). */
   const BODIES_SEED = {
-    '5a6b7c8d': 'Le simplexe repartait de la base triviale à chaque itération de prix.\nOn conserve la base entre deux résolutions : -40% sur les matrices creuses.\n\nCo-authored-by: Ada Lovelace <ada@analytical.engine>\nCo-authored-by: Alan Turing <alan@bletchley.uk>\nCo-authored-by: Claude <noreply@anthropic.com>\n',
-    '9f8e7d6c': 'Une matrice sans ligne passait la validation et faisait diviser par zéro\nle calcul de la borne inférieure.\n',
+    '5a6b7c8d': 'The simplex was restarting from the trivial basis on every pricing iteration.\nThe basis is now kept between two solves: -40% on sparse matrices.\n\nCo-authored-by: Ada Lovelace <ada@analytical.engine>\nCo-authored-by: Alan Turing <alan@bletchley.uk>\nCo-authored-by: Claude <noreply@anthropic.com>\n',
+    '9f8e7d6c': 'A matrix with no rows passed validation and caused a division by zero\nin the lower-bound computation.\n',
   };
   const BODIES = Object.fromEntries(Object.entries(BODIES_SEED).map(([h, v]) => [sha(h), v]));
 
@@ -64,9 +64,9 @@
   const REPO = { id: 1, path: '/mock/mock-repo', name: 'mock-repo' };
   const RECENTS = [{ path: '/mock/mock-repo', name: 'mock-repo' }];
 
-  /* Un jeu de listeners par canal d'événement, comme le vrai preload (cf. onOp/onChanged/onTrace
-     plus bas). `window.__changed` reste déclenchable à la main depuis la console pour simuler
-     un `.git` qui bouge (checkout/commit fait hors app) : il notifie tous les abonnés courants. */
+  /* One set of listeners per event channel, like the real preload (cf. onOp/onChanged/onTrace
+     below). `window.__changed` can still be triggered by hand from the console to simulate a
+     `.git` change (checkout/commit done outside the app): it notifies every current subscriber. */
   const onOpListeners = new Set();
   const onChangedListeners = new Set();
   const onTraceListeners = new Set();
@@ -74,9 +74,9 @@
 
   const REFS = [
     { name: 'develop', kind: 'head', head: true, ahead: 2, behind: 0, tip: sha('a1b2c3d4') },
-    { name: 'feature/optim-cout', kind: 'head', head: false, ahead: 0, behind: 0, tip: sha('5a6b7c8d') },
+    { name: 'feature/cost-optim', kind: 'head', head: false, ahead: 0, behind: 0, tip: sha('5a6b7c8d') },
     { name: 'feature/ui/graph', kind: 'head', head: false, ahead: 0, behind: 0, tip: sha('7e8f9a0b') },
-    { name: 'hotfix/matrice-vide', kind: 'head', head: false, ahead: 0, behind: 1, tip: sha('9f8e7d6c') },
+    { name: 'hotfix/empty-matrix', kind: 'head', head: false, ahead: 0, behind: 1, tip: sha('9f8e7d6c') },
     { name: 'master', kind: 'head', head: false, ahead: 0, behind: 0, tip: sha('9f8e7d6c') },
     { name: 'origin/develop', kind: 'remote', head: false, ahead: 0, behind: 0, tip: sha('a1b2c3d4') },
     { name: 'origin/master', kind: 'remote', head: false, ahead: 0, behind: 0, tip: sha('9f8e7d6c') },
@@ -95,10 +95,10 @@
     chooseRoot: async () => '/mock',
     scanRoot: async () => RECENTS,
     log: async (_id, skip, count) => C.slice(skip, skip + count),
-    total: async () => C.length - 2, // moins la plomberie du stash, comme repo:total
+    total: async () => C.length - 2, // minus the stash plumbing, same as repo:total
     refs: async () => REFS,
     stashes: async () => [
-      { name: 'stash@{0}', h: sha('ee01aa02'), p: [sha('a1b2c3d4'), sha('ee02bb03'), sha('ee03cc04')], d: '2026-07-08', a: 'Grace Hopper', e: ME, s: 'On develop: calibrage des seuils du solver' },
+      { name: 'stash@{0}', h: sha('ee01aa02'), p: [sha('a1b2c3d4'), sha('ee02bb03'), sha('ee03cc04')], d: '2026-07-08', a: 'Grace Hopper', e: ME, s: 'On develop: solver threshold calibration' },
     ],
     stash: async () => {},
     files: async () => [
@@ -110,9 +110,9 @@
     status: async () => ({ branch: 'develop', head: C[0].h, ahead: 1, behind: 2 }),
     body: async (_id, hash) => BODIES[hash] ?? '',
     op: async () => {},
-    /* Le vrai bridge retourne un désabonnement par appel (ipcRenderer.off, cf. src/preload) :
-       un jeu de listeners par canal, plutôt qu'un unique callback, pour rester fidèle à la
-       forme réelle même si le harnais n'a qu'un seul onglet monté à la fois. */
+    /* The real bridge returns an unsubscribe function per call (ipcRenderer.off, cf.
+       src/preload): one set of listeners per channel rather than a single callback, to stay
+       faithful to the real shape even though the harness only ever mounts one tab at a time. */
     onOp: cb => { onOpListeners.add(cb); return () => onOpListeners.delete(cb); },
     onChanged: cb => { onChangedListeners.add(cb); return () => onChangedListeners.delete(cb); },
     onTrace: cb => { onTraceListeners.add(cb); return () => onTraceListeners.delete(cb); },
