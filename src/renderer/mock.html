@@ -13,25 +13,29 @@
      branche + son remote + origin/HEAD (un seul chip), remote orphelin, tags en surnombre, tag isolé. */
   /* adresse `users.noreply.github.com` : avatar déduit de l'id, sans requête d'API */
   const ME = '17126477+ethylon@users.noreply.github.com';
+  /* SHA complets (fix B1, AUDIT.md §2/§6) : le main ne tronque plus à 8 caractères, le harnais
+     doit rester représentatif. Les seeds courts ci-dessous restent lisibles dans ce fichier —
+     `sha()` les étend à 40 caractères hex, seule forme que le renderer accepte désormais. */
+  const sha = s => s.repeat(Math.ceil(40 / s.length)).slice(0, 40);
   /* Un stash arrive du log sous sa forme brute : le commit d'entrée (3 parents) suivi de sa
      plomberie — index, non suivis — que le renderer doit replier (cf. foldStashes). */
   const C = [
-    { h: 'ee01aa02', p: ['a1b2c3d4', 'ee02bb03', 'ee03cc04'], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'On develop: calibrage des seuils du solver' },
-    { h: 'ee02bb03', p: ['a1b2c3d4'], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'index on develop: a1b2c3d4 Merge…' },
-    { h: 'ee03cc04', p: [], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'untracked files on develop: a1b2c3d4 Merge…' },
-    { h: 'a1b2c3d4', p: ['9f8e7d6c', '5a6b7c8d'], d: '2026-07-07', a: 'Mathieu Guey', e: ME, r: 'HEAD -> refs/heads/develop, refs/remotes/origin/develop, refs/remotes/origin/HEAD', s: "Merge branch 'feature/optim-cout' into develop" },
-    { h: '5a6b7c8d', p: ['9f8e7d6c'], d: '2026-07-07', a: 'Ada Lovelace', e: 'ada@analytical.engine', r: 'refs/remotes/origin/release/4.2', s: 'feat(solver): optimisation du coût de formulation' },
-    { h: '9f8e7d6c', p: ['7e8f9a0b'], d: '2026-07-06', a: 'Mathieu Guey', e: ME, r: 'refs/heads/master, refs/heads/hotfix/matrice-vide, refs/heads/release/4.3, refs/remotes/origin/master, tag: refs/tags/v4.3.0', s: '[HOTFIX] plantage sur matrice vide' },
-    { h: '7e8f9a0b', p: ['2b3c4d5e'], d: '2026-07-06', a: 'Mathieu Guey', e: ME, r: 'tag: refs/tags/reflection/v3.0.1, tag: refs/tags/maths/v2.1.0, tag: refs/tags/helpers/v5.5.0, tag: refs/tags/extensions/v3.3.0, tag: refs/tags/exceptions/v1.0.0, tag: refs/tags/collections/v3.0.1', s: 'feat: per-package CI/CD triggers + MinVer versioning' },
-    { h: '2b3c4d5e', p: ['4d5e6f70'], d: '2026-07-05', a: 'Mathieu Guey', e: ME, r: 'tag: refs/tags/holidays/v1.0.0, tag: refs/tags/helpers/v5.9.0', s: 'Helpers v5.9.0: Holidays France & Mexique (Holidays v1.0.0)' },
-    { h: '4d5e6f70', p: ['3c4d5e6f'], d: '2026-07-05', a: 'Mathieu Guey', e: ME, r: '', s: '[BACKUP] WIP 2026-07-05 18:42' },
-    { h: '3c4d5e6f', p: ['00025000'], d: '2026-07-05', a: 'Mathieu Guey', e: ME, r: 'tag: refs/tags/v4.2.0', s: 'chore: reprise' },
+    { h: sha('ee01aa02'), p: [sha('a1b2c3d4'), sha('ee02bb03'), sha('ee03cc04')], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'On develop: calibrage des seuils du solver' },
+    { h: sha('ee02bb03'), p: [sha('a1b2c3d4')], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'index on develop: a1b2c3d4 Merge…' },
+    { h: sha('ee03cc04'), p: [], d: '2026-07-08', a: 'Mathieu Guey', e: ME, r: '', s: 'untracked files on develop: a1b2c3d4 Merge…' },
+    { h: sha('a1b2c3d4'), p: [sha('9f8e7d6c'), sha('5a6b7c8d')], d: '2026-07-07', a: 'Mathieu Guey', e: ME, r: 'HEAD -> refs/heads/develop, refs/remotes/origin/develop, refs/remotes/origin/HEAD', s: "Merge branch 'feature/optim-cout' into develop" },
+    { h: sha('5a6b7c8d'), p: [sha('9f8e7d6c')], d: '2026-07-07', a: 'Ada Lovelace', e: 'ada@analytical.engine', r: 'refs/remotes/origin/release/4.2', s: 'feat(solver): optimisation du coût de formulation' },
+    { h: sha('9f8e7d6c'), p: [sha('7e8f9a0b')], d: '2026-07-06', a: 'Mathieu Guey', e: ME, r: 'refs/heads/master, refs/heads/hotfix/matrice-vide, refs/heads/release/4.3, refs/remotes/origin/master, tag: refs/tags/v4.3.0', s: '[HOTFIX] plantage sur matrice vide' },
+    { h: sha('7e8f9a0b'), p: [sha('2b3c4d5e')], d: '2026-07-06', a: 'Mathieu Guey', e: ME, r: 'tag: refs/tags/reflection/v3.0.1, tag: refs/tags/maths/v2.1.0, tag: refs/tags/helpers/v5.5.0, tag: refs/tags/extensions/v3.3.0, tag: refs/tags/exceptions/v1.0.0, tag: refs/tags/collections/v3.0.1', s: 'feat: per-package CI/CD triggers + MinVer versioning' },
+    { h: sha('2b3c4d5e'), p: [sha('4d5e6f70')], d: '2026-07-05', a: 'Mathieu Guey', e: ME, r: 'tag: refs/tags/holidays/v1.0.0, tag: refs/tags/helpers/v5.9.0', s: 'Helpers v5.9.0: Holidays France & Mexique (Holidays v1.0.0)' },
+    { h: sha('4d5e6f70'), p: [sha('3c4d5e6f')], d: '2026-07-05', a: 'Mathieu Guey', e: ME, r: '', s: '[BACKUP] WIP 2026-07-05 18:42' },
+    { h: sha('3c4d5e6f'), p: [sha('00025000')], d: '2026-07-05', a: 'Mathieu Guey', e: ME, r: 'tag: refs/tags/v4.2.0', s: 'chore: reprise' },
   ];
 
   /* Traîne synthétique linéaire (~25k commits) : de quoi dépasser la fenêtre résidente du cache
      de pages et exercer la vraie virtualisation — éviction, refetch au retour, saut lointain. */
   const TAIL = 25_000;
-  const th = i => String(TAIL - i).padStart(8, '0'); // hex valides : que des chiffres
+  const th = i => sha(String(TAIL - i).padStart(8, '0')); // hex valides : que des chiffres
   for (let i = 0; i < TAIL; i++) {
     C.push({
       h: th(i), p: i === TAIL - 1 ? [] : [th(i + 1)], d: '2026-07-04',
@@ -43,10 +47,11 @@
   /* corps de message : description + co-auteurs, description seule, rien.
      Les deux premiers co-auteurs n'ont pas de Gravatar et retombent sur leur monogramme ;
      le troisième signe sous l'adresse d'un compte GitHub connu (cf. `KNOWN` dans lib/avatar). */
-  const BODIES = {
+  const BODIES_SEED = {
     '5a6b7c8d': 'Le simplexe repartait de la base triviale à chaque itération de prix.\nOn conserve la base entre deux résolutions : -40% sur les matrices creuses.\n\nCo-authored-by: Ada Lovelace <ada@analytical.engine>\nCo-authored-by: Alan Turing <alan@bletchley.uk>\nCo-authored-by: Claude <noreply@anthropic.com>\n',
     '9f8e7d6c': 'Une matrice sans ligne passait la validation et faisait diviser par zéro\nle calcul de la borne inférieure.\n',
   };
+  const BODIES = Object.fromEntries(Object.entries(BODIES_SEED).map(([h, v]) => [sha(h), v]));
 
   let wt = {
     staged: [{ st: 'A', path: 'src/solver/cost.ts', old: null }],
@@ -68,16 +73,16 @@
   window.__changed = (payload = { id: REPO.id }) => onChangedListeners.forEach(cb => cb(payload));
 
   const REFS = [
-    { name: 'develop', kind: 'head', head: true, ahead: 2, behind: 0, tip: 'a1b2c3d4' },
-    { name: 'feature/optim-cout', kind: 'head', head: false, ahead: 0, behind: 0, tip: '5a6b7c8d' },
-    { name: 'feature/ui/graph', kind: 'head', head: false, ahead: 0, behind: 0, tip: '7e8f9a0b' },
-    { name: 'hotfix/matrice-vide', kind: 'head', head: false, ahead: 0, behind: 1, tip: '9f8e7d6c' },
-    { name: 'master', kind: 'head', head: false, ahead: 0, behind: 0, tip: '9f8e7d6c' },
-    { name: 'origin/develop', kind: 'remote', head: false, ahead: 0, behind: 0, tip: 'a1b2c3d4' },
-    { name: 'origin/master', kind: 'remote', head: false, ahead: 0, behind: 0, tip: '9f8e7d6c' },
-    { name: 'origin/release/4.2', kind: 'remote', head: false, ahead: 0, behind: 0, tip: '5a6b7c8d' },
-    { name: 'v4.1.3', kind: 'tag', head: false, ahead: 0, behind: 0, tip: '4d5e6f70' },
-    { name: 'v4.2.0', kind: 'tag', head: false, ahead: 0, behind: 0, tip: '3c4d5e6f' },
+    { name: 'develop', kind: 'head', head: true, ahead: 2, behind: 0, tip: sha('a1b2c3d4') },
+    { name: 'feature/optim-cout', kind: 'head', head: false, ahead: 0, behind: 0, tip: sha('5a6b7c8d') },
+    { name: 'feature/ui/graph', kind: 'head', head: false, ahead: 0, behind: 0, tip: sha('7e8f9a0b') },
+    { name: 'hotfix/matrice-vide', kind: 'head', head: false, ahead: 0, behind: 1, tip: sha('9f8e7d6c') },
+    { name: 'master', kind: 'head', head: false, ahead: 0, behind: 0, tip: sha('9f8e7d6c') },
+    { name: 'origin/develop', kind: 'remote', head: false, ahead: 0, behind: 0, tip: sha('a1b2c3d4') },
+    { name: 'origin/master', kind: 'remote', head: false, ahead: 0, behind: 0, tip: sha('9f8e7d6c') },
+    { name: 'origin/release/4.2', kind: 'remote', head: false, ahead: 0, behind: 0, tip: sha('5a6b7c8d') },
+    { name: 'v4.1.3', kind: 'tag', head: false, ahead: 0, behind: 0, tip: sha('4d5e6f70') },
+    { name: 'v4.2.0', kind: 'tag', head: false, ahead: 0, behind: 0, tip: sha('3c4d5e6f') },
   ];
 
   window.gitgraph = {
@@ -93,7 +98,7 @@
     total: async () => C.length - 2, // moins la plomberie du stash, comme repo:total
     refs: async () => REFS,
     stashes: async () => [
-      { name: 'stash@{0}', h: 'ee01aa02', p: ['a1b2c3d4', 'ee02bb03', 'ee03cc04'], d: '2026-07-08', a: 'Mathieu Guey', e: ME, s: 'On develop: calibrage des seuils du solver' },
+      { name: 'stash@{0}', h: sha('ee01aa02'), p: [sha('a1b2c3d4'), sha('ee02bb03'), sha('ee03cc04')], d: '2026-07-08', a: 'Mathieu Guey', e: ME, s: 'On develop: calibrage des seuils du solver' },
     ],
     stash: async () => {},
     files: async () => [

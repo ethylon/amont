@@ -1,14 +1,12 @@
-/* Migré depuis scripts/check-graph.ts (AUDIT.md §10, item tests) : mêmes assertions, un `it()`
-   par bloc plutôt qu'un script qui s'arrête au premier échec. */
+/* Migré depuis lib/graph-layout.test.ts (AUDIT.md §6/§10, item tests) : mêmes cas pour
+   `collapsePairs`, y compris la paire à cheval sur deux pages de log (dernier test), qui verrouille
+   la limitation documentée en ponytail dans collapse.ts (« appariement page par page »). */
 import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
-import {
-  branchChain, branchSegment, collapsePairs, createState, layoutChunk,
-} from "./graph-layout.ts"
-import type { Commit } from "./git.ts"
+import type { Commit } from "../../../../../shared/types.ts"
+import { collapsePairs, foldStashes } from "./collapse.ts"
 
-/* fonction déclarée, pas fléchée : suivie d'un bloc nu, `=> ({…})` fait trébucher tsc */
 function c(h: string, p: string[], s: string, r = ""): Commit {
   return { h, p, d: "2026-01-01", a: "Ada", e: "ada@x.io", r, s }
 }
@@ -63,6 +61,8 @@ describe("collapsePairs", () => {
   })
 
   it("rend un merge develop orphelin tel quel (le côté master est sur une autre page)", () => {
+    /* verrouille la limitation documentée en ponytail dans collapse.ts : l'appariement se fait
+       page par page, une paire à cheval sur deux pages de log reste en 2 lignes. */
     const dev = c("d1", ["dp", "rt"], "Merge branch 'release/1.2.0' into develop")
     assert.deepEqual(collapsePairs([dev]), [dev])
   })
@@ -79,57 +79,25 @@ describe("collapsePairs", () => {
   })
 })
 
-describe("branchSegment / branchChain — frontières de segment", () => {
-  it("arrête un segment posé sur le tip de develop sans descendre dans le tronc", () => {
-    /* une branche posée sur le tip de develop (aucun commit develop depuis le fork) : le
-       segment s'arrête à develop, il ne descend pas dans le tronc (cas allix4,
-       feature/business-refactor) — hash factices en hex : l'état de layout les indexe par
-       clé entière, cf. hkey */
-    const data = [
-      c("f2", ["f1"], "wip", "HEAD -> refs/heads/feature/x"),
-      c("f1", ["de"], "refactor: étape 1"),
-      c("de", ["c1"], "fix filters", "refs/heads/develop, refs/remotes/origin/develop"),
-      c("c1", ["c2"], "chore: bump"),
-      c("c2", [], "init"),
+describe("foldStashes", () => {
+  it("replie une entrée de stash en nœud simple et retire sa plomberie", () => {
+    const page = [
+      c("ee1", ["a1", "ee2", "ee3"], "On develop: calibrage"),
+      c("ee2", ["a1"], "index on develop: a1"),
+      c("ee3", [], "untracked files on develop: a1"),
+      c("a1", ["a0"], "feat: base"),
     ]
-    const S = createState(1)
-    layoutChunk(S, (r) => data[r], data.length)
+    const stashOf = new Map([["ee1", "stash@{0}"]])
+    const plumbing = new Set(["ee2", "ee3"])
+    const out = foldStashes(page, stashOf, plumbing)
 
-    assert.deepEqual(branchSegment(S, 0), [0, 1], "le segment s'arrête au tip de develop")
-    assert.deepEqual(branchSegment(S, 2), [2, 3, 4], "le segment de develop descend le tronc")
-    assert.equal(branchSegment(S, 2)[0], 2, "on ne grimpe pas au-dessus du tip de develop")
-    assert.equal(branchChain(S, 3)[0], 2, "le survol du tronc remonte à develop, pas à la feature")
+    assert.deepEqual(out.map((c) => c.h), ["ee1", "a1"], "la plomberie (index, non suivis) disparaît")
+    assert.deepEqual(out[0].p, ["a1"], "seul le parent de base survit")
+    assert.deepEqual(out[0].stash, { name: "stash@{0}", untracked: "ee3" })
   })
 
-  it("ne coupe pas sur une distante en retard de la même branche, mais coupe sur une autre", () => {
-    const data = [
-      c("f2", ["f1"], "wip", "HEAD -> refs/heads/feature/x"),
-      c("f1", ["de"], "refactor: étape 1", "refs/remotes/origin/feature/x"),
-      c("de", ["c1"], "fix filters", "refs/remotes/origin/develop"),
-      c("c1", [], "init"),
-    ]
-    const S = createState(1)
-    layoutChunk(S, (r) => data[r], data.length)
-
-    assert.deepEqual(branchSegment(S, 0), [0, 1], "origin/feature/x en retard reste dans le segment")
-  })
-})
-
-describe("stash — nœud et arête pointillés, transparent pour les chaînes de branche", () => {
-  it("marque le nœud et l'arête de stash, sans couper le segment de branche", () => {
-    const data = [
-      c("f1", ["de"], "wip", "HEAD -> refs/heads/feature/x"),
-      { ...c("5a", ["de"], "WIP on develop: aaaa fix filters"), stash: { name: "stash@{0}", untracked: null } },
-      c("de", ["c1"], "fix filters", "refs/heads/develop"),
-      c("c1", [], "init"),
-    ]
-    const S = createState(1)
-    layoutChunk(S, (r) => data[r], data.length)
-
-    assert.equal(S.nodes[0][1].stash, true, "la ligne de stash porte son marqueur de nœud")
-    assert.equal(S.fpEdge[1].dash, true, "l'arête du stash vers sa base est pointillée")
-    assert.equal(S.fpEdge[0].dash, undefined, "les arêtes ordinaires restent pleines")
-    assert.deepEqual(S.fpChildren.get(2), [0], "le stash n'est pas un enfant first-parent") // dv = ligne 2
-    assert.deepEqual(branchSegment(S, 2), [2, 3], "le stash ne coupe pas le segment de develop")
+  it("rend la page inchangée quand aucun stash n'est connu", () => {
+    const page = [c("a1", ["a0"], "feat: base")]
+    assert.equal(foldStashes(page, new Map(), new Set()), page)
   })
 })
