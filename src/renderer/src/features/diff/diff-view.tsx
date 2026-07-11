@@ -21,7 +21,7 @@ export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" |
 
 const MAX_LINES = 3000
 /* Réappliqué à chaque rendu — les effets réécrivent `className` de fond en comble. */
-const DIFF_BODY = "gg-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
+const DIFF_BODY = "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 
 /* extensions maison -> grammaire shiki ; les projets/props MSBuild sont du XML */
 const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }

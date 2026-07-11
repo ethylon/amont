@@ -73,7 +73,7 @@ export function createMeasurer(inner: HTMLDivElement) {
     }
   }
 
-  /** Pose `--gg-type` sur `inner` et rend les largeurs `type`/`branch` — au contrôleur de pousser
+  /** Pose `--amont-type` sur `inner` et rend les largeurs `type`/`branch` — au contrôleur de pousser
       `branch` vers `cb.onBranchWidth` et de sommer les deux pour `inner.style.minWidth`. */
   function measureCols(): { type: number; branch: number } {
     if (queueTypes.length) {
@@ -103,7 +103,7 @@ export function createMeasurer(inner: HTMLDivElement) {
 
     const type = typeW && typeW + GAP
     const branch = cellW && cellW + 2 * GAP // px-2.5 de la cellule
-    inner.style.setProperty("--gg-type", type + "px")
+    inner.style.setProperty("--amont-type", type + "px")
     return { type, branch }
   }
 

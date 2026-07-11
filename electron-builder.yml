@@ -26,5 +26,5 @@ afterPack: scripts/after-pack.mjs
 publish:
   provider: github
   owner: ethylon
-  repo: git-graph
+  repo: amont
   releaseType: draft

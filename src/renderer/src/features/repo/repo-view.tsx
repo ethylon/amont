@@ -24,7 +24,7 @@ import { WorktreePanel } from "@/features/worktree/worktree-panel"
 
 /** Révélation du boot : le squelette survit à son fondu de sortie avant d'être démonté, et
     `settled` attend la frame suivante pour ne pas rejouer les entrées animées du contenu déjà
-    présent au boot (`gg-drop`/`gg-fadein`, cf. app.css). */
+    présent au boot (`amont-drop`/`amont-fadein`, cf. app.css). */
 function useBootReveal(booted: boolean) {
   const [skeleton, setSkeleton] = useState(true)
   const [settled, setSettled] = useState(false)
@@ -137,7 +137,7 @@ function RepoViewContent({ repo, active }: Props) {
   useEffect(() => {
     if (!active || !selection.length) return
     const onDown = (ev: MouseEvent) => {
-      if ((ev.target as HTMLElement).closest("[data-gg-keep-focus], .gg-row, .gg-wtrow")) return
+      if ((ev.target as HTMLElement).closest("[data-amont-keep-focus], .amont-row, .amont-wtrow")) return
       clearFocus()
     }
     document.addEventListener("mousedown", onDown)
@@ -171,8 +171,8 @@ function RepoViewContent({ repo, active }: Props) {
         >
           {workFlow && flowInfo && status?.branch && <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />}
 
-          {/* gg-tabbody : le bloc qui glisse au changement d'onglet, toolbar et statut restant fixes */}
-          <div className="gg-tabbody flex min-h-0 flex-1">
+          {/* amont-tabbody : le bloc qui glisse au changement d'onglet, toolbar et statut restant fixes */}
+          <div className="amont-tabbody flex min-h-0 flex-1">
             <RefsSidebar />
 
             <main className="flex min-w-0 flex-1 flex-col">
@@ -182,7 +182,7 @@ function RepoViewContent({ repo, active }: Props) {
                 {/* colonne : l'en-tête du détail est figé, la liste et le diff scrollent chacun chez eux.
                     Les panneaux rendent des fragments — leurs enfants sont donc les items flex. */}
                 {/* fond opaque : si le graphe déborde de sa colonne, il passe dessous sans transparaître */}
-                <aside data-gg-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4">
+                <aside data-amont-keep-focus className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4">
                   {view === "wt" && worktree ? (
                     <WorktreePanel />
                   ) : panelOpen && graphRef.current ? (

@@ -164,26 +164,26 @@
    runtime, l'estompage du graphe au survol, et le flash d'un commit ciblé. */
 @layer components {
   /* La colonne branche tient à gauche du métro, l'arbre de travail garde son décalage total. */
-  .gg-wtrow { padding-left: calc(var(--gg-branch, 0px) + var(--graphw, 0px) + 12px); }
+  .amont-wtrow { padding-left: calc(var(--amont-branch, 0px) + var(--graphw, 0px) + 12px); }
 
   /* Recherche en cours : les lignes hors résultat s'effacent, les autres se teintent. */
-  [data-search] .gg-row[data-match="false"] { opacity: 0.32; }
-  [data-search] .gg-row[data-match="true"] { background: color-mix(in oklab, var(--warning) 14%, transparent); }
+  [data-search] .amont-row[data-match="false"] { opacity: 0.32; }
+  [data-search] .amont-row[data-match="true"] { background: color-mix(in oklab, var(--warning) 14%, transparent); }
 
   /* Motif release/hotfix : fond teinté pour repérer l'atterrissage d'une version d'un coup d'œil.
      Le survol et la sélection (utilities) le recouvrent — leur couche gagne. Le rail 2px, lui, est
      posé hors @layer plus bas (sinon `border-l-transparent` de ROW_CLASS gagnerait). */
-  .gg-row[data-flow="release"] { background: color-mix(in oklab, var(--release) 8%, transparent); }
-  .gg-row[data-flow="hotfix"]  { background: color-mix(in oklab, var(--destructive) 9%, transparent); }
+  .amont-row[data-flow="release"] { background: color-mix(in oklab, var(--release) 8%, transparent); }
+  .amont-row[data-flow="hotfix"]  { background: color-mix(in oklab, var(--destructive) 9%, transparent); }
 
   /* Stash : un voile neutre — l'entrée est en marge de l'historique, pas un jalon. */
-  .gg-row[data-stash] { background: color-mix(in oklab, var(--muted-foreground) 6%, transparent); }
+  .amont-row[data-stash] { background: color-mix(in oklab, var(--muted-foreground) 6%, transparent); }
 
-  @keyframes gg-flash {
+  @keyframes amont-flash {
     0%, 40% { background: color-mix(in oklab, var(--primary) 22%, transparent); }
     100%    { background: transparent; }
   }
-  .gg-flash { animation: gg-flash 1.6s ease-out; }
+  .amont-flash { animation: amont-flash 1.6s ease-out; }
 
   /* Changement d'onglet : seul le corps glisse (refs + graphe + détail). Le châssis — barre
      d'onglets, toolbar, barre de statut — bascule net dans le snapshot `root`, le surlignage
@@ -192,9 +192,9 @@
      d'une toolbar à l'autre.
      Les noms de transition ne vivent que sur l'onglet actif : `old` est capturé avant le commit
      React, `new` après, donc chacun désigne le bon élément au bon moment. */
-  [data-tab-active].gg-tabbody,
-  [data-tab-active] .gg-tabbody { view-transition-name: gg-tabbody; }
-  [data-tab-active] .gg-reponame { view-transition-name: gg-reponame; }
+  [data-tab-active].amont-tabbody,
+  [data-tab-active] .amont-tabbody { view-transition-name: amont-tabbody; }
+  [data-tab-active] .amont-reponame { view-transition-name: amont-reponame; }
 
   ::view-transition-image-pair(root) { isolation: auto; }
   ::view-transition-old(root),
@@ -203,53 +203,53 @@
   /* Fondu enchaîné + déplacement, en deux animations parallèles : le fondu reste linéaire —
      `plus-lighter` (le défaut de l'image-pair) n'additionne proprement que des opacités
      complémentaires — pendant que le déplacement, lui, décélère. */
-  ::view-transition-old(gg-tabbody),
-  ::view-transition-new(gg-tabbody) {
+  ::view-transition-old(amont-tabbody),
+  ::view-transition-new(amont-tabbody) {
     animation-duration: 220ms;
     animation-fill-mode: both;
     animation-timing-function: linear, cubic-bezier(0.2, 0, 0, 1);
   }
-  ::view-transition-old(gg-tabbody) { animation-name: gg-tab-fade-out, gg-tab-out; }
-  ::view-transition-new(gg-tabbody) { animation-name: gg-tab-fade-in, gg-tab-in; }
+  ::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out, amont-tab-out; }
+  ::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in, amont-tab-in; }
 
   /* Le corps de l'accueil part du haut du châssis, celui d'un dépôt sous la toolbar : le groupe
      rattrape l'écart. Entre deux dépôts les boîtes coïncident, l'animation est un no-op. */
-  ::view-transition-group(gg-tabbody) {
+  ::view-transition-group(amont-tabbody) {
     animation-duration: 220ms;
     animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
   }
 
   /* La boîte du nom est de taille fixe (cf. `Toolbar`) : le groupe ne bouge pas, reste le fondu. */
-  ::view-transition-old(gg-reponame),
-  ::view-transition-new(gg-reponame) { animation-duration: 220ms; }
+  ::view-transition-old(amont-reponame),
+  ::view-transition-new(amont-reponame) { animation-duration: 220ms; }
 
-  @keyframes gg-tab-fade-out { to   { opacity: 0; } }
-  @keyframes gg-tab-fade-in  { from { opacity: 0; } }
+  @keyframes amont-tab-fade-out { to   { opacity: 0; } }
+  @keyframes amont-tab-fade-in  { from { opacity: 0; } }
 
-  /* --gg-slide : sens de marche dans la barre d'onglets. Les custom properties de :root
+  /* --amont-slide : sens de marche dans la barre d'onglets. Les custom properties de :root
      descendent dans l'arbre des pseudo-éléments de transition. */
-  :root:active-view-transition-type(next) { --gg-slide: 32px; }
-  :root:active-view-transition-type(prev) { --gg-slide: -32px; }
+  :root:active-view-transition-type(next) { --amont-slide: 32px; }
+  :root:active-view-transition-type(prev) { --amont-slide: -32px; }
 
-  @keyframes gg-tab-in  { from { transform: translateX(var(--gg-slide, 0)); } }
-  @keyframes gg-tab-out { to   { transform: translateX(calc(var(--gg-slide, 0) * -1)); } }
+  @keyframes amont-tab-in  { from { transform: translateX(var(--amont-slide, 0)); } }
+  @keyframes amont-tab-out { to   { transform: translateX(calc(var(--amont-slide, 0) * -1)); } }
 
   /* Ouverture d'un dépôt : rien à côté d'où venir, il monte du fond. */
-  :root:active-view-transition-type(open)::view-transition-old(gg-tabbody) { animation-name: gg-tab-fade-out, gg-tab-zoom-out; }
-  :root:active-view-transition-type(open)::view-transition-new(gg-tabbody) { animation-name: gg-tab-fade-in, gg-tab-zoom-in; }
+  :root:active-view-transition-type(open)::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out, amont-tab-zoom-out; }
+  :root:active-view-transition-type(open)::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in, amont-tab-zoom-in; }
 
-  @keyframes gg-tab-zoom-in  { from { transform: scale(0.97); } }
-  @keyframes gg-tab-zoom-out { to   { transform: scale(1.02); } }
+  @keyframes amont-tab-zoom-in  { from { transform: scale(0.97); } }
+  @keyframes amont-tab-zoom-out { to   { transform: scale(1.02); } }
 
   @media (prefers-reduced-motion: reduce) {
-    .gg-flash { animation: none; background: color-mix(in oklab, var(--primary) 18%, transparent); }
+    .amont-flash { animation: none; background: color-mix(in oklab, var(--primary) 18%, transparent); }
 
     /* Changement d'onglet : on garde le fondu, on retire le glissement et le zoom (motion vestibulaire). */
-    ::view-transition-group(gg-tabbody) { animation: none; }
-    ::view-transition-old(gg-tabbody),
-    :root:active-view-transition-type(open)::view-transition-old(gg-tabbody) { animation-name: gg-tab-fade-out; }
-    ::view-transition-new(gg-tabbody),
-    :root:active-view-transition-type(open)::view-transition-new(gg-tabbody) { animation-name: gg-tab-fade-in; }
+    ::view-transition-group(amont-tabbody) { animation: none; }
+    ::view-transition-old(amont-tabbody),
+    :root:active-view-transition-type(open)::view-transition-old(amont-tabbody) { animation-name: amont-tab-fade-out; }
+    ::view-transition-new(amont-tabbody),
+    :root:active-view-transition-type(open)::view-transition-new(amont-tabbody) { animation-name: amont-tab-fade-in; }
   }
 
   /* --- Boot d'un onglet : la révélation se fait en une seule frame (cf. RepoView) ; ces entrées
@@ -257,88 +257,88 @@
      de flow. `data-settled` n'est posé qu'une frame après la révélation, les éléments présents au
      boot ne rejouent donc pas leur entrée. La courbe de décélération est celle des onglets.
      ponytail: pas d'animation de sortie — le démontage reste net, machinerie de rétention sinon. */
-  [data-settled] .gg-drop {
+  [data-settled] .amont-drop {
     /* clip vertical seul : le bandeau flow garde son défilement horizontal (overflow-x-auto) */
     overflow-y: clip;
     transition: height 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms ease-out;
     @starting-style { height: 0; opacity: 0; }
   }
-  [data-settled] .gg-fadein {
+  [data-settled] .amont-fadein {
     transition: opacity 200ms ease-out, translate 200ms cubic-bezier(0.2, 0, 0, 1);
     @starting-style { opacity: 0; translate: 0 4px; }
   }
   @media (prefers-reduced-motion: reduce) {
     /* le fondu reste, le mouvement (poussée, glissement) disparaît */
-    [data-settled] .gg-drop { transition: opacity 200ms ease-out; }
-    [data-settled] .gg-fadein { transition: opacity 200ms ease-out; }
+    [data-settled] .amont-drop { transition: opacity 200ms ease-out; }
+    [data-settled] .amont-fadein { transition: opacity 200ms ease-out; }
   }
 }
 
 /* Rail 2px du motif release/hotfix. Hors @layer, sinon la utility `border-l-transparent` de ROW_CLASS
    primerait (une couche postérieure gagne sur la spécificité). `:not([data-selected])` laisse la
    sélection poser son propre rail. La largeur (2px) vient de ROW_CLASS. */
-.gg-row[data-flow="release"]:not([data-selected="true"]) { border-left-color: var(--release); }
-.gg-row[data-flow="hotfix"]:not([data-selected="true"]) { border-left-color: var(--destructive); }
+.amont-row[data-flow="release"]:not([data-selected="true"]) { border-left-color: var(--release); }
+.amont-row[data-flow="hotfix"]:not([data-selected="true"]) { border-left-color: var(--destructive); }
 
 /* Contour d'une ref focalisée (et de la branche courante). Hors @layer pour la même raison que le
    rail ci-dessus : la utility `border-transparent` de la ligne primerait sinon. `data-run` est posé
    par la passe DOM du sidebar ; des refs allumées contiguës se joignent en un seul cadre (bords
    intérieurs effacés, seuls les coins extrêmes arrondis). */
-.gg-refrow[data-run] { border-color: var(--primary); }
-.gg-refrow[data-run="start"] { border-bottom-color: transparent; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-.gg-refrow[data-run="mid"]   { border-top-color: transparent; border-bottom-color: transparent; border-radius: 0; }
-.gg-refrow[data-run="end"]   { border-top-color: transparent; border-top-left-radius: 0; border-top-right-radius: 0; }
+.amont-refrow[data-run] { border-color: var(--primary); }
+.amont-refrow[data-run="start"] { border-bottom-color: transparent; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.amont-refrow[data-run="mid"]   { border-top-color: transparent; border-bottom-color: transparent; border-radius: 0; }
+.amont-refrow[data-run="end"]   { border-top-color: transparent; border-top-left-radius: 0; border-top-right-radius: 0; }
 
 /* --- diff2html / hljs : hors layer, obligatoirement ---
    Le CSS de diff2html est importé sans layer par diff-view.tsx ; une règle @layer
    perdrait contre lui quelle que soit sa spécificité. */
-.gg-diffbody .d2h-file-header { display: none; }
-.gg-diffbody .d2h-wrapper { text-align: left; }
-.gg-diffbody .d2h-file-wrapper {
+.amont-diffbody .d2h-file-header { display: none; }
+.amont-diffbody .d2h-wrapper { text-align: left; }
+.amont-diffbody .d2h-file-wrapper {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.8);
   margin: 0;
 }
-/* la police et la taille viennent de .gg-diffbody (font-mono text-xs) */
-.gg-diffbody .d2h-diff-table,
-.gg-diffbody .d2h-code-line,
-.gg-diffbody .d2h-code-side-line,
-.gg-diffbody .d2h-code-linenumber,
-.gg-diffbody .d2h-code-side-linenumber {
+/* la police et la taille viennent de .amont-diffbody (font-mono text-xs) */
+.amont-diffbody .d2h-diff-table,
+.amont-diffbody .d2h-code-line,
+.amont-diffbody .d2h-code-side-line,
+.amont-diffbody .d2h-code-linenumber,
+.amont-diffbody .d2h-code-side-linenumber {
   font-family: inherit;
   font-size: inherit;
 }
 /* le thème hljs pose un background opaque qui écrase les fonds add/del de d2h */
-.gg-diffbody .hljs { background: transparent; padding: 0; }
+.amont-diffbody .hljs { background: transparent; padding: 0; }
 /* pas d'ambre "changement" en vue unifiée : une ligne modifiée = del rouge + ins vert */
-.gg-diffbody {
+.amont-diffbody {
   --d2h-change-del-color: var(--d2h-del-bg-color);
   --d2h-change-ins-color: var(--d2h-ins-bg-color);
   --d2h-dark-change-del-color: var(--d2h-dark-del-bg-color);
   --d2h-dark-change-ins-color: var(--d2h-dark-ins-bg-color);
 }
 /* numéros de ligne collants au scroll horizontal (d2h les met en absolute) */
-.gg-diffbody .d2h-code-linenumber,
-.gg-diffbody .d2h-code-side-linenumber {
+.amont-diffbody .d2h-code-linenumber,
+.amont-diffbody .d2h-code-side-linenumber {
   position: sticky;
   left: 0;
   z-index: 2;
 }
 /* fond opaque sous le gutter sticky : ::before pose la surface, ::after re-peint
    la teinte add/del semi-transparente de d2h par-dessus */
-.gg-diffbody .d2h-code-linenumber::before,
-.gg-diffbody .d2h-code-side-linenumber::before {
+.amont-diffbody .d2h-code-linenumber::before,
+.amont-diffbody .d2h-code-side-linenumber::before {
   content: ''; position: absolute; inset: 0; z-index: -2;
   background: var(--background);
 }
-.gg-diffbody .d2h-code-linenumber::after,
-.gg-diffbody .d2h-code-side-linenumber::after {
+.amont-diffbody .d2h-code-linenumber::after,
+.amont-diffbody .d2h-code-side-linenumber::after {
   content: ''; position: absolute; inset: 0; z-index: -1;
   background: inherit;
 }
 /* la ligne s'étend au contenu (la table s'élargit et scrolle) au lieu de le déborder */
-.gg-diffbody .d2h-code-line,
-.gg-diffbody .d2h-code-side-line {
+.amont-diffbody .d2h-code-line,
+.amont-diffbody .d2h-code-side-line {
   padding: 0 .5em; box-sizing: border-box;
   width: max-content; min-width: 100%;
 }

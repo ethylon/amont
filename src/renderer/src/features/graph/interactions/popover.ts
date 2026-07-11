@@ -49,7 +49,7 @@ export function createPopover(board: HTMLDivElement, inner: HTMLDivElement, comm
       (clic, Entrée/Espace sur le bouton), jamais au survol souris (cf. en-tête). */
   function openMore(btn: HTMLElement, opts?: { focus?: boolean }) {
     closeMore()
-    const row = btn.closest<HTMLElement>(".gg-row")!
+    const row = btn.closest<HTMLElement>(".amont-row")!
     if (btn.dataset.ghost !== undefined) {
       /* "+N" fantôme : les autres branches du tip, en chips fantômes — pas des refs de la ligne */
       el.replaceChildren(...btn.dataset.ghost.split("\n").map((n) => ghostChip(n, "", "max-w-full")))

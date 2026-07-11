@@ -8,11 +8,11 @@
 
 /** Fusionne les contours des refs allumées visuellement contiguës : lit l'ordre DOM réel (les
     dossiers repliés sont display:none → hors flux), pas l'ordre logique de l'arbre. Deux refs ne
-    se joignent que dans la même liste : un trigger de dossier n'est pas une `.gg-refrow`, donc
+    se joignent que dans la même liste : un trigger de dossier n'est pas une `.amont-refrow`, donc
     deux branches de dossiers voisins seraient consécutives ici alors qu'un pli les sépare. */
 export function paintFocusRuns(root: HTMLElement | null): void {
   if (!root) return
-  const rows = [...root.querySelectorAll<HTMLElement>(".gg-refrow")].filter((b) => b.offsetParent)
+  const rows = [...root.querySelectorAll<HTMLElement>(".amont-refrow")].filter((b) => b.offsetParent)
   const lit = rows.map((b) => b.dataset.lit === "1")
   const list = rows.map((b) => b.closest("ul"))
   rows.forEach((b, i) => {

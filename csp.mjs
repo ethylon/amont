@@ -13,7 +13,7 @@ const DEV = `default-src 'self'; ${IMG}; ${HARDEN}; style-src 'self' 'unsafe-inl
 
 /** @returns {import('vite').Plugin} */
 export const csp = () => ({
-  name: 'gg-csp',
+  name: 'amont-csp',
   transformIndexHtml: {
     order: 'pre',
     handler: (html, ctx) => html.replace('%CSP%', ctx.server ? DEV : PROD),

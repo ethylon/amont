@@ -20,7 +20,7 @@ const WT_COUNTERS = [
 /* Le moteur du graphe (createGraph, features/graph/controller.ts, décomposé en phase 4) : ce
    composant reste la coque React qui lui fournit ses trois nœuds DOM et ses callbacks. Les
    mesures (graphW/branchW) ne repassent plus par du state React — `onGraphWidth`/`onBranchWidth`
-   écrivent directement les propriétés CSS sur le conteneur, lues par `.gg-wtrow`/le moteur via
+   écrivent directement les propriétés CSS sur le conteneur, lues par `.amont-wtrow`/le moteur via
    `var()` (cf. app.css). */
 export function GraphColumn() {
   const storeApi = useRepoStoreApi()
@@ -52,7 +52,7 @@ export function GraphColumn() {
       onBranchSelect: (row) => void storeApi.getState().selectBranch(row),
       onStats: (stats) => storeApi.getState().setStats(stats),
       onGraphWidth: (px) => wrapRef.current?.style.setProperty("--graphw", `${px}px`),
-      onBranchWidth: (px) => wrapRef.current?.style.setProperty("--gg-branch", `${px}px`),
+      onBranchWidth: (px) => wrapRef.current?.style.setProperty("--amont-branch", `${px}px`),
       /* les échecs de `api.log` ne sont plus muets (AUDIT.md §6) : la pastille de statut existante
          (op git → refresh → resetAndLoad → showOp) porte aussi celle-ci */
       onError: (message) => storeApi.getState().showOp(message, "danger"),
@@ -66,7 +66,7 @@ export function GraphColumn() {
         <div
           onClick={showWorktree}
           className={cn(
-            "gg-wtrow gg-drop relative flex h-8.5 min-w-0 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
+            "amont-wtrow amont-drop relative flex h-8.5 min-w-0 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
             view === "wt" && "border-l-primary bg-primary/10 text-foreground"
           )}
         >
@@ -95,7 +95,7 @@ export function GraphColumn() {
           }}
         />
         {diff && (
-          <div data-gg-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
+          <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
             <ErrorBoundary key={`${diff.file.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
               <DiffView api={api} repoId={repoId} ctx={diff.ctx} file={diff.file} view={diffMode} onViewChange={setDiffMode} onClose={closeDiff} />
             </ErrorBoundary>

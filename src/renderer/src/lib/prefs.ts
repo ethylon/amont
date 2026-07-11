@@ -1,4 +1,4 @@
-/* Préférences persistées en localStorage (AUDIT.md §7, phase 5) : les clés `gg.*` étaient
+/* Préférences persistées en localStorage (AUDIT.md §7, phase 5) : les clés `amont.*` étaient
    éparpillées, écrites et relues à l'appel dans trois modules différents (theme.ts,
    repo-store.tsx, file-list.tsx) — un nom de clé qui diverge entre lecture et écriture se
    découvre en runtime, silencieusement. Centralisées ici, une clé qui change de nom ou de type
@@ -16,7 +16,7 @@ function pref<T extends string>(key: string) {
 
 export const prefs = {
   /** choix explicite de thème ; `null` = pas de choix, suivre l'OS (cf. lib/theme.ts) */
-  theme: pref<"dark" | "light">("gg.theme"),
-  diffView: pref<DiffViewMode>("gg.diffview"),
-  fileView: pref<FileView>("gg.fileview"),
+  theme: pref<"dark" | "light">("amont.theme"),
+  diffView: pref<DiffViewMode>("amont.diffview"),
+  fileView: pref<FileView>("amont.fileview"),
 }

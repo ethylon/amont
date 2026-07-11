@@ -17,11 +17,11 @@ import type {
 
 declare global {
   interface Window {
-    gitgraph: Bridge
+    amont: Bridge
   }
 }
 
-const bridge = window.gitgraph
+const bridge = window.amont
 
 export const host = {
   repos: bridge.repos,

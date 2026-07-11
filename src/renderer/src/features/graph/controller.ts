@@ -242,11 +242,11 @@ export function createGraph(
     if (token !== loader.token || destroyed) return
     sync()
     cb.onSelect(row, false)
-    const el = inner.querySelector<HTMLElement>(`.gg-row[data-i="${row}"]`)
+    const el = inner.querySelector<HTMLElement>(`.amont-row[data-i="${row}"]`)
     if (el) {
-      el.classList.remove("gg-flash")
+      el.classList.remove("amont-flash")
       void el.offsetWidth
-      el.classList.add("gg-flash")
+      el.classList.add("amont-flash")
     }
   }
 
@@ -273,7 +273,7 @@ export function createGraph(
     if (token !== loader.token || destroyed) return
     sync()
     cb.onSelect(target, additive)
-    const el = inner.querySelector<HTMLElement>(`.gg-row[data-i="${target}"]`)
+    const el = inner.querySelector<HTMLElement>(`.amont-row[data-i="${target}"]`)
     el?.scrollIntoView({ block: "nearest" })
     el?.focus({ preventScroll: true }) // le scroll est déjà fait juste au-dessus, pas la peine que focus() le refasse à sa façon
   }
@@ -289,7 +289,7 @@ export function createGraph(
   const nodeAt = (row: number) => loader.state.nodes[Math.floor(row / CHUNK)]?.[row % CHUNK]
 
   const rowIndex = (ev: Event) => {
-    const el = (ev.target as HTMLElement).closest<HTMLElement>(".gg-row")
+    const el = (ev.target as HTMLElement).closest<HTMLElement>(".amont-row")
     return el ? Number(el.dataset.i) : null
   }
 
@@ -301,22 +301,22 @@ export function createGraph(
   }
   const onMouseOver = (ev: MouseEvent) => {
     const t = ev.target as HTMLElement
-    scrollTextHover(t.closest<HTMLElement>(".gg-scrolltext"))
-    const btn = t.closest<HTMLElement>(".gg-more-btn")
+    scrollTextHover(t.closest<HTMLElement>(".amont-scrolltext"))
+    const btn = t.closest<HTMLElement>(".amont-more-btn")
     if (btn) {
       popoverCtl.cancelClose()
       if (btn !== popoverCtl.openBtn) popoverCtl.openMore(btn)
-    } else if (t.closest(".gg-more")) popoverCtl.cancelClose() // sur le panneau : on le garde ouvert
+    } else if (t.closest(".amont-more")) popoverCtl.cancelClose() // sur le panneau : on le garde ouvert
     const i = rowIndex(ev)
     if (i !== null) hoverCtl.hoverRow(loader.state, i, !!nodeAt(i)?.stash)
   }
   /* Quitter le bouton ou le panneau vers l'extérieur arme la fermeture ; y revenir l'annule. */
   const onMouseOut = (ev: MouseEvent) => {
     if (!popoverCtl.openBtn) return
-    const from = (ev.target as HTMLElement).closest(".gg-more-btn, .gg-more")
+    const from = (ev.target as HTMLElement).closest(".amont-more-btn, .amont-more")
     if (!from) return
     const to = ev.relatedTarget as HTMLElement | null
-    if (!to || !to.closest(".gg-more-btn, .gg-more")) popoverCtl.scheduleClose()
+    if (!to || !to.closest(".amont-more-btn, .amont-more")) popoverCtl.scheduleClose()
   }
   const onMouseLeave = () => {
     hoverCtl.clearHover()
@@ -332,20 +332,20 @@ export function createGraph(
        déclenchent ce même `click` nativement, un vrai bouton n'a besoin d'aucun code séparé.
        Avant ce refactor le clic était explicitement avalé (ouverture au survol seulement) — les
        refs cachées étaient inatteignables sans souris. */
-    const moreBtn = t.closest<HTMLElement>(".gg-more-btn")
+    const moreBtn = t.closest<HTMLElement>(".amont-more-btn")
     if (moreBtn) {
       if (moreBtn === popoverCtl.openBtn) popoverCtl.closeMore()
       else popoverCtl.openMore(moreBtn, { focus: true })
       return
     }
-    if (t.closest(".gg-more")) return // clic dans le panneau lui-même (une ref n'est pas cliquable) : rien à faire
+    if (t.closest(".amont-more")) return // clic dans le panneau lui-même (une ref n'est pas cliquable) : rien à faire
     popoverCtl.closeMore()
     const i = rowIndex(ev)
     if (i !== null) cb.onSelect(i, ev.ctrlKey || ev.metaKey)
   }
   const onDblClick = (ev: MouseEvent) => {
     const t = ev.target as HTMLElement
-    if (t.closest(".gg-more, .gg-more-btn")) return
+    if (t.closest(".amont-more, .amont-more-btn")) return
     const i = rowIndex(ev)
     if (i !== null) cb.onBranchSelect(i)
   }
@@ -355,7 +355,7 @@ export function createGraph(
      Ignore tout ce qui vient du panneau "+N" ou de son bouton : Escape/Entrée y ont leur propre
      sens (cf. interactions/popover.ts), une flèche n'y navigue rien. */
   const onBoardKeyDown = (ev: KeyboardEvent) => {
-    if ((ev.target as HTMLElement).closest(".gg-more, .gg-more-btn")) return
+    if ((ev.target as HTMLElement).closest(".amont-more, .amont-more-btn")) return
     const cur = selectionCtl.active ?? 0
     const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey
     let target: number
