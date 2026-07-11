@@ -3,17 +3,16 @@
 
 import type { BadgeColor } from "@/components/ui/badge"
 
-/* Badges de type : conventions internes, typos incluses.
-   ponytail: table d'alias explicite — passer en config si les conventions bougent. */
+/* Type badges from a `[TAG] subject` prefix. Explicit alias table rather than a config file —
+   move it to per-repo config the day these conventions need to vary. */
 const TYPE_OF: Record<string, string> = {}
 Object.entries({
-  feat: ["FEATURE", "FEAUTRE", "FEATTURE"],
-  hotfix: ["HOTFIX", "HOTFIXE", "HTOFIX", "HOTIFX", "HOFTIX"],
-  bugfix: ["BUGFIX", "BUGFIXE", "BUFGIXE"],
+  feat: ["FEATURE"],
+  hotfix: ["HOTFIX"],
+  bugfix: ["BUGFIX"],
   plugin: ["PLUGIN", "PLUGINS"],
   release: ["RELEASE"],
   beta: ["BETA"],
-  backup: ["AUTOBACKUP"],
   wip: ["WIP"],
 }).forEach(([type, aliases]) => aliases.forEach((a) => (TYPE_OF[a] = type)))
 
