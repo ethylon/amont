@@ -52,6 +52,8 @@
     --color-success: var(--success);
     --color-warning: var(--warning);
     --color-release: var(--release);
+    --color-info: var(--info);
+    --color-refactor: var(--refactor);
 
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
@@ -100,6 +102,9 @@
     --warning: oklch(0.56 0.13 70);
     /* release : violet franc, distinct du teal de marque (primary) et des autres teintes de chip */
     --release: oklch(0.53 0.22 300);
+    /* info : bleu (test) ; refactor : cyan — le chroma les écarte du teal primary (hue 223) */
+    --info: oklch(0.52 0.13 250);
+    --refactor: oklch(0.52 0.10 195);
 
     /* Lanes : hues espacées de 108° — deux lanes adjacentes ne se confondent jamais.
        Chroma ajustée par teinte (le jaune et le cyan saturent moins que le rouge).
@@ -152,6 +157,8 @@
     --success: oklch(0.74 0.15 150);
     --warning: oklch(0.80 0.14 70);
     --release: oklch(0.72 0.19 300);
+    --info: oklch(0.74 0.14 250);
+    --refactor: oklch(0.76 0.12 195);
 
     --lane-0: oklch(0.70 0.14 250);
     --lane-1: oklch(0.70 0.16 358);

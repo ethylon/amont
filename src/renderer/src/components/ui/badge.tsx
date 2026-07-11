@@ -23,6 +23,8 @@ const badgeVariants = cva(
         warning: "[--badge-color:var(--warning)] [--badge-fg:var(--warning)]",
         release: "[--badge-color:var(--release)] [--badge-fg:var(--release)]",
         danger: "[--badge-color:var(--destructive)] [--badge-fg:var(--destructive)]",
+        info: "[--badge-color:var(--info)] [--badge-fg:var(--info)]",
+        refactor: "[--badge-color:var(--refactor)] [--badge-fg:var(--refactor)]",
         /* Le seul axe où la teinte n'a pas de nom : le porteur — ou n'importe lequel de ses
            ancêtres, --badge-color hérite — la pose. Les lanes du graphe sont assez lisibles
            dans les deux thèmes pour servir aussi de couleur de texte. */
