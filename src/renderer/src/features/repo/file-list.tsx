@@ -3,7 +3,8 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowRight01Icon, File01Icon, Folder01Icon, ListTreeIcon, Menu01Icon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
-import { fileStatusColor } from "@/lib/commit-message"
+import { buildPathTree, type PathTree } from "@/lib/path-tree"
+import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/primitives/collapsible"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -13,10 +14,10 @@ export type FileView = "flat" | "tree"
 /* Vue à plat / arborescence, mémorisée pour tous les panneaux de fichiers (détail de commit,
    staging) : la basculer d'un côté s'applique à l'autre dès son prochain montage. */
 export function useFileView() {
-  const [view, setView] = useState<FileView>(() => (localStorage.getItem("gg.fileview") as FileView) || "tree")
+  const [view, setView] = useState<FileView>(() => prefs.fileView.get() || "tree")
   const set = (v: FileView) => {
     setView(v)
-    localStorage.setItem("gg.fileview", v)
+    prefs.fileView.set(v)
   }
   return [view, set] as const
 }
@@ -46,6 +47,19 @@ const STATUS_TEXT: Record<string, string> = {
   warning: "text-warning",
   danger: "text-destructive",
 }
+
+/* Statuts `git diff --name-status`. Un statut à deux lettres est un conflit (UU, AA, DD…).
+   R et C n'ont plus de teinte propre : ce sont des déplacements, pas des changements de contenu.
+   Seul consommateur de cette teinte (AUDIT.md §7, phase 5 — vivait dans lib/commit-message.ts,
+   côté domaine, alors que c'est une décision d'affichage propre à cette ligne de fichier) : la
+   fonction reste privée à ce module plutôt que de ressortir un `BadgeColor` que personne d'autre
+   ne lit. */
+const fileStatusColor = (st: string): keyof typeof STATUS_TEXT =>
+  st.length > 1 ? "danger"
+    : st === "A" || st === "?" ? "success"
+      : st === "M" ? "warning"
+        : st === "D" ? "danger"
+          : "neutral"
 
 export type FileRowProps = {
   file: FileChange
@@ -150,31 +164,15 @@ function TreeFile<T extends FileChange>({ api, file, active, onOpen, action }: {
   )
 }
 
-type TreeNode<T> = { dirs: Map<string, TreeNode<T>>; files: T[] }
-
-function buildTree<T extends FileChange>(list: T[]): TreeNode<T> {
-  const root: TreeNode<T> = { dirs: new Map(), files: [] }
-  for (const f of list) {
-    const parts = f.path.split("/")
-    let n = root
-    for (let i = 0; i < parts.length - 1; i++) {
-      if (!n.dirs.has(parts[i])) n.dirs.set(parts[i], { dirs: new Map(), files: [] })
-      n = n.dirs.get(parts[i])!
-    }
-    n.files.push(f)
-  }
-  return root
-}
-
-const countFiles = <T,>(d: TreeNode<T>): number =>
-  d.files.length + [...d.dirs.values()].reduce((n, c) => n + countFiles(c), 0)
+const countFiles = <T,>(d: PathTree<T>): number =>
+  d.items.length + [...d.dirs.values()].reduce((n, c) => n + countFiles(c), 0)
 
 /** Tous les fichiers d'un sous-arbre, à plat — pour indexer / désindexer un dossier d'un coup. */
-const collectFiles = <T,>(d: TreeNode<T>): T[] =>
-  [...d.files, ...[...d.dirs.values()].flatMap((c) => collectFiles(c))]
+const collectFiles = <T,>(d: PathTree<T>): T[] =>
+  [...d.items, ...[...d.dirs.values()].flatMap((c) => collectFiles(c))]
 
 function Tree<T extends FileChange>({ node, api, activePath, onOpen, action, dirAction }: {
-  node: TreeNode<T>
+  node: PathTree<T>
   api: RepoApi
   activePath?: string
   onOpen?(f: T): void
@@ -211,7 +209,7 @@ function Tree<T extends FileChange>({ node, api, activePath, onOpen, action, dir
             </Collapsible>
           )
         })}
-      {[...node.files]
+      {[...node.items]
         .sort((a, b) => a.path.localeCompare(b.path))
         .map((f) => (
           <TreeFile key={f.path} api={api} file={f} active={f.path === activePath} onOpen={onOpen} action={action?.(f)} />
@@ -242,7 +240,16 @@ export function FileEntries<T extends FileChange>({ files, view, api, activePath
   dirAction?(files: T[]): React.ReactNode
 }) {
   if (view === "tree")
-    return <Tree node={buildTree(files)} api={api} activePath={activePath} onOpen={onOpen} action={action} dirAction={dirAction} />
+    return (
+      <Tree
+        node={buildPathTree(files, (f) => f.path)}
+        api={api}
+        activePath={activePath}
+        onOpen={onOpen}
+        action={action}
+        dirAction={dirAction}
+      />
+    )
   return (
     <>
       {files.map((f) => (

@@ -4,7 +4,7 @@
    partagé (`data-ghost`, posé par render/rows.ts `ghostChips`). */
 
 import type { Commit } from "../../../../../shared/types.ts"
-import { parseRefs } from "@/lib/commit-message"
+import { parseRefs } from "@/lib/commit-parse"
 import { MORE_CLASS } from "../constants.ts"
 import { ghostChip, refChip } from "../render/rows.ts"
 

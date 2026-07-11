@@ -5,7 +5,7 @@
    scroll ne déplacent une colonne. */
 
 import type { Commit } from "../../../../../shared/types.ts"
-import { parseRefs, parseSubject, type RefChip } from "@/lib/commit-message"
+import { parseRefs, parseSubject, type RefChip } from "@/lib/commit-parse"
 import { badgeVariants } from "@/components/ui/badge"
 import { BRANCH_BUDGET, BRANCH_MAX, GAP, TYPE_MAX } from "../constants.ts"
 import { refGroup } from "./rows.ts"

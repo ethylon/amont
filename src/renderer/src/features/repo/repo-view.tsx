@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
-import { branchFlow } from "@/lib/commit-message"
+import { branchFlow } from "@/lib/gitflow"
 import { repoApi, worktreeCount, type Repo } from "@/lib/git"
 import { queryKeys } from "@/lib/queries"
 import { useFlowInfoQuery, useFlowQuery } from "@/features/flow/flow-queries"
