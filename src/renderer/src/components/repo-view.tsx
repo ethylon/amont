@@ -6,6 +6,7 @@ import { describePayload } from "@/lib/errors"
 import { onChanged, onOp, repoApi, worktreeCount, type Repo } from "@/lib/git"
 import { invalidateRepo, queryKeys, useFlowInfoQuery, useFlowQuery, useStatusQuery, useWorktreeQuery } from "@/lib/queries"
 import { RepoProvider, useRepoStore, useRepoStoreApi } from "@/lib/repo-store"
+import { PRIORITY, useShortcut } from "@/lib/shortcuts"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { BootSkeleton } from "@/components/boot-skeleton"
@@ -248,20 +249,19 @@ function RepoViewContent({ repo, active }: Props) {
   }, [active, queryClient, repoId])
 
   /* --- Raccourcis --- */
-  useEffect(() => {
-    if (!active) return
-    const onKey = (ev: KeyboardEvent) => {
-      const mod = ev.ctrlKey || ev.metaKey
-      if (mod && ev.key.toLowerCase() === "b") {
-        ev.preventDefault()
-        toggleSidebar()
-      } else if (ev.key === "Escape") {
-        closeDiff()
-      }
+  useShortcut(active, PRIORITY.DEFAULT, (ev) => {
+    const mod = ev.ctrlKey || ev.metaKey
+    if (mod && ev.key.toLowerCase() === "b") {
+      ev.preventDefault()
+      toggleSidebar()
+      return true
     }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [active, closeDiff, toggleSidebar])
+    if (ev.key === "Escape" && diff) {
+      closeDiff()
+      return true
+    }
+    return false
+  })
 
   /* Un clic hors du sidebar, des panneaux détail/diff et des commits du graphe lève le focus.
      Les commits sont gérés par leur propre clic ; ici on ne traite que le « clic dans le vide ». */
