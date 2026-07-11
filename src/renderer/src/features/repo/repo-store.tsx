@@ -164,7 +164,10 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
           ui: { ...s.ui, view: "commits", diff: null },
         }
       })
-      g.setSelection(get().selection.rows)
+      /* `active` explicite : `row` est la ligne qui vient d'agir (clic, ctrl-clic, flèche…) — le
+         curseur clavier (roving tabindex, AUDIT.md §8) la suit, qu'elle reste ou non triée en
+         tête de `rows` une fois le Set remis en ordre croissant. */
+      g.setSelection(get().selection.rows, row)
     },
 
     async selectBranch(row) {
@@ -178,7 +181,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
         selection: { hashes, rows, mode: "branch", focusedKeys: new Set(key ? [key] : []) },
         ui: { ...s.ui, view: "commits", diff: null },
       }))
-      g.setSelection(rows)
+      g.setSelection(rows, row)
     },
 
     async focusRef(r, additive) {
@@ -199,7 +202,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
           selection: { hashes, rows: sorted, mode: r.kind === "tag" ? "multi" : "branch", focusedKeys: new Set([key]) },
           ui: { ...s.ui, view: "commits", diff: null },
         }))
-        g.setSelection(get().selection.rows)
+        g.setSelection(get().selection.rows, row)
         return
       }
 
@@ -215,7 +218,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
           ui: { ...s.ui, view: "commits", diff: null },
         }
       })
-      g.setSelection(get().selection.rows)
+      g.setSelection(get().selection.rows, row)
     },
 
     async focusStash(s) {
@@ -241,7 +244,10 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       await g.pin(rows)
       const resolvedHashes = rows.map((r) => g.commit(r)!.h)
       set((s) => ({ selection: { ...s.selection, rows, hashes: resolvedHashes } }))
-      g.setSelection(rows)
+      /* re-réclame le curseur clavier (AUDIT.md §8) : sans ça, la sélection restaurée après un
+         pull/checkout/stash resterait affichée alors que le curseur clavier — amorcé sur la ligne 0
+         par controller.ts `reset()` juste avant — pointerait ailleurs. */
+      g.setSelection(rows, rows[0])
     },
 
     setSubject(v) {

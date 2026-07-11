@@ -42,7 +42,9 @@ export type GraphCallbacks = {
 export type GraphHandle = {
   reset(): Promise<void>
   jumpTo(hash: string): Promise<void>
-  setSelection(rows: Iterable<number>): void
+  /** `active` : ligne qui vient d'agir (clic, ctrl-clic…) — porte le curseur clavier (roving
+      tabindex, AUDIT.md §8). Omis, le curseur ne bouge pas (cf. interactions/selection.ts). */
+  setSelection(rows: Iterable<number>, active?: number): void
   /** `null` : plus de recherche en cours, les lignes reprennent leur teinte normale */
   setMatches(hashes: string[] | null): void
   /** ligne du prochain résultat après `from` dans le sens `dir`, `null` s'il n'y en a plus */
@@ -184,22 +186,30 @@ export function createGraph(
     const [r0, r1] = viewRows()
     const b0 = Math.floor(r0 / ROW_BUCKET)
     const b1 = Math.floor(r1 / ROW_BUCKET)
+    /* Bucket du curseur clavier (roving tabindex, AUDIT.md §8) : gardé monté même hors fenêtre —
+       sinon un scroll souris loin de la ligne active ferait disparaître son `tabindex=0` du DOM et
+       Tab échouerait à ratraper le graphe tant que le clavier n'a pas d'abord bougé la sélection. */
+    const activeBucket = selectionCtl.active !== null ? Math.floor(selectionCtl.active / ROW_BUCKET) : null
     mountedRows.forEach((d, bi) => {
-      if (bi < b0 || bi > b1) {
+      if ((bi < b0 || bi > b1) && bi !== activeBucket) {
         d.remove()
         mountedRows.delete(bi)
       }
     })
+    const buckets = activeBucket !== null && (activeBucket < b0 || activeBucket > b1) ? [activeBucket, b0] : [b0]
     let missing: [number, number] | null = null
-    for (let bi = b0; bi <= b1 && bi * ROW_BUCKET < S.next; bi++) {
-      if (mountedRows.has(bi)) continue
-      const start = bi * ROW_BUCKET
-      const end = Math.min((bi + 1) * ROW_BUCKET, S.next)
-      if (loader.isResident(start, end - 1)) {
-        const d = rowBucket(S, start, end, loader.commitAt, selectionCtl.selection, selectionCtl.matches)
-        inner.appendChild(d)
-        mountedRows.set(bi, d)
-      } else missing = missing ? [missing[0], end - 1] : [start, end - 1]
+    for (const from of buckets) {
+      const to = from === b0 ? b1 : from
+      for (let bi = from; bi <= to && bi * ROW_BUCKET < S.next; bi++) {
+        if (mountedRows.has(bi)) continue
+        const start = bi * ROW_BUCKET
+        const end = Math.min((bi + 1) * ROW_BUCKET, S.next)
+        if (loader.isResident(start, end - 1)) {
+          const d = rowBucket(S, start, end, loader.commitAt, selectionCtl.selection, selectionCtl.matches, selectionCtl.active, loader.total)
+          inner.appendChild(d)
+          mountedRows.set(bi, d)
+        } else missing = missing ? [Math.min(missing[0], start), Math.max(missing[1], end - 1)] : [start, end - 1]
+      }
     }
     if (missing) {
       const token = loader.token
@@ -238,6 +248,34 @@ export function createGraph(
       void el.offsetWidth
       el.classList.add("gg-flash")
     }
+  }
+
+  /* Nombre de lignes d'une page d'écran (PageUp/PageDown, AUDIT.md §8). */
+  const pageRows = () => Math.max(1, Math.floor(board.clientHeight / ROW))
+
+  /* Déplacement clavier du curseur (grille ARIA, AUDIT.md §8) : contrairement à `reveal` (saut
+     lointain — jumpTo/nextMatch — qui centre l'écran et fait clignoter), une flèche ne doit
+     bouger le scroll que du nécessaire (`scrollIntoView({ block: "nearest" })`, comme un listbox
+     natif). La ligne cible est mise en page à travers la virtualisation exactement comme `reveal`
+     (page puis bucket garantis avant de sélectionner) : les lignes non montées se montent au
+     passage. `additive` reproduit Shift/Ctrl comme le ctrl-clic (cf. `onClick`). */
+  async function moveActive(target: number, additive: boolean) {
+    const token = loader.token
+    target = Math.max(0, target)
+    if (target >= loader.state.next && !loader.exhausted) {
+      await loader.growUntil(() => target < loader.state.next || loader.exhausted, token)
+    }
+    if (token !== loader.token || destroyed) return
+    target = Math.min(target, Math.max(0, loader.state.next - 1))
+    const bi = Math.floor(target / ROW_BUCKET)
+    await loader.ensureRows(bi * ROW_BUCKET, Math.min((bi + 1) * ROW_BUCKET, loader.state.next) - 1)
+    evictNow()
+    if (token !== loader.token || destroyed) return
+    sync()
+    cb.onSelect(target, additive)
+    const el = inner.querySelector<HTMLElement>(`.gg-row[data-i="${target}"]`)
+    el?.scrollIntoView({ block: "nearest" })
+    el?.focus()
   }
 
   function resolveRow(hash: string): number | undefined {
@@ -290,7 +328,17 @@ export function createGraph(
   }
   const onClick = (ev: MouseEvent) => {
     const t = ev.target as HTMLElement
-    if (t.closest(".gg-more, .gg-more-btn")) return // le panneau s'ouvre au survol : le clic ne sélectionne pas
+    /* le "+N" togglable au clic ET au clavier (AUDIT.md §8) : Entrée/Espace sur le bouton
+       déclenchent ce même `click` nativement, un vrai bouton n'a besoin d'aucun code séparé.
+       Avant ce refactor le clic était explicitement avalé (ouverture au survol seulement) — les
+       refs cachées étaient inatteignables sans souris. */
+    const moreBtn = t.closest<HTMLElement>(".gg-more-btn")
+    if (moreBtn) {
+      if (moreBtn === popoverCtl.openBtn) popoverCtl.closeMore()
+      else popoverCtl.openMore(moreBtn, { focus: true })
+      return
+    }
+    if (t.closest(".gg-more")) return // clic dans le panneau lui-même (une ref n'est pas cliquable) : rien à faire
     popoverCtl.closeMore()
     const i = rowIndex(ev)
     if (i !== null) cb.onSelect(i, ev.ctrlKey || ev.metaKey)
@@ -302,9 +350,35 @@ export function createGraph(
     if (i !== null) cb.onBranchSelect(i)
   }
 
+  /* Navigation clavier du board (AUDIT.md §8) : posé sur `board` (pas `document`) — ne réagit
+     donc que si le focus est dans le graphe, sans registre de raccourcis global à traverser.
+     Ignore tout ce qui vient du panneau "+N" ou de son bouton : Escape/Entrée y ont leur propre
+     sens (cf. interactions/popover.ts), une flèche n'y navigue rien. */
+  const onBoardKeyDown = (ev: KeyboardEvent) => {
+    if ((ev.target as HTMLElement).closest(".gg-more, .gg-more-btn")) return
+    const cur = selectionCtl.active ?? 0
+    const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey
+    let target: number
+    switch (ev.key) {
+      case "ArrowDown": target = cur + 1; break
+      case "ArrowUp": target = cur - 1; break
+      case "PageDown": target = cur + pageRows(); break
+      case "PageUp": target = cur - pageRows(); break
+      case "Home": target = 0; break
+      /* pas de borne connue tant que l'historique n'est pas épuisé : `moveActive` grossit par
+         lots jusqu'à l'épuisement puis clampe — MAX_SAFE_INTEGER est juste « aussi loin que possible ». */
+      case "End": target = loader.exhausted ? loader.state.next - 1 : Number.MAX_SAFE_INTEGER; break
+      case "Enter": target = cur; break
+      default: return
+    }
+    ev.preventDefault()
+    void moveActive(target, additive)
+  }
+
   /* pas de throttle : sync() est un no-op quand la plage de chunks/buckets visibles n'a pas changé */
   board.addEventListener("scroll", onScroll, { passive: true })
   board.addEventListener("mouseleave", onMouseLeave)
+  board.addEventListener("keydown", onBoardKeyDown)
   inner.addEventListener("mouseover", onMouseOver)
   inner.addEventListener("mouseout", onMouseOut)
   inner.addEventListener("click", onClick)
@@ -343,6 +417,14 @@ export function createGraph(
       evictNow()
       refresh()
       sync()
+      /* amorce le curseur clavier sur la première ligne si rien ne l'a encore posé (AUDIT.md §8) :
+         sans ça, Tab n'atteindrait jamais le graphe avant un premier clic. No-op si une sélection
+         restaurée par `reresolveSelection` (appelée juste après par repo-store.tsx) l'a déjà fait,
+         et no-op aux resets suivants (pull/checkout/stash) — le curseur y survit déjà tel quel. */
+      if (loader.state.next > 0) {
+        selectionCtl.primeActive(0)
+        sync()
+      }
     },
 
     async jumpTo(hash) {
@@ -371,8 +453,8 @@ export function createGraph(
       evictNow()
     },
 
-    setSelection(rows) {
-      selectionCtl.setSelection(rows)
+    setSelection(rows, active) {
+      selectionCtl.setSelection(rows, active)
       evictNow()
     },
 
@@ -423,6 +505,7 @@ export function createGraph(
       resizeObserver.disconnect()
       board.removeEventListener("scroll", onScroll)
       board.removeEventListener("mouseleave", onMouseLeave)
+      board.removeEventListener("keydown", onBoardKeyDown)
       inner.removeEventListener("mouseover", onMouseOver)
       inner.removeEventListener("mouseout", onMouseOut)
       inner.removeEventListener("click", onClick)
