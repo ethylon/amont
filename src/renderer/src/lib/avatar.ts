@@ -1,5 +1,5 @@
 import { sha256 } from "@/lib/sha256"
-import { laneColor } from "@/lib/graph-layout"
+import { laneColor } from "@/features/graph/constants"
 
 /* Une adresse `users.noreply.github.com` porte l'id du compte dans son préfixe : l'avatar se
    déduit sans requête d'API ni jeton. C'est la seule forge résolue ainsi — GitLab, lui, exige

@@ -5,10 +5,10 @@ import { useWorktreeQuery } from "@/lib/queries"
 import { useRepoStore, useRepoStoreApi } from "@/lib/repo-store"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { CommitGraph } from "@/components/commit-graph"
 import { DiffView } from "@/components/diff-view"
 import { ErrorBoundary } from "@/components/error-boundary"
-import type { GraphCallbacks } from "@/components/graph-canvas"
+import type { GraphCallbacks } from "@/features/graph/controller"
+import { CommitGraph } from "@/features/graph/react/commit-graph"
 
 const WT_COUNTERS = [
   { key: "conflicts", color: "danger" },
@@ -17,10 +17,11 @@ const WT_COUNTERS = [
   { key: "untracked", color: "neutral" },
 ] as const
 
-/* Le moteur du graphe (createGraph, phase 4) n'a pas bougé : ce composant reste la coque React
-   qui lui fournit ses trois nœuds DOM et ses callbacks. Les mesures (graphW/branchW) ne
-   repassent plus par du state React — `onGraphWidth`/`onBranchWidth` écrivent directement les
-   propriétés CSS sur le conteneur, lu par `.gg-wtrow`/`graph-canvas` via `var()` (cf. app.css). */
+/* Le moteur du graphe (createGraph, features/graph/controller.ts, décomposé en phase 4) : ce
+   composant reste la coque React qui lui fournit ses trois nœuds DOM et ses callbacks. Les
+   mesures (graphW/branchW) ne repassent plus par du state React — `onGraphWidth`/`onBranchWidth`
+   écrivent directement les propriétés CSS sur le conteneur, lues par `.gg-wtrow`/le moteur via
+   `var()` (cf. app.css). */
 export function GraphColumn() {
   const storeApi = useRepoStoreApi()
   const api = useRepoStore((s) => s.api)
@@ -52,6 +53,9 @@ export function GraphColumn() {
       onStats: (stats) => storeApi.getState().setStats(stats),
       onGraphWidth: (px) => wrapRef.current?.style.setProperty("--graphw", `${px}px`),
       onBranchWidth: (px) => wrapRef.current?.style.setProperty("--gg-branch", `${px}px`),
+      /* les échecs de `api.log` ne sont plus muets (AUDIT.md §6) : la pastille de statut existante
+         (op git → refresh → resetAndLoad → showOp) porte aussi celle-ci */
+      onError: (message) => storeApi.getState().showOp(message, "danger"),
     }),
     [storeApi]
   )
