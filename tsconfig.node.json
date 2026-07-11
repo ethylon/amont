@@ -1,18 +1,16 @@
-/* Le côté Node : process main, preload et scripts d'auto-contrôle. Le main est du JS —
-   `checkJs` le met sous le compilateur (typos, appels impossibles) sans le convertir ;
-   c'est lui qui porte toute la surface IPC, il ne doit pas être le seul code non vérifié.
-   (DOM dans lib : les scripts importent des modules du renderer, typés contre le DOM.) */
+/* Le côté Node : process main, preload et scripts d'auto-contrôle. Main et preload sont en
+   TypeScript strict — le contrat IPC partagé (src/shared/) compile contre les mêmes types
+   que le renderer, dans les trois process. (DOM dans lib : les scripts importent des modules
+   du renderer, typés contre le DOM.) */
 {
   "compilerOptions": {
     "target": "es2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "allowJs": true,
-    "checkJs": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "strict": false,
+    "strict": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
@@ -21,5 +19,5 @@
       "@/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src/main", "src/preload", "scripts", "*.mjs"]
+  "include": ["src/main", "src/preload", "src/shared", "scripts"]
 }
