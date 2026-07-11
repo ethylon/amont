@@ -4,6 +4,8 @@ import { existsSync, watch } from 'node:fs';
 import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 
+import { parseNameStatus } from './name-status.js';
+
 /* Repos ouverts, côté main uniquement : le renderer ne les désigne que par un id opaque.
    Un onglet = un repo ouvert ; la fermeture d'onglet passe par repo:close. */
 const repos = new Map();
@@ -815,13 +817,9 @@ ipcMain.handle('repo:files', async (_ev, id, hash, parent) => {
   if (!/^[0-9a-f]{7,40}$/.test(hash) || (parent != null && !/^[0-9a-f]{7,40}$/.test(parent)))
     throw new Error('bad hash');
   const args = parent
-    ? ['diff', '--name-status', parent, hash]
-    : ['diff-tree', '-r', '--root', '--no-commit-id', '--name-status', hash];
-  const out = await git(r.path, args);
-  return out.split('\n').filter(Boolean).map(l => {
-    const f = l.split('\t');
-    return { st: f[0][0], path: f[2] || f[1], old: f[2] ? f[1] : null };
-  });
+    ? ['diff', '--name-status', '-z', parent, hash]
+    : ['diff-tree', '-r', '--root', '--no-commit-id', '--name-status', '-z', hash];
+  return parseNameStatus(await git(r.path, args));
 });
 
 /* Corps du message, à la demande. Le joindre au log coûterait, pour n'en afficher qu'un,
