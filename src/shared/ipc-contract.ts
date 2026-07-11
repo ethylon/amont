@@ -3,8 +3,12 @@
    preload compilent contre les mêmes signatures ; un renommage de canal ou un argument
    ajouté casse à la compilation dans les trois process, plus seulement à l'exécution.
 
-   Ce fichier CAPTURE le contrat existant, il ne le réforme pas : mêmes noms de canaux,
-   mêmes payloads qu'avant ce refactor. Les erreurs structurées viennent au chantier suivant. */
+   Chantier « main » (AUDIT.md §4) : `repo:cancel` est le nouveau canal d'annulation — le
+   renderer génère un `requestId` (une simple string, un vrai AbortSignal ne traverserait pas
+   le clonage structuré de l'IPC) et le passe en dernier argument optionnel aux lectures assez
+   longues pour valoir la peine d'être annulées ; main kill le process associé. Chaque canal
+   fallible throw désormais une erreur structurée (`shared/errors.ts`) plutôt qu'une string
+   française pré-formatée — payload identique, message reconstruit côté renderer. */
 
 import type {
   BootState, BranchAct, ChangeEvent, Commit, CommitMessage, FileChange, FlowInfo, FlowPrefixes,
@@ -35,23 +39,27 @@ export type InvokeChannels = {
   "repo:flow": (id: number) => Promise<FlowPrefixes | null>
   "repo:flowInfo": (id: number, branch: string, kind: keyof FlowPrefixes) => Promise<FlowInfo | null>
   "repo:branch": (id: number, action: BranchAct, name: string) => Promise<void>
-  "repo:log": (id: number, skip: number, count: number) => Promise<Commit[]>
+  "repo:log": (id: number, skip: number, count: number, requestId?: string) => Promise<Commit[]>
   "repo:refs": (id: number) => Promise<GitRef[]>
-  "repo:files": (id: number, hash: string, parent: string | null) => Promise<FileChange[]>
-  "repo:body": (id: number, hash: string) => Promise<string>
+  "repo:files": (id: number, hash: string, parent: string | null, requestId?: string) => Promise<FileChange[]>
+  "repo:body": (id: number, hash: string, requestId?: string) => Promise<string>
   "repo:headMessage": (id: number) => Promise<CommitMessage>
   "repo:diff": (
     id: number,
     hash: string,
     parent: string | null,
     path: string,
-    oldPath: string | null
+    oldPath: string | null,
+    requestId?: string
   ) => Promise<string>
-  "repo:search": (id: number, q: string, content: boolean) => Promise<string[]>
+  "repo:search": (id: number, q: string, content: boolean, requestId?: string) => Promise<string[]>
   "repo:total": (id: number) => Promise<number>
   "repo:checkout": (id: number, name: string) => Promise<void>
   "repo:stashes": (id: number) => Promise<Stash[]>
   "repo:stash": (id: number, action: StashAct, arg?: string) => Promise<void>
+  /** Kill le process git associé à `requestId` pour ce dépôt, s'il tourne encore
+      (AUDIT.md §2 B4). No-op silencieux si la requête a déjà fini ou n'existe pas. */
+  "repo:cancel": (id: number, requestId: string) => Promise<void>
 }
 
 /** Nom de canal `invoke`/`handle` — dérivé du contrat, jamais redéclaré à la main. */
@@ -108,4 +116,5 @@ export type Bridge = {
   stash: InvokeChannels["repo:stash"]
   fileIcon: InvokeChannels["repo:fileIcon"]
   openFile: InvokeChannels["repo:openFile"]
+  cancel: InvokeChannels["repo:cancel"]
 }
