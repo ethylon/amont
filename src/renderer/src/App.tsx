@@ -40,6 +40,13 @@ export default function App() {
     [active, tabs]
   )
 
+  /* Le titre appartient à l'onglet actif — un seul effet ici, plutôt qu'un par RepoView
+     qui ne le réinitialisait jamais en revenant sur l'accueil. */
+  useEffect(() => {
+    const name = active === HOME ? null : tabs.find((r) => r.id === active)?.name
+    document.title = name ? `Amont — ${name}` : "Amont"
+  }, [active, tabs])
+
   /* F5 : rechargement complet de la fenêtre — l'issue de secours quand l'UI se coince.
      Un renderer mort ne reçoit plus de clavier : ce cas est couvert par le reload
      automatique du main (render-process-gone). */
