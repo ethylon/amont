@@ -620,6 +620,9 @@ const BRANCH_OPS = {
     const type = FLOW_TYPES.find(t => prefixes[t] && name.startsWith(prefixes[t]));
     if (!type) throw new Error(`${name} n'est pas une branche git-flow`);
     const version = name.slice(prefixes[type].length);
+    /* BRANCH n'interdit le `-` qu'en tête du nom complet : `feature/-D` donnerait
+       version = '-D', que git-flow lirait comme une option (suppression forcée) */
+    if (version.startsWith('-')) throw new Error(`${name} : suffixe de branche invalide`);
     /* release et hotfix posent un tag annoté : sans `-m`, `git tag -a` réclamerait un éditeur */
     const tagged = type === 'release' || type === 'hotfix';
     await git(r.path, ['flow', type, 'finish', ...(tagged ? ['-m', version] : []), version], OP_TIMEOUT);
@@ -663,7 +666,9 @@ async function flowInfo(r, branch, kind) {
   if (tagged) {
     const prefixes = (await flowPrefixes(r)) ?? {};
     const prefix = prefixes[kind] && branch.startsWith(prefixes[kind]) ? prefixes[kind] : `${kind}/`;
-    const suffix = branch.startsWith(prefix) ? branch.slice(prefix.length) : '';
+    /* même garde que finish : un suffixe en `-…` n'est jamais une version */
+    const raw = branch.startsWith(prefix) ? branch.slice(prefix.length) : '';
+    const suffix = raw.startsWith('-') ? '' : raw;
     const m = !SEMVER_RE.test(suffix) && lastTag && /^(v?)(\d+)\.(\d+)\.(\d+)/.exec(lastTag);
     nextTag = SEMVER_RE.test(suffix) ? suffix
       : m ? (kind === 'hotfix' ? `${m[1]}${m[2]}.${m[3]}.${+m[4] + 1}` : `${m[1]}${m[2]}.${+m[3] + 1}.0`)
