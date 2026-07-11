@@ -276,7 +276,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix: le total du graphe se réconcilie à l'épuisement de l'historique"
+    "s": "fix: graph total reconciles once history is exhausted"
   },
   {
     "h": "321252c43cb0e240111feaf15aa6f5ec8b51f2ec",
@@ -331,7 +331,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix: le titre de fenêtre revient à « Amont » sur l'accueil"
+    "s": "fix: window title reverts to «Amont» on the home screen"
   },
   {
     "h": "a850e185f7bef82ee8dce2050cfb72efd7ab8408",
@@ -342,7 +342,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix: l'icône de thème de tab-strip suit onThemeChange"
+    "s": "fix: tab-strip theme icon follows onThemeChange"
   },
   {
     "h": "20f51a2d028d72524e05d2065691a625739e23ee",
@@ -353,7 +353,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix: la boucle rAF de scroll-text s'arrête avec son élément"
+    "s": "fix: scroll-text rAF loop stops with its element"
   },
   {
     "h": "c76d812283a2ed25603ced4d106e165c888c148a",
@@ -375,7 +375,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix: repo:files lit --name-status en -z, parsé sur NUL"
+    "s": "fix: repo:files reads --name-status with -z, parsed on NUL"
   },
   {
     "h": "60c68a7de0edace6e01d2b0955d67f5d3b51982f",
@@ -409,7 +409,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "docs: prompts de session autonomes pour les phases 0 à 6b du refactor"
+    "s": "docs: standalone session prompts for refactor phases 0 to 6b"
   },
   {
     "h": "279e052282e02fc0af68a43170e47ab9a8f939c4",
@@ -432,7 +432,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "docs: audit pré-1.0 en vue du refactor avant open-source"
+    "s": "docs: pre-1.0 audit for the refactor ahead of open-sourcing"
   },
   {
     "h": "b3699bd213d9b3a0659232e77fd2f3521313b84f",
@@ -500,7 +500,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "refs/heads/detail-badge-overflow-narrow-7c4707",
-    "s": "fix(ui): overflow du panneau détail et débordement du graphe en fenêtre étroite"
+    "s": "fix(ui): detail panel overflow and graph overrun in a narrow window"
   },
   {
     "h": "ec352fece3ff0645365ad90f67b60867902a7eb3",
@@ -605,7 +605,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "feat(ui): densifier les contrôles en h-6 via des surcharges des primitives shadcn"
+    "s": "feat(ui): densify controls to h-6 via shadcn primitive overrides"
   },
   {
     "h": "1401f620e0eb9b3fe0bd3c9f12d0364d7db49434",
@@ -721,7 +721,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "feat(ui): scroll-text, défilement en boucle des textes tronqués"
+    "s": "feat(ui): scroll-text, looping scroll for truncated text"
   },
   {
     "h": "2ba1e9a66fd2f1c65684de4cd3b42d498b74084b",
@@ -790,7 +790,7 @@
     "a": "Grace Hopper",
     "e": "1+octocat@users.noreply.github.com",
     "r": "",
-    "s": "Revert \"feat(graph): minimap de flow en gouttière du graphe\""
+    "s": "Revert \"feat(graph): flow minimap in the graph gutter\""
   },
   {
     "h": "68c9d79e601e3cd9264f2f7a26188bcc6ad90b66",
@@ -847,7 +847,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "refs/heads/feat/flow-minimap",
-    "s": "feat(graph): minimap de flow en gouttière du graphe"
+    "s": "feat(graph): flow minimap in the graph gutter"
   },
   {
     "h": "b660ac03c3b02970486116a71d8fba1ed4b39e22",
@@ -905,7 +905,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "feat(ui): squelette de boot et révélation en une seule frame"
+    "s": "feat(ui): boot skeleton and single-frame reveal"
   },
   {
     "h": "132cf0f2499e49e98c2da4e70b6a6c04094fbe1d",
@@ -1031,7 +1031,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "feat(graph): affiche toutes les branches d'un commit partagé"
+    "s": "feat(graph): show every branch of a shared commit"
   },
   {
     "h": "7871d886a15493f4c9b19d49e9dfa3ce3ecf70fe",
@@ -1065,7 +1065,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix(refs): réécrit la synchro du focus branches ↔ commits"
+    "s": "fix(refs): rewrite branch ↔ commit focus sync"
   },
   {
     "h": "da0d52012d3ea1d02650c2f401958a68476f3c04",
@@ -1100,7 +1100,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "chore(qa): main sous le compilateur, auto-contrôles en CI, tests graphe et sha256"
+    "s": "chore(qa): main under the compiler, self-checks in CI, graph and sha256 tests"
   },
   {
     "h": "bcc03e5f30f1f0f5e5aa69fbb158b6fdbad455bd",
@@ -1111,7 +1111,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix(app): durcissement sécurité, robustesse et filtre de branches"
+    "s": "fix(app): security hardening, robustness, and branch filter"
   },
   {
     "h": "2f16088f89c7f7ac54cfef699ac9baf06e1cea32",
@@ -1133,7 +1133,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "tag: refs/tags/v0.6.1",
-    "s": "fix(refs): lève le focus des branches au clic hors des panneaux détail/diff"
+    "s": "fix(refs): clear branch focus on click outside the detail/diff panels"
   },
   {
     "h": "34680edf1260769477e717cce94795587799efab",
@@ -1201,7 +1201,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "chore(dev): compléter les stubs du harnais mock"
+    "s": "chore(dev): complete the mock harness stubs"
   },
   {
     "h": "7a60fff987dd27bad939db1ef959bd50dcce2eea",
@@ -1212,7 +1212,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix(refs): ne plus marquer « fusionnée » une branche posée sur le tronc"
+    "s": "fix(refs): stop marking a trunk branch as «merged»"
   },
   {
     "h": "79ffdb6a38580d70f6cd7e47a1fb9d51491521f8",
@@ -1234,7 +1234,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "feat(graph): colonne branche dédiée à gauche du métro"
+    "s": "feat(graph): dedicated branch column left of the metro"
   },
   {
     "h": "731457faa41a9caa007f155f1221ab9464202380",
@@ -1257,7 +1257,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "feat(staging): panneau à deux blocs avec vue arbre partagée et amend"
+    "s": "feat(staging): two-block panel with shared tree view and amend"
   },
   {
     "h": "285fc887dc948ad33059dbed8bd4b32c67e7a94e",
@@ -1291,7 +1291,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "fix: correctifs UI batch (thème diff, badges, merged, distantes)"
+    "s": "fix: batch UI fixes (diff theme, badges, merged, remotes)"
   },
   {
     "h": "a6363a1f411eaecb8b026fff681e057f08f5da17",
@@ -1314,7 +1314,7 @@
     "a": "Claude",
     "e": "noreply@anthropic.com",
     "r": "",
-    "s": "feat(console): console git read-only avec verbose live par opération"
+    "s": "feat(console): read-only git console with live verbose output per operation"
   },
   {
     "h": "f6b31c50f8244cfa9f9449ce72353e6d2418cd38",
@@ -1325,7 +1325,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "tag: refs/tags/v0.3.0",
-    "s": "ci: release publiée après upload, action-setup sur node24"
+    "s": "ci: release published after upload, action-setup on node24"
   },
   {
     "h": "7bdf8c4af3ec6d9607b8b76278772b3d3dc01f4c",
@@ -1358,7 +1358,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "feat(diff): affichage plein cadre à la place du graphe"
+    "s": "feat(diff): full-frame display in place of the graph"
   },
   {
     "h": "4e625afed33f16cd9253e8af0af506d6b2d1fe0f",
@@ -1413,7 +1413,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "refactor(ui): nuage intégré au badge de branche, séparé par un filet"
+    "s": "refactor(ui): cloud built into the branch badge, separated by a hairline"
   },
   {
     "h": "736c4a40b3403eb855dd5edea8996367fe887e8e",
@@ -1457,7 +1457,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "fix(refs): détecter l'absence de distante par le nom, pas par l'upstream"
+    "s": "fix(refs): detect a missing remote by name, not by upstream"
   },
   {
     "h": "b5474152d1fa1f9f9c2d2c7bdcb14072e43196d1",
@@ -1468,7 +1468,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "feat(refs): branches fusionnées marquées, branches orphelines barrées"
+    "s": "feat(refs): merged branches marked, orphaned branches struck through"
   },
   {
     "h": "c464995ab9d61eba2d253157417e9b10ccac6dda",
@@ -1479,7 +1479,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "style(ui): transition d'onglet limitée au corps, nom du dépôt en élément partagé"
+    "s": "style(ui): tab transition limited to the body, repo name as a shared element"
   },
   {
     "h": "facbd583ea86e10d23ebf38586b6a5e5b0e0ef24",
@@ -1490,7 +1490,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "feat(ui): chips de branche à la couleur de la lane, colonnes mesurées"
+    "s": "feat(ui): branch chips colored by lane, measured columns"
   },
   {
     "h": "09fbcfe6ef3ee8e9bfee8161ac086c70f32313ee",
@@ -1534,7 +1534,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "fix(ui): liste des fichiers scrollable, bloc de commit figé en bas"
+    "s": "fix(ui): scrollable file list, commit block pinned at the bottom"
   },
   {
     "h": "74608715bfc1f6c6ecda9a565e2677ce090d8fe5",
@@ -1567,7 +1567,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "style(ui): nouveau logo, tracés en stroke bord à bord"
+    "s": "style(ui): new logo, edge-to-edge stroke paths"
   },
   {
     "h": "3f043864b29a2bfcbb606584c5025e1fff565c8e",
@@ -1578,7 +1578,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "feat: onglets multi-dépôts, écran d'accueil et état persisté"
+    "s": "feat: multi-repo tabs, home screen, and persisted state"
   },
   {
     "h": "bb64c946bc3741627dac3a06dace682f767685c7",
@@ -1611,7 +1611,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "feat(theme): thème persisté et démarrage sans flash"
+    "s": "feat(theme): persisted theme and flash-free startup"
   },
   {
     "h": "fa2ee967b16d76c104bbedbb7b773740ccb0f0a9",
@@ -1622,7 +1622,7 @@
     "a": "Grace Hopper",
     "e": "grace.hopper@example.com",
     "r": "",
-    "s": "build: icône de l'application"
+    "s": "build: application icon"
   },
   {
     "h": "5bb6925773f3c63d200a81eadc2c0aa651cfac8c",
