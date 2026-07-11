@@ -165,7 +165,10 @@ function closeRepo(id) {
 /* Branche courante + décalage avec sa distante. Absence d'upstream ou HEAD détachée
    ne sont pas des erreurs : le renderer affiche simplement des tirets. */
 async function repoStatus(r) {
-  const branch = (await git(r.path, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+  /* HEAD unborn (dépôt fraîchement init) : rev-parse échoue alors que rien n'est anormal —
+     statut vide plutôt qu'un rejet, comme repo:unstage sait déjà le faire */
+  const branch = (await git(r.path, ['rev-parse', '--abbrev-ref', 'HEAD']).catch(() => '')).trim();
+  if (!branch) return { branch: null, head: null, ahead: null, behind: null };
   const head = (await git(r.path, ['rev-parse', 'HEAD']).catch(() => '')).trim().slice(0, 8) || null;
   if (branch === 'HEAD') return { branch: null, head, ahead: null, behind: null };
   try {
