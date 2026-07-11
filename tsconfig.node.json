@@ -1,7 +1,7 @@
-/* Le côté Node : process main, preload et scripts d'auto-contrôle. Main et preload sont en
-   TypeScript strict — le contrat IPC partagé (src/shared/) compile contre les mêmes types
-   que le renderer, dans les trois process. (DOM dans lib : les scripts importent des modules
-   du renderer, typés contre le DOM.) */
+/* The Node side: main process, preload, and self-check scripts. Main and preload are in
+   strict TypeScript — the shared IPC contract (src/shared/) compiles against the same types
+   as the renderer, across all three processes. (DOM in lib: the scripts import renderer
+   modules, typed against the DOM.) */
 {
   "compilerOptions": {
     "target": "es2023",

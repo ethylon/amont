@@ -74,6 +74,7 @@ export const messages = {
     sideBySide: "Side by side",
     close: "Close (Esc)",
     unavailable: "Diff unavailable.",
+    empty: "Empty diff.",
     loading: "diff…",
     truncated: (n: string) => `… ${n} lines truncated`,
   },
@@ -104,6 +105,9 @@ export const messages = {
     finishBugfix: "Finish bugfix",
     finishRelease: "Finish release",
     finishHotfix: "Finish hotfix",
+    branchesUnavailable: "Branches unavailable.",
+    loadingBranches: "branches…",
+    noMatchingRef: "No matching ref.",
   },
 
   stash: {

@@ -17,7 +17,7 @@ import { Field, FieldError, FieldGroup } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-/** Un fichier de l'arbre porte sa source : c'est elle qui choisit la commande de diff. */
+/** A tree file carries its source: that's what picks the diff command. */
 type WtFile = FileChange & { source: WtSource }
 
 export type WtAct = (api: RepoApi, paths: string[]) => Promise<void>
@@ -25,9 +25,9 @@ export type WtAct = (api: RepoApi, paths: string[]) => Promise<void>
 const STAGE: WtAct = (a, p) => a.stage(p)
 const UNSTAGE: WtAct = (a, p) => a.unstage(p)
 
-/* Le bouton par ligne n'apparaît qu'au survol, mais reste atteignable au clavier.
-   after : cible de clic élargie en largeur seulement — en hauteur elle mordrait sur le bouton
-   invisible de la ligne voisine. */
+/* The per-row button only appears on hover, but stays reachable from the keyboard.
+   after: click target widened horizontally only — vertically it would bite into the
+   invisible button of the neighboring row. */
 const HIT_CLS = "relative after:absolute after:-inset-x-1 after:-inset-y-px"
 const ACTION_CLS = `ms-auto shrink-0 self-center opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
 const DIR_ACTION_CLS = `shrink-0 self-center opacity-0 group-hover/dirrow:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
@@ -74,8 +74,8 @@ function WtBlock({ title, files, view, api, activePath, onOpen, action, dirActio
   )
 }
 
-/** Rendu par le layout de slots quand `worktree` a des changements et que la vue est "wt" —
-    ce garde-fou reste côté RepoView, qui possède déjà la requête. */
+/** Rendered by the slot layout when `worktree` has changes and the view is "wt" —
+    this safeguard stays on RepoView's side, which already owns the query. */
 const EMPTY_WT: Worktree = { staged: [], unstaged: [], untracked: [], conflicts: [] }
 
 export function WorktreePanel() {
@@ -96,7 +96,7 @@ export function WorktreePanel() {
   const runStash = useRepoStore((s) => s.runStash)
   const onStash = () => runStash("push", subject.trim() || undefined)
 
-  /* un dépôt sans commit n'a rien à amender */
+  /* a repo with no commits has nothing to amend */
   const canAmend = !!status?.head
 
   const [committing, setCommitting] = useState(false)
@@ -107,8 +107,8 @@ export function WorktreePanel() {
   const hasConflicts = worktree.conflicts.length > 0
   const ready = subject.trim().length > 0 && !hasConflicts && (amend ? canAmend : staged > 0)
 
-  /* Un seul bloc « non indexés » : conflits, modifications et fichiers non suivis. Chacun garde
-     sa source pour que le diff s'ouvre avec la bonne commande. */
+  /* A single "unindexed" block: conflicts, modifications and untracked files. Each keeps
+     its source so the diff opens with the right command. */
   const unindexed: WtFile[] = [
     ...worktree.conflicts.map((f) => ({ ...f, source: "unstaged" as const })),
     ...worktree.unstaged.map((f) => ({ ...f, source: "unstaged" as const })),
@@ -118,8 +118,8 @@ export function WorktreePanel() {
 
   const openDiff = (f: WtFile) => onOpenDiff({ wt: f.source }, f)
 
-  /* Les 4 boutons stage/unstage × fichier/dossier ne différaient que par le libellé, l'icône, la
-     classe (isolée vs par-dossier) et les chemins visés — une seule fabrique (AUDIT.md §7, phase 5). */
+  /* The 4 stage/unstage × file/folder buttons only differed by label, icon,
+     class (single vs per-folder) and target paths — a single factory (AUDIT.md §7, phase 5). */
   const wtButton = (label: string, icon: IconSvgElement, act: WtAct, dirScoped: boolean, paths: string[]) => (
     <IconButton
       label={label}
@@ -156,7 +156,7 @@ export function WorktreePanel() {
         </div>
       </div>
 
-      {/* deux blocs à parts égales, chacun avec son propre défilement, toujours visibles */}
+      {/* two equal-share blocks, each with its own scroll, always visible */}
       <div className="mt-4 flex min-h-0 flex-1 flex-col border-t pt-3">
         <WtBlock
           title={messages.worktree.unstaged}
@@ -215,8 +215,8 @@ export function WorktreePanel() {
               aria-busy={committing}
               onClick={async () => {
                 setCommitting(true)
-                /* le contrat « onCommit ne rejette pas » n'est écrit nulle part : sans finally,
-                   un rejet laisserait le bouton désactivé pour toujours */
+                /* the "onCommit never rejects" contract isn't written down anywhere: without finally,
+                   a rejection would leave the button disabled forever */
                 try {
                   await onCommit()
                 } finally {

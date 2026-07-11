@@ -26,7 +26,7 @@ type Props = {
   sidebarOpen: boolean
   onToggleSidebar(): void
   onRunOp(op: OpName): void
-  /** la barre de recherche : elle a besoin du graphe, que la toolbar ne connaît pas */
+  /** the search bar: it needs the graph, which the toolbar doesn't know about */
   children: React.ReactNode
 }
 
@@ -47,8 +47,8 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
         onClick={onToggleSidebar}
       />
 
-      {/* largeur figée : sans elle, un nom plus long décalerait toute la barre au changement
-          d'onglet — et le fondu croisé du nom se ferait à géométrie variable */}
+      {/* fixed width: without it, a longer name would shift the whole bar on tab
+          change — and the name's cross-fade would happen at variable geometry */}
       <span className="amont-reponame flex w-42 shrink-0 items-center gap-1.5 text-xs">
         <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate font-medium">{repo.name}</span>

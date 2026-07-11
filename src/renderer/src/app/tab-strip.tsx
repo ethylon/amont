@@ -12,10 +12,10 @@ import { Mark } from "@/components/ui/mark"
 import { Button } from "@/components/ui/button"
 import { IconButton } from "@/components/ui/icon-button"
 
-/** L'écran d'accueil vit dans un onglet épinglé, jamais fermé. Les autres portent l'id du repo. */
+/** The home screen lives in a pinned tab, never closed. The others carry the repo id. */
 export const HOME = 0
 
-/** Lient l'onglet à son panneau (aria-controls / aria-labelledby), cf. `App`. */
+/** Link the tab to its panel (aria-controls / aria-labelledby), see `App`. */
 export const tabId = (key: number) => `amont-tab-${key}`
 export const panelId = (key: number) => `amont-panel-${key}`
 
@@ -32,15 +32,15 @@ const tabClass =
   "group/tab flex h-7.5 shrink-0 cursor-pointer items-center rounded-md border text-xs focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none aria-selected:border-border aria-selected:bg-muted aria-selected:font-medium aria-selected:text-foreground"
 
 export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
-  /* abonné au thème plutôt qu'une copie locale : un flip de l'OS (sans choix explicite
-     enregistré) doit retourner l'icône aussi */
+  /* subscribed to the theme rather than a local copy: an OS flip (without an explicit
+     choice saved) must flip the icon too */
   const dark = useTheme()
   const avatarsOn = useAvatarsEnabled()
 
   const toggleTheme = () => setDark(!dark)
 
-  /* Pattern ARIA « tabs » : un seul onglet dans l'ordre de tabulation (roving tabindex), les
-     flèches déplacent le focus d'onglet en onglet et l'activent au passage. */
+  /* ARIA "tabs" pattern: only one tab in the tabulation order (roving tabindex), the
+     arrows move focus from tab to tab and activate it along the way. */
   const order = [HOME, ...tabs.map((t) => t.key)]
   const tabEls = useRef(new Map<number, HTMLDivElement>())
   const tabRef = (key: number) => (el: HTMLDivElement | null) => {
@@ -96,7 +96,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
             aria-selected={t.key === active}
             onClick={() => onSelect(t.key)}
             onKeyDown={(e) => onTabKey(e, t.key)}
-            /* clic molette : ferme, comme un navigateur */
+            /* middle click: closes, like a browser */
             onAuxClick={(e) => e.button === 1 && onClose(t.key)}
             className={cn(tabClass, "max-w-44 gap-1.5 border-transparent px-2.5 text-muted-foreground hover:bg-muted/60")}
           >
@@ -105,7 +105,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
               variant="ghost"
               size="icon-xs"
               aria-label={messages.app.closeTab(t.name)}
-              /* after : la cible de clic passe de 20 à 28px sans grossir l'icône (cf. checkbox) */
+              /* after: the click target goes from 20 to 28px without growing the icon (see checkbox) */
               className="relative -me-1.5 shrink-0 opacity-0 group-aria-selected/tab:opacity-100 group-hover/tab:opacity-100 focus-visible:opacity-100 after:absolute after:-inset-1"
               onClick={(e) => {
                 e.stopPropagation()

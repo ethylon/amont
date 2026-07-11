@@ -4,9 +4,9 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "esnext",
     "moduleResolution": "bundler",
-    /* node : les *.test.ts colocalisés (sha256, commit-message, graph-layout) importent
-       node:assert/strict et node:crypto — vitest les exécute sous Node quelle que soit la
-       couche du fichier source qu'ils testent. */
+    /* node: the colocated *.test.ts files (sha256, commit-message, graph-layout) import
+       node:assert/strict and node:crypto — vitest runs them under Node regardless of
+       which layer the source file under test belongs to. */
     "types": ["vite/client", "node"],
     "jsx": "react-jsx",
     "noEmit": true,

@@ -8,12 +8,12 @@ const alias = { '@': resolve(import.meta.dirname, 'src/renderer/src') };
 
 export default defineConfig({
   main: {},
-  /* CJS, pas ESM : un preload ESM force `sandbox: false` (cf. webPreferences dans main) */
+  /* CJS, not ESM: an ESM preload forces `sandbox: false` (cf. webPreferences in main) */
   preload: { build: { rollupOptions: { output: { format: 'cjs' } } } },
   renderer: {
     resolve: { alias },
-    /* crash.html : la page de repli du plafond de crash-reload (cf. main). Entrée séparée
-       pour qu'elle sorte dans out/renderer — resources/ n'est pas embarqué dans l'asar. */
+    /* crash.html: the fallback page for the crash-reload cap (cf. main). Separate entry
+       so it ends up in out/renderer — resources/ isn't bundled into the asar. */
     build: {
       rollupOptions: {
         input: {

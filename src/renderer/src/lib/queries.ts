@@ -1,19 +1,19 @@
-/* Couche requêtes (AUDIT.md §5) : une clé TanStack Query par dépôt et par domaine, à la place
-   des miroirs d'état manuels (`useState` + effet + flag `stale`) qui peuplaient repo-view,
-   refs-sidebar, detail-panel, diff-view et commit-search. `placeholderData: keepPreviousData`
-   tient le rendu précédent affiché pendant qu'une nouvelle réponse arrive : plus de flash au
-   changement de clé, ce que `useAsync` ne savait pas faire (il vidait ses données à chaque fois).
+/* Query layer (AUDIT.md §5): one TanStack Query key per repo and per domain, replacing
+   the manual state mirrors (`useState` + effect + `stale` flag) that used to populate repo-view,
+   refs-sidebar, detail-panel, diff-view and commit-search. `placeholderData: keepPreviousData`
+   keeps the previous render displayed while a new response comes in: no more flash on a
+   key change, something `useAsync` couldn't do (it cleared its data every time).
 
-   Ce module ne garde que ce qui est réellement partagé entre features (AUDIT.md §7, phase 5) :
-   les clés de cache (single source of truth, `invalidateRepo` en dépend), l'invalidation groupée,
-   et `withAbort`. Les hooks `use...Query` eux-mêmes sont colocalisés dans la feature qui les
-   consomme (un fichier `xxx-queries.ts` par dossier `features`) — chaque feature possède ses
-   requêtes comme ses actions.
+   This module only keeps what's genuinely shared between features (AUDIT.md §7, phase 5):
+   the cache keys (single source of truth, `invalidateRepo` depends on it), grouped invalidation,
+   and `withAbort`. The `use...Query` hooks themselves are colocated in the feature that
+   consumes them (one `xxx-queries.ts` file per `features` folder) — each feature owns its
+   own queries just like its actions.
 
-   Annulation : `body`/`diff`/`search` acceptent un `requestId` optionnel côté bridge
-   (canal `repo:cancel`, posé en Phase 2 — AUDIT.md §2 B4). `withAbort` fabrique un id, le passe
-   à l'appel, et le résout côté main dès que TanStack Query annule le fetch (changement de clé,
-   démontage) via l'`AbortSignal` que sa `queryFn` reçoit. */
+   Cancellation: `body`/`diff`/`search` accept an optional `requestId` on the bridge side
+   (`repo:cancel` channel, added in Phase 2 — AUDIT.md §2 B4). `withAbort` builds an id, passes
+   it to the call, and resolves it on the main side as soon as TanStack Query aborts the fetch
+   (key change, unmount) via the `AbortSignal` its `queryFn` receives. */
 
 import type { QueryClient } from "@tanstack/react-query"
 
@@ -35,8 +35,8 @@ export const queryKeys = {
   search: (id: number, term: string, content: boolean) => ["search", id, term, content] as const,
 }
 
-/** Toutes les clés d'un dépôt qui suivent son statut de près : invalidées ensemble sur
-    `onChanged` et à l'issue de toute mutation (checkout, stash, branche, commit, op réseau). */
+/** All keys of a repo that closely track its status: invalidated together on
+    `onChanged` and at the end of any mutation (checkout, stash, branch, commit, network op). */
 export function invalidateRepo(client: QueryClient, id: number): void {
   client.invalidateQueries({ queryKey: queryKeys.status(id) })
   client.invalidateQueries({ queryKey: queryKeys.refs(id) })
@@ -46,10 +46,10 @@ export function invalidateRepo(client: QueryClient, id: number): void {
 
 let seq = 0
 
-/** Génère un `requestId`, le fournit à `run`, et l'annule côté main si `signal` s'arme avant
-    que `run` n'ait fini — TanStack Query pose ce signal à chaque fetch superflu (nouvelle
-    clé, démontage). Le retour respecte l'abandon : une réponse qui arrive après coup ne doit
-    pas résoudre la promesse que Query a déjà abandonnée. */
+/** Generates a `requestId`, provides it to `run`, and cancels it on the main side if `signal`
+    fires before `run` has finished — TanStack Query sets this signal on every superseded fetch
+    (key change, unmount). The return respects the abandonment: a response that arrives late
+    must not resolve the promise that Query has already abandoned. */
 export function withAbort<T>(api: RepoApi, signal: AbortSignal, run: (requestId: string) => Promise<T>): Promise<T> {
   if (signal.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"))
   const requestId = `q${++seq}`

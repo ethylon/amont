@@ -1,8 +1,8 @@
-/* État de layout, pur (AUDIT.md §6/§10) : zéro DOM, zéro pixel, zéro CSS — exécutable sous Node
-   tel quel (c'est toute la raison d'être de la décomposition, cf. layout/*.test.ts). Persiste pour
-   tout l'historique, sous forme compacte : ids entiers (cf. ../ids.ts) plutôt que des SHA de 40
-   caractères, et les textes (refs, merges parsés) seulement pour les lignes qui en portent. Les
-   commits eux-mêmes vivent dans un cache de pages évincable (cf. ../data/page-cache.ts). */
+/* Layout state, pure (AUDIT.md §6/§10): zero DOM, zero pixel, zero CSS — runnable under Node
+   as-is (that's the whole point of the decomposition, cf. layout/*.test.ts). Persists for
+   the entire history, in compact form: integer ids (cf. ../ids.ts) rather than 40-character
+   SHAs, and text (refs, parsed merges) only for the rows that carry them. The
+   commits themselves live in an evictable page cache (cf. ../data/page-cache.ts). */
 
 import type { ParsedMerge } from "../../../lib/commit-parse.ts"
 import type { FlowKind } from "../../../lib/gitflow.ts"
@@ -10,7 +10,7 @@ import { createIdTable, type HashId, type IdTable } from "../ids.ts"
 
 export type Edge = {
   r1: number; l1: number; travel: number; k: number; r2?: number; l2?: number
-  /** arête de stash : tracée en pointillés — un instantané suspendu, pas de l'historique */
+  /** stash edge: drawn dashed — a suspended snapshot, not history */
   dash?: boolean
 }
 export type GraphNode = { row: number; lane: number; merge: boolean; cap?: FlowKind; stash?: boolean }
@@ -21,30 +21,30 @@ export type LayoutState = {
   meta: number[]
   pending: Map<string, Edge[]>
   next: number
-  /** id de hash -> ligne ; couvre aussi le hash absorbé d'une capsule */
+  /** hash id -> row; also covers a capsule's absorbed hash */
   rowOf: Map<HashId, number>
-  /** ligne -> id de hash du hash survivant */
+  /** row -> hash id of the surviving hash */
   hashOf: HashId[]
-  /** chunks paresseux : `nodes[ci]`/`edges[ci]` n'existent qu'une fois atteints — un dépôt qui
-      grandit entre l'estimation initiale de `total()` et la pagination réelle ne fait plus
-      planter `.push()` sur un slot jamais alloué (AUDIT.md §6, item perf). */
+  /** lazy chunks: `nodes[ci]`/`edges[ci]` only exist once reached — a repo that
+      grows between the initial `total()` estimate and actual pagination no longer
+      crashes on `.push()` against a never-allocated slot (AUDIT.md §6, perf item). */
   nodes: GraphNode[][]
   edges: Edge[][]
   long: Edge[]
   ms: number
-  /** lane de chaque ligne */
+  /** lane of each row */
   laneOf: number[]
-  /** arête first-parent partant de chaque ligne */
+  /** first-parent edge leaving each row */
   fpEdge: Edge[]
-  /** ligne -> ligne de son first-parent, absent tant qu'il n'est pas mis en page */
+  /** row -> row of its first-parent, absent until it's laid out */
   fpRow: number[]
-  /** ligne parent -> lignes des enfants dont il est le first-parent */
+  /** parent row -> rows of the children it is the first-parent of */
   fpChildren: Map<number, number[]>
-  /** ligne du tip absorbé -> ligne du merge absorbeur */
+  /** row of the absorbed tip -> row of the absorbing merge */
   mergedBy: Map<number, number>
-  /** refs brutes `%D`, lignes décorées seulement */
+  /** raw `%D` refs, decorated rows only */
   refsOf: Map<number, string>
-  /** sujet de merge parsé, lignes de merge seulement ; une PR GitHub y met sa branche source */
+  /** parsed merge subject, merge rows only; a GitHub PR puts its source branch here */
   mergeOf: Map<number, ParsedMerge>
 }
 
@@ -67,7 +67,7 @@ export function createState(): LayoutState {
   }
 }
 
-/** Slot de chunk, alloué à la demande (cf. commentaire sur `nodes`/`edges` ci-dessus). */
+/** Chunk slot, allocated on demand (cf. comment on `nodes`/`edges` above). */
 export function chunkOf<T>(chunks: T[][], ci: number): T[] {
   return (chunks[ci] ??= [])
 }

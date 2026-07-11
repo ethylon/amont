@@ -9,14 +9,14 @@ import { queryClient } from "@/lib/query-client"
 import { installShortcuts } from "@/app/shortcuts"
 import { applyTheme } from "@/lib/theme"
 
-/* avant le premier rendu : pas de flash clair au démarrage */
+/* before the first render: no light flash on startup */
 applyTheme()
-/* un seul listener document pour tout le registre de raccourcis (cf. app/shortcuts.ts) */
+/* a single document listener for the whole shortcut registry (cf. app/shortcuts.ts) */
 installShortcuts()
 
-/* boot() ouvre les repos des onglets restaurés : appelé une seule fois ici, explicitement,
-   plutôt qu'en side-effect à l'import de lib/git.ts (l'ancien `bootState`). La promesse
-   descend en prop jusqu'à l'effet de restauration de App. */
+/* boot() opens the repos of the restored tabs: called once here, explicitly,
+   rather than as a side effect of importing lib/git.ts (the old `bootState`). The promise
+   flows down as a prop to App's restoration effect. */
 const bootState = boot()
 
 createRoot(document.getElementById("root")!).render(

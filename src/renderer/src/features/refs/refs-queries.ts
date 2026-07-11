@@ -1,6 +1,6 @@
-/* Requête de la feature refs (AUDIT.md §5/§7) : branches, distantes et tags — colocalisée avec
-   refs-sidebar.tsx plutôt que dans un lib/queries.ts fourre-tout. `placeholderData:
-   keepPreviousData` tient le rendu précédent affiché pendant qu'une nouvelle réponse arrive. */
+/* Refs feature query (AUDIT.md §5/§7): branches, remotes and tags — colocated with
+   refs-sidebar.tsx rather than in a catch-all lib/queries.ts. `placeholderData:
+   keepPreviousData` keeps the previous render displayed while a new response arrives. */
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 
