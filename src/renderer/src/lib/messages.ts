@@ -321,6 +321,61 @@ export const messages = {
       staged ? `${verb} · ${plural(staged, { one: "# file", other: "# files" })}` : verb,
   },
 
+  conflict: {
+    get conflicts() {
+      return t`Conflicts`
+    },
+    /* the A/B letters are deliberately literal (not translated): they're the visual anchor
+       shared by the banner, the pane headers and the per-conflict buttons */
+    mergeBanner: (theirs: string, ours: string) => t`Merging ${theirs} (B) into ${ours} (A)`,
+    get abortMerge() {
+      return t`Abort merge`
+    },
+    sideA: (label: string) => t`A · ${label}`,
+    sideB: (label: string) => t`B · ${label}`,
+    get oursHint() {
+      return t`ours — current branch`
+    },
+    get theirsHint() {
+      return t`theirs — incoming`
+    },
+    get deletedOnThisSide() {
+      return t`deleted on this side`
+    },
+    conflictN: (n: number) => t`Conflict ${n}`,
+    get takeA() {
+      return t`Take A`
+    },
+    get takeB() {
+      return t`Take B`
+    },
+    get takeBoth() {
+      return t`Take A then B`
+    },
+    get mergedOutput() {
+      return t`Merged output — editable`
+    },
+    remaining: (n: number) => plural(n, { one: "# conflict remaining", other: "# conflicts remaining" }),
+    get noMarkersLeft() {
+      return t`No conflict markers left.`
+    },
+    get markResolved() {
+      return t`Mark as resolved`
+    },
+    get restoreFile() {
+      return t`Undo edits`
+    },
+    get unavailable() {
+      return t`Conflict unavailable.`
+    },
+    get loading() {
+      return t`conflict…`
+    },
+    get close() {
+      return t`Close (Esc)`
+    },
+  },
+
   graph: {
     get extraRefs() {
       return t`Additional references`

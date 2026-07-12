@@ -2,6 +2,7 @@
    files/diff, and the two shell handles (icon, opening) confined to the repo. No
    mutation here — no mutex, same as before this refactor. */
 
+import { readFile } from "node:fs/promises"
 import { extname } from "node:path"
 import { app, shell } from "electron"
 
@@ -9,8 +10,10 @@ import { AppError } from "../../shared/errors.ts"
 import type {
   CommitMessage,
   Commit,
+  ConflictFile,
   FileChange,
   GitRef,
+  MergeState,
   Stash,
   Status,
   Worktree,
@@ -49,6 +52,43 @@ export async function repoStatus(r: RepoHandle): Promise<Status> {
 /* --- Working tree --- */
 export const worktree = (r: RepoHandle): Promise<Worktree> =>
   r.git(["status", "--porcelain=v1", "-z", "-uall"]).then(parsePorcelain)
+
+/* --- Merge conflicts ---
+   The A/B labels of the conflict view. `MERGE_HEAD` only exists during a merge: rev-parse
+   failing is the normal "no merge" case, not an error. `theirs` prefers a branch name over
+   a bare hash — several branches on the same tip: the first alphabetically, good enough for
+   a display label. */
+export async function mergeState(r: RepoHandle): Promise<MergeState> {
+  const mergeHead = (await r.git(["rev-parse", "-q", "--verify", "MERGE_HEAD"]).catch(() => "")).trim()
+  if (!mergeHead) return { merging: false, ours: null, theirs: null }
+  const branch = (await r.git(["rev-parse", "--abbrev-ref", "HEAD"]).catch(() => "")).trim()
+  const ours = branch && branch !== "HEAD" ? branch : null
+  const named = (
+    await r.git(["for-each-ref", "--points-at", mergeHead, "--format=%(refname:short)", "refs/heads"]).catch(() => "")
+  )
+    .split("\n")
+    .filter(Boolean)
+  return { merging: true, ours, theirs: named[0] ?? mergeHead.slice(0, 8) }
+}
+
+/* A conflict view is a text editor: a binary or enormous file has no business there. */
+const CONFLICT_MAX = 4 * 1024 * 1024
+
+/** The three index stages of a conflicted path (1 = base, 2 = ours, 3 = theirs) plus the
+    working file, markers included. `cat-file blob :N:path` embeds the path in the object
+    name — starting with `:`, it can never be read as an option — and fails cleanly for a
+    missing stage (delete/modify, add/add): null, the renderer says "deleted on this side". */
+export async function conflict(r: RepoHandle, path: string): Promise<ConflictFile> {
+  const full = inRepo(r, path) // validates and confines before anything touches git or disk
+  const stage = (n: 1 | 2 | 3) => r.git(["cat-file", "blob", `:${n}:${path}`]).then(
+    (o) => o,
+    () => null
+  )
+  const [base, ours, theirs] = await Promise.all([stage(1), stage(2), stage(3)])
+  const merged = await readFile(full, "utf8").catch(() => "")
+  if (merged.length > CONFLICT_MAX) throw new AppError("OUTPUT_LIMIT", path)
+  return { base, ours, theirs, merged }
+}
 
 const WT_DIFF: Record<"staged" | "unstaged", string[]> = { staged: ["diff", "--cached"], unstaged: ["diff"] }
 

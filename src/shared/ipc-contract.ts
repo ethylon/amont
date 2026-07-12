@@ -18,8 +18,10 @@ import type {
   CommitMessage,
   FileChange,
   FlowInfo,
+  ConflictFile,
   FlowPrefixes,
   GitRef,
+  MergeState,
   OpEvent,
   OpName,
   OpenResult,
@@ -73,6 +75,11 @@ export type InvokeChannels = {
   "repo:checkout": (id: number, name: string) => Promise<void>
   "repo:stashes": (id: number) => Promise<Stash[]>
   "repo:stash": (id: number, action: StashAct, arg?: string) => Promise<void>
+  "repo:mergeState": (id: number) => Promise<MergeState>
+  "repo:conflict": (id: number, path: string) => Promise<ConflictFile>
+  /** Writes `content` to the working file and stages it (`git add`): the conflict is resolved. */
+  "repo:resolve": (id: number, path: string, content: string) => Promise<void>
+  "repo:mergeAbort": (id: number) => Promise<void>
   /** Kills the git process associated with `requestId` for this repo, if it's still running
       (AUDIT.md §2 B4). Silent no-op if the request has already finished or doesn't exist. */
   "repo:cancel": (id: number, requestId: string) => Promise<void>
@@ -130,6 +137,10 @@ export type Bridge = {
   checkout: InvokeChannels["repo:checkout"]
   stashes: InvokeChannels["repo:stashes"]
   stash: InvokeChannels["repo:stash"]
+  mergeState: InvokeChannels["repo:mergeState"]
+  conflict: InvokeChannels["repo:conflict"]
+  resolve: InvokeChannels["repo:resolve"]
+  mergeAbort: InvokeChannels["repo:mergeAbort"]
   fileIcon: InvokeChannels["repo:fileIcon"]
   openFile: InvokeChannels["repo:openFile"]
   cancel: InvokeChannels["repo:cancel"]
