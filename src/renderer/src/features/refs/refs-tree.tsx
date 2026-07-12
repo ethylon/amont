@@ -1,7 +1,7 @@
 /* Refs tree (AUDIT.md §7, phase 5): one of the five concerns of the old
    refs-sidebar.tsx (514 lines) — building the tree by name segments, sorting (integration
    branches first), and the ref row itself (menu included). See refs-menu.tsx for
-   the context menu content and refs-focus-paint.ts for the outline painting. */
+   the context menu content and refs-focus-paint.ts for the selection-run painting. */
 
 import { useEffect, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
@@ -99,7 +99,7 @@ function RefDir({
   return (
     <li>
       <Collapsible open={open} onOpenChange={onOpenChange}>
-        <CollapsibleTrigger className="group/dir flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
+        <CollapsibleTrigger className="group/dir flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground select-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
           <HugeiconsIcon
             icon={ArrowRight01Icon}
             strokeWidth={2}
@@ -126,8 +126,10 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
   const target = r.kind === "remote" ? r.name.split("/").slice(1).join("/") : r.name
 
   /* "lit" = this ref is focused — by identity, `kind` included: the local branch and its
-     remote never light up together. The DOM pass (see refs-focus-paint.ts) reads `data-lit`
-     to draw the outline and merge contiguous runs. */
+     remote never light up together. Same selection language as the graph rows (ROW_CLASS):
+     primary fill + 2px left rail — the sidebar and the graph light up as one linked selection.
+     The DOM pass (see refs-focus-paint.ts) reads `data-lit` to merge contiguous runs into a
+     single filled block (only the run's outermost corners stay rounded). */
   const lit = ctx.focusedKeys.has(refKey(r))
   const row = (
     <button
@@ -136,14 +138,26 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
       onClick={(e) => ctx.onFocusRef(r, e.ctrlKey || e.metaKey)}
       onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
       className={cn(
-        "amont-refrow flex w-full items-center gap-2 rounded-md border border-transparent px-1.5 py-1 text-left text-xs select-none",
-        "text-foreground hover:bg-muted -my-px",
-        r.head && "bg-primary/30 hover:bg-primary/45"
+        "amont-refrow flex w-full items-center gap-2 rounded-md border-l-2 border-l-transparent px-1.5 py-1 text-left text-xs select-none",
+        "text-foreground hover:bg-muted/60",
+        "focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
+        "data-lit:border-l-primary data-lit:bg-primary/20 data-lit:hover:bg-primary/25"
       )}
     >
       <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
       {/* a branch whose remote has vanished is no longer a destination: it reads as a leftover */}
-      <span className={cn("truncate font-medium", r.gone && "text-muted-foreground line-through")}>{label}</span>
+      <span
+        className={cn(
+          "truncate",
+          r.head ? "font-semibold" : "font-medium",
+          r.gone && "text-muted-foreground line-through"
+        )}
+      >
+        {label}
+      </span>
+      {/* HEAD is an identity, not a state: a marker (weight + dot), so the primary fill
+          keeps a single meaning in the sidebar — selected. */}
+      {r.head && <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />}
       {/* badge, not bare text: at the end of a line, a bare number reads like the group's
           ref counter. h-4 so the row keeps the height of branches without tracking. */}
       {t && (
