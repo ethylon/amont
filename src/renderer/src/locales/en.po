@@ -139,6 +139,15 @@ msgstr "Branches unavailable."
 msgid "branches…"
 msgstr "branches…"
 
+msgid "Bugfix"
+msgstr "Bugfix"
+
+msgid "Bugfix prefix"
+msgstr "Bugfix prefix"
+
+msgid "Cancel"
+msgstr "Cancel"
+
 msgid "Change…"
 msgstr "Change…"
 
@@ -153,6 +162,9 @@ msgstr "Choose a root folder to list the repositories it contains, or open one d
 
 msgid "Choose a root folder…"
 msgstr "Choose a root folder…"
+
+msgid "Choose the branch names and prefixes git-flow will use. The defaults follow the git-flow convention."
+msgstr "Choose the branch names and prefixes git-flow will use. The defaults follow the git-flow convention."
 
 msgid "Choose…"
 msgstr "Choose…"
@@ -205,6 +217,15 @@ msgstr "Commit message"
 msgid "commits"
 msgstr "commits"
 
+msgid "Compact"
+msgstr "Compact"
+
+msgid "Compact database"
+msgstr "Compact database"
+
+msgid "Compacting database…"
+msgstr "Compacting database…"
+
 msgid "Conflict {n}"
 msgstr "Conflict {n}"
 
@@ -229,8 +250,23 @@ msgstr "Create a repository"
 msgid "creating…"
 msgstr "creating…"
 
+msgid "Dark"
+msgstr "Dark"
+
 msgid "Dark theme"
 msgstr "Dark theme"
+
+msgid "Database compacted"
+msgstr "Database compacted"
+
+msgid "Database statistics"
+msgstr "Database statistics"
+
+msgid "Database statistics…"
+msgstr "Database statistics…"
+
+msgid "Database verified"
+msgstr "Database verified"
 
 msgid "date"
 msgstr "date"
@@ -247,6 +283,9 @@ msgstr "deleted on this side"
 msgid "Destination folder"
 msgstr "Destination folder"
 
+msgid "Development branch"
+msgstr "Development branch"
+
 msgid "Diff unavailable."
 msgstr "Diff unavailable."
 
@@ -262,6 +301,9 @@ msgstr "Drop"
 msgid "Empty diff."
 msgstr "Empty diff."
 
+msgid "English"
+msgstr "English"
+
 msgid "error"
 msgstr "error"
 
@@ -270,6 +312,12 @@ msgstr "Error: {msg}"
 
 msgid "expected tag"
 msgstr "expected tag"
+
+msgid "Feature"
+msgstr "Feature"
+
+msgid "Feature prefix"
+msgstr "Feature prefix"
 
 msgid "File"
 msgstr "File"
@@ -280,17 +328,32 @@ msgstr "Filter branches"
 msgid "Filter commits — message, author, hash"
 msgstr "Filter commits — message, author, hash"
 
+msgid "Finish"
+msgstr "Finish"
+
 msgid "Finish bugfix"
 msgstr "Finish bugfix"
+
+msgid "Finish bugfix {name}"
+msgstr "Finish bugfix {name}"
 
 msgid "Finish feature"
 msgstr "Finish feature"
 
+msgid "Finish feature {name}"
+msgstr "Finish feature {name}"
+
 msgid "Finish hotfix"
 msgstr "Finish hotfix"
 
+msgid "Finish hotfix {name}"
+msgstr "Finish hotfix {name}"
+
 msgid "Finish release"
 msgstr "Finish release"
+
+msgid "Finish release {name}"
+msgstr "Finish release {name}"
 
 msgid "finish target"
 msgstr "finish target"
@@ -301,8 +364,20 @@ msgstr "finish targets"
 msgid "Flat view"
 msgstr "Flat view"
 
+msgid "Français"
+msgstr "Français"
+
+msgid "Garbage files"
+msgstr "Garbage files"
+
+msgid "Garbage size"
+msgstr "Garbage size"
+
 msgid "Git console"
 msgstr "Git console"
+
+msgid "Git Flow"
+msgstr "Git Flow"
 
 #~ msgid "Hand-edited — undo the edits to re-enable the pickers."
 #~ msgstr "Hand-edited — undo the edits to re-enable the pickers."
@@ -319,14 +394,38 @@ msgstr "Hide sidebar"
 msgid "Home"
 msgstr "Home"
 
+msgid "Hotfix"
+msgstr "Hotfix"
+
+msgid "Hotfix prefix"
+msgstr "Hotfix prefix"
+
 msgid "https://… or git@…"
 msgstr "https://… or git@…"
 
 msgid "Image preview"
 msgstr "Image preview"
 
+msgid "Initialize"
+msgstr "Initialize"
+
 msgid "Initialize an empty repository in a new folder."
 msgstr "Initialize an empty repository in a new folder."
+
+msgid "Initialize Git Flow"
+msgstr "Initialize Git Flow"
+
+msgid "Initialize Git Flow…"
+msgstr "Initialize Git Flow…"
+
+msgid "initializing…"
+msgstr "initializing…"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "Light"
+msgstr "Light"
 
 msgid "Light theme"
 msgstr "Light theme"
@@ -334,8 +433,17 @@ msgstr "Light theme"
 msgid "loading files…"
 msgstr "loading files…"
 
+msgid "loading…"
+msgstr "loading…"
+
 msgid "Local repository"
 msgstr "Local repository"
+
+msgid "Loose objects"
+msgstr "Loose objects"
+
+msgid "Loose size"
+msgstr "Loose size"
 
 msgid "Mark as resolved"
 msgstr "Mark as resolved"
@@ -354,6 +462,9 @@ msgstr "Merged output — editable"
 
 msgid "Merging {theirs} (B) into {ours} (A)"
 msgstr "Merging {theirs} (B) into {ours} (A)"
+
+msgid "name"
+msgstr "name"
 
 msgid "Name"
 msgstr "Name"
@@ -403,6 +514,9 @@ msgstr "No staged files."
 msgid "none"
 msgstr "none"
 
+msgid "Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes."
+msgstr "Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes."
+
 msgid "Open a repository in a new tab."
 msgstr "Open a repository in a new tab."
 
@@ -418,6 +532,15 @@ msgstr "Open repository…"
 msgid "ours — current branch"
 msgstr "ours — current branch"
 
+msgid "Packed objects"
+msgstr "Packed objects"
+
+msgid "Packed size"
+msgstr "Packed size"
+
+msgid "Packs"
+msgstr "Packs"
+
 msgid "parent"
 msgstr "parent"
 
@@ -429,6 +552,27 @@ msgstr "Preview unavailable."
 
 msgid "Previous result"
 msgstr "Previous result"
+
+msgid "Production branch"
+msgstr "Production branch"
+
+msgid "Prunable objects"
+msgstr "Prunable objects"
+
+msgid "Publish"
+msgstr "Publish"
+
+msgid "Publish bugfix {name}"
+msgstr "Publish bugfix {name}"
+
+msgid "Publish feature {name}"
+msgstr "Publish feature {name}"
+
+msgid "Publish hotfix {name}"
+msgstr "Publish hotfix {name}"
+
+msgid "Publish release {name}"
+msgstr "Publish release {name}"
 
 msgid "Pull"
 msgstr "Pull"
@@ -444,6 +588,12 @@ msgstr "Ready"
 
 msgid "Recent"
 msgstr "Recent"
+
+msgid "Release"
+msgstr "Release"
+
+msgid "Release prefix"
+msgstr "Release prefix"
 
 msgid "Reload"
 msgstr "Reload"
@@ -462,6 +612,9 @@ msgstr "Remove line from the output"
 
 msgid "Report an issue…"
 msgstr "Report an issue…"
+
+msgid "Repository"
+msgstr "Repository"
 
 msgid "Repository created: {path}"
 msgstr "Repository created: {path}"
@@ -505,8 +658,32 @@ msgstr "Stage folder"
 msgid "Staged"
 msgstr "Staged"
 
+msgid "Start"
+msgstr "Start"
+
+msgid "Start a {kind} branch"
+msgstr "Start a {kind} branch"
+
+msgid "Start feature…"
+msgstr "Start feature…"
+
+msgid "Start hotfix…"
+msgstr "Start hotfix…"
+
+msgid "Start…"
+msgstr "Start…"
+
+msgid "starting…"
+msgstr "starting…"
+
 msgid "Stash changes (git stash push -u)"
 msgstr "Stash changes (git stash push -u)"
+
+msgid "Support prefix"
+msgstr "Support prefix"
+
+msgid "System"
+msgstr "System"
 
 msgid "tag {tag}"
 msgstr "tag {tag}"
@@ -534,6 +711,9 @@ msgstr "Text diff"
 
 msgid "theirs — incoming"
 msgstr "theirs — incoming"
+
+msgid "Theme"
+msgstr "Theme"
 
 msgid "to {targets}"
 msgstr "to {targets}"
@@ -573,6 +753,21 @@ msgstr "Unstaged"
 
 msgid "URL"
 msgstr "URL"
+
+msgid "Verify"
+msgstr "Verify"
+
+msgid "Verify database"
+msgstr "Verify database"
+
+msgid "Verifying database…"
+msgstr "Verifying database…"
+
+msgid "version"
+msgstr "version"
+
+msgid "Version tag prefix"
+msgstr "Version tag prefix"
 
 msgid "View"
 msgstr "View"

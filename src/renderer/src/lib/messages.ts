@@ -513,6 +513,9 @@ export const messages = {
     get view() {
       return t`View`
     },
+    get repository() {
+      return t`Repository`
+    },
     get help() {
       return t`Help`
     },
@@ -528,9 +531,6 @@ export const messages = {
     get goHome() {
       return t`Home`
     },
-    get darkTheme() {
-      return t`Dark theme`
-    },
     get reload() {
       return t`Reload`
     },
@@ -544,6 +544,198 @@ export const messages = {
       return t`Report an issue…`
     },
     about: (version: string) => t`Amont ${version}`,
+
+    /* View ▸ Language / Theme (runtime switch) */
+    get language() {
+      return t`Language`
+    },
+    get english() {
+      return t`English`
+    },
+    get french() {
+      return t`Français`
+    },
+    get theme() {
+      return t`Theme`
+    },
+    get themeLight() {
+      return t`Light`
+    },
+    get themeDark() {
+      return t`Dark`
+    },
+    get themeSystem() {
+      return t`System`
+    },
+
+    /* Repository ▸ maintenance */
+    get databaseStatistics() {
+      return t`Database statistics…`
+    },
+    get verifyDatabase() {
+      return t`Verify database`
+    },
+    get compactDatabase() {
+      return t`Compact database`
+    },
+
+    /* Repository ▸ Git Flow */
+    get gitFlow() {
+      return t`Git Flow`
+    },
+    get initializeGitFlow() {
+      return t`Initialize Git Flow…`
+    },
+    get flowFeature() {
+      return t`Feature`
+    },
+    get flowBugfix() {
+      return t`Bugfix`
+    },
+    get flowRelease() {
+      return t`Release`
+    },
+    get flowHotfix() {
+      return t`Hotfix`
+    },
+    get flowStart() {
+      return t`Start…`
+    },
+    get flowFinish() {
+      return t`Finish`
+    },
+    get flowPublish() {
+      return t`Publish`
+    },
+    get startFeature() {
+      return t`Start feature…`
+    },
+    get startHotfix() {
+      return t`Start hotfix…`
+    },
+    finishFeatureNamed: (name: string) => t`Finish feature ${name}`,
+    finishBugfixNamed: (name: string) => t`Finish bugfix ${name}`,
+    finishReleaseNamed: (name: string) => t`Finish release ${name}`,
+    finishHotfixNamed: (name: string) => t`Finish hotfix ${name}`,
+    publishFeatureNamed: (name: string) => t`Publish feature ${name}`,
+    publishBugfixNamed: (name: string) => t`Publish bugfix ${name}`,
+    publishReleaseNamed: (name: string) => t`Publish release ${name}`,
+    publishHotfixNamed: (name: string) => t`Publish hotfix ${name}`,
+  },
+
+  /* Git-flow surfaces driven by the Repository menu: the initialization modal and the inline
+     start banner (distinct from `flow` above, which is the read-only cockpit banner/card). */
+  gitflow: {
+    get initializeTitle() {
+      return t`Initialize Git Flow`
+    },
+    get initializeIntro() {
+      return t`Choose the branch names and prefixes git-flow will use. The defaults follow the git-flow convention.`
+    },
+    get productionBranch() {
+      return t`Production branch`
+    },
+    get developmentBranch() {
+      return t`Development branch`
+    },
+    get featurePrefix() {
+      return t`Feature prefix`
+    },
+    get bugfixPrefix() {
+      return t`Bugfix prefix`
+    },
+    get releasePrefix() {
+      return t`Release prefix`
+    },
+    get hotfixPrefix() {
+      return t`Hotfix prefix`
+    },
+    get supportPrefix() {
+      return t`Support prefix`
+    },
+    get versionTagPrefix() {
+      return t`Version tag prefix`
+    },
+    get initialize() {
+      return t`Initialize`
+    },
+    get initializing() {
+      return t`initializing…`
+    },
+    get cancel() {
+      return t`Cancel`
+    },
+    get start() {
+      return t`Start`
+    },
+    get starting() {
+      return t`starting…`
+    },
+    /* inline start banner — feature/bugfix take a name, release/hotfix a version */
+    get namePlaceholder() {
+      return t`name`
+    },
+    get versionPlaceholder() {
+      return t`version`
+    },
+    startLabel: (kind: string) => t`Start a ${kind} branch`,
+    get cancelStart() {
+      return t`Cancel`
+    },
+  },
+
+  maintenance: {
+    get title() {
+      return t`Database statistics`
+    },
+    get intro() {
+      return t`Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes.`
+    },
+    get looseObjects() {
+      return t`Loose objects`
+    },
+    get looseSize() {
+      return t`Loose size`
+    },
+    get packedObjects() {
+      return t`Packed objects`
+    },
+    get packs() {
+      return t`Packs`
+    },
+    get packedSize() {
+      return t`Packed size`
+    },
+    get prunable() {
+      return t`Prunable objects`
+    },
+    get garbageFiles() {
+      return t`Garbage files`
+    },
+    get garbageSize() {
+      return t`Garbage size`
+    },
+    get verify() {
+      return t`Verify`
+    },
+    get compact() {
+      return t`Compact`
+    },
+    get loading() {
+      return t`loading…`
+    },
+    get verifying() {
+      return t`Verifying database…`
+    },
+    get compacting() {
+      return t`Compacting database…`
+    },
+    get verified() {
+      return t`Database verified`
+    },
+    get compacted() {
+      return t`Database compacted`
+    },
   },
 
   flow: {
