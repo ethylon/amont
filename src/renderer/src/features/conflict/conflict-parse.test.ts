@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  CONFLICT_PLACEHOLDER,
   conflictCount,
   parseConflicts,
   pickPosition,
@@ -8,6 +9,7 @@ import {
   setSide,
   sideState,
   toggleLine,
+  unresolvedCount,
   type ConflictBlock,
   type Picks,
 } from "./conflict-parse"
@@ -104,13 +106,19 @@ describe("picks", () => {
     expect(renderPicks(segs, picks)).toBe("ctx\nb1\na2\na1\ntail")
   })
 
-  it("keeps the markers of an untouched conflict — resolve stays blocked, selection reversible", () => {
+  it("shows a placeholder for an untouched conflict — never the raw markers", () => {
     const segs = parseConflicts(TWO)
-    expect(renderPicks(segs, {})).toBe(TWO)
+    expect(renderPicks(segs, {})).toBe(`ctx\n${CONFLICT_PLACEHOLDER}\ntail`)
     let picks = toggleLine({}, 0, { side: "ours", line: 0 })
     picks = toggleLine(picks, 0, { side: "ours", line: 0 }) // unpick the only pick
-    expect(renderPicks(segs, picks)).toBe(TWO)
-    expect(conflictCount(parseConflicts(renderPicks(segs, picks)))).toBe(1)
+    expect(renderPicks(segs, picks)).toBe(`ctx\n${CONFLICT_PLACEHOLDER}\ntail`) // reversible
+  })
+
+  it("unresolvedCount blocks resolve on placeholders and on marker blocks alike", () => {
+    const segs = parseConflicts(TWO)
+    expect(unresolvedCount(renderPicks(segs, {}))).toBe(1)
+    expect(unresolvedCount(`  ${CONFLICT_PLACEHOLDER}\n${TWO}`)).toBe(2) // indented by hand + real block
+    expect(unresolvedCount(renderPicks(segs, setSide({}, blockOf(TWO), "ours", true)))).toBe(0)
   })
 
   it("setSide appends the side as a run at the end of the click order, off removes it everywhere", () => {
