@@ -69,6 +69,8 @@ export interface RepoStoreState {
     view: "commits" | "wt"
     diff: { ctx: DiffCtx; file: FileChange } | null
     diffMode: DiffViewMode
+    /** conflicted file open in the resolution view — exclusive with `diff`, same overlay slot */
+    conflict: FileChange | null
   }
   ops: {
     busyOp: OpName | null
@@ -99,6 +101,11 @@ export interface RepoStoreState {
   openDiff(ctx: DiffCtx, file: FileChange): void
   closeDiff(): void
   setDiffMode(v: DiffViewMode): void
+  openConflict(file: FileChange): void
+  closeConflict(): void
+  /** writes the merged output, stages the file (main-side `repo:resolve`), closes the view */
+  resolveConflict(path: string, content: string): Promise<void>
+  abortMerge(): Promise<void>
 
   setBusyOp(op: OpName | null): void
   showOp(text: string, color: OpState["color"], action?: OpState["action"]): void
@@ -146,6 +153,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       sidebarOpen: true,
       view: "commits",
       diff: null,
+      conflict: null,
       diffMode: prefs.diffView.get() || "unified",
     },
     ops: { busyOp: null, opState: null },
@@ -161,7 +169,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
         if (!additive) {
           return {
             selection: { hashes: [c.h], rows: [row], mode: "multi", focusedKeys: new Set(key ? [key] : []) },
-            ui: { ...s.ui, view: "commits", diff: null },
+            ui: { ...s.ui, view: "commits", diff: null, conflict: null },
           }
         }
         const hashes = new Set(s.selection.hashes)
@@ -172,7 +180,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
         if (key) removing ? focusedKeys.delete(key) : focusedKeys.add(key)
         return {
           selection: { hashes: [...hashes], rows: [...rows].sort((a, b) => a - b), mode: "multi", focusedKeys },
-          ui: { ...s.ui, view: "commits", diff: null },
+          ui: { ...s.ui, view: "commits", diff: null, conflict: null },
         }
       })
       /* explicit `active`: `row` is the row that just acted (click, ctrl-click, arrow…) — the
@@ -190,7 +198,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       const hashes = rows.map((r) => g.commit(r)!.h)
       set((s) => ({
         selection: { hashes, rows, mode: "branch", focusedKeys: new Set(key ? [key] : []) },
-        ui: { ...s.ui, view: "commits", diff: null },
+        ui: { ...s.ui, view: "commits", diff: null, conflict: null },
       }))
       g.setSelection(rows, row)
     },
@@ -211,7 +219,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
         const hashes = sorted.map((x) => g.commit(x)!.h)
         set((s) => ({
           selection: { hashes, rows: sorted, mode: r.kind === "tag" ? "multi" : "branch", focusedKeys: new Set([key]) },
-          ui: { ...s.ui, view: "commits", diff: null },
+          ui: { ...s.ui, view: "commits", diff: null, conflict: null },
         }))
         g.setSelection(get().selection.rows, row)
         return
@@ -226,7 +234,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
         const hashes = sortedRows.map((x) => g.commit(x)!.h)
         return {
           selection: { hashes, rows: sortedRows, mode: "multi", focusedKeys },
-          ui: { ...s.ui, view: "commits", diff: null },
+          ui: { ...s.ui, view: "commits", diff: null, conflict: null },
         }
       })
       g.setSelection(get().selection.rows, row)
@@ -239,7 +247,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
     clearFocus() {
       set((s) => ({
         selection: { hashes: [], rows: [], mode: s.selection.mode, focusedKeys: new Set() },
-        ui: { ...s.ui, diff: null },
+        ui: { ...s.ui, diff: null, conflict: null },
       }))
       get().graphRef.current?.setSelection([])
     },
@@ -286,7 +294,10 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       set((s) => ({ ui: { ...s.ui, sidebarOpen: !s.ui.sidebarOpen } }))
     },
     showWorktree() {
-      set((s) => ({ selection: { ...s.selection, rows: [], hashes: [] }, ui: { ...s.ui, diff: null, view: "wt" } }))
+      set((s) => ({
+        selection: { ...s.selection, rows: [], hashes: [] },
+        ui: { ...s.ui, diff: null, conflict: null, view: "wt" },
+      }))
       get().graphRef.current?.setSelection([])
     },
     showCommits() {
@@ -296,11 +307,40 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       set((s) => ({ ui: { ...s.ui, diff: { ctx, file } } }))
     },
     closeDiff() {
-      set((s) => ({ ui: { ...s.ui, diff: null } }))
+      set((s) => ({ ui: { ...s.ui, diff: null, conflict: null } }))
     },
     setDiffMode(v) {
       prefs.diffView.set(v)
       set((s) => ({ ui: { ...s.ui, diffMode: v } }))
+    },
+    openConflict(file) {
+      set((s) => ({ ui: { ...s.ui, diff: null, conflict: file } }))
+    },
+    closeConflict() {
+      set((s) => ({ ui: { ...s.ui, conflict: null } }))
+    },
+
+    /* Same shape as runWt (failure = badge, no reload): resolving only moves the file from
+       `conflicts` to `staged`, the graph has nothing to relayout. The conflict cache is
+       invalidated here rather than in `invalidateRepo` — a background refetch elsewhere
+       would clobber an in-progress edit of another file (cf. conflict-queries.ts). */
+    async resolveConflict(path, content) {
+      try {
+        await api.resolve(path, content)
+      } catch (e) {
+        get().showOp(describeError(e), "danger")
+        return
+      }
+      set((s) => ({ ui: { ...s.ui, conflict: null } }))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.conflictAll(repoId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.mergeState(repoId) }),
+      ])
+    },
+
+    abortMerge() {
+      return get().runGitAction(() => api.mergeAbort())
     },
 
     setBusyOp(op) {
@@ -321,7 +361,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
     },
 
     async resetAndLoad() {
-      set((s) => ({ ui: { ...s.ui, diff: null, view: "commits" } }))
+      set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, view: "commits" } }))
       await get().graphRef.current?.reset()
       await get().reresolveSelection()
       await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })

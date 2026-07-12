@@ -24,6 +24,9 @@ export const queryKeys = {
   status: (id: number) => ["status", id] as const,
   refs: (id: number) => ["refs", id] as const,
   worktree: (id: number) => ["worktree", id] as const,
+  mergeState: (id: number) => ["mergeState", id] as const,
+  conflict: (id: number, path: string) => ["conflict", id, path] as const,
+  conflictAll: (id: number) => ["conflict", id] as const,
   stashes: (id: number) => ["stashes", id] as const,
   flow: (id: number) => ["flow", id] as const,
   flowInfo: (id: number, branch: string | null, kind: keyof FlowPrefixes | null) =>
@@ -39,6 +42,7 @@ export const queryKeys = {
     `onChanged` and at the end of any mutation (checkout, stash, branch, commit, network op). */
 export function invalidateRepo(client: QueryClient, id: number): void {
   void client.invalidateQueries({ queryKey: queryKeys.status(id) })
+  void client.invalidateQueries({ queryKey: queryKeys.mergeState(id) })
   void client.invalidateQueries({ queryKey: queryKeys.refs(id) })
   void client.invalidateQueries({ queryKey: queryKeys.stashes(id) })
   void client.invalidateQueries({ queryKey: queryKeys.flow(id) })
