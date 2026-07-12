@@ -10,6 +10,7 @@ import { app, BrowserWindow, Menu, nativeTheme, shell } from "electron"
 
 import { killCreations } from "./create.ts"
 import { closeAll } from "./repos.ts"
+import { captureRendererGone } from "./telemetry.ts"
 
 let mainWindow: BrowserWindow | null = null
 
@@ -73,7 +74,14 @@ export function createWindow(): void {
     if (d.reason === "clean-exit") return
     const now = Date.now()
     reloads = reloads.filter((t) => now - t < RELOAD_WINDOW_MS)
-    if (reloads.length < RELOAD_MAX) {
+    const suspended = reloads.length >= RELOAD_MAX
+    /* crashed/oom are exactly the reasons @sentry/electron's default integration turns into
+       breadcrumbs but never events — report them by hand so they don't die in incidents.log
+       (cf. captureRendererGone). The others (abnormal-exit/launch-failed/…) it already captures. */
+    if (d.reason === "crashed" || d.reason === "oom") {
+      captureRendererGone(d.reason, d.exitCode, { recentReloads: reloads.length, suspended })
+    }
+    if (!suspended) {
       reloads.push(now)
       return win.webContents.reload()
     }
