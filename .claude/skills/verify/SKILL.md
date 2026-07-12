@@ -41,12 +41,15 @@ via `colorScheme` on the browser context.
   conflict, per-line `+`/`−` buttons (`Add/Remove line …`) pick single lines — the output
   region lists picked lines in click order (each shows its 1-based position). An unpicked
   conflict shows as a `<merge conflict>` placeholder in the output (never raw markers);
-  unpicking everything brings the placeholder back. Panes are shiki-highlighted (target
-  the chunk checkboxes with `span[role="checkbox"][aria-label="Take A"]` — getByLabel also
-  matches base-ui's hidden input). Typing in the merged output
-  (`getByLabel("Merged output — editable")`) freezes the pickers until "Undo edits".
-  "Mark as resolved" enables once no markers remain and moves the file to STAGED. Escape
-  closes the overlay.
+  unpicking everything brings the placeholder back. Panes AND the editable output are
+  shiki-highlighted — the output is a transparent textarea (`getByLabel("Merged output —
+  editable")`) over a scroll-synced `<pre>`; count its colored spans via
+  `textarea.parentElement.querySelector("pre")`. Target the chunk checkboxes with
+  `span[role="checkbox"][aria-label="Take A"]` (getByLabel also matches base-ui's hidden
+  input). Picks and hand edits COEXIST: typing does NOT lock the pickers, and toggling a
+  pick splices only that conflict's block, preserving edits elsewhere ("Reset to selection"
+  regenerates the output from the current picks). "Mark as resolved" enables once no
+  placeholder or marker remains and moves the file to STAGED. Escape closes the overlay.
 - `window.__changed()` in the console simulates an external `.git` change.
 
 ## Gotchas
