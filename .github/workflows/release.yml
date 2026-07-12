@@ -46,6 +46,10 @@ jobs:
           # Set the `SENTRY_DSN` repository variable to enable it; unset → empty → telemetry stays
           # inert. A DSN ends up embedded in the shipped binary, so it's a variable, not a secret.
           MAIN_VITE_SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+          # Source-map upload for readable stack traces (cf. electron.vite.config.mjs). The token
+          # grants write access to the Sentry project and is NOT embedded in the binary, so it's a
+          # secret. Unset → source maps aren't generated or uploaded; the build still succeeds.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - run: gh release edit ${{ github.ref_name }} --draft=false --latest
         env:
