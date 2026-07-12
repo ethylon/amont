@@ -56,6 +56,9 @@ export interface GitRunner {
   /** `diff --no-index` against a path outside the repo (untracked file): exit 1 is the
       normal case (a difference exists), not a failure — so it doesn't go through `git()`. */
   diffNoIndex(a: string, b: string): Promise<string>
+  /** Raw stdout as a Buffer, not decoded as utf8: `cat-file blob` on an image or any other
+      binary object would be corrupted by the StringDecoder that `git()` installs. */
+  gitBuffer(args: string[]): Promise<Buffer>
 }
 
 function killGracefully(child: ChildProcess): void {
@@ -183,5 +186,32 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
     })
   }
 
-  return { git, diffNoIndex }
+  /* Binary read (image preview, cf. git/queries.ts blob()). Unlike git(), stdout is collected
+     as a Buffer — no utf8 decoding — so image bytes survive intact. execFile buffers the whole
+     output; the caller checks `cat-file -s` first and never asks for a blob past the cap, so
+     `maxBuffer` here is only a backstop. */
+  function gitBuffer(args: string[]): Promise<Buffer> {
+    ctx.trace?.({ kind: "cmd", text: `git ${args.join(" ")}` })
+    return new Promise((resolve, reject) => {
+      const child = execFile(
+        "git",
+        ["-C", ctx.path, ...args],
+        { maxBuffer: OUTPUT_CAP, encoding: "buffer", env: GIT_ENV, windowsHide: true, timeout: DEFAULT_TIMEOUT, killSignal: "SIGKILL" },
+        (err, stdout) => {
+          ctx.children.delete(child)
+          if (err) {
+            if ((err as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
+              return reject(new AppError("OUTPUT_LIMIT"))
+            if ((err as { killed?: boolean }).killed) return reject(new AppError("TIMEOUT"))
+            const failure = classifyGitFailure({ exitCode: null, stdout: "", stderr: err.message, killedBy: null })
+            return reject(new AppError(failure.code, failure.detail))
+          }
+          resolve(stdout)
+        }
+      )
+      ctx.children.add(child)
+    })
+  }
+
+  return { git, diffNoIndex, gitBuffer }
 }

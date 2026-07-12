@@ -231,6 +231,8 @@ export function registerIpc(): void {
     return withCancel(r, requestId, (signal) => queries.diff(r, hash, parent, path, oldPath, signal))
   })
 
+  handle("repo:blob", (_ev, id, path, ref) => queries.blob(repos.use(id), path, ref))
+
   handle("repo:search", (_ev, id, q, content, requestId) => {
     const r = repos.use(id)
     if (typeof q !== "string" || q.trim().length < 2) return Promise.resolve([])
