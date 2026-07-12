@@ -83,7 +83,7 @@ export function setTelemetryEnabled(value: boolean): Promise<void> {
 export function captureRendererGone(
   reason: string,
   exitCode: number,
-  info: { recentReloads: number; suspended: boolean },
+  info: { recentReloads: number; suspended: boolean }
 ): void {
   if (!DSN || !enabled) return
   Sentry.captureMessage(`renderer gone: ${reason}`, {
