@@ -80,10 +80,11 @@ const CONFLICT_MAX = 4 * 1024 * 1024
     missing stage (delete/modify, add/add): null, the renderer says "deleted on this side". */
 export async function conflict(r: RepoHandle, path: string): Promise<ConflictFile> {
   const full = inRepo(r, path) // validates and confines before anything touches git or disk
-  const stage = (n: 1 | 2 | 3) => r.git(["cat-file", "blob", `:${n}:${path}`]).then(
-    (o) => o,
-    () => null
-  )
+  const stage = (n: 1 | 2 | 3) =>
+    r.git(["cat-file", "blob", `:${n}:${path}`]).then(
+      (o) => o,
+      () => null
+    )
   const [base, ours, theirs] = await Promise.all([stage(1), stage(2), stage(3)])
   const merged = await readFile(full, "utf8").catch(() => "")
   if (merged.length > CONFLICT_MAX) throw new AppError("OUTPUT_LIMIT", path)

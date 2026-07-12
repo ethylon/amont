@@ -52,9 +52,15 @@ describe("parseConflicts", () => {
   })
 
   it("drops the diff3 base section from both sides", () => {
-    const text = ["<<<<<<< HEAD", "ours", "||||||| merged common ancestors", "base", "=======", "theirs", ">>>>>>> other"].join(
-      "\n"
-    )
+    const text = [
+      "<<<<<<< HEAD",
+      "ours",
+      "||||||| merged common ancestors",
+      "base",
+      "=======",
+      "theirs",
+      ">>>>>>> other",
+    ].join("\n")
     const [seg] = parseConflicts(text)
     expect(seg).toMatchObject({ kind: "conflict", ours: ["ours"], theirs: ["theirs"] })
   })
@@ -83,17 +89,7 @@ describe("parseConflicts", () => {
 })
 
 /* two-line sides, to exercise partial picks and ordering */
-const TWO = [
-  "ctx",
-  "<<<<<<< HEAD",
-  "a1",
-  "a2",
-  "=======",
-  "b1",
-  "b2",
-  ">>>>>>> feature/x",
-  "tail",
-].join("\n")
+const TWO = ["ctx", "<<<<<<< HEAD", "a1", "a2", "=======", "b1", "b2", ">>>>>>> feature/x", "tail"].join("\n")
 
 const blockOf = (text: string, index = 0): ConflictBlock =>
   parseConflicts(text).filter((s) => s.kind === "conflict")[index]
@@ -191,9 +187,7 @@ describe("applyPickDiff — picks coexist with hand edits", () => {
     const s = segs()
     const from = renderPicks(s, {}) // top / <merge conflict> / mid / <merge conflict> / bot
     const next = toggleLine({}, 1, { side: "ours", line: 0 })
-    expect(applyPickDiff(s, blocks(), from, {}, next)).toBe(
-      `top\n${CONFLICT_PLACEHOLDER}\nmid\na2\nbot`
-    )
+    expect(applyPickDiff(s, blocks(), from, {}, next)).toBe(`top\n${CONFLICT_PLACEHOLDER}\nmid\na2\nbot`)
   })
 
   it("preserves a hand edit to context when a pick is toggled", () => {
