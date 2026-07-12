@@ -2,14 +2,15 @@ import { useCallback, useEffect, useState } from "react"
 import { flushSync } from "react-dom"
 
 import { host, type BootState, type Repo } from "@/lib/git"
-import { afterClose, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/app/navigation"
+import { afterClose, CREATE, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/app/navigation"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/app/error-boundary"
+import { CreateScreen } from "@/features/create/create-screen"
 import { HomeScreen } from "@/features/home/home-screen"
 import { RepoView } from "@/features/repo/repo-view"
-import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-strip"
+import { CREATE as TAB_STRIP_CREATE, HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-strip"
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
@@ -22,8 +23,9 @@ function transition(type: "next" | "prev" | "open", update: () => void) {
 /** TabStrip keeps its numeric API (0 = home, see tab-strip.tsx) — the component boundary
     hasn't moved, only App's internal state adopts the discriminated union `NavKey` (AUDIT.md §5,
     item 6: the `HOME = 0` sentinel shared the repo id space by pure convention). */
-const toTabKey = (k: NavKey): number => (k.kind === "home" ? TAB_STRIP_HOME : k.id)
-const fromTabKey = (n: number): NavKey => (n === TAB_STRIP_HOME ? HOME : repoKey(n))
+const toTabKey = (k: NavKey): number =>
+  k.kind === "home" ? TAB_STRIP_HOME : k.kind === "create" ? TAB_STRIP_CREATE : k.id
+const fromTabKey = (n: number): NavKey => (n === TAB_STRIP_HOME ? HOME : n === TAB_STRIP_CREATE ? CREATE : repoKey(n))
 
 type Props = {
   /** promise set once by main.tsx (see boot() in lib/git.ts) */
@@ -120,6 +122,7 @@ export default function App({ boot }: Props) {
   )
 
   const homeActive = active.kind === "home"
+  const createActive = active.kind === "create"
 
   return (
     <div className="flex h-full flex-col">
@@ -142,6 +145,17 @@ export default function App({ boot }: Props) {
           className={cn("amont-tabbody absolute inset-0 flex flex-col", !homeActive && "invisible")}
         >
           <HomeScreen active={homeActive} onOpened={openTab} />
+        </div>
+
+        {/* the creation page (the "+"): pinned like home, its form state survives tab switches */}
+        <div
+          role="tabpanel"
+          id={panelId(TAB_STRIP_CREATE)}
+          aria-labelledby={tabId(TAB_STRIP_CREATE)}
+          data-tab-active={createActive || undefined}
+          className={cn("amont-tabbody absolute inset-0 flex flex-col", !createActive && "invisible")}
+        >
+          <CreateScreen active={createActive} onOpened={openTab} />
         </div>
 
         {tabs

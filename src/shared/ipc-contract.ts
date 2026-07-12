@@ -23,6 +23,7 @@ import type {
   OpEvent,
   OpName,
   OpenResult,
+  Repo,
   RepoRef,
   Stash,
   StashAct,
@@ -42,6 +43,18 @@ export type InvokeChannels = {
   "repo:close": (id: number) => Promise<void>
   "root:choose": () => Promise<string | null>
   "root:scan": () => Promise<RepoRef[]>
+
+  /* Creation page (the "+" in the tab strip). The renderer never supplies an arbitrary
+     destination: `create:chooseDir` shows the system picker and main remembers the choice —
+     same confinement model as `openable` (cf. main/state.ts, main/create.ts). */
+  "create:chooseDir": () => Promise<string | null>
+  /** `git init` in a new `dir/name` folder, opened as a tab right away. */
+  "create:init": (dir: string, name: string) => Promise<Repo>
+  /** `git init --bare` in `dir/name(.git)` — a remote-style repo, no working tree to open;
+      resolves to the created path, for the confirmation message. */
+  "create:bare": (dir: string, name: string) => Promise<string>
+  /** `git clone url` into a new `dir/name` folder, opened as a tab right away. */
+  "create:clone": (dir: string, url: string, name: string) => Promise<Repo>
 
   "repo:op": (id: number, name: OpName) => Promise<void>
   "repo:status": (id: number) => Promise<Status>
@@ -104,6 +117,10 @@ export type Bridge = {
   close: InvokeChannels["repo:close"]
   chooseRoot: InvokeChannels["root:choose"]
   scanRoot: InvokeChannels["root:scan"]
+  chooseCreateDir: InvokeChannels["create:chooseDir"]
+  initRepo: InvokeChannels["create:init"]
+  initBare: InvokeChannels["create:bare"]
+  cloneRepo: InvokeChannels["create:clone"]
 
   onOp(cb: (payload: EventChannels["git:op"]) => void): () => void
   onChanged(cb: (payload: EventChannels["git:changed"]) => void): () => void
