@@ -2,12 +2,6 @@
 
 A fast, keyboard-friendly Git history visualizer for Windows.
 
-> [!WARNING]
-> This project is almost entirely written by AI (Claude, via Claude Code) under human
-> direction and review. Quality is not guaranteed. Read the code, file issues, and treat it
-> like any other early-stage open-source project you'd audit before trusting it with
-> production repositories.
-
 <!-- Screenshots to capture, then uncomment:
      ![Amont — commit graph](docs/screenshot-graph.png)
      docs/screenshot-graph.png (main commit graph + detail panel),
