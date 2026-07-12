@@ -26,13 +26,13 @@ describe("parseMarkdown", () => {
   })
 
   it("recognizes the three bullet markers and closes the block on paragraph ↔ list switch", () => {
-    assert.deepEqual(md("Avant\n- un\n* deux\n+ trois\nAprès"), ["p(Avant)", "ul(un|deux|trois)", "p(Après)"])
+    assert.deepEqual(md("Before\n- one\n* two\n+ three\nAfter"), ["p(Before)", "ul(one|two|three)", "p(After)"])
   })
 
   it("tokenizes inline content (code, bold, italic, link)", () => {
-    assert.deepEqual(md("un `git log` ici"), ["p(un code[git log] ici)"])
+    assert.deepEqual(md("a `git log` here"), ["p(a code[git log] here)"])
     assert.deepEqual(md("**gras** et *italique*"), ["p(bold[gras] et em[italique])"])
-    assert.deepEqual(md("voir https://x.io/a?b=1 pour"), ["p(voir link[https://x.io/a?b=1] pour)"])
+    assert.deepEqual(md("see https://x.io/a?b=1 for"), ["p(see link[https://x.io/a?b=1] for)"])
   })
 
   it("does not let italics cut through an identifier; ** wins over *", () => {

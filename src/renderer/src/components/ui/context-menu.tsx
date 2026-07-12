@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/primitives/context-menu"
 import { cn } from "@/lib/utils"
 
-/* Surcharge du primitive : min-h-7 → min-h-6 sur les items et sub-triggers. */
+/* Overrides the primitive: min-h-7 → min-h-6 on items and sub-triggers. */
 function ContextMenuItem({ className, ...props }: React.ComponentProps<typeof ContextMenuItemPrimitive>) {
   return <ContextMenuItemPrimitive className={cn("min-h-6", className)} {...props} />
 }

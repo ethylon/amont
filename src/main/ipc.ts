@@ -10,6 +10,7 @@ import type { InvokeChannel, InvokeChannels } from "../shared/ipc-contract.ts"
 import type { BootState, Repo } from "../shared/types.ts"
 import * as flow from "./git/flow.ts"
 import * as ops from "./git/ops.ts"
+import { BRANCH } from "./git/parse.ts"
 import * as queries from "./git/queries.ts"
 import * as repos from "./repos.ts"
 import { scan } from "./scan.ts"
@@ -58,7 +59,13 @@ function withCancel<T>(
   if (!requestId) return fn()
   const controller = new AbortController()
   r.requests.set(requestId, controller)
-  return fn(controller.signal).finally(() => r.requests.delete(requestId))
+  /* Async boundary: some handlers (files/body/diff) validate their arguments synchronously
+     and throw before returning a promise. Without this, that throw would escape before the
+     .finally() is attached and leave the controller in the map for good — a renderer feeding
+     malformed hashes could grow it without bound. */
+  return Promise.resolve()
+    .then(() => fn(controller.signal))
+    .finally(() => r.requests.delete(requestId))
 }
 
 export function registerIpc(): void {
@@ -159,7 +166,7 @@ export function registerIpc(): void {
 
   handle("repo:flowInfo", (_ev, id, branch, kind) => {
     const r = repos.use(id)
-    if (typeof branch !== "string") throw new AppError("BAD_ARG", "branch")
+    if (typeof branch !== "string" || !BRANCH.test(branch)) throw new AppError("BAD_ARG", "branch")
     if (!flow.FLOW_TYPES.includes(kind)) throw new AppError("BAD_ARG", "kind")
     return flow.flowInfo(r, branch, kind)
   })
