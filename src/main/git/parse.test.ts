@@ -11,12 +11,16 @@ import {
   flowVersionSuffix,
   parseFlowPrefixes,
   parseForEachRef,
+  parseLogPage,
   parseNameStatus,
   parsePorcelain,
   parseStashList,
 } from "./parse.ts"
 
 const NUL = "\0"
+/* the two control bytes git emits between commits (RS) and fields (US) — cf. the pretty format */
+const RS = "\x1e"
+const US = "\x1f"
 
 describe("parseNameStatus (--name-status -z, fix B3)", () => {
   it("returns an empty array for empty output (commit with no file)", () => {
@@ -61,6 +65,49 @@ describe("parseNameStatus (--name-status -z, fix B3)", () => {
 
   it("returns the complete entries of a truncated output (process killed mid-flight), without throwing", () => {
     assert.deepEqual(parseNameStatus(`M${NUL}ok.ts${NUL}R100${NUL}orphan`), [{ st: "M", path: "ok.ts", old: null }])
+  })
+})
+
+describe("parseLogPage (RS/US-delimited log page)", () => {
+  /** one commit row: hash, parents, date, author, email, refs, subject… */
+  const row = (fields: string[]) => fields.join(US)
+
+  it("returns an empty array for empty output", () => {
+    assert.deepEqual(parseLogPage(""), [])
+  })
+
+  it("parses a commit's seven fields into the Commit shape", () => {
+    const out = row(["abc123", "p1 p2", "2026-01-01", "Ada", "ada@x.io", "HEAD -> main", "init"])
+    assert.deepEqual(parseLogPage(out), [
+      { h: "abc123", p: ["p1", "p2"], d: "2026-01-01", a: "Ada", e: "ada@x.io", r: "HEAD -> main", s: "init" },
+    ])
+  })
+
+  it("splits multiple commits on the record separator and trims the hash", () => {
+    const out = [
+      row([" h1 ", "", "d1", "A", "a@x", "", "first"]),
+      row(["h2", "h1", "d2", "B", "b@x", "", "second"]),
+    ].join(RS)
+    const commits = parseLogPage(out)
+    assert.equal(commits.length, 2)
+    assert.equal(commits[0].h, "h1", "hash trimmed")
+    assert.deepEqual(commits[0].p, [], "no parents (root commit)")
+    assert.deepEqual(commits[1].p, ["h1"])
+  })
+
+  it("reattaches a subject that itself contains a field separator, joined by a space", () => {
+    // git doesn't filter control bytes out of %s: the extra fields fold back into the subject
+    // (slice(6).join(" ")), the stray separator surfacing as a space rather than shattering the row
+    const out = row(["h", "", "d", "A", "a@x", "", "sub", "ject"])
+    assert.equal(parseLogPage(out)[0].s, "sub ject")
+  })
+
+  it("discards a row with too few fields (a subject-forged short line)", () => {
+    const out = [row(["h", "", "d", "A", "a@x", "", "ok"]), "not enough fields"].join(RS)
+    assert.deepEqual(
+      parseLogPage(out).map((c) => c.h),
+      ["h"]
+    )
   })
 })
 
