@@ -139,6 +139,30 @@ export type CommitMessage = { subject: string; body: string }
 
 export type Worktree = Record<"staged" | "unstaged" | "untracked" | "conflicts", FileChange[]>
 
+/** The merge in progress, if any — the source of the "who is A, who is B" labels of the
+    conflict view. `ours` is the checked-out branch (side A, stage 2 of the index), `theirs`
+    the branch being merged in (side B, stage 3, i.e. MERGE_HEAD). A conflict can exist
+    without a merge (stash pop, cherry-pick): `merging` is false and both labels are null —
+    the renderer falls back to generic "ours"/"theirs" wording. */
+export type MergeState = {
+  merging: boolean
+  /** side A label: current branch name, or null (detached HEAD, no merge) */
+  ours: string | null
+  /** side B label: a branch pointing at MERGE_HEAD, else its short hash, or null */
+  theirs: string | null
+}
+
+/** The versions of one conflicted path. A missing index stage is null: no `base` for an
+    add/add, no `ours` when deleted on our side, no `theirs` when deleted on theirs. */
+export type ConflictFile = {
+  base: string | null
+  ours: string | null
+  theirs: string | null
+  /** working-file content, conflict markers included — the starting point of the editable
+      merged output */
+  merged: string
+}
+
 export type OpName = "fetch" | "pull" | "push"
 
 /* The "error" case carries a structured code rather than a pre-formatted French message (fix

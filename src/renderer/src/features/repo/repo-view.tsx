@@ -89,6 +89,8 @@ function RepoViewContent({ repo, active }: Props) {
   const diff = useRepoStore((s) => s.ui.diff)
   const selection = useRepoStore((s) => s.selection.rows)
   const selMode = useRepoStore((s) => s.selection.mode)
+  const conflict = useRepoStore((s) => s.ui.conflict)
+  const closeConflict = useRepoStore((s) => s.closeConflict)
   const opState = useRepoStore((s) => s.ops.opState)
   const busyOp = useRepoStore((s) => s.ops.busyOp)
   const stats = useRepoStore((s) => s.graph.stats)
@@ -128,6 +130,10 @@ function RepoViewContent({ repo, active }: Props) {
     }
     if (ev.key === "Escape" && diff) {
       closeDiff()
+      return true
+    }
+    if (ev.key === "Escape" && conflict) {
+      closeConflict()
       return true
     }
     return false

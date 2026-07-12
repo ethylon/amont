@@ -235,6 +235,10 @@ export function registerIpc(): void {
   handle("repo:checkout", (_ev, id, name) => ops.checkout(repos.use(id), name))
   handle("repo:stashes", (_ev, id) => queries.stashList(repos.use(id)))
   handle("repo:stash", (_ev, id, action, arg) => ops.stashAction(repos.use(id), action, arg))
+  handle("repo:mergeState", (_ev, id) => queries.mergeState(repos.use(id)))
+  handle("repo:conflict", (_ev, id, path) => queries.conflict(repos.use(id), path))
+  handle("repo:resolve", (_ev, id, path, content) => ops.resolveConflict(repos.use(id), path, content))
+  handle("repo:mergeAbort", (_ev, id) => ops.mergeAbort(repos.use(id)))
 
   handle("repo:cancel", (_ev, id, requestId) => {
     repos.use(id).requests.get(requestId)?.abort()

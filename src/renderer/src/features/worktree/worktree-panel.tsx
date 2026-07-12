@@ -4,6 +4,7 @@ import { ArchiveArrowDownIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/co
 
 import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
 import { messages } from "@/lib/messages"
+import { useMergeStateQuery } from "@/features/conflict/conflict-queries"
 import { useStatusQuery } from "@/features/repo/repo-queries"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore } from "@/features/repo/repo-store"
@@ -108,7 +109,8 @@ export function WorktreePanel() {
   const repoId = useRepoStore((s) => s.repoId)
   const { data: worktree = EMPTY_WT } = useWorktreeQuery(api, repoId)
   const { data: status } = useStatusQuery(api, repoId)
-  const activePath = useRepoStore((s) => s.ui.diff?.file.path)
+  const { data: mergeSt } = useMergeStateQuery(api, repoId)
+  const activePath = useRepoStore((s) => s.ui.diff?.file.path ?? s.ui.conflict?.path)
   const subject = useRepoStore((s) => s.commitDraft.subject)
   const description = useRepoStore((s) => s.commitDraft.description)
   const amend = useRepoStore((s) => s.commitDraft.amend)
@@ -116,6 +118,8 @@ export function WorktreePanel() {
   const onDescriptionChange = useRepoStore((s) => s.setDescription)
   const onAmendChange = useRepoStore((s) => s.toggleAmend)
   const onOpenDiff = useRepoStore((s) => s.openDiff)
+  const onOpenConflict = useRepoStore((s) => s.openConflict)
+  const onAbortMerge = useRepoStore((s) => s.abortMerge)
   const onRun = useRepoStore((s) => s.runWt)
   const onCommit = useRepoStore((s) => s.doCommit)
   const runStash = useRepoStore((s) => s.runStash)
@@ -132,10 +136,14 @@ export function WorktreePanel() {
   const hasConflicts = worktree.conflicts.length > 0
   const ready = subject.trim().length > 0 && !hasConflicts && (amend ? canAmend : staged > 0)
 
-  /* A single "unindexed" block: conflicts, modifications and untracked files. Each keeps
+  /* Conflicts get their own block: a click opens the resolution view (not a diff), and
+     they carry no stage button — staging a file still full of markers is exactly the
+     mistake the dedicated flow (conflict-view.tsx) exists to prevent. */
+  const conflicts: WtFile[] = worktree.conflicts.map((f) => ({ ...f, source: "unstaged" as const }))
+
+  /* A single "unindexed" block: modifications and untracked files. Each keeps
      its source so the diff opens with the right command. */
   const unindexed: WtFile[] = [
-    ...worktree.conflicts.map((f) => ({ ...f, source: "unstaged" as const })),
     ...worktree.unstaged.map((f) => ({ ...f, source: "unstaged" as const })),
     ...worktree.untracked.map((f) => ({ ...f, source: "untracked" as const })),
   ]
@@ -197,8 +205,43 @@ export function WorktreePanel() {
         </div>
       </div>
 
-      {/* two equal-share blocks, each with its own scroll, always visible */}
+      {/* Merge in progress: names both sides once for the whole panel — the same A/B
+          vocabulary the conflict view uses — and offers the way out. */}
+      {mergeSt?.merging && (
+        <div className="mt-3 flex shrink-0 items-center justify-between gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1">
+          <span className="text-xs text-balance">
+            {messages.conflict.mergeBanner(mergeSt.theirs ?? "MERGE_HEAD", mergeSt.ours ?? "HEAD")}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto shrink-0 py-0.5 normal-case tracking-normal text-destructive"
+            onClick={onAbortMerge}
+          >
+            <span className="flex flex-col items-start">
+              <span>{messages.conflict.abortMerge}</span>
+              <GitCmd cmd="git merge --abort" />
+            </span>
+          </Button>
+        </div>
+      )}
+
+      {/* equal-share blocks, each with its own scroll, always visible */}
       <div className="mt-4 flex min-h-0 flex-1 flex-col border-t pt-3">
+        {hasConflicts && (
+          <WtBlock
+            title={messages.conflict.conflicts}
+            files={conflicts}
+            view={view}
+            api={api}
+            activePath={activePath}
+            onOpen={(f) => onOpenConflict(f)}
+            action={() => null}
+            dirAction={() => null}
+            empty=""
+            className="pb-3"
+          />
+        )}
         <WtBlock
           title={messages.worktree.unstaged}
           files={unindexed}
@@ -222,7 +265,7 @@ export function WorktreePanel() {
               : undefined
           }
           empty={messages.worktree.noChangesToStage}
-          className="pb-3"
+          className={cn("pb-3", hasConflicts && "border-t pt-3")}
         />
         <WtBlock
           title={messages.worktree.staged}
