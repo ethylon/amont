@@ -35,9 +35,9 @@ Posture already in place:
 Official release builds send unhandled errors and native crashes to Sentry. This is the only
 outbound data flow besides author avatars, and it's a deliberate one:
 
-- It's **off unless a DSN is baked in at build time** (`MAIN_VITE_SENTRY_DSN`, from a CI
-  repository variable for releases, or a gitignored `.env` locally), so builds from source and
-  dev runs send nothing — nothing to disable, nothing leaks.
+- It's **off unless a DSN is baked in at build time** (`MAIN_VITE_SENTRY_DSN`, set from a CI
+  repository variable for release builds), so builds from source and dev runs send nothing —
+  nothing to disable, nothing leaks.
 - It's **opt-out at runtime** (home-screen toggle, persisted in `state.json`); when off,
   `beforeSend` drops every event, including native minidumps, before it leaves the process.
 - Reports exclude PII (`sendDefaultPii: false`, plus hostname/user scrubbed in `beforeSend`)
