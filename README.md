@@ -104,9 +104,18 @@ instant reload without packaging or spawning git processes.
 
 ### Crash reporting (maintainers)
 
-Error reporting is inert unless a Sentry DSN is baked in at build time. To enable it in your
-own release builds, copy `.env.example` to `.env` (gitignored) and set `MAIN_VITE_SENTRY_DSN`.
-Every build without it — including every build from source and `pnpm dev` — sends nothing.
+Error reporting is inert unless a Sentry DSN is baked in at build time, via the
+`MAIN_VITE_SENTRY_DSN` build-time env variable (electron-vite reads it from the shell, no file
+required). Every build without it — including every build from source, `pnpm dev`, and CI —
+sends nothing.
+
+- **Official releases (CI):** set a `SENTRY_DSN` **repository variable**; the release workflow
+  maps it into the build (`.github/workflows/release.yml`). A DSN is embedded in the shipped
+  binary, so it's not confidential — a variable, not a secret (a secret works too, just swap
+  `vars.` for `secrets.`).
+- **Local testing:** copy `.env.example` to `.env` (gitignored) and set the DSN there, then
+  `pnpm dev` or `pnpm build`.
+
 See the [Privacy](#privacy) section for what's reported and `src/main/telemetry.ts` for how.
 
 ## Contributing

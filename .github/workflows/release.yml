@@ -42,6 +42,10 @@ jobs:
       - run: pnpm release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Crash reporting: baked in only for official release builds (cf. main/telemetry.ts).
+          # Set the `SENTRY_DSN` repository variable to enable it; unset → empty → telemetry stays
+          # inert. A DSN ends up embedded in the shipped binary, so it's a variable, not a secret.
+          MAIN_VITE_SENTRY_DSN: ${{ vars.SENTRY_DSN }}
 
       - run: gh release edit ${{ github.ref_name }} --draft=false --latest
         env:
