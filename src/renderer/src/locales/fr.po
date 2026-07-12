@@ -73,6 +73,9 @@ msgstr "{staged, plural, one {# fichier} other {# fichiers}}"
 msgid "✗ failed"
 msgstr "✗ échec"
 
+msgid "A repository without a working tree, ready to be used as a remote."
+msgstr "Un dépôt sans copie de travail, prêt à servir de dépôt distant."
+
 msgid "Additional references"
 msgstr "Références supplémentaires"
 
@@ -112,6 +115,9 @@ msgstr "Changer…"
 msgid "Checkout"
 msgstr "Basculer"
 
+msgid "Choose a destination folder first."
+msgstr "Choisissez d'abord un dossier de destination."
+
 msgid "Choose a root folder to list the repositories it contains, or open one directly."
 msgstr "Choisissez un dossier racine pour lister les dépôts qu'il contient, ou ouvrez-en un directement."
 
@@ -126,6 +132,18 @@ msgstr "Effacer"
 
 msgid "Click a commit for its detail."
 msgstr "Cliquez sur un commit pour voir son détail."
+
+msgid "Clone"
+msgstr "Cloner"
+
+msgid "Clone a repository"
+msgstr "Cloner un dépôt"
+
+msgid "Clone an existing repository from a URL or a local path."
+msgstr "Clonez un dépôt existant depuis une URL ou un chemin local."
+
+msgid "cloning…"
+msgstr "clonage…"
 
 msgid "Close"
 msgstr "Fermer"
@@ -154,6 +172,18 @@ msgstr "Message de commit"
 msgid "commits"
 msgstr "commits"
 
+msgid "Create"
+msgstr "Créer"
+
+msgid "Create a local repository, a bare remote repository, or clone an existing one."
+msgstr "Créez un dépôt local, un dépôt distant (bare), ou clonez un dépôt existant."
+
+msgid "Create a repository"
+msgstr "Créer un dépôt"
+
+msgid "creating…"
+msgstr "création…"
+
 msgid "Dark theme"
 msgstr "Thème sombre"
 
@@ -162,6 +192,9 @@ msgstr "date"
 
 msgid "Delete branch"
 msgstr "Supprimer la branche"
+
+msgid "Destination folder"
+msgstr "Dossier de destination"
 
 msgid "Diff unavailable."
 msgstr "Diff indisponible."
@@ -220,11 +253,20 @@ msgstr "Masquer la barre latérale"
 msgid "Home"
 msgstr "Accueil"
 
+msgid "https://… or git@…"
+msgstr "https://… ou git@…"
+
+msgid "Initialize an empty repository in a new folder."
+msgstr "Initialise un dépôt vide dans un nouveau dossier."
+
 msgid "Light theme"
 msgstr "Thème clair"
 
 msgid "loading files…"
 msgstr "chargement des fichiers…"
+
+msgid "Local repository"
+msgstr "Dépôt local"
 
 msgid "Merge into « {branch} »"
 msgstr "Fusionner dans « {branch} »"
@@ -234,6 +276,12 @@ msgstr "fusionné"
 
 msgid "merged into {mergedInto}"
 msgstr "fusionné dans {mergedInto}"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "New repositories and clones are created inside this folder."
+msgstr "Les nouveaux dépôts et les clones sont créés dans ce dossier."
 
 msgid "New tab"
 msgstr "Nouvel onglet"
@@ -307,8 +355,14 @@ msgstr "Recharger"
 msgid "Reload tab"
 msgstr "Recharger l'onglet"
 
+msgid "Remote repository (bare)"
+msgstr "Dépôt distant (bare)"
+
 msgid "Remotes"
 msgstr "Distants"
+
+msgid "Repository created: {path}"
+msgstr "Dépôt créé : {path}"
 
 msgid "Resolve conflicts before committing."
 msgstr "Résolvez les conflits avant de commiter."
@@ -378,3 +432,6 @@ msgstr "Désindexer le dossier"
 
 msgid "Unstaged"
 msgstr "Non indexé"
+
+msgid "URL"
+msgstr "URL"
