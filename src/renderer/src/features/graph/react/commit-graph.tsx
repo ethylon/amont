@@ -45,8 +45,23 @@ export function CommitGraph({ api, callbacks, onReady }: Props) {
     /* ARIA grid (AUDIT.md §8): "listbox" rather than "grid" — the navigation/selection unit
        is the entire row (not the cell), which "listbox"/"option" describes more faithfully;
        the audit left this choice open. Roving tabindex on rows (interactions/selection.ts),
-       arrows/PageUp/Down/Home/End/Enter driven by board.ts (attached to `board`, cf. controller.ts). */
-    <div ref={board} role="listbox" aria-label="Commits" aria-multiselectable="true" className="relative overflow-auto">
+       arrows/PageUp/Down/Home/End/Enter driven by board.ts (attached to `board`, cf. controller.ts).
+
+       `select-none`: the graph is chrome, not a text surface. Its rows marquee-scroll on hover
+       (interactions/scroll-text.ts) and a double-click selects the branch (controller.ts `onDblClick`),
+       whose native side effect would otherwise leave a stray *text* selection sitting on the row.
+       A committed selection here trips a Blink re-entrancy crash (Sentry AMONT-2): a hover hit-test
+       recomputed mid-lifecycle runs LayoutSelection::Commit → FrameSelection::SelectionHasFocus →
+       Document::UpdateStyleAndLayout, re-entering layout while tree mutations are forbidden
+       (CHECK(StateAllowsTreeMutations()) → EXCEPTION_BREAKPOINT). Removing the selection removes the
+       ingredient — commit text stays selectable/copyable in the detail panel (repo/detail-panel.tsx). */
+    <div
+      ref={board}
+      role="listbox"
+      aria-label="Commits"
+      aria-multiselectable="true"
+      className="relative overflow-auto select-none"
+    >
       <div ref={inner} className="relative">
         {/* offset by the branch column: the metro starts after it — decorative, commits
             are read from the HTML rows, not from this SVG trace */}

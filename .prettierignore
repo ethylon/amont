@@ -12,3 +12,8 @@ REFACTOR-PROMPTS.md
 # Generated README-screenshot harness: a single inlined blob of amont's own git
 # history (commits, diffs, refs). Reformatting the data payload gains nothing.
 src/renderer/screenshots.html
+
+# Claude Code tooling: harness-managed launch config and skill docs (e.g. verify/SKILL.md,
+# whose fenced code blocks hold literal DOM selectors — reformatting would corrupt them, same
+# reason AUDIT.md is excluded above). Not project source; keep it out of the style gate.
+.claude/
