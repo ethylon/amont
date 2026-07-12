@@ -44,6 +44,11 @@ export type InvokeChannels = {
   "root:choose": () => Promise<string | null>
   "root:scan": () => Promise<RepoRef[]>
 
+  /* Crash reporting (cf. main/telemetry.ts). `available` is false unless a DSN was baked in —
+     the home screen only shows the opt-out toggle then. */
+  "telemetry:state": () => Promise<{ available: boolean; enabled: boolean }>
+  "telemetry:set": (enabled: boolean) => Promise<void>
+
   /* Creation page (the "+" in the tab strip). The renderer never supplies an arbitrary
      destination: `create:chooseDir` shows the system picker and main remembers the choice —
      same confinement model as `openable` (cf. main/state.ts, main/create.ts). */
@@ -117,6 +122,8 @@ export type Bridge = {
   close: InvokeChannels["repo:close"]
   chooseRoot: InvokeChannels["root:choose"]
   scanRoot: InvokeChannels["root:scan"]
+  telemetryState: InvokeChannels["telemetry:state"]
+  setTelemetry: InvokeChannels["telemetry:set"]
   chooseCreateDir: InvokeChannels["create:chooseDir"]
   initRepo: InvokeChannels["create:init"]
   initBare: InvokeChannels["create:bare"]

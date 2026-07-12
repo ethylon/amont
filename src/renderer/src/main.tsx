@@ -9,6 +9,11 @@ import { queryClient } from "@/lib/query-client"
 import { installShortcuts } from "@/app/shortcuts"
 import { applyTheme } from "@/lib/theme"
 import { setupI18n } from "@/lib/i18n"
+import { initTelemetry } from "@/lib/telemetry"
+
+/* first thing, so a failure anywhere in boot is still reported (a no-op unless a DSN was
+   baked into the build — cf. lib/telemetry.ts + main/telemetry.ts) */
+initTelemetry()
 
 /* before the first render: pick the system locale so every string reads the right language,
    and paint the theme so there's no light flash on startup */

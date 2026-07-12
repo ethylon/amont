@@ -184,6 +184,9 @@
         close: async () => {},
         chooseRoot: async () => "/mock",
         scanRoot: async () => RECENTS,
+        /* no DSN in the harness: the home-screen toggle stays hidden, like a build from source */
+        telemetryState: async () => ({ available: false, enabled: true }),
+        setTelemetry: async () => {},
         /* creation page: each call mints a fresh repo under /mock — every repo api below
            ignores the id, so a created/cloned tab renders the same dataset as mock-repo */
         chooseCreateDir: async () => "/mock/projects",

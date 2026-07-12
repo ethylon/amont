@@ -11,6 +11,7 @@ import { Mark } from "@/components/ui/mark"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { LABEL_CLS } from "@/components/ui/typography"
 import { homeKeys } from "@/features/home/keys"
@@ -56,6 +57,31 @@ function Section({
       </h3>
       {children}
     </section>
+  )
+}
+
+/* Crash-reporting opt-out. Renders nothing unless a DSN was baked into the build
+   (cf. main/telemetry.ts) — so it's invisible in dev and in builds from source. This is the
+   app's only settings surface, hence its home on the home screen. */
+function TelemetryToggle({ className }: { className?: string }) {
+  const [state, setState] = useState<{ available: boolean; enabled: boolean } | null>(null)
+  useEffect(() => {
+    void host.telemetryState().then(setState)
+  }, [])
+  const toggle = useCallback((enabled: boolean) => {
+    setState((s) => (s ? { ...s, enabled } : s))
+    void host.setTelemetry(enabled)
+  }, [])
+
+  if (!state?.available) return null
+  return (
+    <label className={cn("flex cursor-pointer items-start gap-2.5 text-xs", className)}>
+      <Checkbox checked={state.enabled} onCheckedChange={toggle} className="mt-0.5" />
+      <span className="min-w-0">
+        <span className="block font-medium">{messages.settings.crashReports}</span>
+        <span className="block text-[0.625rem] text-muted-foreground">{messages.settings.crashReportsHint}</span>
+      </span>
+    </label>
   )
 }
 
@@ -126,6 +152,7 @@ export function HomeScreen({ active, onOpened }: Props) {
             )}
           </EmptyContent>
         </Empty>
+        <TelemetryToggle className="absolute inset-x-0 bottom-0 mx-auto max-w-md p-4" />
       </div>
     )
   }
@@ -180,6 +207,8 @@ export function HomeScreen({ active, onOpened }: Props) {
             found.map((r) => <RepoButton key={r.path} repo={r} onClick={() => openPath(r.path)} />)
           )}
         </Section>
+
+        <TelemetryToggle className="mt-auto border-t border-border/60 px-2.5 pt-6" />
       </div>
     </div>
   )
