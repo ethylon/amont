@@ -15,6 +15,8 @@ export interface PersistedState {
   recents: string[]
   tabs: string[]
   active: string | null
+  /** Crash-reporting opt-out (cf. telemetry.ts). Undefined = never chosen, treated as on. */
+  telemetry?: boolean
 }
 
 export const persisted: PersistedState = { root: null, recents: [], tabs: [], active: null }
@@ -44,6 +46,7 @@ export async function loadState(): Promise<void> {
   persisted.tabs = paths(persisted.tabs)
   persisted.recents = paths(persisted.recents).filter(isRepo)
   if (typeof persisted.root !== "string") persisted.root = null
+  if (typeof persisted.telemetry !== "boolean") delete persisted.telemetry
   persisted.tabs.forEach((p) => openable.add(p))
   persisted.recents.forEach((p) => openable.add(p))
 }
