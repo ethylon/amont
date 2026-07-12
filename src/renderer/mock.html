@@ -146,9 +146,58 @@
           { st: "D", path: "src/legacy/old.ts" },
         ],
         untracked: [{ st: "?", path: "notes/todo.md" }],
-        conflicts: [],
+        conflicts: [
+          { st: "UU", path: "src/solver/threshold.ts" },
+          { st: "AA", path: "src/solver/params.ts" },
+        ],
       }
       const drop = (arr, paths) => arr.filter((f) => !paths.includes(f.path))
+      /* MERGE_HEAD outlives the last resolved file (until commit or abort), like real git */
+      let merging = true
+
+      /* Simulated merge in progress: feature/cost-optim (B/theirs) into develop (A/ours).
+     threshold.ts is a both-modified (UU) with two blocks — the first diff3-style, to
+     exercise the base-section skip — params.ts a both-added (AA): no base stage. */
+      const CONFLICTS = {
+        "src/solver/threshold.ts": {
+          base: "export const EPSILON = 1e-6\nexport const THRESHOLD = 0.5\n\nexport function clamp(x) {\n  return Math.max(0, Math.min(1, x))\n}\n",
+          ours: "export const EPSILON = 1e-6\nexport const THRESHOLD = 0.75 // calibrated on the sparse suite\n\nexport function clamp(x) {\n  return Math.max(0, Math.min(1, x))\n}\n",
+          theirs:
+            "export const EPSILON = 1e-9\nexport const THRESHOLD = 0.6 // aligned with the cost model\n\nexport function clamp(x) {\n  return Math.max(0, Math.min(1, x))\n}\n",
+          merged: [
+            "<<<<<<< HEAD",
+            "export const EPSILON = 1e-6",
+            "||||||| a1b2c3d",
+            "export const EPSILON = 1e-6 // (base)",
+            "=======",
+            "export const EPSILON = 1e-9",
+            ">>>>>>> feature/cost-optim",
+            "<<<<<<< HEAD",
+            "export const THRESHOLD = 0.75 // calibrated on the sparse suite",
+            "=======",
+            "export const THRESHOLD = 0.6 // aligned with the cost model",
+            ">>>>>>> feature/cost-optim",
+            "",
+            "export function clamp(x) {",
+            "  return Math.max(0, Math.min(1, x))",
+            "}",
+            "",
+          ].join("\n"),
+        },
+        "src/solver/params.ts": {
+          base: null,
+          ours: "export const PARAMS = { warmStart: true }\n",
+          theirs: "export const PARAMS = { pricing: 'devex' }\n",
+          merged: [
+            "<<<<<<< HEAD",
+            "export const PARAMS = { warmStart: true }",
+            "=======",
+            "export const PARAMS = { pricing: 'devex' }",
+            ">>>>>>> feature/cost-optim",
+            "",
+          ].join("\n"),
+        },
+      }
 
       const REPO = { id: 1, path: "/mock/mock-repo", name: "mock-repo" }
       const RECENTS = [{ path: "/mock/mock-repo", name: "mock-repo" }]
@@ -251,6 +300,23 @@
         },
         commit: async () => {
           wt.staged = []
+          merging = false
+        },
+        mergeState: async () => ({
+          merging,
+          ours: merging ? "develop" : null,
+          theirs: merging ? "feature/cost-optim" : null,
+        }),
+        conflict: async (_id, path) =>
+          structuredClone(CONFLICTS[path] ?? { base: null, ours: null, theirs: null, merged: "" }),
+        resolve: async (_id, path, content) => {
+          CONFLICTS[path] = { ...CONFLICTS[path], merged: content }
+          wt.conflicts = drop(wt.conflicts, [path])
+          wt.staged.push({ st: "M", path, old: null })
+        },
+        mergeAbort: async () => {
+          merging = false
+          wt.conflicts = []
         },
         fileIcon: async () => null,
         openFile: async () => "",
