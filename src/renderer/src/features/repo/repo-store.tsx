@@ -116,6 +116,9 @@ export interface RepoStoreState {
   resetAndLoad(): Promise<void>
   /** git op → status invalidation → resetAndLoad → error badge, in a single place */
   runGitAction(action: () => Promise<void>, opts?: { onSuccess?(): void }): Promise<void>
+  /** Like `runGitAction`, but returns the error text (or `null`) instead of flashing a badge —
+      the git-flow init/start surfaces show it inline and stay open on failure. */
+  runFlow(action: () => Promise<void>): Promise<string | null>
   doCommit(): Promise<void>
   runStash(action: StashAct, name?: string): Promise<void>
   runBranch(action: BranchAct, name: string): Promise<void>
@@ -373,6 +376,13 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       invalidateRepo(queryClient, repoId)
       await get().resetAndLoad()
       if (err) get().showOp(err, "danger")
+    },
+
+    async runFlow(action) {
+      const err = await action().then(() => null, describeError)
+      invalidateRepo(queryClient, repoId)
+      await get().resetAndLoad()
+      return err
     },
 
     async doCommit() {

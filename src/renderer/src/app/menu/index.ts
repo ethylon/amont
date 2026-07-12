@@ -4,10 +4,11 @@
 import type { MenuDescriptor } from "@/app/menu/types"
 import { fileMenu } from "@/app/menu/menus/file"
 import { viewMenu } from "@/app/menu/menus/view"
+import { repositoryMenu } from "@/app/menu/menus/repository"
 import { helpMenu } from "@/app/menu/menus/help"
 
 /** Bar order, left to right. */
-export const MENUS: MenuDescriptor[] = [fileMenu, viewMenu, helpMenu]
+export const MENUS: MenuDescriptor[] = [fileMenu, viewMenu, repositoryMenu, helpMenu]
 
 export type { MenuContext, MenuDescriptor, MenuNode } from "@/app/menu/types"
 export { AppMenu } from "@/app/menu/app-menu"
