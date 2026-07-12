@@ -97,6 +97,9 @@ msgstr "Also search diff content"
 msgid "Amend"
 msgstr "Amend"
 
+msgid "Amont {version}"
+msgstr "Amont {version}"
+
 msgid "Apply"
 msgstr "Apply"
 
@@ -169,6 +172,9 @@ msgstr "Close (Esc)"
 msgid "Close {name}"
 msgstr "Close {name}"
 
+msgid "Close tab"
+msgstr "Close tab"
+
 msgid "co-authors"
 msgstr "co-authors"
 
@@ -232,6 +238,9 @@ msgstr "Diff unavailable."
 msgid "diff…"
 msgstr "diff…"
 
+msgid "Documentation"
+msgstr "Documentation"
+
 msgid "Drop"
 msgstr "Drop"
 
@@ -246,6 +255,9 @@ msgstr "Error: {msg}"
 
 msgid "expected tag"
 msgstr "expected tag"
+
+msgid "File"
+msgstr "File"
 
 msgid "Filter branches"
 msgstr "Filter branches"
@@ -279,6 +291,9 @@ msgstr "Git console"
 
 #~ msgid "Hand-edited — undo the edits to re-enable the pickers."
 #~ msgstr "Hand-edited — undo the edits to re-enable the pickers."
+
+msgid "Help"
+msgstr "Help"
 
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
@@ -325,6 +340,9 @@ msgstr "Name"
 msgid "New repositories and clones are created inside this folder."
 msgstr "New repositories and clones are created inside this folder."
 
+msgid "New repository…"
+msgstr "New repository…"
+
 msgid "New tab"
 msgstr "New tab"
 
@@ -370,6 +388,9 @@ msgstr "Open a repository…"
 msgid "Open in file explorer"
 msgstr "Open in file explorer"
 
+msgid "Open repository…"
+msgstr "Open repository…"
+
 msgid "ours — current branch"
 msgstr "ours — current branch"
 
@@ -412,6 +433,9 @@ msgstr "Remotes"
 msgid "Remove line from the output"
 msgstr "Remove line from the output"
 
+msgid "Report an issue…"
+msgstr "Report an issue…"
+
 msgid "Repository created: {path}"
 msgstr "Repository created: {path}"
 
@@ -435,6 +459,9 @@ msgstr "Side by side"
 
 msgid "Something went wrong"
 msgstr "Something went wrong"
+
+msgid "Source code"
+msgstr "Source code"
 
 msgid "Stage"
 msgstr "Stage"
@@ -510,3 +537,6 @@ msgstr "Unstaged"
 
 msgid "URL"
 msgstr "URL"
+
+msgid "View"
+msgstr "View"
