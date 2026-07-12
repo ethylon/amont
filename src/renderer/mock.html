@@ -272,7 +272,10 @@
            differ; a real 1×1 red PNG proves the raster mime path. */
         blob: async (_id, path, ref) => {
           if (/\.png$/i.test(path))
-            return { size: 68, b64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }
+            return {
+              size: 68,
+              b64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+            }
           const key = ref.kind === "commit" ? ref.rev : ref.kind
           const hues = ["#e11d48", "#16a34a", "#2563eb", "#d97706", "#9333ea"]
           const fill = hues[[...key].reduce((a, c) => a + c.charCodeAt(0), 0) % hues.length]
