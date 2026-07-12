@@ -8,6 +8,7 @@ const MESSAGES: Record<ErrorPayload["code"], (detail?: string) => string> = {
   NOT_A_REPO: () => "Not a git repository (or git not found)",
   NO_REPO: () => "This repository is no longer open",
   NOT_ALLOWED: () => "Path not allowed",
+  EXISTS: (d) => (d ? `Already exists: ${d}` : "The destination already exists"),
   BAD_ARG: (d) => (d ? `Invalid argument: ${d}` : "Invalid argument"),
   BUSY: () => "An operation is already in progress",
   MERGE_CONFLICT: (d) => (d ? `Conflict in: ${d}` : "The merge ended in conflict"),

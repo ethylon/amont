@@ -12,6 +12,9 @@ import { IconButton } from "@/components/ui/icon-button"
 /** The home screen lives in a pinned tab, never closed. The others carry the repo id. */
 export const HOME = 0
 
+/** The creation page behind the "+": pinned like home (repo ids start at 1, cf. navigation.ts). */
+export const CREATE = -1
+
 /** Link the tab to its panel (aria-controls / aria-labelledby), see `App`. */
 export const tabId = (key: number) => `amont-tab-${key}`
 export const panelId = (key: number) => `amont-panel-${key}`
@@ -37,7 +40,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
 
   /* ARIA "tabs" pattern: only one tab in the tabulation order (roving tabindex), the
      arrows move focus from tab to tab and activate it along the way. */
-  const order = [HOME, ...tabs.map((t) => t.key)]
+  const order = [HOME, ...tabs.map((t) => t.key), CREATE]
   const tabEls = useRef(new Map<number, HTMLDivElement>())
   const tabRef = (key: number) => (el: HTMLDivElement | null) => {
     el ? tabEls.current.set(key, el) : tabEls.current.delete(key)
@@ -120,12 +123,21 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
           </div>
         ))}
 
-        <IconButton
-          label={messages.app.newTab}
-          icon={PlusSignIcon}
-          onClick={() => onSelect(HOME)}
-          className="shrink-0"
-        />
+        {/* the "+" no longer jumps home: it's a tab of its own, opening the creation page */}
+        <div
+          ref={tabRef(CREATE)}
+          role="tab"
+          id={tabId(CREATE)}
+          aria-controls={panelId(CREATE)}
+          tabIndex={active === CREATE ? 0 : -1}
+          aria-selected={active === CREATE}
+          aria-label={messages.app.newTab}
+          onClick={() => onSelect(CREATE)}
+          onKeyDown={(e) => onTabKey(e, CREATE)}
+          className={cn(tabClass, "w-9 justify-center border-transparent text-muted-foreground hover:bg-muted/60")}
+        >
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
+        </div>
       </div>
 
       <IconButton
