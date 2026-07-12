@@ -12,8 +12,16 @@ const diffText = (api: RepoApi, signal: AbortSignal, ctx: DiffCtx, path: string,
     ? api.wtdiff(path, ctx.wt) // no cancellation channel on the main side for the working tree diff
     : withAbort(api, signal, (requestId) => api.diff(ctx.hash, ctx.parent, path, oldPath, requestId))
 
-export function useDiffQuery(api: RepoApi, id: number, ctx: DiffCtx, path: string, oldPath: string | null) {
+export function useDiffQuery(
+  api: RepoApi,
+  id: number,
+  ctx: DiffCtx,
+  path: string,
+  oldPath: string | null,
+  enabled = true
+) {
   return useQuery({
+    enabled,
     queryKey: queryKeys.diff(id, ctx, path, oldPath),
     queryFn: ({ signal }) => diffText(api, signal, ctx, path, oldPath),
   })

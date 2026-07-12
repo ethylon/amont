@@ -226,6 +226,12 @@ export const messages = {
     get sideBySide() {
       return t`Side by side`
     },
+    get imagePreview() {
+      return t`Image preview`
+    },
+    get textDiff() {
+      return t`Text diff`
+    },
     get close() {
       return t`Close (Esc)`
     },
@@ -239,6 +245,29 @@ export const messages = {
       return t`diff…`
     },
     truncated: (n: string) => t`… ${n} lines truncated`,
+    get before() {
+      return t`Before`
+    },
+    get after() {
+      return t`After`
+    },
+    get imageAdded() {
+      return t`Added`
+    },
+    get imageDeleted() {
+      return t`Deleted`
+    },
+    get imageNone() {
+      return t`No preview on this side`
+    },
+    get imageTooLarge() {
+      return t`Too large to preview`
+    },
+    get imageUnavailable() {
+      return t`Preview unavailable.`
+    },
+    /** e.g. "800 × 600" */
+    dimensions: (w: number, h: number) => t`${w} × ${h}`,
   },
 
   search: {

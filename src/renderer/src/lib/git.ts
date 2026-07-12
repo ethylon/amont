@@ -4,6 +4,8 @@
    compiled identically on the main and preload sides. */
 
 export type {
+  BlobData,
+  BlobRef,
   BootState,
   BranchAct,
   ChangeEvent,
@@ -30,6 +32,8 @@ export type {
 
 import type { Bridge } from "../../../shared/ipc-contract.ts"
 import type {
+  BlobData,
+  BlobRef,
   BranchAct,
   Commit,
   CommitMessage,
@@ -101,6 +105,8 @@ export type RepoApi = {
   /** message body (`%b`), trailers included */
   body(hash: string, requestId?: string): Promise<string>
   diff(hash: string, parent: string | null, path: string, oldPath: string | null, requestId?: string): Promise<string>
+  /** raw bytes of one side of a binary path (image preview); `null` if absent on that side */
+  blob(path: string, ref: BlobRef): Promise<BlobData | null>
   status(): Promise<Status>
   op(name: OpName): Promise<void>
   worktree(): Promise<Worktree>
@@ -142,6 +148,7 @@ export const repoApi = (id: number): RepoApi => ({
   files: (hash, parent, requestId) => bridge.files(id, hash, parent, requestId),
   body: (hash, requestId) => bridge.body(id, hash, requestId),
   diff: (hash, parent, path, oldPath, requestId) => bridge.diff(id, hash, parent, path, oldPath, requestId),
+  blob: (path, ref) => bridge.blob(id, path, ref),
   status: () => bridge.status(id),
   op: (name) => bridge.op(id, name),
   worktree: () => bridge.worktree(id),

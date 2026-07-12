@@ -73,6 +73,9 @@ msgstr "{refs} · non fusionné"
 msgid "{staged, plural, one {# file} other {# files}}"
 msgstr "{staged, plural, one {# fichier} other {# fichiers}}"
 
+msgid "{w} × {h}"
+msgstr "{w} × {h}"
+
 msgid "✗ failed"
 msgstr "✗ échec"
 
@@ -88,8 +91,14 @@ msgstr "Interrompre le merge"
 msgid "Add line to the output"
 msgstr "Ajouter la ligne au résultat"
 
+msgid "Added"
+msgstr "Ajouté"
+
 msgid "Additional references"
 msgstr "Références supplémentaires"
+
+msgid "After"
+msgstr "Après"
 
 msgid "Also search diff content"
 msgstr "Rechercher aussi dans le contenu des diffs"
@@ -114,6 +123,9 @@ msgstr "B · {label}"
 
 msgid "base"
 msgstr "base"
+
+msgid "Before"
+msgstr "Avant"
 
 msgid "Branch · {n, plural, one {# commit} other {# commits}}"
 msgstr "Branche · {n, plural, one {# commit} other {# commits}}"
@@ -226,6 +238,9 @@ msgstr "date"
 msgid "Delete branch"
 msgstr "Supprimer la branche"
 
+msgid "Deleted"
+msgstr "Supprimé"
+
 msgid "deleted on this side"
 msgstr "supprimé de ce côté"
 
@@ -307,6 +322,9 @@ msgstr "Accueil"
 msgid "https://… or git@…"
 msgstr "https://… ou git@…"
 
+msgid "Image preview"
+msgstr "Aperçu de l'image"
+
 msgid "Initialize an empty repository in a new folder."
 msgstr "Initialise un dépôt vide dans un nouveau dossier."
 
@@ -364,6 +382,9 @@ msgstr "Plus aucun marqueur de conflit."
 msgid "No matching ref."
 msgstr "Aucune référence correspondante."
 
+msgid "No preview on this side"
+msgstr "Aucun aperçu de ce côté"
+
 msgid "No repositories"
 msgstr "Aucun dépôt"
 
@@ -402,6 +423,9 @@ msgstr "parent"
 
 msgid "parents"
 msgstr "parents"
+
+msgid "Preview unavailable."
+msgstr "Aperçu indisponible."
 
 msgid "Previous result"
 msgstr "Résultat précédent"
@@ -505,11 +529,17 @@ msgstr "Prendre B"
 msgid "Take B in every conflict"
 msgstr "Prendre B dans tous les conflits"
 
+msgid "Text diff"
+msgstr "Diff textuel"
+
 msgid "theirs — incoming"
 msgstr "theirs — entrante"
 
 msgid "to {targets}"
 msgstr "vers {targets}"
+
+msgid "Too large to preview"
+msgstr "Trop volumineux pour l'aperçu"
 
 msgid "Tree view"
 msgstr "Vue arborescente"
