@@ -163,13 +163,19 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
   }
 
   function diffNoIndex(a: string, b: string): Promise<string> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const child = execFile(
         "git",
         ["-C", ctx.path, "diff", "--no-index", "--", a, b],
-        { maxBuffer: OUTPUT_CAP, env: GIT_ENV, windowsHide: true },
-        (_err, stdout) => {
+        { maxBuffer: OUTPUT_CAP, env: GIT_ENV, windowsHide: true, timeout: DEFAULT_TIMEOUT, killSignal: "SIGKILL" },
+        (err, stdout) => {
           ctx.children.delete(child)
+          /* Don't swallow the two failures that would otherwise pass as an empty diff: a
+             pathological or non-regular file blowing past the buffer cap, and a hang caught by
+             the timeout. `exit 1` ("there is a diff") stays the nominal, non-error case. */
+          if (err && (err as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
+            return reject(new AppError("OUTPUT_LIMIT"))
+          if (err && (err as { killed?: boolean }).killed) return reject(new AppError("TIMEOUT"))
           resolve(stdout || "")
         }
       )

@@ -2,10 +2,11 @@
 
 A fast, keyboard-friendly Git history visualizer for Windows.
 
-![Amont — commit graph](docs/screenshot-graph.png)
-<!-- Screenshots to generate: docs/screenshot-graph.png (main commit graph + detail panel),
+<!-- Screenshots to capture, then uncomment:
+     ![Amont — commit graph](docs/screenshot-graph.png)
+     docs/screenshot-graph.png (main commit graph + detail panel),
      docs/screenshot-diff.png (side-by-side diff view), docs/screenshot-worktree.png
-     (staging panel with file tree). Placeholders only — not yet captured. -->
+     (staging panel with file tree). -->
 
 ## What it is
 

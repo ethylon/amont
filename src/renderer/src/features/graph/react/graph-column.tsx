@@ -64,10 +64,12 @@ export function GraphColumn() {
   return (
     <div ref={wrapRef} className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)]">
       {worktree && (
-        <div
+        <button
+          type="button"
           onClick={showWorktree}
+          aria-current={view === "wt" ? "true" : undefined}
           className={cn(
-            "amont-wtrow amont-drop relative flex h-8.5 min-w-0 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-xs text-muted-foreground hover:bg-muted/60",
+            "amont-wtrow amont-drop relative flex h-8.5 w-full min-w-0 cursor-pointer items-center gap-2.5 border-b border-l-2 border-dashed border-l-transparent pr-4.5 text-left text-xs text-muted-foreground hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
             view === "wt" && "border-l-primary bg-primary/10 text-foreground"
           )}
         >
@@ -81,7 +83,7 @@ export function GraphColumn() {
               ) : null
             )}
           </span>
-        </div>
+        </button>
       )}
 
       {/* the diff overlays the graph instead of unmounting it: scroll, selection and layout
