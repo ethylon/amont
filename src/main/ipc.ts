@@ -16,6 +16,7 @@ import * as queries from "./git/queries.ts"
 import * as repos from "./repos.ts"
 import { scan } from "./scan.ts"
 import { openable, persisted, saveState } from "./state.ts"
+import { setTelemetryEnabled, telemetryState } from "./telemetry.ts"
 import { basename } from "./util.ts"
 import { getMainWindow } from "./window.ts"
 
@@ -139,6 +140,11 @@ export function registerIpc(): void {
     await saveState()
     return persisted.root
   })
+
+  /* Crash-reporting opt-out (cf. telemetry.ts). `set` coerces to a real boolean — the renderer
+     is the source, and every other handler validates its arguments the same way. */
+  handle("telemetry:state", () => Promise.resolve(telemetryState()))
+  handle("telemetry:set", (_ev, enabled) => setTelemetryEnabled(enabled === true))
 
   handle("root:scan", async () => {
     if (!persisted.root) return []
