@@ -13,6 +13,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Alert02Icon } from "@hugeicons/core-free-icons"
 
 import { messages } from "@/lib/messages"
+import { captureException } from "@/lib/telemetry"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
@@ -34,6 +35,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
     console.error("[ErrorBoundary]", error, info.componentStack)
+    /* React render throws never reach window.onerror: report them by hand, with the
+       component stack (no-op unless crash reporting is enabled — cf. lib/telemetry.ts) */
+    captureException(error, info.componentStack)
   }
 
   private reset = () => {

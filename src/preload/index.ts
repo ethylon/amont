@@ -1,3 +1,9 @@
+/* Sentry's preload shim: exposes the IPC hooks @sentry/electron/renderer needs to forward
+   renderer errors to the main process. Required here because the renderer is sandboxed
+   (sandbox: true, nodeIntegration: false — cf. main/window.ts) and can't do IPC itself.
+   Inert when main initialized no client (no DSN). Imported first, before anything can throw. */
+import "@sentry/electron/preload"
+
 import { contextBridge, ipcRenderer } from "electron"
 
 import type { Bridge, EventChannels, InvokeChannels } from "../shared/ipc-contract.ts"
@@ -34,6 +40,8 @@ const bridge: Bridge = {
   close: invoke("repo:close"),
   chooseRoot: invoke("root:choose"),
   scanRoot: invoke("root:scan"),
+  telemetryState: invoke("telemetry:state"),
+  setTelemetry: invoke("telemetry:set"),
   chooseCreateDir: invoke("create:chooseDir"),
   initRepo: invoke("create:init"),
   initBare: invoke("create:bare"),
