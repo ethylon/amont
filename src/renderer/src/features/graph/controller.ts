@@ -90,10 +90,23 @@ export function createGraph(
     resident: RESIDENT,
     onPageLoaded: (commits) => {
       measurer.scanPage(commits)
+      if (matchHashes) applyMatchIds()
       evictNow()
     },
     onError: (err) => cb.onError(describeError(err)),
   })
+
+  /* Search matches are kept as SHAs, never as resolved ids: a hit can point at a commit that
+     hasn't been paginated yet, so its SHA isn't interned when the search returns. We resolve
+     to ids against the current table on every ingested page — a deep hit lights up as soon as
+     its row loads, instead of being dropped once and staying invisible. */
+  let matchHashes: string[] | null = null
+  function applyMatchIds() {
+    const ids =
+      matchHashes &&
+      matchHashes.map((h) => idOf(loader.state.ids, h)).filter((id): id is number => id !== undefined)
+    selectionCtl.setMatches(ids, loader.state.hashOf)
+  }
 
   let destroyed = false // an in-flight reset during destroy() (StrictMode double-mount) must no longer touch the DOM
   const mountedG = new Map<number, SVGGElement>()
@@ -487,21 +500,25 @@ export function createGraph(
     },
 
     setMatches(hashes) {
-      const ids = hashes && hashes.map((h) => idOf(loader.state.ids, h)).filter((id): id is number => id !== undefined)
-      selectionCtl.setMatches(ids, loader.state.hashOf)
+      matchHashes = hashes
+      applyMatchIds()
     },
 
     /* sweeps rows — the graph's order — loading on demand: the next result
-       may live several pages further down. */
+       may live several pages further down. Guard on the SHA list, not the resolved-id set:
+       when every hit is still below the loaded window the id set is empty, yet the results
+       are real and growUntil below will page down to them. */
     async nextMatch(from, dir) {
-      if (!selectionCtl.matches?.size) return null
+      if (!matchHashes?.length) return null
       const token = loader.token
       for (let i = from + dir; i >= 0; i += dir) {
         if (i >= loader.state.next && !loader.exhausted) {
           await loader.growUntil(() => i < loader.state.next, token)
         }
         if (token !== loader.token || i >= loader.state.next) return null
-        if (!selectionCtl.matches.has(loader.state.hashOf[i])) continue
+        /* re-read live: growUntil above just paged in row `i`, and each ingested page
+           re-resolved matchHashes into the id set (onPageLoaded), so a deep hit is now present */
+        if (!selectionCtl.matches?.has(loader.state.hashOf[i])) continue
         await reveal(i, token)
         return i
       }
