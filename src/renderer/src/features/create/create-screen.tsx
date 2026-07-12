@@ -12,6 +12,7 @@ import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group"
 import { LABEL_CLS } from "@/components/ui/typography"
 import { homeKeys } from "@/features/home/keys"
 
@@ -122,6 +123,10 @@ export function CreateScreen({ active, onOpened }: Props) {
     if (!cloneNameEdited) setCloneName(nameFromUrl(value))
   }
 
+  /* full path preview ("C:\Users\me\Documents\" + name): the separator is inferred from the
+     destination itself — the renderer has no path module, and main only ever hands native paths */
+  const destPrefix = dest ? dest + (dest.includes("\\") ? "\\" : "/") : null
+
   const formCls = "flex flex-col gap-2 rounded-md border px-2.5 py-2.5"
   const rowCls = "flex items-center gap-2"
   const labelCls = "w-24 shrink-0 text-xs text-muted-foreground"
@@ -155,6 +160,60 @@ export function CreateScreen({ active, onOpened }: Props) {
               {messages.home.choose}
             </Button>
           </div>
+        </Section>
+
+        <Section icon={FolderDownloadIcon} title={messages.create.cloneTitle} hint={messages.create.cloneHint}>
+          <form
+            className={formCls}
+            onSubmit={(e) => {
+              e.preventDefault()
+              void clone()
+            }}
+          >
+            <label className={rowCls}>
+              <span className={labelCls}>{messages.create.url}</span>
+              <Input
+                value={url}
+                onChange={(e) => setUrlAndName(e.target.value)}
+                placeholder={messages.create.urlPlaceholder}
+              />
+            </label>
+            {/* the addon spells out the exact path the clone will create: destination
+                prefix frozen, only the final folder name stays editable */}
+            <label className={rowCls}>
+              <span className={labelCls}>{messages.create.name}</span>
+              <InputGroup>
+                {destPrefix && (
+                  <InputGroupAddon>
+                    {/* start-truncated (rtl + ltr override): a long destination keeps its tail
+                        visible — the part the name visually attaches to */}
+                    <InputGroupText className="max-w-64">
+                      <span dir="rtl" className="max-w-full truncate">
+                        <span dir="ltr" className="[unicode-bidi:bidi-override]">
+                          {destPrefix}
+                        </span>
+                      </span>
+                    </InputGroupText>
+                  </InputGroupAddon>
+                )}
+                <InputGroupInput
+                  value={cloneName}
+                  onChange={(e) => {
+                    setCloneName(e.target.value)
+                    setCloneNameEdited(true)
+                  }}
+                />
+              </InputGroup>
+            </label>
+            <div className={rowCls}>
+              <span className={labelCls} />
+              <Button type="submit" size="sm" disabled={!dest || !url.trim() || !cloneName.trim() || busy !== null}>
+                {messages.create.clone}
+              </Button>
+              {busy === "clone" && <AsyncHint>{messages.create.cloning}</AsyncHint>}
+            </div>
+            {failure("clone")}
+          </form>
         </Section>
 
         <Section icon={FolderAddIcon} title={messages.create.localTitle} hint={messages.create.localHint}>
@@ -205,43 +264,6 @@ export function CreateScreen({ active, onOpened }: Props) {
                 {messages.create.createdAt(barePath)}
               </Badge>
             )}
-          </form>
-        </Section>
-
-        <Section icon={FolderDownloadIcon} title={messages.create.cloneTitle} hint={messages.create.cloneHint}>
-          <form
-            className={formCls}
-            onSubmit={(e) => {
-              e.preventDefault()
-              void clone()
-            }}
-          >
-            <label className={rowCls}>
-              <span className={labelCls}>{messages.create.url}</span>
-              <Input
-                value={url}
-                onChange={(e) => setUrlAndName(e.target.value)}
-                placeholder={messages.create.urlPlaceholder}
-              />
-            </label>
-            <label className={rowCls}>
-              <span className={labelCls}>{messages.create.name}</span>
-              <Input
-                value={cloneName}
-                onChange={(e) => {
-                  setCloneName(e.target.value)
-                  setCloneNameEdited(true)
-                }}
-              />
-            </label>
-            <div className={rowCls}>
-              <span className={labelCls} />
-              <Button type="submit" size="sm" disabled={!dest || !url.trim() || !cloneName.trim() || busy !== null}>
-                {messages.create.clone}
-              </Button>
-              {busy === "clone" && <AsyncHint>{messages.create.cloning}</AsyncHint>}
-            </div>
-            {failure("clone")}
           </form>
         </Section>
       </div>
