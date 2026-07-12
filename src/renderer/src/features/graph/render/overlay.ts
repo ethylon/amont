@@ -87,5 +87,19 @@ export function createOverlay() {
     dangling.innerHTML = html
   }
 
-  return { root, sync }
+  /** Drops every bucketed edge and unmounts them. `assignedLen`, `buckets` and `mounted` are
+      closure state that outlives a `LayoutState`: on a rebuild `S.long` restarts from zero
+      while `assignedLen` is monotone, so without this `assignNew` would skip the first
+      `assignedLen` edges of the new state and the stale buckets (old row positions) would keep
+      mounting. Called in the same synchronous block as the remount, so the next `sync()`
+      rebuilds against the fresh state. */
+  function reset() {
+    mounted.forEach((g) => g.remove())
+    mounted.clear()
+    buckets.clear()
+    assignedLen = 0
+    dangling.innerHTML = ""
+  }
+
+  return { root, sync, reset }
 }
