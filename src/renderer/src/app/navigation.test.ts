@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import type { Repo } from "@/lib/git"
-import { afterClose, HOME, navKeyEquals, repoKey, transitionKind } from "./navigation.ts"
+import { afterClose, CREATE, HOME, navKeyEquals, repoKey, transitionKind } from "./navigation.ts"
 
 const repo = (id: number, name = `r${id}`): Repo => ({ id, path: `/repo/${name}`, name })
 
@@ -18,6 +18,14 @@ describe("navKeyEquals", () => {
   })
   it("two repoKey with different ids are not equal", () => {
     assert.equal(navKeyEquals(repoKey(1), repoKey(2)), false)
+  })
+  it("two CREATE are equal", () => {
+    assert.equal(navKeyEquals(CREATE, CREATE), true)
+  })
+  it("CREATE never equals HOME or a repoKey", () => {
+    assert.equal(navKeyEquals(CREATE, HOME), false)
+    assert.equal(navKeyEquals(HOME, CREATE), false)
+    assert.equal(navKeyEquals(CREATE, repoKey(1)), false)
   })
 })
 
@@ -42,6 +50,16 @@ describe("transitionKind", () => {
 
   it("from home to the first tab: 'next'", () => {
     assert.equal(transitionKind(tabs, HOME, repoKey(1)), "next")
+  })
+
+  it("the creation page sits after the last tab: reaching it slides as 'next'", () => {
+    assert.equal(transitionKind(tabs, repoKey(3), CREATE), "next")
+    assert.equal(transitionKind([], HOME, CREATE), "next")
+  })
+
+  it("leaving the creation page slides as 'prev'", () => {
+    assert.equal(transitionKind(tabs, CREATE, repoKey(1)), "prev")
+    assert.equal(transitionKind(tabs, CREATE, HOME), "prev")
   })
 })
 
@@ -70,5 +88,9 @@ describe("afterClose", () => {
 
   it("active home is never affected by a close", () => {
     assert.deepEqual(afterClose(tabs, HOME, 2), HOME)
+  })
+
+  it("an active creation page is never affected by a close", () => {
+    assert.deepEqual(afterClose(tabs, CREATE, 2), CREATE)
   })
 })
