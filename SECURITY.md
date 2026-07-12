@@ -27,8 +27,8 @@ Posture already in place:
   `NODE_OPTIONS`, and enforce asar integrity on the packaged binary.
 - Production CSP: `default-src 'self'`, no inline scripts, `object-src`/`base-uri`/
   `form-action` all `'none'`. `img-src` is allowlisted to Gravatar and
-  `avatars.githubusercontent.com` only, and only used for avatars **the user has
-  explicitly opted into** (off by default, see README's Privacy section).
+  `avatars.githubusercontent.com` only, used solely for author avatars (see
+  README's Privacy section).
 
 ### Diff rendering (diff2html)
 
