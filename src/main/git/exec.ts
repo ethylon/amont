@@ -13,7 +13,7 @@ import { execFile, spawn, type ChildProcess } from "node:child_process"
 
 import { AppError } from "../../shared/errors.ts"
 import type { DistributiveOmit, TraceLine } from "../../shared/types.ts"
-import { classifyGitFailure } from "./parse.ts"
+import { classifyGitFailure, parseProgressPercent } from "./parse.ts"
 
 /* GIT_TERMINAL_PROMPT=0: without a TTY, a git command asking for a password would hang
    indefinitely. Graphical credential helpers (GCM) remain usable.
@@ -40,6 +40,10 @@ export interface RunOpts {
       exceed Windows' command-line length limit go through without issue. */
   input?: string
   signal?: AbortSignal
+  /** Live progress callback for long-running commands (fsck/gc): fired with the latest `NN%`
+      parsed from git's stderr as it rewrites its progress line. Set only where a UI wants it —
+      other commands pay nothing. */
+  onProgress?: (percent: number) => void
 }
 
 export interface RunnerContext {
@@ -110,6 +114,12 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
          line per completed step ("Receiving objects: 100% …"), without flooding the IPC stream. */
       child.stderr.on("data", (d: string) => {
         errAll += d
+        /* progress is rewritten with `\r`, so scan the raw chunk (not the `\n`-buffered lines
+           below, which would only surface the final percentage of each phase) */
+        if (opts.onProgress) {
+          const pct = parseProgressPercent(d)
+          if (pct !== null) opts.onProgress(pct)
+        }
         pending += d
         const lines = pending.split("\n")
         pending = lines.pop() ?? ""

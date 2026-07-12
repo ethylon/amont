@@ -212,7 +212,31 @@
       const onOpListeners = new Set()
       const onChangedListeners = new Set()
       const onTraceListeners = new Set()
+      const onProgressListeners = new Set()
       window.__changed = (payload = { id: REPO.id }) => onChangedListeners.forEach((cb) => cb(payload))
+
+      /* Git-flow + HEAD are mutable so the Repository menu can be driven through its states.
+         From the console: __setFlow(null) shows "Initialize Git Flow…"; __setBranch("feature/x")
+         puts HEAD on a flow branch (promoted Finish/Publish + the flow banner). */
+      let flowPrefixes = { feature: "feature/", bugfix: "bugfix/", release: "release/", hotfix: "hotfix/" }
+      let currentBranch = "develop"
+      window.__setFlow = (p = flowPrefixes) => {
+        flowPrefixes = p
+        window.__changed()
+      }
+      window.__setBranch = (b) => {
+        currentBranch = b
+        window.__changed()
+      }
+
+      /* fsck/gc: stream a few determinate progress ticks then resolve, like the real ops. */
+      const emitProgress = (op, percent) => onProgressListeners.forEach((cb) => cb({ id: REPO.id, op, percent }))
+      const simulateMaint = async (op) => {
+        for (const pct of [8, 26, 52, 78, 100]) {
+          emitProgress(op, pct)
+          await new Promise((r) => setTimeout(r, 260))
+        }
+      }
 
       const REFS = [
         { name: "develop", kind: "head", head: true, ahead: 2, behind: 0, tip: sha("a1b2c3d4") },
@@ -282,7 +306,7 @@
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="${fill}"/><text x="80" y="56" font-size="13" fill="#fff" text-anchor="middle">${path.split("/").pop()}</text></svg>`
           return { size: svg.length, b64: btoa(svg) }
         },
-        status: async () => ({ branch: "develop", head: C[0].h, ahead: 1, behind: 2 }),
+        status: async () => ({ branch: currentBranch, head: C[0].h, ahead: 1, behind: 2 }),
         body: async (_id, hash) => BODIES[hash] ?? "",
         op: async () => {},
         /* The real bridge returns an unsubscribe function per call (ipcRenderer.off, cf.
@@ -300,8 +324,48 @@
           onTraceListeners.add(cb)
           return () => onTraceListeners.delete(cb)
         },
+        onProgress: (cb) => {
+          onProgressListeners.add(cb)
+          return () => onProgressListeners.delete(cb)
+        },
         search: async () => [],
-        flow: async () => null,
+        flow: async () => flowPrefixes,
+        flowInfo: async (_id, branch, kind) => {
+          const tagged = kind === "release" || kind === "hotfix"
+          return {
+            commits: 3,
+            startedAt: Math.floor(Date.now() / 1000) - 7200,
+            base: tagged ? "v4.2.0" : "develop",
+            targets: tagged ? ["master", "develop"] : ["develop"],
+            nextTag: kind === "release" ? "v4.3.0" : kind === "hotfix" ? "v4.2.1" : null,
+            /* no remote-tracking branch yet → Publish is offered */
+            unpushed: true,
+          }
+        },
+        flowInit: async (_id, cfg) => {
+          flowPrefixes = { feature: cfg.feature, bugfix: cfg.bugfix, release: cfg.release, hotfix: cfg.hotfix }
+          return flowPrefixes
+        },
+        flowStart: async (_id, kind, name) => {
+          currentBranch = (flowPrefixes[kind] || `${kind}/`) + name
+        },
+        flowPublish: async () => {},
+        countObjects: async () => ({
+          count: 128,
+          size: "512.00 KiB",
+          inPack: 3400,
+          packs: 2,
+          sizePack: "12.40 MiB",
+          prunePackable: 0,
+          garbage: 1,
+          sizeGarbage: "8.00 KiB",
+        }),
+        fsck: async () => {
+          await simulateMaint("fsck")
+        },
+        gc: async () => {
+          await simulateMaint("gc")
+        },
         branch: async () => {},
         checkout: async () => {},
         worktree: async () => structuredClone(wt),
