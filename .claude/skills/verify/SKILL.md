@@ -32,6 +32,13 @@ via `colorScheme` on the browser context.
   ambiguous or hits the wrong one.
 - Folders (`feature/`, nested `ui/`) start collapsed; expand via the folder trigger
   before targeting leaves.
+- **Merge conflicts**: the mock worktree ships a merge in progress (`feature/cost-optim`
+  (B) into `develop` (A)) with two conflicted files — `threshold.ts` (UU, two blocks, one
+  diff3-style) and `params.ts` (AA, no base). Click the "Uncommitted changes" graph row,
+  then a file under CONFLICTS: the resolution view overlays the graph. Per-conflict
+  `Take A` / `Take B` / `Take A then B` buttons patch the editable merged output
+  (`getByLabel("Merged output — editable")`); "Mark as resolved" enables once no markers
+  remain and moves the file to STAGED. Escape closes the overlay.
 - `window.__changed()` in the console simulates an external `.git` change.
 
 ## Gotchas
