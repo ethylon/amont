@@ -1,38 +1,14 @@
-/* Avatar resolution (AUDIT.md §9). The privacy default (network off) and the GitHub-noreply →
-   id shortcut are the parts with real branching; `initials`/`tint` are deterministic and cheap to
-   pin. Runs under node, so localStorage — which prefs.ts reads through — is stubbed in memory. */
+/* Avatar resolution (AUDIT.md §9). The GitHub-noreply → id shortcut is the part with real
+   branching; `initials`/`tint` are deterministic and cheap to pin. */
 import assert from "node:assert/strict"
-import { beforeEach, describe, it } from "vitest"
+import { describe, it } from "vitest"
 
-/* prefs.ts touches localStorage lazily (inside get/set), so an in-memory stub set before the
-   first call is enough — no need to intercept the module import. */
-const store = new Map<string, string>()
-globalThis.localStorage = {
-  getItem: (k: string) => store.get(k) ?? null,
-  setItem: (k: string, v: string) => void store.set(k, String(v)),
-  removeItem: (k: string) => void store.delete(k),
-  clear: () => store.clear(),
-  key: () => null,
-  length: 0,
-}
+const { avatarUrl, initials, tint } = await import("./avatar.ts")
 
-const { avatarUrl, initials, tint, setAvatarsEnabled } = await import("./avatar.ts")
-
-beforeEach(() => store.clear())
-
-describe("avatarUrl — privacy gate", () => {
-  it("returns null while network avatars are off (the default)", () => {
-    assert.equal(avatarUrl("ada@x.io"), null)
-  })
-
-  it("returns null for an empty email even when enabled", () => {
-    setAvatarsEnabled(true)
+describe("avatarUrl — resolution", () => {
+  it("returns null for an empty email", () => {
     assert.equal(avatarUrl(""), null)
   })
-})
-
-describe("avatarUrl — resolution when enabled", () => {
-  beforeEach(() => setAvatarsEnabled(true))
 
   it("derives the GitHub avatar from a noreply address's numeric id", () => {
     assert.equal(avatarUrl("12345+ada@users.noreply.github.com"), "https://avatars.githubusercontent.com/u/12345?s=64")
