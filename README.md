@@ -40,13 +40,10 @@ plan.
 
 ## Privacy
 
-Author avatars are **off by default**. When enabled (toggle in the top-right corner of the
-window), the app resolves avatars either from the author's email if it's a GitHub noreply
-address (no network request), or by querying Gravatar / `avatars.githubusercontent.com`
-directly — which reveals the (hashed) author email and your IP address to those services.
-Leave it off if you're browsing a private repository and don't want its committer roster,
-even hashed, leaving your machine. With the toggle off, every author gets a colored
-monogram instead.
+Author avatars resolve either from the author's email if it's a GitHub noreply address (no
+network request), or by querying Gravatar / `avatars.githubusercontent.com` directly — which
+reveals the (hashed) author email and your IP address to those services. An author without an
+avatar there falls back to a colored monogram.
 
 ## Development
 
