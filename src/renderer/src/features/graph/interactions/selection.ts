@@ -72,11 +72,6 @@ export function createSelection(inner: HTMLDivElement) {
       matches = ids && new Set(ids)
       applyMatches(hashOf)
     },
-    /** re-applies attributes on rows that were just mounted (new chunk) */
-    refresh(hashOf: number[]) {
-      applySelection()
-      applyMatches(hashOf)
-    },
   }
 }
 
