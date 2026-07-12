@@ -5,9 +5,10 @@
    process here, never the renderer. Renderer errors are forwarded over IPC by @sentry/electron
    (cf. lib/telemetry.ts + the preload), so the strict renderer CSP is untouched.
 
-   The DSN is injected at build time from a gitignored `.env` (MAIN_VITE_SENTRY_DSN, cf.
-   .env.example): a build from source has no DSN, so initTelemetry() is a no-op and nothing is
-   ever sent by contributors' or unofficial builds — only the maintainer's release builds carry it.
+   The DSN is injected at build time from the MAIN_VITE_SENTRY_DSN env variable (electron-vite
+   reads it from the build environment — set by CI for releases, cf. .github/workflows/release.yml).
+   A build from source has no DSN, so initTelemetry() is a no-op and nothing is ever sent by
+   contributors' or unofficial builds — only the maintainer's release builds carry it.
 
    Opt-out is a persisted flag (state.json, cf. state.ts), toggled from the home screen. `enabled`
    is read on every event by beforeSend/beforeBreadcrumb, so flipping it takes effect immediately,
