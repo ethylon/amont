@@ -91,9 +91,12 @@ export type FileRowProps = {
 
 export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, onOpenFile, action }: FileRowProps) {
   const cut = file.path.lastIndexOf("/")
+  /* Selection = a quiet tinted fill alone, no rail or border: one visual channel for the
+     open diff, neutral hover on the rest. Rounded list rows read cleaner with just the fill
+     than with the left rail the flat graph rows carry. */
   const rowCls = cn(
-    "group/file flex items-baseline gap-2 rounded-sm border border-transparent px-1.5 py-0.5 hover:bg-muted",
-    active && "border-primary bg-primary/30"
+    "group/file flex items-baseline gap-2 rounded-sm px-1.5 py-0.5 hover:bg-muted/60",
+    active && "bg-primary/15 hover:bg-primary/20"
   )
   /* The stage/unstage button (`action`) is a real <button> too: it stays a sibling of the
      main button, never nested inside it (two <button>s nested would be invalid
@@ -232,7 +235,7 @@ function Tree<T extends FileChange>({
             <Collapsible key={k} defaultOpen>
               {/* trigger and folder button side by side: a button doesn't nest inside
                   another. The row carries the hover; the chevron keeps its state on the trigger. */}
-              <div className="group/dirrow flex items-center rounded-sm pe-1 hover:bg-muted">
+              <div className="group/dirrow flex items-center rounded-sm pe-1 hover:bg-muted/60">
                 <CollapsibleTrigger className="group/dir flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-xs select-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
                   <HugeiconsIcon
                     icon={ArrowRight01Icon}
