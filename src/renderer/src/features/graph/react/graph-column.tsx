@@ -6,6 +6,7 @@ import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { ConflictView } from "@/features/conflict/conflict-view"
 import { DiffView } from "@/features/diff/diff-view"
 import { ErrorBoundary } from "@/app/error-boundary"
 import type { GraphCallbacks } from "@/features/graph/controller"
@@ -34,6 +35,9 @@ export function GraphColumn() {
   const diffMode = useRepoStore((s) => s.ui.diffMode)
   const setDiffMode = useRepoStore((s) => s.setDiffMode)
   const closeDiff = useRepoStore((s) => s.closeDiff)
+  const conflict = useRepoStore((s) => s.ui.conflict)
+  const closeConflict = useRepoStore((s) => s.closeConflict)
+  const resolveConflict = useRepoStore((s) => s.resolveConflict)
   const showWorktree = useRepoStore((s) => s.showWorktree)
 
   const { data: rawWt } = useWorktreeQuery(api, repoId)
@@ -108,6 +112,19 @@ export function GraphColumn() {
                 view={diffMode}
                 onViewChange={setDiffMode}
                 onClose={closeDiff}
+              />
+            </ErrorBoundary>
+          </div>
+        )}
+        {conflict && (
+          <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
+            <ErrorBoundary key={`${conflict.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
+              <ConflictView
+                api={api}
+                repoId={repoId}
+                file={conflict}
+                onClose={closeConflict}
+                onResolve={resolveConflict}
               />
             </ErrorBoundary>
           </div>
