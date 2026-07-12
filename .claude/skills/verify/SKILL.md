@@ -43,7 +43,7 @@ via `colorScheme` on the browser context.
   conflict shows as a `<merge conflict>` placeholder in the output (never raw markers);
   unpicking everything brings the placeholder back. Panes AND the editable output are
   shiki-highlighted — the output is a transparent textarea (`getByLabel("Merged output —
-  editable")`) over a scroll-synced `<pre>`; count its colored spans via
+editable")`) over a scroll-synced `<pre>`; count its colored spans via
   `textarea.parentElement.querySelector("pre")`. Target the chunk checkboxes with
   `span[role="checkbox"][aria-label="Take A"]` (getByLabel also matches base-ui's hidden
   input). Picks and hand edits COEXIST: typing does NOT lock the pickers, and toggling a
