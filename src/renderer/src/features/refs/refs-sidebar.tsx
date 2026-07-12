@@ -57,7 +57,7 @@ function RefGroupSection({
 
     Split into five modules (AUDIT.md §7, phase 5 — the old file was 514 lines): this
     file orchestrates the filter and assembly; refs-tree.tsx carries the tree and the ref
-    row, refs-menu.tsx the branch menu, refs-focus-paint.ts the outline painting, and the
+    row, refs-menu.tsx the branch menu, refs-focus-paint.ts the selection-run painting, and the
     stash section now lives in features/stash/ (a full-fledged vertical feature). */
 export function RefsSidebar() {
   const api = useRepoStore((s) => s.api)
