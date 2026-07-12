@@ -8,3 +8,7 @@ dist/
 # code blocks quote past states of the codebase verbatim, reformatting would corrupt that record.
 AUDIT.md
 REFACTOR-PROMPTS.md
+
+# Generated README-screenshot harness: a single inlined blob of amont's own git
+# history (commits, diffs, refs). Reformatting the data payload gains nothing.
+src/renderer/screenshots.html
