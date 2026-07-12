@@ -3,7 +3,13 @@ import { html as d2hHtml } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon, Image01Icon, LayoutTwoColumnIcon, MenuSquareIcon, SourceCodeIcon } from "@hugeicons/core-free-icons"
+import {
+  Cancel01Icon,
+  Image01Icon,
+  LayoutTwoColumnIcon,
+  MenuSquareIcon,
+  SourceCodeIcon,
+} from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { useDiffQuery } from "@/features/diff/diff-queries"
@@ -27,7 +33,14 @@ const DIFF_BODY =
   "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 
 /* in-house extensions -> shiki grammar; MSBuild project/props files are XML */
-const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml", svg: "xml" }
+const LANG_ALIASES: Record<string, string> = {
+  jet: "sql",
+  csproj: "xml",
+  props: "xml",
+  targets: "xml",
+  slnx: "xml",
+  svg: "xml",
+}
 
 /* Shiki coloring on top of the diff2html render.
    <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.

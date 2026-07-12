@@ -74,10 +74,7 @@ export type FileChange = {
 /** One side of a binary/image preview (cf. `repo:blob`): which version of a path to read.
     `commit` reads `<rev>:<path>` from the object DB, `index` reads the staged blob (`:path`),
     `worktree` reads the file straight from disk. */
-export type BlobRef =
-  | { kind: "commit"; rev: string }
-  | { kind: "index" }
-  | { kind: "worktree" }
+export type BlobRef = { kind: "commit"; rev: string } | { kind: "index" } | { kind: "worktree" }
 
 /** The bytes of one side of an image diff. `b64` is null when the blob exists but is larger
     than the preview cap — the renderer then shows the size only. The whole result is null when
