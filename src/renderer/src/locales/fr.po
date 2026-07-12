@@ -169,17 +169,11 @@ msgstr "Diff indisponible."
 msgid "diff…"
 msgstr "diff…"
 
-msgid "Disable network avatars (Gravatar/GitHub)"
-msgstr "Désactiver les avatars réseau (Gravatar/GitHub)"
-
 msgid "Drop"
 msgstr "Supprimer"
 
 msgid "Empty diff."
 msgstr "Diff vide."
-
-msgid "Enable network avatars (Gravatar/GitHub) — off by default for privacy"
-msgstr "Activer les avatars réseau (Gravatar/GitHub) — désactivés par défaut pour la confidentialité"
 
 msgid "error"
 msgstr "erreur"
