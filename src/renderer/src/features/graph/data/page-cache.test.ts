@@ -90,3 +90,56 @@ describe("page-cache — LRU eviction with pinning", () => {
     assert.equal(cache.size, 2)
   })
 })
+
+describe("page-cache — isResident", () => {
+  it("is true only when every page spanning the range is loaded", () => {
+    const cache = createPageCache(10)
+    cache.appendPage(0, fakeLog(0, 2)) // page 0: rows 0-1
+    cache.appendPage(2, fakeLog(2, 2)) // page 1: rows 2-3
+    assert.equal(cache.isResident(0, 3), true, "both pages present")
+    assert.equal(cache.isResident(0, 1), true)
+  })
+
+  it("is false as soon as one page in the range is missing, and promotes touched pages in the LRU", () => {
+    const cache = createPageCache(2)
+    cache.appendPage(0, fakeLog(0, 2)) // page 0
+    cache.appendPage(2, fakeLog(2, 2)) // page 1
+    cache.appendPage(4, fakeLog(4, 2)) // page 2
+
+    // querying rows 0-1 touches page 0, making it the most-recently-used; a later evict must
+    // then drop page 1 (now the oldest untouched) rather than page 0.
+    assert.equal(cache.isResident(0, 1), true)
+    cache.evict([4, 5], [])
+    assert.equal(cache.has(0), true, "page 0 survived: it was touched by isResident")
+    assert.equal(cache.has(1), false, "page 1 evicted as the least-recently-used")
+
+    // page 1 is gone: a range that needs it is no longer resident
+    assert.equal(cache.isResident(2, 3), false)
+  })
+})
+
+describe("page-cache — pageRowStart / nextPageRowStart", () => {
+  it("reports a page's rowStart and its successor's", () => {
+    const cache = createPageCache(10)
+    cache.appendPage(0, fakeLog(0, 2))
+    cache.appendPage(2, fakeLog(2, 2))
+    assert.equal(cache.pageRowStart(0), 0)
+    assert.equal(cache.pageRowStart(1), 2)
+    assert.equal(cache.nextPageRowStart(0), 2, "rowStart of the following page")
+    assert.equal(cache.nextPageRowStart(1), undefined, "no page after the last one")
+    assert.equal(cache.pageRowStart(9), undefined, "unknown page")
+  })
+})
+
+describe("page-cache — reset", () => {
+  it("clears pages and the page counter", () => {
+    const cache = createPageCache(10)
+    cache.appendPage(0, fakeLog(0, 2))
+    cache.appendPage(2, fakeLog(2, 2))
+    assert.equal(cache.pageCount, 2)
+    cache.reset()
+    assert.equal(cache.size, 0)
+    assert.equal(cache.pageCount, 0, "next appendPage starts numbering from 0 again")
+    assert.equal(cache.appendPage(0, fakeLog(0, 2)), 0)
+  })
+})
