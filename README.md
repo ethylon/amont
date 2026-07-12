@@ -81,9 +81,9 @@ avatar there falls back to a colored monogram.
 Sentry, so bugs surface and get fixed. Reports carry no repository contents, diffs, or
 credentials, and no PII (IP, hostname, user identity) — see `src/main/telemetry.ts`. It's
 **opt-out at runtime** from a toggle on the home screen. Builds from source send nothing: the
-DSN is injected from a gitignored `.env` at build time, so a build you make yourself has no
-telemetry at all. Reports leave from the main process, never the sandboxed renderer, so the
-renderer's strict CSP is unchanged.
+DSN is injected at build time from a build-env variable that only CI sets, so a build you make
+yourself has no telemetry at all. Reports leave from the main process, never the sandboxed
+renderer, so the renderer's strict CSP is unchanged.
 
 ## Development
 
@@ -105,16 +105,15 @@ instant reload without packaging or spawning git processes.
 ### Crash reporting (maintainers)
 
 Error reporting is inert unless a Sentry DSN is baked in at build time, via the
-`MAIN_VITE_SENTRY_DSN` build-time env variable (electron-vite reads it from the shell, no file
-required). Every build without it — including every build from source, `pnpm dev`, and CI —
-sends nothing.
+`MAIN_VITE_SENTRY_DSN` build-env variable (electron-vite reads it straight from the build
+environment — no file involved). Every build without it — including every build from source,
+`pnpm dev`, and CI on ordinary commits — sends nothing.
 
 - **Official releases (CI):** set a `SENTRY_DSN` **repository variable**; the release workflow
   maps it into the build (`.github/workflows/release.yml`). A DSN is embedded in the shipped
   binary, so it's not confidential — a variable, not a secret (a secret works too, just swap
   `vars.` for `secrets.`).
-- **Local testing:** copy `.env.example` to `.env` (gitignored) and set the DSN there, then
-  `pnpm dev` or `pnpm build`.
+- **Local testing:** prefix the command, e.g. `MAIN_VITE_SENTRY_DSN=<dsn> pnpm dev`.
 
 See the [Privacy](#privacy) section for what's reported and `src/main/telemetry.ts` for how.
 

@@ -3,10 +3,10 @@ out/
 dist/
 coverage/
 
-# Local env (Sentry DSN, etc.) — .env.example is committed as the template
+# A local .env is never required (the Sentry DSN comes from the build env / CI), but ignore
+# one anyway so a DSN dropped here for local testing can't be committed by accident.
 .env
 .env.*
-!.env.example
 
 # Lingui compiled catalogs (the Vite plugin compiles .po at build time)
 src/renderer/src/locales/*.js
