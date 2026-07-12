@@ -196,7 +196,14 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
       const child = execFile(
         "git",
         ["-C", ctx.path, ...args],
-        { maxBuffer: OUTPUT_CAP, encoding: "buffer", env: GIT_ENV, windowsHide: true, timeout: DEFAULT_TIMEOUT, killSignal: "SIGKILL" },
+        {
+          maxBuffer: OUTPUT_CAP,
+          encoding: "buffer",
+          env: GIT_ENV,
+          windowsHide: true,
+          timeout: DEFAULT_TIMEOUT,
+          killSignal: "SIGKILL",
+        },
         (err, stdout) => {
           ctx.children.delete(child)
           if (err) {

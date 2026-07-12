@@ -428,7 +428,9 @@
    diff — inherited by the table, code lines, and every shiki span. */
 .amont-diffbody {
   font-variant-ligatures: none;
-  font-feature-settings: "liga" 0, "calt" 0;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
 }
 /* the font and size come from .amont-diffbody (font-mono text-xs) */
 .amont-diffbody .d2h-diff-table,
