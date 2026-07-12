@@ -145,7 +145,10 @@
           { st: "M", path: "src/solver/constraints.ts" },
           { st: "D", path: "src/legacy/old.ts" },
         ],
-        untracked: [{ st: "?", path: "notes/todo.md" }],
+        untracked: [
+          { st: "?", path: "notes/todo.md" },
+          { st: "?", path: "assets/fresh.svg" },
+        ],
         conflicts: [
           { st: "UU", path: "src/solver/threshold.ts" },
           { st: "AA", path: "src/solver/params.ts" },
@@ -261,8 +264,21 @@
           { st: "M", path: "src/solver/cost.ts", old: null },
           { st: "A", path: "src/solver/lp/simplex.ts", old: null },
           { st: "D", path: "src/legacy/old.ts", old: null },
+          { st: "M", path: "assets/banner.svg", old: null },
+          { st: "A", path: "assets/pixel.png", old: null },
         ],
         diff: async () => "diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-const a = 1\n+const a = 2\n",
+        /* Image preview (repo:blob): svg bytes colored by the requested rev so before/after
+           differ; a real 1×1 red PNG proves the raster mime path. */
+        blob: async (_id, path, ref) => {
+          if (/\.png$/i.test(path))
+            return { size: 68, b64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }
+          const key = ref.kind === "commit" ? ref.rev : ref.kind
+          const hues = ["#e11d48", "#16a34a", "#2563eb", "#d97706", "#9333ea"]
+          const fill = hues[[...key].reduce((a, c) => a + c.charCodeAt(0), 0) % hues.length]
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="${fill}"/><text x="80" y="56" font-size="13" fill="#fff" text-anchor="middle">${path.split("/").pop()}</text></svg>`
+          return { size: svg.length, b64: btoa(svg) }
+        },
         status: async () => ({ branch: "develop", head: C[0].h, ahead: 1, behind: 2 }),
         body: async (_id, hash) => BODIES[hash] ?? "",
         op: async () => {},
