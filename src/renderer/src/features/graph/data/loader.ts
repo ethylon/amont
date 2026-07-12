@@ -147,34 +147,51 @@ export function createLoader(opts: LoaderOptions) {
     return ok
   }
 
-  /** Loads in concurrent batches until `done()` becomes true, history is exhausted, or
-      a reset/destroy invalidates this call (`token`). Replaces the sequential
-      page-by-page loop (one IPC round-trip at a time) with batches of `JUMP_BATCH` pages in
-      flight — their application to the layout stays in request order, never the order of
-      network resolution (lane allocation is a state machine, it doesn't tolerate out-of-order). */
+  /** One batch of the jump loop: fetch `JUMP_BATCH` pages concurrently and ingest them in
+      request order (lane allocation is a state machine — it doesn't tolerate out-of-order).
+      Returns whether any page landed. Never rejects (allSettled + reportError). */
+  async function growRound(): Promise<boolean> {
+    const g = gen
+    const from = pageCache.pageCount
+    const pis = Array.from({ length: JUMP_BATCH }, (_, k) => from + k)
+    const raws = await Promise.allSettled(pis.map((pi) => api.log(pi * pageSize, pageSize)))
+    if (g !== gen) return false
+    let progressed = false
+    for (let k = 0; k < raws.length; k++) {
+      const r = raws[k]
+      if (r.status === "rejected") {
+        reportError(r.reason)
+        break // a failure in the batch: we no longer know which page comes next, stop the batch
+      }
+      const commits = ingest(pis[k], r.value, true)
+      if (!commits) break // invalid page (repo moved under our feet): the reset will handle it
+      opts.onPageLoaded?.(commits)
+      progressed = true
+      if (r.value.length < pageSize) {
+        exhausted = true
+        break
+      }
+    }
+    return progressed
+  }
+
+  /** Loads in concurrent batches until `done()` becomes true, history is exhausted, or a
+      reset/destroy invalidates this call (`token`). Rounds go through the same `fetching`
+      single-flight as `fetchMore`: a scroll-driven `fetchMore` (or a second jump) that fires
+      mid-round waits on the batch instead of appending a page of its own — without which its
+      page would land at a shifted `rowStart` and duplicate rows. */
   async function growUntil(done: () => boolean, token: number): Promise<void> {
     while (!done() && !exhausted && token === gen) {
-      const from = pageCache.pageCount
-      const pis = Array.from({ length: JUMP_BATCH }, (_, k) => from + k)
-      const raws = await Promise.allSettled(pis.map((pi) => api.log(pi * pageSize, pageSize)))
-      if (token !== gen) return
-      let progressed = false
-      for (let k = 0; k < raws.length; k++) {
-        const r = raws[k]
-        if (r.status === "rejected") {
-          reportError(r.reason)
-          break // a failure in the batch: we no longer know which page comes next, stop the batch
-        }
-        const commits = ingest(pis[k], r.value, true)
-        if (!commits) break // invalid page (repo moved under our feet): the reset will handle it
-        opts.onPageLoaded?.(commits)
-        progressed = true
-        if (r.value.length < pageSize) {
-          exhausted = true
-          break
-        }
+      if (fetching) {
+        await fetching // someone is already ingesting: let it finish, then re-test done()
+        continue
       }
-      if (!progressed) return // no progress: don't loop indefinitely on a failure
+      const round: Promise<Commit[] | null> = growRound().then((progressed) => {
+        fetching = null
+        return progressed ? [] : null
+      })
+      fetching = round
+      if ((await round) === null) return // no progress: don't loop indefinitely on a failure
     }
   }
 
