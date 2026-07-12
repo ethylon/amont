@@ -2,12 +2,14 @@
    files/diff, and the two shell handles (icon, opening) confined to the repo. No
    mutation here — no mutex, same as before this refactor. */
 
-import { readFile } from "node:fs/promises"
+import { readFile, stat } from "node:fs/promises"
 import { extname } from "node:path"
 import { app, shell } from "electron"
 
 import { AppError } from "../../shared/errors.ts"
 import type {
+  BlobData,
+  BlobRef,
   CommitMessage,
   Commit,
   ConflictFile,
@@ -295,6 +297,52 @@ export function diff(
   const paths = oldPath ? [oldPath, path] : [path]
   const args = parent ? ["diff", parent, hash, "--", ...paths] : ["show", "--format=", hash, "--", ...paths]
   return r.git(args, { signal })
+}
+
+/* --- Binary preview (image viewer) ---
+   diff2html can only render text; a binary path (png, gif, an image…) collapses to git's
+   "Binary files differ" line. `blob` ships the raw bytes of one side of the change so the
+   renderer can show a real preview. `cat-file -s` gates on size first: an over-cap or absent
+   object never has its bytes read into memory. */
+const BLOB_MAX = 25 * 1024 * 1024
+
+/** A rev accepted in a `<rev>:<path>` object spec: a commit hash, or the literal `HEAD` (the
+    "before" side of a staged working-tree change). Nothing else — the spec never reaches a shell,
+    but keeping the surface tight is cheap. */
+function assertRev(rev: string): string {
+  if (rev !== "HEAD" && !HASH.test(rev)) throw new AppError("BAD_ARG", "rev")
+  return rev
+}
+
+export async function blob(r: RepoHandle, path: string, ref: BlobRef): Promise<BlobData | null> {
+  if (typeof path !== "string" || !path) throw new AppError("BAD_ARG", "path")
+
+  if (ref.kind === "worktree") {
+    const full = inRepo(r, path) // confines to the repo (symlink-safe) before touching disk
+    let size: number
+    try {
+      size = (await stat(full)).size
+    } catch {
+      return null // gone from disk (staged deletion still shown as a working-tree row)
+    }
+    if (size > BLOB_MAX) return { size, b64: null }
+    const buf = await readFile(full).catch(() => null)
+    return buf ? { size, b64: buf.toString("base64") } : null
+  }
+
+  /* `:path` = the staged blob; `<rev>:path` = a committed one. A missing side (added file has
+     no parent blob, deleted file no child) makes cat-file exit non-zero → we surface it as null. */
+  const spec = ref.kind === "index" ? `:${path}` : `${assertRev(ref.rev)}:${path}`
+  let size: number
+  try {
+    size = parseInt((await r.git(["cat-file", "-s", spec])).trim(), 10)
+  } catch {
+    return null
+  }
+  if (!Number.isFinite(size)) return null
+  if (size > BLOB_MAX) return { size, b64: null }
+  const buf = await r.gitBuffer(["cat-file", "blob", spec])
+  return { size, b64: buf.toString("base64") }
 }
 
 /* --- Shell: icon and opening ---

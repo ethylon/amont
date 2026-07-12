@@ -11,6 +11,8 @@
    payload, message reconstructed on the renderer side. */
 
 import type {
+  BlobData,
+  BlobRef,
   BootState,
   BranchAct,
   ChangeEvent,
@@ -88,6 +90,9 @@ export type InvokeChannels = {
     oldPath: string | null,
     requestId?: string
   ) => Promise<string>
+  /** Raw bytes of one side of a binary preview (image viewer, cf. features/diff): base64 for
+      the renderer's `data:` URL. `null` when the path is absent on that side. */
+  "repo:blob": (id: number, path: string, ref: BlobRef) => Promise<BlobData | null>
   "repo:search": (id: number, q: string, content: boolean, requestId?: string) => Promise<string[]>
   "repo:total": (id: number) => Promise<number>
   "repo:checkout": (id: number, name: string) => Promise<void>
@@ -151,6 +156,7 @@ export type Bridge = {
   body: InvokeChannels["repo:body"]
   headMessage: InvokeChannels["repo:headMessage"]
   diff: InvokeChannels["repo:diff"]
+  blob: InvokeChannels["repo:blob"]
   status: InvokeChannels["repo:status"]
   op: InvokeChannels["repo:op"]
   worktree: InvokeChannels["repo:worktree"]

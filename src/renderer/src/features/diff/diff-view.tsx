@@ -1,12 +1,14 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { html as d2hHtml } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon, LayoutTwoColumnIcon, MenuSquareIcon } from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Image01Icon, LayoutTwoColumnIcon, MenuSquareIcon, SourceCodeIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { useDiffQuery } from "@/features/diff/diff-queries"
+import { imageExt, isTextImage } from "@/features/diff/image-diff-queries"
+import { ImageDiffView } from "@/features/diff/image-diff-view"
 import { messages } from "@/lib/messages"
 import { isDark, useTheme } from "@/lib/theme"
 import { AsyncHint } from "@/components/ui/async-hint"
@@ -25,7 +27,7 @@ const DIFF_BODY =
   "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 
 /* in-house extensions -> shiki grammar; MSBuild project/props files are XML */
-const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
+const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml", svg: "xml" }
 
 /* Shiki coloring on top of the diff2html render.
    <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.
@@ -183,11 +185,20 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
     return () => prev?.focus?.()
   }, [])
 
-  const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null)
+  /* Image paths bypass diff2html (it can only render text). A text-based image (svg) can also be
+     shown as a real text diff, so it gets a preview↔diff toggle, defaulting to the preview; raster
+     images have no meaningful text diff and stay preview-only. */
+  const imgExt = imageExt(file.path)
+  const [imgPreview, setImgPreview] = useState(true)
+  const textImage = imgExt !== null && isTextImage(imgExt)
+  const showImage = imgExt !== null && (!textImage || imgPreview)
+  /* Fetch the text diff only when it can actually be shown — never for a raster image, and for an
+     svg only once the user flips to the diff view (react-query fetches lazily on that toggle). */
+  const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
 
   useEffect(() => {
     const el = body.current
-    if (!el || text === null) return
+    if (!el || showImage || text === null) return
     if (!text.trim()) {
       el.textContent = messages.diff.empty
       el.className = DIFF_BODY + " text-muted-foreground"
@@ -207,32 +218,54 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
     })
     shikiPass(el).catch(() => {})
     return syncSides(el)
-  }, [text, view, dark])
+  }, [text, view, dark, showImage])
 
   return (
     <div ref={root} tabIndex={-1} className="flex min-h-0 flex-1 flex-col px-4.5 py-4 outline-none">
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <span className="text-xs break-all text-muted-foreground">{file.path}</span>
         <div className="flex shrink-0 items-center gap-1">
-          <ToggleGroup
-            spacing={0}
-            variant="outline"
-            size="sm"
-            value={[view]}
-            onValueChange={(v) => v[0] && onViewChange(v[0] as DiffViewMode)}
-          >
-            <ToggleGroupItem value="unified" aria-label={messages.diff.unified}>
-              <HugeiconsIcon icon={MenuSquareIcon} strokeWidth={2} />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="sbs" aria-label={messages.diff.sideBySide}>
-              <HugeiconsIcon icon={LayoutTwoColumnIcon} strokeWidth={2} />
-            </ToggleGroupItem>
-          </ToggleGroup>
+          {/* A text-based image (svg) can be shown either rendered or as a text diff. */}
+          {textImage && (
+            <ToggleGroup
+              spacing={0}
+              variant="outline"
+              size="sm"
+              value={[imgPreview ? "preview" : "text"]}
+              onValueChange={(v) => v[0] && setImgPreview(v[0] === "preview")}
+            >
+              <ToggleGroupItem value="preview" aria-label={messages.diff.imagePreview}>
+                <HugeiconsIcon icon={Image01Icon} strokeWidth={2} />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="text" aria-label={messages.diff.textDiff}>
+                <HugeiconsIcon icon={SourceCodeIcon} strokeWidth={2} />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          {/* The unified/side-by-side toggle only applies to a text diff, not an image preview. */}
+          {!showImage && (
+            <ToggleGroup
+              spacing={0}
+              variant="outline"
+              size="sm"
+              value={[view]}
+              onValueChange={(v) => v[0] && onViewChange(v[0] as DiffViewMode)}
+            >
+              <ToggleGroupItem value="unified" aria-label={messages.diff.unified}>
+                <HugeiconsIcon icon={MenuSquareIcon} strokeWidth={2} />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="sbs" aria-label={messages.diff.sideBySide}>
+                <HugeiconsIcon icon={LayoutTwoColumnIcon} strokeWidth={2} />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
           <IconButton label={messages.diff.close} icon={Cancel01Icon} onClick={onClose} />
         </div>
       </div>
 
-      {error ? (
+      {showImage ? (
+        <ImageDiffView api={api} repoId={repoId} ctx={ctx} file={file} ext={imgExt} />
+      ) : error ? (
         <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
       ) : text === null ? (
         <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>

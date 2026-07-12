@@ -35,6 +35,8 @@ export const queryKeys = {
   files: (id: number, hash: string, parent: string | null) => ["files", id, hash, parent] as const,
   body: (id: number, hash: string) => ["body", id, hash] as const,
   diff: (id: number, ctx: DiffCtx, path: string, old: string | null) => ["diff", id, ctx, path, old] as const,
+  imageDiff: (id: number, ctx: DiffCtx, path: string, old: string | null) =>
+    ["imageDiff", id, ctx, path, old] as const,
   search: (id: number, term: string, content: boolean) => ["search", id, term, content] as const,
 }
 

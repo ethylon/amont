@@ -71,6 +71,19 @@ export type FileChange = {
   old?: string | null
 }
 
+/** One side of a binary/image preview (cf. `repo:blob`): which version of a path to read.
+    `commit` reads `<rev>:<path>` from the object DB, `index` reads the staged blob (`:path`),
+    `worktree` reads the file straight from disk. */
+export type BlobRef =
+  | { kind: "commit"; rev: string }
+  | { kind: "index" }
+  | { kind: "worktree" }
+
+/** The bytes of one side of an image diff. `b64` is null when the blob exists but is larger
+    than the preview cap — the renderer then shows the size only. The whole result is null when
+    the path is absent on that side (an added file has no "before", a deleted file no "after"). */
+export type BlobData = { size: number; b64: string | null }
+
 /** An open repo. `id` is the only handle accepted by git calls. */
 export type Repo = { id: number; path: string; name: string }
 /** A known but unopened repo: recent, or found under the root. */
