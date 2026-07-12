@@ -19,6 +19,4 @@ export const prefs = {
   theme: pref<"dark" | "light">("amont.theme"),
   diffView: pref<DiffViewMode>("amont.diffview"),
   fileView: pref<FileView>("amont.fileview"),
-  /** opt-in for network avatars (Gravatar/GitHub); `null`/anything but "on" = off, cf. lib/avatar.ts */
-  avatars: pref<"on" | "off">("amont.avatars"),
 }

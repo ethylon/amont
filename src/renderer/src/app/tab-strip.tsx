@@ -1,16 +1,7 @@
 import { useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  Cancel01Icon,
-  EyeIcon,
-  EyeOffIcon,
-  Home01Icon,
-  Moon02Icon,
-  PlusSignIcon,
-  Sun03Icon,
-} from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@hugeicons/core-free-icons"
 
-import { setAvatarsEnabled, useAvatarsEnabled } from "@/lib/avatar"
 import { messages } from "@/lib/messages"
 import { setDark, useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
@@ -41,7 +32,6 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
   /* subscribed to the theme rather than a local copy: an OS flip (without an explicit
      choice saved) must flip the icon too */
   const dark = useTheme()
-  const avatarsOn = useAvatarsEnabled()
 
   const toggleTheme = () => setDark(!dark)
 
@@ -137,16 +127,6 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
           className="shrink-0"
         />
       </div>
-
-      <IconButton
-        label={avatarsOn ? messages.avatars.disable : messages.avatars.enable}
-        icon={EyeOffIcon}
-        swapIcon={EyeIcon}
-        swapped={avatarsOn}
-        aria-pressed={avatarsOn}
-        onClick={() => setAvatarsEnabled(!avatarsOn)}
-        className="shrink-0"
-      />
 
       <IconButton
         label={dark ? messages.theme.light : messages.theme.dark}
