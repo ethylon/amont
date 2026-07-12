@@ -165,7 +165,11 @@ function OutputEditor({
   const PAD = "px-2.5 py-2"
   return (
     <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border bg-background focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
-      <pre ref={preRef} aria-hidden className={cn("pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre", MONO, PAD)}>
+      <pre
+        ref={preRef}
+        aria-hidden
+        className={cn("pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre", MONO, PAD)}
+      >
         {lines.map((l, i) =>
           l.trim() === CONFLICT_PLACEHOLDER ? (
             <div key={i} className="min-w-max text-warning italic">
@@ -295,10 +299,7 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
   /* The base never moves while the view is open: panes and picks are anchored to the
      conflict indices of THIS parse, whatever the output becomes. */
   const baseSegments = useMemo(() => parseConflicts(cf?.merged ?? ""), [cf])
-  const blocks = useMemo(
-    () => baseSegments.filter((s): s is ConflictBlock => s.kind === "conflict"),
-    [baseSegments]
-  )
+  const blocks = useMemo(() => baseSegments.filter((s): s is ConflictBlock => s.kind === "conflict"), [baseSegments])
 
   /* Each pane is one document for the highlighter (context + that side's lines); segments
      remember their line offset into it so rendering can index the token lines. */
@@ -420,7 +421,14 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
                     <div className="col-span-2 border-y bg-muted/60 px-2 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
                       {messages.conflict.conflictN(seg.index + 1)}
                     </div>
-                    <ChunkSide block={seg} side="ours" picks={picks} tokens={aTokens} start={offsets[i].a} onPicks={applyPicks} />
+                    <ChunkSide
+                      block={seg}
+                      side="ours"
+                      picks={picks}
+                      tokens={aTokens}
+                      start={offsets[i].a}
+                      onPicks={applyPicks}
+                    />
                     <ChunkSide
                       block={seg}
                       side="theirs"

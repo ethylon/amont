@@ -46,7 +46,7 @@ amend — with the exact git command shown on the button before you run it.
 
 When a merge, rebase, or stash pop leaves conflicts, the conflicted files get their own
 block in the staging panel and a banner naming both sides — **A** is the branch you're on
-(*ours*), **B** the one being merged in (*theirs*). Opening a file lays the two versions out
+(_ours_), **B** the one being merged in (_theirs_). Opening a file lays the two versions out
 in aligned, syntax-highlighted panes so it's always clear which change came from where.
 
 You build the resolution by picking: a checkbox in each pane header takes a whole side across
