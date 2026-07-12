@@ -99,8 +99,8 @@ describe("parseBody", () => {
   })
 
   it("does not mistake a plain-text mention for a trailer", () => {
-    assert.deepEqual(body("Voir le Co-authored-by: du commit d'avant."), [
-      "Voir le Co-authored-by: du commit d'avant.",
+    assert.deepEqual(body("See the Co-authored-by: from the previous commit."), [
+      "See the Co-authored-by: from the previous commit.",
       [],
     ])
   })
@@ -139,7 +139,7 @@ describe("parseMerge / mergeSource", () => {
   })
 
   it("renders null for a subject that isn't a merge", () => {
-    assert.equal(parseMerge("feat: pas un merge"), null)
+    assert.equal(parseMerge("feat: not a merge"), null)
   })
 
   it("extracts the source branch of a GitHub PR merge (the owner/ prefix is dropped)", () => {

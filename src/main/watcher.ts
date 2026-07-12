@@ -34,6 +34,9 @@ export interface Watchable {
   dirty: boolean
   watcher: FSWatcher | null
   watchRetries: number
+  /** pending backoff retry, so closeRepo can cancel it — otherwise a retry scheduled after a
+      watch error fires post-close and leaves an orphaned watcher nobody will ever close */
+  retryTimer: NodeJS.Timeout | null
   events: { changed(): void; isFocused(): boolean }
 }
 
@@ -62,7 +65,10 @@ export function watchGit(r: Watchable): void {
       if (r.watchRetries >= RETRY_CAP) return // beyond that: permanent silence, no noise
       const delay = Math.min(RETRY_BASE_MS * 2 ** r.watchRetries, RETRY_MAX_MS)
       r.watchRetries++
-      setTimeout(() => watchGit(r), delay)
+      r.retryTimer = setTimeout(() => {
+        r.retryTimer = null
+        watchGit(r)
+      }, delay)
     })
   } catch {
     /* no watcher on the first try (directory already gone): the app stays usable, the
