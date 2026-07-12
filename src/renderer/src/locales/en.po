@@ -73,6 +73,9 @@ msgstr "{refs} · unmerged"
 msgid "{staged, plural, one {# file} other {# files}}"
 msgstr "{staged, plural, one {# file} other {# files}}"
 
+msgid "{w} × {h}"
+msgstr "{w} × {h}"
+
 msgid "✗ failed"
 msgstr "✗ failed"
 
@@ -88,8 +91,14 @@ msgstr "Abort merge"
 msgid "Add line to the output"
 msgstr "Add line to the output"
 
+msgid "Added"
+msgstr "Added"
+
 msgid "Additional references"
 msgstr "Additional references"
+
+msgid "After"
+msgstr "After"
 
 msgid "Also search diff content"
 msgstr "Also search diff content"
@@ -114,6 +123,9 @@ msgstr "B · {label}"
 
 msgid "base"
 msgstr "base"
+
+msgid "Before"
+msgstr "Before"
 
 msgid "Branch · {n, plural, one {# commit} other {# commits}}"
 msgstr "Branch · {n, plural, one {# commit} other {# commits}}"
@@ -226,6 +238,9 @@ msgstr "date"
 msgid "Delete branch"
 msgstr "Delete branch"
 
+msgid "Deleted"
+msgstr "Deleted"
+
 msgid "deleted on this side"
 msgstr "deleted on this side"
 
@@ -307,6 +322,9 @@ msgstr "Home"
 msgid "https://… or git@…"
 msgstr "https://… or git@…"
 
+msgid "Image preview"
+msgstr "Image preview"
+
 msgid "Initialize an empty repository in a new folder."
 msgstr "Initialize an empty repository in a new folder."
 
@@ -364,6 +382,9 @@ msgstr "No conflict markers left."
 msgid "No matching ref."
 msgstr "No matching ref."
 
+msgid "No preview on this side"
+msgstr "No preview on this side"
+
 msgid "No repositories"
 msgstr "No repositories"
 
@@ -402,6 +423,9 @@ msgstr "parent"
 
 msgid "parents"
 msgstr "parents"
+
+msgid "Preview unavailable."
+msgstr "Preview unavailable."
 
 msgid "Previous result"
 msgstr "Previous result"
@@ -505,11 +529,17 @@ msgstr "Take B"
 msgid "Take B in every conflict"
 msgstr "Take B in every conflict"
 
+msgid "Text diff"
+msgstr "Text diff"
+
 msgid "theirs — incoming"
 msgstr "theirs — incoming"
 
 msgid "to {targets}"
 msgstr "to {targets}"
+
+msgid "Too large to preview"
+msgstr "Too large to preview"
 
 msgid "Tree view"
 msgstr "Tree view"
