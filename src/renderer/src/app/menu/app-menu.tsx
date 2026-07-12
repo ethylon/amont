@@ -64,7 +64,13 @@ export function AppMenu({ ctx }: { ctx: MenuContext }) {
     <Menubar>
       {MENUS.map((menu) => (
         <MenubarMenu key={menu.id}>
-          <MenubarTrigger data-menu={menu.id}>{menu.label}</MenubarTrigger>
+          <MenubarTrigger
+            data-menu={menu.id}
+            disabled={menu.disabled?.(ctx)}
+            className="data-disabled:pointer-events-none data-disabled:opacity-40"
+          >
+            {menu.label}
+          </MenubarTrigger>
           <MenubarContent>
             {menu.build(ctx).map((node, i) => (
               <MenuItemNode key={node.kind === "separator" ? `sep-${i}` : node.id} node={node} />
