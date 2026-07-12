@@ -86,10 +86,20 @@ export function ImageDiffView({ api, repoId, ctx, file, ext }: Props) {
     <div className="min-h-0 flex-auto overflow-auto rounded-md bg-muted/40">
       <div className="flex min-h-full flex-col gap-4 p-4 lg:flex-row">
         {data.old && (
-          <ImagePanel label={both ? messages.diff.before : messages.diff.imageDeleted} tone="del" data={data.old} ext={ext} />
+          <ImagePanel
+            label={both ? messages.diff.before : messages.diff.imageDeleted}
+            tone="del"
+            data={data.old}
+            ext={ext}
+          />
         )}
         {data.new && (
-          <ImagePanel label={both ? messages.diff.after : messages.diff.imageAdded} tone="add" data={data.new} ext={ext} />
+          <ImagePanel
+            label={both ? messages.diff.after : messages.diff.imageAdded}
+            tone="add"
+            data={data.new}
+            ext={ext}
+          />
         )}
       </div>
     </div>
