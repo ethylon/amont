@@ -40,6 +40,7 @@ export const queryKeys = {
 export function invalidateRepo(client: QueryClient, id: number): void {
   void client.invalidateQueries({ queryKey: queryKeys.status(id) })
   void client.invalidateQueries({ queryKey: queryKeys.refs(id) })
+  void client.invalidateQueries({ queryKey: queryKeys.stashes(id) })
   void client.invalidateQueries({ queryKey: queryKeys.flow(id) })
   void client.invalidateQueries({ queryKey: queryKeys.flowInfoAll(id) })
 }
