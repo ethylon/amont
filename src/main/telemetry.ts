@@ -67,6 +67,33 @@ export function setTelemetryEnabled(value: boolean): Promise<void> {
   return saveState()
 }
 
+/** Report a dead renderer (render-process-gone) by hand.
+
+    Native renderer crashes never reach the renderer's JS: the ErrorBoundary, captureException,
+    and window.onerror are all structurally blind to them, so this is the ONLY channel that can
+    surface them. And @sentry/electron's default child-process integration turns only
+    `abnormal-exit`/`launch-failed`/`integrity-failure` into events — never `crashed`/`oom` — while
+    Windows STATUS_BREAKPOINT (0x80000003) crashes rarely yield an uploadable minidump. So without
+    this call these die in incidents.log, invisible. Caller passes only the reasons the default
+    integration ignores, so this never double-reports.
+
+    Sent from MAIN (like every other event here — cf. header) and through the same beforeSend, so
+    scrub() runs and the opt-out is honored; the early return just avoids building a dropped event.
+    Grouped by reason so a recurring crash is one issue with a rate, exit code kept as a tag. */
+export function captureRendererGone(
+  reason: string,
+  exitCode: number,
+  info: { recentReloads: number; suspended: boolean },
+): void {
+  if (!DSN || !enabled) return
+  Sentry.captureMessage(`renderer gone: ${reason}`, {
+    level: info.suspended ? "fatal" : "error",
+    fingerprint: ["renderer-gone", reason],
+    tags: { reason, exit_code: exitCode },
+    contexts: { renderer_crash: { reason, exit_code: exitCode, ...info } },
+  })
+}
+
 /** `available`: a DSN was baked in — the home screen only shows the toggle then. */
 export const telemetryState = (): { available: boolean; enabled: boolean } => ({
   available: !!DSN,
