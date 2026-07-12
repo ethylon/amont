@@ -46,6 +46,9 @@ msgstr "{n, plural, one {# additional reference} other {# additional references}
 msgid "{n, plural, one {# commit selected} other {# commits selected}}"
 msgstr "{n, plural, one {# commit selected} other {# commits selected}}"
 
+msgid "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
+msgstr "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
+
 msgid "{n, plural, one {# new commit} other {# new commits}}"
 msgstr "{n, plural, one {# new commit} other {# new commits}}"
 
@@ -73,8 +76,17 @@ msgstr "{staged, plural, one {# file} other {# files}}"
 msgid "✗ failed"
 msgstr "✗ failed"
 
+msgid "A · {label}"
+msgstr "A · {label}"
+
 msgid "A repository without a working tree, ready to be used as a remote."
 msgstr "A repository without a working tree, ready to be used as a remote."
+
+msgid "Abort merge"
+msgstr "Abort merge"
+
+msgid "Add line to the output"
+msgstr "Add line to the output"
 
 msgid "Additional references"
 msgstr "Additional references"
@@ -93,6 +105,9 @@ msgstr "Apply and drop"
 
 msgid "author"
 msgstr "author"
+
+msgid "B · {label}"
+msgstr "B · {label}"
 
 msgid "base"
 msgstr "base"
@@ -172,6 +187,18 @@ msgstr "Commit message"
 msgid "commits"
 msgstr "commits"
 
+msgid "Conflict {n}"
+msgstr "Conflict {n}"
+
+msgid "Conflict unavailable."
+msgstr "Conflict unavailable."
+
+msgid "conflict…"
+msgstr "conflict…"
+
+msgid "Conflicts"
+msgstr "Conflicts"
+
 msgid "Create"
 msgstr "Create"
 
@@ -192,6 +219,9 @@ msgstr "date"
 
 msgid "Delete branch"
 msgstr "Delete branch"
+
+msgid "deleted on this side"
+msgstr "deleted on this side"
 
 msgid "Destination folder"
 msgstr "Destination folder"
@@ -247,6 +277,9 @@ msgstr "Flat view"
 msgid "Git console"
 msgstr "Git console"
 
+#~ msgid "Hand-edited — undo the edits to re-enable the pickers."
+#~ msgstr "Hand-edited — undo the edits to re-enable the pickers."
+
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
 
@@ -268,6 +301,9 @@ msgstr "loading files…"
 msgid "Local repository"
 msgstr "Local repository"
 
+msgid "Mark as resolved"
+msgstr "Mark as resolved"
+
 msgid "Merge into « {branch} »"
 msgstr "Merge into « {branch} »"
 
@@ -276,6 +312,12 @@ msgstr "merged"
 
 msgid "merged into {mergedInto}"
 msgstr "merged into {mergedInto}"
+
+msgid "Merged output — editable"
+msgstr "Merged output — editable"
+
+msgid "Merging {theirs} (B) into {ours} (A)"
+msgstr "Merging {theirs} (B) into {ours} (A)"
 
 msgid "Name"
 msgstr "Name"
@@ -294,6 +336,9 @@ msgstr "No changes to stage."
 
 msgid "No commands yet."
 msgstr "No commands yet."
+
+msgid "No conflict markers left."
+msgstr "No conflict markers left."
 
 msgid "No matching ref."
 msgstr "No matching ref."
@@ -324,6 +369,9 @@ msgstr "Open a repository…"
 
 msgid "Open in file explorer"
 msgstr "Open in file explorer"
+
+msgid "ours — current branch"
+msgstr "ours — current branch"
 
 msgid "parent"
 msgstr "parent"
@@ -361,8 +409,14 @@ msgstr "Remote repository (bare)"
 msgid "Remotes"
 msgstr "Remotes"
 
+msgid "Remove line from the output"
+msgstr "Remove line from the output"
+
 msgid "Repository created: {path}"
 msgstr "Repository created: {path}"
+
+msgid "Reset to selection"
+msgstr "Reset to selection"
 
 msgid "Resolve conflicts before committing."
 msgstr "Resolve conflicts before committing."
@@ -403,6 +457,24 @@ msgstr "tag {tag}"
 msgid "Tags"
 msgstr "Tags"
 
+msgid "Take A"
+msgstr "Take A"
+
+msgid "Take A in every conflict"
+msgstr "Take A in every conflict"
+
+#~ msgid "Take A then B"
+#~ msgstr "Take A then B"
+
+msgid "Take B"
+msgstr "Take B"
+
+msgid "Take B in every conflict"
+msgstr "Take B in every conflict"
+
+msgid "theirs — incoming"
+msgstr "theirs — incoming"
+
 msgid "to {targets}"
 msgstr "to {targets}"
 
@@ -411,6 +483,9 @@ msgstr "Tree view"
 
 msgid "Uncommitted changes"
 msgstr "Uncommitted changes"
+
+msgid "Undo edits"
+msgstr "Undo edits"
 
 msgid "Unexpected error."
 msgstr "Unexpected error."
