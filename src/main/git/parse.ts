@@ -3,7 +3,16 @@
    Every function here takes a string (or already-extracted fields) and returns data;
    the git calls that produce these strings live in queries.ts / ops.ts / flow.ts. */
 
-import type { Commit, FileChange, FlowPrefixes, GitRef, Stash, Worktree } from "../../shared/types.ts"
+import type {
+  Commit,
+  CountObjects,
+  FileChange,
+  FlowInitConfig,
+  FlowPrefixes,
+  GitRef,
+  Stash,
+  Worktree,
+} from "../../shared/types.ts"
 import type { ErrorPayload } from "../../shared/errors.ts"
 
 /* --- Working tree ---
@@ -220,4 +229,55 @@ export function computeNextTag(kind: "release" | "hotfix", suffix: string, lastT
   const m = lastTag && /^(v?)(\d+)\.(\d+)\.(\d+)/.exec(lastTag)
   if (!m) return null
   return kind === "hotfix" ? `${m[1]}${m[2]}.${m[3]}.${+m[4] + 1}` : `${m[1]}${m[2]}.${+m[3] + 1}.0`
+}
+
+/** The `gitflow.*` key/value pairs `flowInit` writes before `git flow init -d`. A stable order,
+    trunk branches first, so the config is deterministic (and the test can assert it). */
+export function flowInitConfigArgs(cfg: FlowInitConfig): [string, string][] {
+  return [
+    ["gitflow.branch.master", cfg.master],
+    ["gitflow.branch.develop", cfg.develop],
+    ["gitflow.prefix.feature", cfg.feature],
+    ["gitflow.prefix.bugfix", cfg.bugfix],
+    ["gitflow.prefix.release", cfg.release],
+    ["gitflow.prefix.hotfix", cfg.hotfix],
+    ["gitflow.prefix.support", cfg.support],
+    ["gitflow.prefix.versiontag", cfg.versiontag],
+  ]
+}
+
+/* --- Maintenance ---
+   git rewrites its progress on a single line with `\r` ("Counting objects:  45% (90/200)"); a
+   determinate percentage is the last `NN%` in a chunk. `null` for a phase git reports without a
+   percentage (the footer then falls back to an indeterminate spinner). */
+export function parseProgressPercent(line: string): number | null {
+  const matches = line.match(/(\d+)%/g)
+  if (!matches) return null
+  const n = parseInt(matches[matches.length - 1], 10)
+  return n >= 0 && n <= 100 ? n : null
+}
+
+/** Parse `git count-objects -vH`: `key: value` lines. Counts become numbers; sizes stay the
+    human-readable strings `-H` emits ("48.00 KiB") — the maintenance modal only displays them. */
+export function parseCountObjects(out: string): CountObjects {
+  const map = new Map<string, string>()
+  for (const line of out.split("\n")) {
+    const idx = line.indexOf(":")
+    if (idx < 0) continue
+    map.set(line.slice(0, idx).trim(), line.slice(idx + 1).trim())
+  }
+  const num = (k: string): number => {
+    const v = parseInt(map.get(k) ?? "", 10)
+    return Number.isFinite(v) ? v : 0
+  }
+  return {
+    count: num("count"),
+    size: map.get("size") ?? "0",
+    inPack: num("in-pack"),
+    packs: num("packs"),
+    sizePack: map.get("size-pack") ?? "0",
+    prunePackable: num("prune-packable"),
+    garbage: num("garbage"),
+    sizeGarbage: map.get("size-garbage") ?? "0",
+  }
 }

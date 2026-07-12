@@ -18,8 +18,11 @@ import type {
   ChangeEvent,
   Commit,
   CommitMessage,
+  CountObjects,
   FileChange,
   FlowInfo,
+  FlowInitConfig,
+  FlowKind,
   ConflictFile,
   FlowPrefixes,
   GitRef,
@@ -27,6 +30,7 @@ import type {
   OpEvent,
   OpName,
   OpenResult,
+  ProgressEvent,
   Repo,
   RepoRef,
   Stash,
@@ -76,6 +80,12 @@ export type InvokeChannels = {
   "repo:commit": (id: number, message: string, amend: boolean) => Promise<void>
   "repo:flow": (id: number) => Promise<FlowPrefixes | null>
   "repo:flowInfo": (id: number, branch: string, kind: keyof FlowPrefixes) => Promise<FlowInfo | null>
+  /** Write the `gitflow.*` config from the form then `git flow init -d`; resolves the prefixes. */
+  "flow:init": (id: number, cfg: FlowInitConfig) => Promise<FlowPrefixes | null>
+  /** `git flow <kind> start <name|version>`. */
+  "flow:start": (id: number, kind: FlowKind, name: string) => Promise<void>
+  /** `git flow <kind> publish <name>`. */
+  "flow:publish": (id: number, kind: FlowKind, name: string) => Promise<void>
   "repo:branch": (id: number, action: BranchAct, name: string) => Promise<void>
   "repo:log": (id: number, skip: number, count: number, requestId?: string) => Promise<Commit[]>
   "repo:refs": (id: number) => Promise<GitRef[]>
@@ -103,6 +113,11 @@ export type InvokeChannels = {
   /** Writes `content` to the working file and stages it (`git add`): the conflict is resolved. */
   "repo:resolve": (id: number, path: string, content: string) => Promise<void>
   "repo:mergeAbort": (id: number) => Promise<void>
+  /** Database maintenance (Repository menu). `countObjects` reads the DB shape; `fsck`/`gc` run
+      long and stream progress via the `git:progress` event. */
+  "repo:countObjects": (id: number) => Promise<CountObjects>
+  "repo:fsck": (id: number) => Promise<void>
+  "repo:gc": (id: number) => Promise<void>
   /** Kills the git process associated with `requestId` for this repo, if it's still running
       (AUDIT.md §2 B4). Silent no-op if the request has already finished or doesn't exist. */
   "repo:cancel": (id: number, requestId: string) => Promise<void>
@@ -116,6 +131,7 @@ export type EventChannels = {
   "git:op": OpEvent
   "git:changed": ChangeEvent
   "git:trace": TraceLine
+  "git:progress": ProgressEvent
 }
 
 export type EventChannel = keyof EventChannels
@@ -144,6 +160,7 @@ export type Bridge = {
   onOp(cb: (payload: EventChannels["git:op"]) => void): () => void
   onChanged(cb: (payload: EventChannels["git:changed"]) => void): () => void
   onTrace(cb: (payload: EventChannels["git:trace"]) => void): () => void
+  onProgress(cb: (payload: EventChannels["git:progress"]) => void): () => void
 
   log: InvokeChannels["repo:log"]
   total: InvokeChannels["repo:total"]
@@ -151,6 +168,9 @@ export type Bridge = {
   refs: InvokeChannels["repo:refs"]
   flow: InvokeChannels["repo:flow"]
   flowInfo: InvokeChannels["repo:flowInfo"]
+  flowInit: InvokeChannels["flow:init"]
+  flowStart: InvokeChannels["flow:start"]
+  flowPublish: InvokeChannels["flow:publish"]
   branch: InvokeChannels["repo:branch"]
   files: InvokeChannels["repo:files"]
   body: InvokeChannels["repo:body"]
@@ -171,6 +191,9 @@ export type Bridge = {
   conflict: InvokeChannels["repo:conflict"]
   resolve: InvokeChannels["repo:resolve"]
   mergeAbort: InvokeChannels["repo:mergeAbort"]
+  countObjects: InvokeChannels["repo:countObjects"]
+  fsck: InvokeChannels["repo:fsck"]
+  gc: InvokeChannels["repo:gc"]
   fileIcon: InvokeChannels["repo:fileIcon"]
   openFile: InvokeChannels["repo:openFile"]
   cancel: InvokeChannels["repo:cancel"]
