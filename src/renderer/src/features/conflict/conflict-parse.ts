@@ -151,17 +151,33 @@ export function sideState(picks: Picks, block: ConflictBlock, side: PickSide): "
   return n === 0 ? "none" : n === total ? "all" : "some"
 }
 
+/** What an unpicked conflict shows in the output: a single placeholder line — the raw
+    markers never reach the editable buffer. Deliberately not translated: it's a sentinel
+    the resolve gating greps for (`unresolvedCount`), not UI copy. */
+export const CONFLICT_PLACEHOLDER = "<merge conflict>"
+
 /** The merged output: context verbatim, each picked conflict replaced by its picked lines
-    in click order, each untouched conflict kept verbatim (markers included). */
+    in click order, each untouched conflict by the placeholder — unchecking everything
+    brings the placeholder back, never the markers. */
 export function renderPicks(segments: ConflictSegment[], picks: Picks): string {
   const out: string[] = []
   for (const seg of segments) {
     if (seg.kind === "ctx") out.push(...seg.lines)
     else {
       const refs = picks[seg.index] ?? []
-      if (!refs.length) out.push(...seg.raw)
+      if (!refs.length) out.push(CONFLICT_PLACEHOLDER)
       else out.push(...refs.map((r) => seg[r.side][r.line]))
     }
   }
   return out.join("\n")
+}
+
+/** What still blocks "Mark as resolved": placeholders (derived output, or left by hand)
+    plus real marker blocks (a hand-edit can reintroduce them). */
+export function unresolvedCount(text: string): number {
+  const segments = parseConflicts(text)
+  let n = conflictCount(segments)
+  for (const seg of segments)
+    if (seg.kind === "ctx") n += seg.lines.filter((l) => l.trim() === CONFLICT_PLACEHOLDER).length
+  return n
 }
