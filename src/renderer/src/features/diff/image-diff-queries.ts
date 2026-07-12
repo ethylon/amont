@@ -69,13 +69,7 @@ export function imageSides(ctx: DiffCtx, file: FileChange): { old: ImageSide | n
   }
 }
 
-export function useImageDiffQuery(
-  api: RepoApi,
-  id: number,
-  ctx: DiffCtx,
-  file: FileChange,
-  enabled: boolean
-) {
+export function useImageDiffQuery(api: RepoApi, id: number, ctx: DiffCtx, file: FileChange, enabled: boolean) {
   return useQuery({
     enabled,
     queryKey: queryKeys.imageDiff(id, ctx, file.path, file.old ?? null),
