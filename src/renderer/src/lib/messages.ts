@@ -334,15 +334,6 @@ export const messages = {
     commitsLoaded: (loaded: string, total: string) => t`${loaded} of ${total} commits loaded`,
   },
 
-  avatars: {
-    get enable() {
-      return t`Enable network avatars (Gravatar/GitHub) — off by default for privacy`
-    },
-    get disable() {
-      return t`Disable network avatars (Gravatar/GitHub)`
-    },
-  },
-
   theme: {
     get light() {
       return t`Light theme`
