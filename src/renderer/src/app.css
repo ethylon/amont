@@ -423,6 +423,13 @@
   border-radius: calc(var(--radius) * 0.8);
   margin: 0;
 }
+/* Geist Mono ships contextual ligatures (calt): `===`/`=>`/`!=` fuse into glyphs that
+   overrun their cells onto the next token and break column alignment. Kill them on the
+   diff — inherited by the table, code lines, and every shiki span. */
+.amont-diffbody {
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
+}
 /* the font and size come from .amont-diffbody (font-mono text-xs) */
 .amont-diffbody .d2h-diff-table,
 .amont-diffbody .d2h-code-line,
