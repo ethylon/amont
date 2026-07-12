@@ -46,6 +46,9 @@ msgstr "{n, plural, one {# référence supplémentaire} other {# références su
 msgid "{n, plural, one {# commit selected} other {# commits selected}}"
 msgstr "{n, plural, one {# commit sélectionné} other {# commits sélectionnés}}"
 
+msgid "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
+msgstr "{n, plural, one {# conflit restant} other {# conflits restants}}"
+
 msgid "{n, plural, one {# new commit} other {# new commits}}"
 msgstr "{n, plural, one {# nouveau commit} other {# nouveaux commits}}"
 
@@ -73,6 +76,12 @@ msgstr "{staged, plural, one {# fichier} other {# fichiers}}"
 msgid "✗ failed"
 msgstr "✗ échec"
 
+msgid "A · {label}"
+msgstr "A · {label}"
+
+msgid "Abort merge"
+msgstr "Interrompre le merge"
+
 msgid "Additional references"
 msgstr "Références supplémentaires"
 
@@ -90,6 +99,9 @@ msgstr "Appliquer et supprimer"
 
 msgid "author"
 msgstr "auteur"
+
+msgid "B · {label}"
+msgstr "B · {label}"
 
 msgid "base"
 msgstr "base"
@@ -154,6 +166,18 @@ msgstr "Message de commit"
 msgid "commits"
 msgstr "commits"
 
+msgid "Conflict {n}"
+msgstr "Conflit {n}"
+
+msgid "Conflict unavailable."
+msgstr "Conflit indisponible."
+
+msgid "conflict…"
+msgstr "conflit…"
+
+msgid "Conflicts"
+msgstr "Conflits"
+
 msgid "Dark theme"
 msgstr "Thème sombre"
 
@@ -162,6 +186,9 @@ msgstr "date"
 
 msgid "Delete branch"
 msgstr "Supprimer la branche"
+
+msgid "deleted on this side"
+msgstr "supprimé de ce côté"
 
 msgid "Diff unavailable."
 msgstr "Diff indisponible."
@@ -226,6 +253,9 @@ msgstr "Thème clair"
 msgid "loading files…"
 msgstr "chargement des fichiers…"
 
+msgid "Mark as resolved"
+msgstr "Marquer comme résolu"
+
 msgid "Merge into « {branch} »"
 msgstr "Fusionner dans « {branch} »"
 
@@ -234,6 +264,12 @@ msgstr "fusionné"
 
 msgid "merged into {mergedInto}"
 msgstr "fusionné dans {mergedInto}"
+
+msgid "Merged output — editable"
+msgstr "Résultat du merge — éditable"
+
+msgid "Merging {theirs} (B) into {ours} (A)"
+msgstr "Merge de {theirs} (B) dans {ours} (A)"
 
 msgid "New tab"
 msgstr "Nouvel onglet"
@@ -246,6 +282,9 @@ msgstr "Aucune modification à indexer."
 
 msgid "No commands yet."
 msgstr "Aucune commande pour l'instant."
+
+msgid "No conflict markers left."
+msgstr "Plus aucun marqueur de conflit."
 
 msgid "No matching ref."
 msgstr "Aucune référence correspondante."
@@ -276,6 +315,9 @@ msgstr "Ouvrir un dépôt…"
 
 msgid "Open in file explorer"
 msgstr "Ouvrir dans l'explorateur de fichiers"
+
+msgid "ours — current branch"
+msgstr "ours — branche courante"
 
 msgid "parent"
 msgstr "parent"
@@ -349,6 +391,18 @@ msgstr "tag {tag}"
 msgid "Tags"
 msgstr "Tags"
 
+msgid "Take A"
+msgstr "Prendre A"
+
+msgid "Take A then B"
+msgstr "Prendre A puis B"
+
+msgid "Take B"
+msgstr "Prendre B"
+
+msgid "theirs — incoming"
+msgstr "theirs — entrante"
+
 msgid "to {targets}"
 msgstr "vers {targets}"
 
@@ -357,6 +411,9 @@ msgstr "Vue arborescente"
 
 msgid "Uncommitted changes"
 msgstr "Modifications non commitées"
+
+msgid "Undo edits"
+msgstr "Annuler les modifications"
 
 msgid "Unexpected error."
 msgstr "Erreur inattendue."
