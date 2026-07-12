@@ -103,8 +103,7 @@ export function createGraph(
   let matchHashes: string[] | null = null
   function applyMatchIds() {
     const ids =
-      matchHashes &&
-      matchHashes.map((h) => idOf(loader.state.ids, h)).filter((id): id is number => id !== undefined)
+      matchHashes && matchHashes.map((h) => idOf(loader.state.ids, h)).filter((id): id is number => id !== undefined)
     selectionCtl.setMatches(ids, loader.state.hashOf)
   }
 
