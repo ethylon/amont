@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { LABEL_CLS } from "@/components/ui/typography"
+import { homeKeys } from "@/features/home/keys"
 
 type Props = {
   active: boolean
@@ -56,11 +57,6 @@ function Section({
       {children}
     </section>
   )
-}
-
-const homeKeys = {
-  repos: ["home", "repos"] as const,
-  scan: (root: string | null) => ["home", "scan", root] as const,
 }
 
 export function HomeScreen({ active, onOpened }: Props) {
