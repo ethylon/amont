@@ -244,8 +244,8 @@ msgstr "Flat view"
 msgid "Git console"
 msgstr "Git console"
 
-msgid "Hand-edited — undo the edits to re-enable the pickers."
-msgstr "Hand-edited — undo the edits to re-enable the pickers."
+#~ msgid "Hand-edited — undo the edits to re-enable the pickers."
+#~ msgstr "Hand-edited — undo the edits to re-enable the pickers."
 
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
@@ -360,6 +360,9 @@ msgstr "Remotes"
 
 msgid "Remove line from the output"
 msgstr "Remove line from the output"
+
+msgid "Reset to selection"
+msgstr "Reset to selection"
 
 msgid "Resolve conflicts before committing."
 msgstr "Resolve conflicts before committing."

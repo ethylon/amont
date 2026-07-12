@@ -156,6 +156,13 @@ export function sideState(picks: Picks, block: ConflictBlock, side: PickSide): "
     the resolve gating greps for (`unresolvedCount`), not UI copy. */
 export const CONFLICT_PLACEHOLDER = "<merge conflict>"
 
+/** The block one conflict contributes to the output under a set of picks: the placeholder
+    when nothing is picked, otherwise its picked lines joined in click order. */
+export function regionOf(block: ConflictBlock, refs: LineRef[]): string {
+  if (!refs.length) return CONFLICT_PLACEHOLDER
+  return refs.map((r) => block[r.side][r.line]).join("\n")
+}
+
 /** The merged output: context verbatim, each picked conflict replaced by its picked lines
     in click order, each untouched conflict by the placeholder — unchecking everything
     brings the placeholder back, never the markers. */
@@ -163,13 +170,57 @@ export function renderPicks(segments: ConflictSegment[], picks: Picks): string {
   const out: string[] = []
   for (const seg of segments) {
     if (seg.kind === "ctx") out.push(...seg.lines)
-    else {
-      const refs = picks[seg.index] ?? []
-      if (!refs.length) out.push(CONFLICT_PLACEHOLDER)
-      else out.push(...refs.map((r) => seg[r.side][r.line]))
-    }
+    else out.push(regionOf(seg, picks[seg.index] ?? []))
   }
   return out.join("\n")
+}
+
+/** Replaces the block that conflict `index` contributes in `text` (its `before` content) with
+    its `after` content, WITHOUT re-deriving the whole output — so hand edits elsewhere in the
+    buffer survive a pick change. The right occurrence is found by counting the conflicts before
+    `index` whose current block also equals `before` (identical placeholders, mostly), then
+    replacing the next one. If `before` can't be located (that conflict's own lines were
+    hand-edited), the buffer is left as-is: the pick is still recorded, the user's edit wins. */
+function spliceRegion(
+  text: string,
+  blocks: ConflictBlock[],
+  index: number,
+  before: string,
+  after: string,
+  currentRefs: (i: number) => LineRef[]
+): string {
+  let occurrence = 0
+  for (const b of blocks) {
+    if (b.index === index) break
+    if (regionOf(b, currentRefs(b.index)) === before) occurrence++
+  }
+  let pos = -1
+  for (let k = 0; k <= occurrence; k++) {
+    pos = text.indexOf(before, pos + 1)
+    if (pos < 0) return text
+  }
+  return text.slice(0, pos) + after + text.slice(pos + before.length)
+}
+
+/** Applies a pick change onto the editable buffer. With no hand edits (the buffer still equals
+    the old derivation) this is an exact re-derive; otherwise every conflict whose block changed
+    is spliced in place, preserving edits everywhere else. */
+export function applyPickDiff(
+  segments: ConflictSegment[],
+  blocks: ConflictBlock[],
+  text: string,
+  oldPicks: Picks,
+  newPicks: Picks
+): string {
+  if (text === renderPicks(segments, oldPicks)) return renderPicks(segments, newPicks)
+  let out = text
+  for (const b of blocks) {
+    const before = regionOf(b, oldPicks[b.index] ?? [])
+    const after = regionOf(b, newPicks[b.index] ?? [])
+    /* prior blocks are already at their new content in `out`, so occurrence counting reads newPicks */
+    if (before !== after) out = spliceRegion(out, blocks, b.index, before, after, (i) => newPicks[i] ?? [])
+  }
+  return out
 }
 
 /** What still blocks "Mark as resolved": placeholders (derived output, or left by hand)
