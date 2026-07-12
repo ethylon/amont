@@ -116,7 +116,22 @@ export function createMeasurer(inner: HTMLDivElement) {
     queueStash = [...new Set(stashNames)]
   }
 
-  return { scanPage, queueStashNames, measureCols, requeueAll }
+  /** Clears every measured maximum and its source. The maxima are monotone *within* a repo
+      (a column never jumps around on scroll or pagination), but they must not survive a
+      rebuild: after a checkout or `branch -d`, a column should give back the width a since-gone
+      decoration was holding rather than keep the historical maximum forever. */
+  function reset() {
+    seenType.clear()
+    seenCell.clear()
+    typeW = cellW = 0
+    queueTypes = []
+    queueCells = []
+    queueStash = []
+    allTypes.length = 0
+    allCells.length = 0
+  }
+
+  return { scanPage, queueStashNames, measureCols, requeueAll, reset }
 }
 
 export type Measurer = ReturnType<typeof createMeasurer>

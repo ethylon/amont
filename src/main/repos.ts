@@ -147,6 +147,7 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     timer: null,
     watcher: null,
     watchRetries: 0,
+    retryTimer: null,
     trunk: null,
     children,
     requests: new Map(),
@@ -173,6 +174,7 @@ export function closeRepo(id: number): void {
   const r = repos.get(id)
   if (!r) return
   if (r.timer) clearInterval(r.timer)
+  if (r.retryTimer) clearTimeout(r.retryTimer)
   r.watcher?.close()
   killAll(r.children)
   for (const controller of r.requests.values()) controller.abort()
@@ -183,6 +185,7 @@ export function closeRepo(id: number): void {
 export function closeAll(): void {
   for (const r of repos.values()) {
     if (r.timer) clearInterval(r.timer)
+    if (r.retryTimer) clearTimeout(r.retryTimer)
     r.watcher?.close()
     killAll(r.children)
   }

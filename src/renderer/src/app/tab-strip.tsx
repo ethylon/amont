@@ -143,6 +143,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
         icon={EyeOffIcon}
         swapIcon={EyeIcon}
         swapped={avatarsOn}
+        aria-pressed={avatarsOn}
         onClick={() => setAvatarsEnabled(!avatarsOn)}
         className="shrink-0"
       />
@@ -152,6 +153,7 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
         icon={Moon02Icon}
         swapIcon={Sun03Icon}
         swapped={dark}
+        aria-pressed={dark}
         onClick={toggleTheme}
         className="shrink-0"
       />

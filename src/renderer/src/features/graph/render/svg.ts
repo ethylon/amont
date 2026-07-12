@@ -65,5 +65,14 @@ export function createMarkupCache() {
       html.set(ci, markup)
       return markup
     },
+    /** Drops every memoized chunk. The cache is keyed by chunk index and gated only on
+        edge/node counts, so it must be cleared when the graph is rebuilt against a fresh
+        `LayoutState`: a chunk whose counts happen to coincide across the rebuild would
+        otherwise render from the previous, geometrically-different layout. */
+    reset() {
+      lastEdgeLen.clear()
+      lastNodeLen.clear()
+      html.clear()
+    },
   }
 }
