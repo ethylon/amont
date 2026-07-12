@@ -1,12 +1,6 @@
 import { useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  Cancel01Icon,
-  Home01Icon,
-  Moon02Icon,
-  PlusSignIcon,
-  Sun03Icon,
-} from "@hugeicons/core-free-icons"
+import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@hugeicons/core-free-icons"
 
 import { messages } from "@/lib/messages"
 import { setDark, useTheme } from "@/lib/theme"
