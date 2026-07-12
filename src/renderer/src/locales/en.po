@@ -1,0 +1,386 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-07-12 07:19+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+msgid "… {n} lines truncated"
+msgstr "… {n} lines truncated"
+
+msgid "(first-parent)"
+msgstr "(first-parent)"
+
+msgid "(merge)"
+msgstr "(merge)"
+
+msgid "(root)"
+msgstr "(root)"
+
+msgid "{kind} in progress"
+msgstr "{kind} in progress"
+
+msgid "{kind} in progress for {since}"
+msgstr "{kind} in progress for {since}"
+
+msgid "{loaded} of {total} commits loaded"
+msgstr "{loaded} of {total} commits loaded"
+
+msgid "{n, plural, =0 {no commits} one {# commit} other {# commits}}"
+msgstr "{n, plural, =0 {no commits} one {# commit} other {# commits}}"
+
+msgid "{n, plural, =0 {no files} one {# file} other {# files}}"
+msgstr "{n, plural, =0 {no files} one {# file} other {# files}}"
+
+msgid "{n, plural, one {# additional reference} other {# additional references}}"
+msgstr "{n, plural, one {# additional reference} other {# additional references}}"
+
+msgid "{n, plural, one {# commit selected} other {# commits selected}}"
+msgstr "{n, plural, one {# commit selected} other {# commits selected}}"
+
+msgid "{n, plural, one {# new commit} other {# new commits}}"
+msgstr "{n, plural, one {# new commit} other {# new commits}}"
+
+msgid "{n, plural, one {# other branch on this tip} other {# other branches on this tip}}"
+msgstr "{n, plural, one {# other branch on this tip} other {# other branches on this tip}}"
+
+msgid "{n, plural, one {# result} other {# results}}"
+msgstr "{n, plural, one {# result} other {# results}}"
+
+msgid "{n} d"
+msgstr "{n} d"
+
+msgid "{n} h"
+msgstr "{n} h"
+
+msgid "{n} min"
+msgstr "{n} min"
+
+msgid "{refs} · unmerged"
+msgstr "{refs} · unmerged"
+
+msgid "{staged, plural, one {# file} other {# files}}"
+msgstr "{staged, plural, one {# file} other {# files}}"
+
+msgid "✗ failed"
+msgstr "✗ failed"
+
+msgid "Additional references"
+msgstr "Additional references"
+
+msgid "Also search diff content"
+msgstr "Also search diff content"
+
+msgid "Amend"
+msgstr "Amend"
+
+msgid "Apply"
+msgstr "Apply"
+
+msgid "Apply and drop"
+msgstr "Apply and drop"
+
+msgid "author"
+msgstr "author"
+
+msgid "base"
+msgstr "base"
+
+msgid "Branch · {n, plural, one {# commit} other {# commits}}"
+msgstr "Branch · {n, plural, one {# commit} other {# commits}}"
+
+msgid "Branches"
+msgstr "Branches"
+
+msgid "Branches unavailable."
+msgstr "Branches unavailable."
+
+msgid "branches…"
+msgstr "branches…"
+
+msgid "Change…"
+msgstr "Change…"
+
+msgid "Checkout"
+msgstr "Checkout"
+
+msgid "Choose a root folder to list the repositories it contains, or open one directly."
+msgstr "Choose a root folder to list the repositories it contains, or open one directly."
+
+msgid "Choose a root folder…"
+msgstr "Choose a root folder…"
+
+msgid "Choose…"
+msgstr "Choose…"
+
+msgid "Clear"
+msgstr "Clear"
+
+msgid "Click a commit for its detail."
+msgstr "Click a commit for its detail."
+
+msgid "Close"
+msgstr "Close"
+
+msgid "Close (Esc)"
+msgstr "Close (Esc)"
+
+msgid "Close {name}"
+msgstr "Close {name}"
+
+msgid "co-authors"
+msgstr "co-authors"
+
+msgid "Command failed: {cmd}"
+msgstr "Command failed: {cmd}"
+
+msgid "commit"
+msgstr "commit"
+
+msgid "Commit"
+msgstr "Commit"
+
+msgid "Commit message"
+msgstr "Commit message"
+
+msgid "commits"
+msgstr "commits"
+
+msgid "Dark theme"
+msgstr "Dark theme"
+
+msgid "date"
+msgstr "date"
+
+msgid "Delete branch"
+msgstr "Delete branch"
+
+msgid "Diff unavailable."
+msgstr "Diff unavailable."
+
+msgid "diff…"
+msgstr "diff…"
+
+msgid "Disable network avatars (Gravatar/GitHub)"
+msgstr "Disable network avatars (Gravatar/GitHub)"
+
+msgid "Drop"
+msgstr "Drop"
+
+msgid "Empty diff."
+msgstr "Empty diff."
+
+msgid "Enable network avatars (Gravatar/GitHub) — off by default for privacy"
+msgstr "Enable network avatars (Gravatar/GitHub) — off by default for privacy"
+
+msgid "error"
+msgstr "error"
+
+msgid "Error: {msg}"
+msgstr "Error: {msg}"
+
+msgid "expected tag"
+msgstr "expected tag"
+
+msgid "Filter branches"
+msgstr "Filter branches"
+
+msgid "Filter commits — message, author, hash"
+msgstr "Filter commits — message, author, hash"
+
+msgid "Finish bugfix"
+msgstr "Finish bugfix"
+
+msgid "Finish feature"
+msgstr "Finish feature"
+
+msgid "Finish hotfix"
+msgstr "Finish hotfix"
+
+msgid "Finish release"
+msgstr "Finish release"
+
+msgid "finish target"
+msgstr "finish target"
+
+msgid "finish targets"
+msgstr "finish targets"
+
+msgid "Flat view"
+msgstr "Flat view"
+
+msgid "Git console"
+msgstr "Git console"
+
+msgid "Hide sidebar"
+msgstr "Hide sidebar"
+
+msgid "Home"
+msgstr "Home"
+
+msgid "Light theme"
+msgstr "Light theme"
+
+msgid "loading files…"
+msgstr "loading files…"
+
+msgid "Merge into « {branch} »"
+msgstr "Merge into « {branch} »"
+
+msgid "merged"
+msgstr "merged"
+
+msgid "merged into {mergedInto}"
+msgstr "merged into {mergedInto}"
+
+msgid "New tab"
+msgstr "New tab"
+
+msgid "Next result"
+msgstr "Next result"
+
+msgid "No changes to stage."
+msgstr "No changes to stage."
+
+msgid "No commands yet."
+msgstr "No commands yet."
+
+msgid "No matching ref."
+msgstr "No matching ref."
+
+msgid "No repositories"
+msgstr "No repositories"
+
+msgid "No repositories found under this root."
+msgstr "No repositories found under this root."
+
+msgid "No results"
+msgstr "No results"
+
+msgid "No root folder. Choose one to list its repositories."
+msgstr "No root folder. Choose one to list its repositories."
+
+msgid "No staged files."
+msgstr "No staged files."
+
+msgid "none"
+msgstr "none"
+
+msgid "Open a repository in a new tab."
+msgstr "Open a repository in a new tab."
+
+msgid "Open a repository…"
+msgstr "Open a repository…"
+
+msgid "Open in file explorer"
+msgstr "Open in file explorer"
+
+msgid "parent"
+msgstr "parent"
+
+msgid "parents"
+msgstr "parents"
+
+msgid "Previous result"
+msgstr "Previous result"
+
+msgid "Pull"
+msgstr "Pull"
+
+msgid "Push"
+msgstr "Push"
+
+msgid "Push to « {upstream} »"
+msgstr "Push to « {upstream} »"
+
+msgid "Ready"
+msgstr "Ready"
+
+msgid "Recent"
+msgstr "Recent"
+
+msgid "Reload"
+msgstr "Reload"
+
+msgid "Reload tab"
+msgstr "Reload tab"
+
+msgid "Remotes"
+msgstr "Remotes"
+
+msgid "Resolve conflicts before committing."
+msgstr "Resolve conflicts before committing."
+
+msgid "Root folder"
+msgstr "Root folder"
+
+msgid "scanning for repositories…"
+msgstr "scanning for repositories…"
+
+msgid "Show sidebar"
+msgstr "Show sidebar"
+
+msgid "Side by side"
+msgstr "Side by side"
+
+msgid "Something went wrong"
+msgstr "Something went wrong"
+
+msgid "Stage"
+msgstr "Stage"
+
+msgid "Stage all"
+msgstr "Stage all"
+
+msgid "Stage folder"
+msgstr "Stage folder"
+
+msgid "Staged"
+msgstr "Staged"
+
+msgid "Stash changes (git stash push -u)"
+msgstr "Stash changes (git stash push -u)"
+
+msgid "tag {tag}"
+msgstr "tag {tag}"
+
+msgid "Tags"
+msgstr "Tags"
+
+msgid "to {targets}"
+msgstr "to {targets}"
+
+msgid "Tree view"
+msgstr "Tree view"
+
+msgid "Uncommitted changes"
+msgstr "Uncommitted changes"
+
+msgid "Unexpected error."
+msgstr "Unexpected error."
+
+msgid "Unified diff"
+msgstr "Unified diff"
+
+msgid "unmerged segment"
+msgstr "unmerged segment"
+
+msgid "Unstage"
+msgstr "Unstage"
+
+msgid "Unstage all"
+msgstr "Unstage all"
+
+msgid "Unstage folder"
+msgstr "Unstage folder"
+
+msgid "Unstaged"
+msgstr "Unstaged"
