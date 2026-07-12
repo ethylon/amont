@@ -19,7 +19,7 @@ import type {
 import { inRepo, type RepoHandle } from "../repos.ts"
 import { ALL_REFS, parseForEachRef, parseLogPage, parseNameStatus, parsePorcelain, parseStashList } from "./parse.ts"
 
-const HASH = /^[0-9a-f]{7,40}$/
+const HASH = /^[0-9a-f]{7,64}$/ // 40 hex for sha1, 64 for sha256 object-format repos
 
 function assertHash(hash: string, parent?: string | null): void {
   if (!HASH.test(hash) || (parent != null && !HASH.test(parent))) throw new AppError("BAD_ARG", "hash")

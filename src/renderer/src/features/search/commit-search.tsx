@@ -52,12 +52,16 @@ export function CommitSearch({ api, repoId, graph, active }: Props) {
   /* TanStack Query itself cancels the stale fetch when `term`/`content` change before
      resolution (AbortSignal provided to the queryFn, see lib/queries.ts): no more `alive`
      flag to hand-copy to ignore a late response. */
-  const { data: hits = null, isFetching: busy, error: queryError } = useSearchQuery(api, repoId, term, content)
+  const { data, isFetching: busy, error: queryError } = useSearchQuery(api, repoId, term, content)
+  /* Below the threshold the query is disabled, but placeholderData keeps its previous data
+     around; gate on the term so the count, the prev/next buttons and the highlights all clear
+     together instead of lingering on a stale result. */
+  const hits = term.length >= SEARCH_MIN ? (data ?? null) : null
   const error = queryError ? describeError(queryError) : null
 
   useEffect(() => {
-    graph.current?.setMatches(term.length >= SEARCH_MIN ? (hits ?? null) : null)
-  }, [graph, hits, term])
+    graph.current?.setMatches(hits)
+  }, [graph, hits])
 
   const jump = useCallback(
     async (dir: 1 | -1) => {
