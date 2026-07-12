@@ -392,11 +392,11 @@
   border-left-color: var(--destructive);
 }
 
-/* Selection runs in the refs sidebar. The lit rows carry their fill and rail as utilities
-   (see RefRow); these rules only merge contiguous lit refs into a single filled block by
-   squaring the corners between neighbors — the run's outermost corners stay rounded.
-   Outside @layer for the same reason as the rail above: the row's `rounded-md` utility
-   would otherwise win. `data-run` is set by the sidebar's DOM pass (refs-focus-paint.ts). */
+/* Selection runs in the refs sidebar. Lit rows carry their fill as a utility (see RefRow);
+   these rules merge contiguous lit refs into one block by squaring the corners between
+   neighbors, so the fill reads as a single surface rather than a stack of pills. Outside
+   @layer: the row's `rounded-md` utility would otherwise win. `data-run` is set by the
+   sidebar's DOM pass (refs-focus-paint.ts). */
 .amont-refrow[data-run="start"] {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
