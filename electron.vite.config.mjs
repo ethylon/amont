@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { defineConfig } from "electron-vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { lingui } from "@lingui/vite-plugin";
 import { csp } from "./csp.mjs";
 
 const alias = { "@": resolve(import.meta.dirname, "src/renderer/src") };
@@ -22,6 +23,8 @@ export default defineConfig({
         },
       },
     },
-    plugins: [react(), tailwindcss(), csp()],
+    /* lingui() compiles the PO catalogs on import; the babel macro rewrites t``/plural()
+       into i18n calls (cf. lib/messages.ts). */
+    plugins: [react({ babel: { plugins: ["@lingui/babel-plugin-lingui-macro"] } }), lingui(), tailwindcss(), csp()],
   },
 });

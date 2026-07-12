@@ -19,5 +19,12 @@
       "@/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src/main", "src/preload", "src/shared", "scripts", "vitest.config.ts"]
+  "include": [
+    "src/main",
+    "src/preload",
+    "src/shared",
+    "scripts",
+    "vitest.config.ts",
+    "lingui.config.ts"
+  ]
 }

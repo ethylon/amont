@@ -8,8 +8,11 @@ import { boot } from "@/lib/git"
 import { queryClient } from "@/lib/query-client"
 import { installShortcuts } from "@/app/shortcuts"
 import { applyTheme } from "@/lib/theme"
+import { setupI18n } from "@/lib/i18n"
 
-/* before the first render: no light flash on startup */
+/* before the first render: pick the system locale so every string reads the right language,
+   and paint the theme so there's no light flash on startup */
+setupI18n()
 applyTheme()
 /* a single document listener for the whole shortcut registry (cf. app/shortcuts.ts) */
 installShortcuts()
