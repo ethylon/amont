@@ -392,25 +392,19 @@
   border-left-color: var(--destructive);
 }
 
-/* Outline of a focused ref (and the current branch). Outside @layer for the same reason as the
-   rail above: the row's `border-transparent` utility would otherwise win. `data-run` is set
-   by the sidebar's DOM pass; contiguous lit refs join into a single frame (inner
-   borders erased, only the outermost corners rounded). */
-.amont-refrow[data-run] {
-  border-color: var(--primary);
-}
+/* Selection runs in the refs sidebar. The lit rows carry their fill and rail as utilities
+   (see RefRow); these rules only merge contiguous lit refs into a single filled block by
+   squaring the corners between neighbors — the run's outermost corners stay rounded.
+   Outside @layer for the same reason as the rail above: the row's `rounded-md` utility
+   would otherwise win. `data-run` is set by the sidebar's DOM pass (refs-focus-paint.ts). */
 .amont-refrow[data-run="start"] {
-  border-bottom-color: transparent;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
 .amont-refrow[data-run="mid"] {
-  border-top-color: transparent;
-  border-bottom-color: transparent;
   border-radius: 0;
 }
 .amont-refrow[data-run="end"] {
-  border-top-color: transparent;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
 }
