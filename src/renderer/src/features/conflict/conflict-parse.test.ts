@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest"
 
-import { conflictCount, parseConflicts, takeSide } from "./conflict-parse"
+import {
+  conflictCount,
+  parseConflicts,
+  pickPosition,
+  renderPicks,
+  setSide,
+  sideState,
+  toggleLine,
+  type ConflictBlock,
+  type Picks,
+} from "./conflict-parse"
 
 const SIMPLE = [
   "const a = 1",
@@ -68,18 +78,73 @@ describe("parseConflicts", () => {
   })
 })
 
-describe("takeSide", () => {
-  it("keeps A, keeps B, or keeps both in marker order", () => {
-    expect(takeSide(SIMPLE, 0, "ours")).toBe("const a = 1\nconst b = 2\nconst c = 4")
-    expect(takeSide(SIMPLE, 0, "theirs")).toBe("const a = 1\nconst b = 3\nconst c = 4")
-    expect(takeSide(SIMPLE, 0, "both")).toBe("const a = 1\nconst b = 2\nconst b = 3\nconst c = 4")
+/* two-line sides, to exercise partial picks and ordering */
+const TWO = [
+  "ctx",
+  "<<<<<<< HEAD",
+  "a1",
+  "a2",
+  "=======",
+  "b1",
+  "b2",
+  ">>>>>>> feature/x",
+  "tail",
+].join("\n")
+
+const blockOf = (text: string, index = 0): ConflictBlock =>
+  parseConflicts(text).filter((s) => s.kind === "conflict")[index]
+
+describe("picks", () => {
+  it("renders picked lines in click order, not in a hardcoded A-then-B order", () => {
+    const segs = parseConflicts(TWO)
+    let picks: Picks = {}
+    picks = toggleLine(picks, 0, { side: "theirs", line: 0 }) // click b1 first
+    picks = toggleLine(picks, 0, { side: "ours", line: 1 }) // then a2
+    picks = toggleLine(picks, 0, { side: "ours", line: 0 }) // then a1
+    expect(renderPicks(segs, picks)).toBe("ctx\nb1\na2\na1\ntail")
   })
 
-  it("only touches the targeted block and preserves the trailing newline", () => {
-    const text = `${SIMPLE}\n<<<<<<< HEAD\nx\n=======\ny\n>>>>>>> feature/x\n`
-    const out = takeSide(text, 1, "theirs")
-    expect(out).toBe(`${SIMPLE}\ny\n`)
-    /* the remaining block is intact and renumbered from 0 */
-    expect(conflictCount(parseConflicts(out))).toBe(1)
+  it("keeps the markers of an untouched conflict — resolve stays blocked, selection reversible", () => {
+    const segs = parseConflicts(TWO)
+    expect(renderPicks(segs, {})).toBe(TWO)
+    let picks = toggleLine({}, 0, { side: "ours", line: 0 })
+    picks = toggleLine(picks, 0, { side: "ours", line: 0 }) // unpick the only pick
+    expect(renderPicks(segs, picks)).toBe(TWO)
+    expect(conflictCount(parseConflicts(renderPicks(segs, picks)))).toBe(1)
+  })
+
+  it("setSide appends the side as a run at the end of the click order, off removes it everywhere", () => {
+    const segs = parseConflicts(TWO)
+    const block = blockOf(TWO)
+    let picks: Picks = toggleLine({}, 0, { side: "theirs", line: 1 }) // b2 clicked first
+    picks = setSide(picks, block, "ours", true) // then the whole A chunk
+    expect(renderPicks(segs, picks)).toBe("ctx\nb2\na1\na2\ntail")
+    picks = setSide(picks, block, "ours", false)
+    expect(renderPicks(segs, picks)).toBe("ctx\nb2\ntail")
+  })
+
+  it("setSide does not duplicate a line already picked by hand", () => {
+    const block = blockOf(TWO)
+    let picks: Picks = toggleLine({}, 0, { side: "ours", line: 1 }) // a2 by hand
+    picks = setSide(picks, block, "ours", true) // a1 joins after, a2 not duplicated
+    expect(renderPicks(parseConflicts(TWO), picks)).toBe("ctx\na2\na1\ntail")
+  })
+
+  it("sideState reports none/some/all, and none for an empty side", () => {
+    const block = blockOf(TWO)
+    expect(sideState({}, block, "ours")).toBe("none")
+    const some = toggleLine({}, 0, { side: "ours", line: 0 })
+    expect(sideState(some, block, "ours")).toBe("some")
+    expect(sideState(setSide({}, block, "ours", true), block, "ours")).toBe("all")
+    const empty = blockOf(["<<<<<<<", "=======", "b", ">>>>>>>"].join("\n"))
+    expect(sideState({}, empty, "ours")).toBe("none")
+  })
+
+  it("pickPosition numbers the output region 1-based in click order", () => {
+    let picks: Picks = toggleLine({}, 0, { side: "theirs", line: 0 })
+    picks = toggleLine(picks, 0, { side: "ours", line: 0 })
+    expect(pickPosition(picks, 0, { side: "theirs", line: 0 })).toBe(1)
+    expect(pickPosition(picks, 0, { side: "ours", line: 0 })).toBe(2)
+    expect(pickPosition(picks, 0, { side: "ours", line: 1 })).toBeNull()
   })
 })

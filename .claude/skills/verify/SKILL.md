@@ -35,10 +35,15 @@ via `colorScheme` on the browser context.
 - **Merge conflicts**: the mock worktree ships a merge in progress (`feature/cost-optim`
   (B) into `develop` (A)) with two conflicted files — `threshold.ts` (UU, two blocks, one
   diff3-style) and `params.ts` (AA, no base). Click the "Uncommitted changes" graph row,
-  then a file under CONFLICTS: the resolution view overlays the graph. Per-conflict
-  `Take A` / `Take B` / `Take A then B` buttons patch the editable merged output
-  (`getByLabel("Merged output — editable")`); "Mark as resolved" enables once no markers
-  remain and moves the file to STAGED. Escape closes the overlay.
+  then a file under CONFLICTS: the resolution view overlays the graph. Selection is
+  click-ordered: header checkboxes (`Take A/B in every conflict`) take a side everywhere,
+  per-chunk checkboxes (`Take A`/`Take B`, indeterminate when partial) take one side of one
+  conflict, per-line `+`/`−` buttons (`Add/Remove line …`) pick single lines — the output
+  region lists picked lines in click order (each shows its 1-based position). Unpicking
+  everything restores the markers. Typing in the merged output
+  (`getByLabel("Merged output — editable")`) freezes the pickers until "Undo edits".
+  "Mark as resolved" enables once no markers remain and moves the file to STAGED. Escape
+  closes the overlay.
 - `window.__changed()` in the console simulates an external `.git` change.
 
 ## Gotchas

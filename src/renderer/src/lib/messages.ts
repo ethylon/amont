@@ -349,8 +349,20 @@ export const messages = {
     get takeB() {
       return t`Take B`
     },
-    get takeBoth() {
-      return t`Take A then B`
+    get takeAllA() {
+      return t`Take A in every conflict`
+    },
+    get takeAllB() {
+      return t`Take B in every conflict`
+    },
+    get addLine() {
+      return t`Add line to the output`
+    },
+    get removeLine() {
+      return t`Remove line from the output`
+    },
+    get handEdited() {
+      return t`Hand-edited — undo the edits to re-enable the pickers.`
     },
     get mergedOutput() {
       return t`Merged output — editable`

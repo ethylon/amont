@@ -97,19 +97,71 @@ export function parseConflicts(text: string): ConflictSegment[] {
 export const conflictCount = (segments: ConflictSegment[]): number =>
   segments.reduce((n, s) => (s.kind === "conflict" ? n + 1 : n), 0)
 
-export type Side = "ours" | "theirs" | "both"
+/* --- Click-ordered picks ---
+   The selection model of the conflict view: per conflict, an ORDERED list of line
+   references — the order is the click order, and it IS the order of the output region.
+   No hardcoded A-before-B: checking B's chunk then A's yields B's lines then A's. A
+   conflict with no picks keeps its raw markers in the output, which both leaves the
+   resolve button blocked (markers still parse as a conflict) and makes every selection
+   fully reversible — uncheck everything and the markers come back. */
 
-/** The merged text with conflict `index` replaced by the chosen side ("both" keeps A then B,
-    the order the markers already imply). Other blocks stay verbatim (`raw`), context too:
-    parse → replace → join is byte-faithful everywhere but the resolved block. */
-export function takeSide(text: string, index: number, side: Side): string {
+export type PickSide = "ours" | "theirs"
+export type LineRef = { side: PickSide; line: number }
+/** keyed by conflict index; insertion order of each array = click order = output order */
+export type Picks = Record<number, LineRef[]>
+
+const sameRef = (a: LineRef, b: LineRef) => a.side === b.side && a.line === b.line
+
+export const isPicked = (picks: Picks, index: number, ref: LineRef): boolean =>
+  (picks[index] ?? []).some((r) => sameRef(r, ref))
+
+/** 1-based position of the line in the conflict's output region, null if not picked. */
+export function pickPosition(picks: Picks, index: number, ref: LineRef): number | null {
+  const at = (picks[index] ?? []).findIndex((r) => sameRef(r, ref))
+  return at < 0 ? null : at + 1
+}
+
+/** The per-line +/- button: appends at the end of the click order, or removes. */
+export function toggleLine(picks: Picks, index: number, ref: LineRef): Picks {
+  const cur = picks[index] ?? []
+  const next = cur.some((r) => sameRef(r, ref)) ? cur.filter((r) => !sameRef(r, ref)) : [...cur, ref]
+  return { ...picks, [index]: next }
+}
+
+/** The chunk checkbox: on appends the side's not-yet-picked lines (in file order, as one
+    run at the end of the click order — re-checking after another side lands after it);
+    off removes every line of the side, wherever the clicks had put them. */
+export function setSide(picks: Picks, block: ConflictBlock, side: PickSide, on: boolean): Picks {
+  const cur = picks[block.index] ?? []
+  if (!on) return { ...picks, [block.index]: cur.filter((r) => r.side !== side) }
+  const have = new Set(cur.filter((r) => r.side === side).map((r) => r.line))
+  const added: LineRef[] = []
+  for (let line = 0; line < block[side].length; line++) if (!have.has(line)) added.push({ side, line })
+  return { ...picks, [block.index]: [...cur, ...added] }
+}
+
+/** Checkbox state of one side of one block. An empty side (deleted here) is "none":
+    there is nothing to pick, the view disables its checkbox. */
+export function sideState(picks: Picks, block: ConflictBlock, side: PickSide): "none" | "some" | "all" {
+  const total = block[side].length
+  if (!total) return "none"
+  const n = new Set(
+    (picks[block.index] ?? []).filter((r) => r.side === side).map((r) => r.line)
+  ).size
+  return n === 0 ? "none" : n === total ? "all" : "some"
+}
+
+/** The merged output: context verbatim, each picked conflict replaced by its picked lines
+    in click order, each untouched conflict kept verbatim (markers included). */
+export function renderPicks(segments: ConflictSegment[], picks: Picks): string {
   const out: string[] = []
-  for (const seg of parseConflicts(text)) {
+  for (const seg of segments) {
     if (seg.kind === "ctx") out.push(...seg.lines)
-    else if (seg.index !== index) out.push(...seg.raw)
-    else if (side === "ours") out.push(...seg.ours)
-    else if (side === "theirs") out.push(...seg.theirs)
-    else out.push(...seg.ours, ...seg.theirs)
+    else {
+      const refs = picks[seg.index] ?? []
+      if (!refs.length) out.push(...seg.raw)
+      else out.push(...refs.map((r) => seg[r.side][r.line]))
+    }
   }
   return out.join("\n")
 }
