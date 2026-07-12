@@ -71,8 +71,9 @@ it once no conflict markers remain.
 
 ![The commit graph and detail panel in the dark theme.](docs/graph-dark.png)
 
-> Screenshots show the built-in demo harness (`pnpm mock`) — a synthetic repository of
-> ~25k commits.
+> Screenshots are taken from Amont's own repository, driven through the mock harness
+> (`pnpm mock`, then `/screenshots.html`) — with a synthetic tail appended to its history
+> so the graph still exercises virtualization at ~25k commits.
 
 ## Install
 
