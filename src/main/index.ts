@@ -6,7 +6,7 @@ import { app } from "electron"
 import { registerIpc } from "./ipc.ts"
 import { hardenSession } from "./security.ts"
 import { loadState } from "./state.ts"
-import { initTelemetry } from "./telemetry.ts"
+import { applyTelemetryOptOut, initTelemetry } from "./telemetry.ts"
 import { createWindow, focusExisting } from "./window.ts"
 
 /* Single instance only: a second concurrent launch would overwrite state.json in a
@@ -26,13 +26,18 @@ if (!gotLock) {
 
   registerIpc()
 
+  /* Sentry must be initialized before the 'ready' event (@sentry/electron/main), so it goes
+     here rather than inside whenReady(). It starts inert; applyTelemetryOptOut() below flips it
+     on once loadState() has read the persisted opt-out flag. */
+  initTelemetry()
+
   void app
     .whenReady()
     .then(loadState)
     .then(() => {
       /* after loadState (reads the opt-out flag), before createWindow so a failure while
          building the window is still reported */
-      initTelemetry()
+      applyTelemetryOptOut()
       hardenSession()
       createWindow()
     })
