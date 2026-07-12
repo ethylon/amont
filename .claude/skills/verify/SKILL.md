@@ -39,8 +39,11 @@ via `colorScheme` on the browser context.
   click-ordered: header checkboxes (`Take A/B in every conflict`) take a side everywhere,
   per-chunk checkboxes (`Take A`/`Take B`, indeterminate when partial) take one side of one
   conflict, per-line `+`/`−` buttons (`Add/Remove line …`) pick single lines — the output
-  region lists picked lines in click order (each shows its 1-based position). Unpicking
-  everything restores the markers. Typing in the merged output
+  region lists picked lines in click order (each shows its 1-based position). An unpicked
+  conflict shows as a `<merge conflict>` placeholder in the output (never raw markers);
+  unpicking everything brings the placeholder back. Panes are shiki-highlighted (target
+  the chunk checkboxes with `span[role="checkbox"][aria-label="Take A"]` — getByLabel also
+  matches base-ui's hidden input). Typing in the merged output
   (`getByLabel("Merged output — editable")`) freezes the pickers until "Undo edits".
   "Mark as resolved" enables once no markers remain and moves the file to STAGED. Escape
   closes the overlay.

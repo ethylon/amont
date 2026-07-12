@@ -1,27 +1,30 @@
 /* Conflict resolution view — overlays the graph like DiffView (same slot, cf. graph-column).
    Two aligned panes make the sides unmistakable: A (ours, the checked-out branch, blue) on
    the left, B (theirs, the branch being merged in, green) on the right — labels come from
-   MERGE_HEAD (merge-state query), falling back to the file's own conflict markers.
+   MERGE_HEAD (merge-state query), falling back to the file's own conflict markers. Both
+   panes are syntax-highlighted with the same lazy shiki core the diff view uses: each side
+   is tokenized as one document (context + that side's lines), so the grammar sees real code.
 
    Selection is click-ordered (cf. conflict-parse.ts Picks): the header checkbox takes a
    whole side across every conflict, the per-chunk checkbox takes one side of one conflict,
    the per-line +/- adds or removes a single line — and the output region of each conflict
    is exactly the picked lines IN THE ORDER THEY WERE CLICKED, no hardcoded A-before-B.
-   Each picked line wears its 1-based position so that order stays visible.
+   Each picked line wears its 1-based position so that order stays visible. An unpicked
+   conflict shows as a `<merge conflict>` placeholder in the output, never raw markers.
 
    Below, the merged output stays hand-editable: typing switches to a manual overlay that
    shadows the derived text (the pickers freeze until "Undo edits", rather than silently
-   discarding hand work). "Mark as resolved" enables once no markers remain and stages the
-   file — git's own definition of resolved. */
+   discarding hand work). "Mark as resolved" enables once no placeholder or marker remains
+   and stages the file — git's own definition of resolved. */
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Cancel01Icon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, MergeState, RepoApi } from "@/lib/git"
 import { messages } from "@/lib/messages"
+import { useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import {
-  conflictCount,
   isPicked,
   parseConflicts,
   pickPosition,
@@ -29,6 +32,7 @@ import {
   setSide,
   sideState,
   toggleLine,
+  unresolvedCount,
   type ConflictBlock,
   type ConflictSegment,
   type LineRef,
@@ -50,10 +54,81 @@ const SIDE_TINT: Record<PickSide, string> = { ours: "bg-info/8", theirs: "bg-suc
 const PICKED_TINT: Record<PickSide, string> = { ours: "bg-info/20", theirs: "bg-success/20" }
 
 const MONO = "font-mono text-xs leading-normal whitespace-pre [tab-size:4]"
-const CELL = `min-w-0 overflow-x-auto px-2 py-px ${MONO}`
 
-function PaneCell({ lines, className }: { lines: string[]; className?: string }) {
-  return <pre className={cn(CELL, className)}>{lines.join("\n")}</pre>
+/* --- Syntax highlighting ---
+   Same aliases as diff-view's, kept local: importing ANYTHING statically from
+   shiki-highlighter.ts would pull shiki into the initial bundle and defeat its lazy load. */
+const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
+
+function langOf(path: string): string {
+  const name = path.slice(path.lastIndexOf("/") + 1)
+  const dot = name.lastIndexOf(".")
+  const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : ""
+  return LANG_ALIASES[ext] || ext
+}
+
+type TokenLine = { content: string; color?: string }[]
+
+/** Shiki tokens for one side's document, or null while loading / for an unknown grammar
+    (the pane then renders plain — same fallback policy as the diff view). */
+function useShikiTokens(lines: string[], path: string, dark: boolean): TokenLine[] | null {
+  const [tokens, setTokens] = useState<TokenLine[] | null>(null)
+  useEffect(() => {
+    setTokens(null)
+    const lang = langOf(path)
+    if (!lang || lang === "txt") return
+    let live = true
+    void (async () => {
+      try {
+        const { codeToTokens, getHighlighter } = await import("@/features/diff/shiki-highlighter")
+        const highlighter = await getHighlighter()
+        const res = codeToTokens(highlighter, lines.join("\n"), {
+          lang,
+          theme: dark ? "github-dark" : "github-light",
+        })
+        if (live) setTokens(res.tokens)
+      } catch {
+        /* unknown grammar: stay plain */
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [lines, path, dark])
+  return tokens
+}
+
+/** One rendered code line: shiki spans when tokens are there, raw text otherwise. */
+function CodeLine({ text, tokens }: { text: string; tokens?: TokenLine }) {
+  if (!tokens || !tokens.some((t) => t.content)) return <>{text || " "}</>
+  return tokens.map((t, i) => (
+    <span key={i} style={{ color: t.color }}>
+      {t.content}
+    </span>
+  ))
+}
+
+/** A run of context lines (same text both sides), highlighted with its pane's tokens. */
+function PaneCell({
+  lines,
+  tokens,
+  start,
+  className,
+}: {
+  lines: string[]
+  tokens: TokenLine[] | null
+  start: number
+  className?: string
+}) {
+  return (
+    <div className={cn("min-w-0 overflow-x-auto px-2 py-px", MONO, className)}>
+      {lines.map((l, i) => (
+        <div key={i} className="min-w-max">
+          <CodeLine text={l} tokens={tokens?.[start + i]} />
+        </div>
+      ))}
+    </div>
+  )
 }
 
 /** Display labels of the two sides: branch names when a merge is in progress, otherwise
@@ -72,6 +147,8 @@ function ChunkSide({
   block,
   side,
   picks,
+  tokens,
+  start,
   disabled,
   onPicks,
   className,
@@ -79,6 +156,8 @@ function ChunkSide({
   block: ConflictBlock
   side: PickSide
   picks: Picks
+  tokens: TokenLine[] | null
+  start: number
   disabled: boolean
   onPicks(next: Picks): void
   className?: string
@@ -126,7 +205,9 @@ function ChunkSide({
               <span className="w-4 shrink-0 text-right text-[0.625rem] leading-normal text-muted-foreground tabular-nums">
                 {pos}
               </span>
-              <pre className={cn("flex-1 px-1.5", MONO, !picked && "text-muted-foreground/70")}>{l || " "}</pre>
+              <pre className={cn("flex-1 px-1.5", MONO, !picked && "opacity-55")}>
+                <CodeLine text={l} tokens={tokens?.[start + line]} />
+              </pre>
             </div>
           )
         })}
@@ -147,11 +228,33 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
   const root = useRef<HTMLDivElement>(null)
   const { data: cf = null, isError: error } = useConflictQuery(api, repoId, file.path)
   const { data: ms } = useMergeStateQuery(api, repoId)
+  const dark = useTheme()
 
   /* The base never moves while the view is open: panes and picks are anchored to the
      conflict indices of THIS parse, whatever the output becomes. */
   const baseSegments = useMemo(() => parseConflicts(cf?.merged ?? ""), [cf])
   const blocks = useMemo(() => baseSegments.filter((s) => s.kind === "conflict"), [baseSegments])
+
+  /* Each pane is one document for the highlighter (context + that side's lines); segments
+     remember their line offset into it so rendering can index the token lines. */
+  const { aDoc, bDoc, offsets } = useMemo(() => {
+    const a: string[] = []
+    const b: string[] = []
+    const offsets = baseSegments.map((seg) => {
+      const at = { a: a.length, b: b.length }
+      if (seg.kind === "ctx") {
+        a.push(...seg.lines)
+        b.push(...seg.lines)
+      } else {
+        a.push(...seg.ours)
+        b.push(...seg.theirs)
+      }
+      return at
+    })
+    return { aDoc: a, bDoc: b, offsets }
+  }, [baseSegments])
+  const aTokens = useShikiTokens(aDoc, file.path, dark)
+  const bTokens = useShikiTokens(bDoc, file.path, dark)
 
   const [picks, setPicks] = useState<Picks>({})
   /* `edited` shadows the derived output: null = the pickers drive. Typing freezes the
@@ -163,7 +266,7 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
   const text = edited ?? derived
   const handEdited = edited !== null
 
-  const remaining = conflictCount(useMemo(() => parseConflicts(text), [text]))
+  const remaining = useMemo(() => unresolvedCount(text), [text])
   const labels = sideLabels(ms, baseSegments)
 
   /* Same focus contract as DiffView: the overlay takes the keyboard on open (Escape lives
@@ -235,19 +338,29 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
               {baseSegments.map((seg, i) =>
                 seg.kind === "ctx" ? (
                   <div key={i} className="col-span-2 grid grid-cols-subgrid">
-                    <PaneCell lines={seg.lines} />
-                    <PaneCell lines={seg.lines} className="border-l" />
+                    <PaneCell lines={seg.lines} tokens={aTokens} start={offsets[i].a} />
+                    <PaneCell lines={seg.lines} tokens={bTokens} start={offsets[i].b} className="border-l" />
                   </div>
                 ) : (
                   <div key={i} className="col-span-2 grid grid-cols-subgrid">
                     <div className="col-span-2 border-y bg-muted/60 px-2 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
                       {messages.conflict.conflictN(seg.index + 1)}
                     </div>
-                    <ChunkSide block={seg} side="ours" picks={picks} disabled={handEdited} onPicks={setPicks} />
+                    <ChunkSide
+                      block={seg}
+                      side="ours"
+                      picks={picks}
+                      tokens={aTokens}
+                      start={offsets[i].a}
+                      disabled={handEdited}
+                      onPicks={setPicks}
+                    />
                     <ChunkSide
                       block={seg}
                       side="theirs"
                       picks={picks}
+                      tokens={bTokens}
+                      start={offsets[i].b}
                       disabled={handEdited}
                       onPicks={setPicks}
                       className="border-l"
