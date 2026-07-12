@@ -1,13 +1,11 @@
 <div align="center">
 
-<img src="resources/icon.png" width="96" alt="Amont" />
+![Amont](docs/logo.png)
 
 # Amont
 
 **A fast, keyboard-friendly Git history visualizer for Windows.**
 
-[![Latest release](https://img.shields.io/github/v/release/ethylon/amont)](https://github.com/ethylon/amont/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/ethylon/amont/ci.yml?label=CI)](https://github.com/ethylon/amont/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d4)
 
@@ -18,10 +16,7 @@ lanes, merges as curves, refs as chips. It's built for repositories with tens to
 of thousands of commits — the graph engine pages and virtualizes both the layout and the
 DOM instead of rendering everything up front.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/graph-dark.png" />
-  <img src="docs/graph-light.png" alt="Amont's main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit's message, co-authors, and file tree." />
-</picture>
+![Amont's main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit's message, co-authors, and file tree.](docs/graph-light.png)
 
 ## Built for big histories
 
@@ -37,10 +32,7 @@ and changed files in the detail panel.
 Diffs are syntax-highlighted (Shiki, same grammars as VS Code) and render unified or
 side-by-side, for a single file or a whole commit. The two panes scroll together.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/diff-dark.png" />
-  <img src="docs/diff-light.png" alt="A side-by-side, syntax-highlighted diff of a TypeScript file, with the commit's detail panel on the right." />
-</picture>
+![A side-by-side, syntax-highlighted diff of a TypeScript file, with the commit's detail panel on the right.](docs/diff-light.png)
 
 ## Stage and commit without leaving the graph
 
@@ -48,10 +40,7 @@ The `Uncommitted changes` row at the top of the graph opens the staging panel: s
 unstage files (or everything at once), review each change in a live diff, and commit or
 amend — with the exact git command shown on the button before you run it.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/worktree-dark.png" />
-  <img src="docs/worktree-light.png" alt="The staging panel: unstaged and staged file trees, a live side-by-side diff of a modified file, and a commit message box with the Commit button." />
-</picture>
+![The staging panel: unstaged and staged file trees, a live side-by-side diff of a modified file, and a commit message box with the Commit button.](docs/worktree-light.png)
 
 ## And more
 
@@ -61,8 +50,9 @@ amend — with the exact git command shown on the button before you run it.
 - **A read-only git console** — every command the app runs is traced, for transparency.
 - **Keyboard-first** — the graph, file lists, and popovers are all operable without a
   mouse.
-- **Light and dark** — follows the OS, or pick one; every screenshot above has both.
-- **Fetch / pull / push** from the toolbar, with ahead/behind counts per branch.
+- **Light and dark** — follows the OS, or pick one. Here's the graph again, in dark:
+
+![The commit graph and detail panel in the dark theme.](docs/graph-dark.png)
 
 > Screenshots show the built-in demo harness (`pnpm mock`) — a synthetic repository of
 > ~25k commits.
