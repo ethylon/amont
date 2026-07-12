@@ -427,6 +427,12 @@ export function createGraph(
       const { stashes } = await loader.reset()
       if (destroyed) return
       const token = loader.token
+      /* Render-side caches keyed on the previous layout state must be dropped now that
+         loader.reset() has installed a fresh one — all in this synchronous block, so the
+         sync() triggered by remount() rebuilds them against the new state. */
+      overlay.reset()
+      markup.reset()
+      measurer.reset()
       stashNames = stashes.map((s) => s.name)
       measurer.queueStashNames(stashNames)
       selectionCtl.setSelection([])
