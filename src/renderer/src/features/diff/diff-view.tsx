@@ -37,55 +37,72 @@ async function shikiPass(body: HTMLElement) {
   lang = LANG_ALIASES[lang] || lang
   const ctns = [...body.querySelectorAll<HTMLElement>(".d2h-code-line-ctn")]
   if (!ctns.length) return
-  let lines
+
+  /* Side-by-side renders two independent panes (.d2h-file-side-diff): old on the left, new
+     on the right. Shiki is a stateful tokenizer — an unterminated string, comment, template
+     literal or JSX element carries grammar state from one line to the next — so each pane
+     must be tokenized on its own, from a clean state. Concatenating them feeds the old
+     pane's text ahead of the new pane's, leaking the boundary state into the right column
+     and mis-coloring all of it. Group the containers by their owning pane and tokenize each
+     group separately; unified mode has no side panes, so every line falls in one group. */
+  const groups = new Map<Element | null, HTMLElement[]>()
+  for (const ctn of ctns) {
+    const side = ctn.closest(".d2h-file-side-diff")
+    let group = groups.get(side)
+    if (!group) groups.set(side, (group = []))
+    group.push(ctn)
+  }
+
   try {
     const { codeToTokens, getHighlighter } = await import("./shiki-highlighter")
     const highlighter = await getHighlighter()
-    const res = codeToTokens(highlighter, ctns.map((e) => e.textContent).join("\n"), {
-      lang,
-      theme: isDark() ? "github-dark" : "github-light",
-    })
-    lines = res.tokens
+    const theme = isDark() ? "github-dark" : "github-light"
+    for (const group of groups.values()) {
+      const lines = codeToTokens(highlighter, group.map((e) => e.textContent).join("\n"), { lang, theme }).tokens
+      group.forEach((ctn, i) => paintLine(ctn, lines[i]))
+    }
   } catch {
-    return // unknown grammar: stay plain
+    return // unknown grammar / load failure: stay plain
   }
-  ctns.forEach((ctn, i) => {
-    const tokens = lines[i]
-    if (!tokens || !tokens.length) return
-    const marks: { start: number; end: number; shell: Node; el: HTMLElement | null }[] = []
-    let off = 0
-    for (const n of ctn.childNodes) {
-      const len = n.textContent!.length
-      if (n.nodeType === 1 && ((n as Element).tagName === "INS" || (n as Element).tagName === "DEL"))
-        marks.push({ start: off, end: off + len, shell: n.cloneNode(false), el: null })
-      off += len
-    }
-    ctn.textContent = ""
-    let pos = 0
-    for (const t of tokens) {
-      let local = 0
-      while (local < t.content.length) {
-        const abs = pos + local
-        const mark = marks.find((m) => abs >= m.start && abs < m.end)
-        const limit = mark ? mark.end : Math.min(...marks.filter((m) => m.start > abs).map((m) => m.start), Infinity)
-        const end = Math.min(t.content.length, limit - pos)
-        const span = document.createElement("span")
-        span.style.color = t.color!
-        span.textContent = t.content.slice(local, end)
-        if (mark) {
-          if (!mark.el) {
-            mark.el = mark.shell as HTMLElement
-            ctn.appendChild(mark.el)
-          }
-          mark.el.appendChild(span)
-        } else {
-          ctn.appendChild(span)
+}
+
+/* Repaint one line container with its shiki tokens, preserving any <ins>/<del> word-diff
+   segments by redistributing the tokens across (and around) them. */
+function paintLine(ctn: HTMLElement, tokens: { content: string; color?: string }[] | undefined) {
+  if (!tokens || !tokens.length) return
+  const marks: { start: number; end: number; shell: Node; el: HTMLElement | null }[] = []
+  let off = 0
+  for (const n of ctn.childNodes) {
+    const len = n.textContent!.length
+    if (n.nodeType === 1 && ((n as Element).tagName === "INS" || (n as Element).tagName === "DEL"))
+      marks.push({ start: off, end: off + len, shell: n.cloneNode(false), el: null })
+    off += len
+  }
+  ctn.textContent = ""
+  let pos = 0
+  for (const t of tokens) {
+    let local = 0
+    while (local < t.content.length) {
+      const abs = pos + local
+      const mark = marks.find((m) => abs >= m.start && abs < m.end)
+      const limit = mark ? mark.end : Math.min(...marks.filter((m) => m.start > abs).map((m) => m.start), Infinity)
+      const end = Math.min(t.content.length, limit - pos)
+      const span = document.createElement("span")
+      span.style.color = t.color!
+      span.textContent = t.content.slice(local, end)
+      if (mark) {
+        if (!mark.el) {
+          mark.el = mark.shell as HTMLElement
+          ctn.appendChild(mark.el)
         }
-        local = end
+        mark.el.appendChild(span)
+      } else {
+        ctn.appendChild(span)
       }
-      pos += t.content.length
+      local = end
     }
-  })
+    pos += t.content.length
+  }
 }
 
 const RAW_CLASS: Record<string, string> = {
