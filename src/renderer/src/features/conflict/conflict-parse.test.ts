@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   CONFLICT_PLACEHOLDER,
+  applyPickDiff,
   conflictCount,
   parseConflicts,
   pickPosition,
@@ -11,6 +12,7 @@ import {
   toggleLine,
   unresolvedCount,
   type ConflictBlock,
+  type ConflictSegment,
   type Picks,
 } from "./conflict-parse"
 
@@ -154,5 +156,63 @@ describe("picks", () => {
     expect(pickPosition(picks, 0, { side: "theirs", line: 0 })).toBe(1)
     expect(pickPosition(picks, 0, { side: "ours", line: 0 })).toBe(2)
     expect(pickPosition(picks, 0, { side: "ours", line: 1 })).toBeNull()
+  })
+})
+
+/* Two conflicts, so occurrence counting between identical placeholders matters. */
+const DOUBLE = [
+  "top",
+  "<<<<<<< HEAD",
+  "a1",
+  "=======",
+  "b1",
+  ">>>>>>> x",
+  "mid",
+  "<<<<<<< HEAD",
+  "a2",
+  "=======",
+  "b2",
+  ">>>>>>> x",
+  "bot",
+].join("\n")
+
+describe("applyPickDiff — picks coexist with hand edits", () => {
+  const segs = (): ConflictSegment[] => parseConflicts(DOUBLE)
+  const blocks = () => segs().filter((s): s is ConflictBlock => s.kind === "conflict")
+
+  it("exact re-derive when the buffer carries no hand edits", () => {
+    const s = segs()
+    const from = renderPicks(s, {})
+    const next = toggleLine({}, 1, { side: "theirs", line: 0 })
+    expect(applyPickDiff(s, blocks(), from, {}, next)).toBe(renderPicks(s, next))
+  })
+
+  it("targets the second placeholder, not the first, when only conflict 2 is picked", () => {
+    const s = segs()
+    const from = renderPicks(s, {}) // top / <merge conflict> / mid / <merge conflict> / bot
+    const next = toggleLine({}, 1, { side: "ours", line: 0 })
+    expect(applyPickDiff(s, blocks(), from, {}, next)).toBe(
+      `top\n${CONFLICT_PLACEHOLDER}\nmid\na2\nbot`
+    )
+  })
+
+  it("preserves a hand edit to context when a pick is toggled", () => {
+    const s = segs()
+    let buffer = renderPicks(s, {})
+    buffer = buffer.replace("mid", "mid // reviewed") // hand edit between the two conflicts
+    const next = toggleLine({}, 0, { side: "ours", line: 0 })
+    const out = applyPickDiff(s, blocks(), buffer, {}, next)
+    expect(out).toBe(`top\na1\nmid // reviewed\n${CONFLICT_PLACEHOLDER}\nbot`)
+  })
+
+  it("preserves a picked region when a different conflict is toggled afterwards", () => {
+    const s = segs()
+    // conflict 1 already resolved to a1; buffer edited elsewhere too
+    const picks: Picks = toggleLine({}, 0, { side: "ours", line: 0 })
+    let buffer = renderPicks(s, picks) // top / a1 / mid / <merge conflict> / bot
+    buffer = buffer.replace("top", "top!") // stray hand edit
+    const next = toggleLine(picks, 1, { side: "theirs", line: 0 })
+    const out = applyPickDiff(s, blocks(), buffer, picks, next)
+    expect(out).toBe("top!\na1\nmid\nb2\nbot")
   })
 })

@@ -361,8 +361,8 @@ export const messages = {
     get removeLine() {
       return t`Remove line from the output`
     },
-    get handEdited() {
-      return t`Hand-edited — undo the edits to re-enable the pickers.`
+    get resetToSelection() {
+      return t`Reset to selection`
     },
     get mergedOutput() {
       return t`Merged output — editable`
