@@ -26,12 +26,14 @@ type Props = {
   active: number
   onSelect(key: number): void
   onClose(key: number): void
+  /** The application menu bar (File/View/Help…), rendered between the mark and the tabs. */
+  menu?: React.ReactNode
 }
 
 const tabClass =
   "group/tab flex h-7.5 shrink-0 cursor-pointer items-center rounded-md border text-xs focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none aria-selected:border-border aria-selected:bg-muted aria-selected:font-medium aria-selected:text-foreground"
 
-export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
+export function TabStrip({ tabs, active, onSelect, onClose, menu }: Props) {
   /* subscribed to the theme rather than a local copy: an OS flip (without an explicit
      choice saved) must flip the icon too */
   const dark = useTheme()
@@ -71,6 +73,8 @@ export function TabStrip({ tabs, active, onSelect, onClose }: Props) {
   return (
     <header className="flex h-11 shrink-0 items-center gap-1.5 border-b pr-3 pl-3.5">
       <Mark className="me-1.5 size-5" />
+
+      {menu}
 
       <div role="tablist" className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
         <div

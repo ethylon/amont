@@ -97,6 +97,9 @@ msgstr "Rechercher aussi dans le contenu des diffs"
 msgid "Amend"
 msgstr "Amender"
 
+msgid "Amont {version}"
+msgstr "Amont {version}"
+
 msgid "Apply"
 msgstr "Appliquer"
 
@@ -169,6 +172,9 @@ msgstr "Fermer (Échap)"
 msgid "Close {name}"
 msgstr "Fermer {name}"
 
+msgid "Close tab"
+msgstr "Fermer l’onglet"
+
 msgid "co-authors"
 msgstr "co-auteurs"
 
@@ -232,6 +238,9 @@ msgstr "Diff indisponible."
 msgid "diff…"
 msgstr "diff…"
 
+msgid "Documentation"
+msgstr "Documentation"
+
 msgid "Drop"
 msgstr "Supprimer"
 
@@ -246,6 +255,9 @@ msgstr "Erreur : {msg}"
 
 msgid "expected tag"
 msgstr "tag attendu"
+
+msgid "File"
+msgstr "Fichier"
 
 msgid "Filter branches"
 msgstr "Filtrer les branches"
@@ -279,6 +291,9 @@ msgstr "Console Git"
 
 #~ msgid "Hand-edited — undo the edits to re-enable the pickers."
 #~ msgstr "Édité à la main — annulez les modifications pour réactiver les sélecteurs."
+
+msgid "Help"
+msgstr "Aide"
 
 msgid "Hide sidebar"
 msgstr "Masquer la barre latérale"
@@ -325,6 +340,9 @@ msgstr "Nom"
 msgid "New repositories and clones are created inside this folder."
 msgstr "Les nouveaux dépôts et les clones sont créés dans ce dossier."
 
+msgid "New repository…"
+msgstr "Nouveau dépôt…"
+
 msgid "New tab"
 msgstr "Nouvel onglet"
 
@@ -370,6 +388,9 @@ msgstr "Ouvrir un dépôt…"
 msgid "Open in file explorer"
 msgstr "Ouvrir dans l'explorateur de fichiers"
 
+msgid "Open repository…"
+msgstr "Ouvrir un dépôt…"
+
 msgid "ours — current branch"
 msgstr "ours — branche courante"
 
@@ -412,6 +433,9 @@ msgstr "Distants"
 msgid "Remove line from the output"
 msgstr "Retirer la ligne du résultat"
 
+msgid "Report an issue…"
+msgstr "Signaler un problème…"
+
 msgid "Repository created: {path}"
 msgstr "Dépôt créé : {path}"
 
@@ -435,6 +459,9 @@ msgstr "Côte à côte"
 
 msgid "Something went wrong"
 msgstr "Une erreur est survenue"
+
+msgid "Source code"
+msgstr "Code source"
 
 msgid "Stage"
 msgstr "Indexer"
@@ -510,3 +537,6 @@ msgstr "Non indexé"
 
 msgid "URL"
 msgstr "URL"
+
+msgid "View"
+msgstr "Affichage"
