@@ -62,6 +62,7 @@ const bridge: Bridge = {
   body: invoke("repo:body"),
   headMessage: invoke("repo:headMessage"),
   diff: invoke("repo:diff"),
+  blob: invoke("repo:blob"),
   status: invoke("repo:status"),
   op: invoke("repo:op"),
   worktree: invoke("repo:worktree"),

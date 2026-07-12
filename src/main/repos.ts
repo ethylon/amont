@@ -47,6 +47,7 @@ export interface RepoHandle extends Watchable {
   events: RepoHooks
   git: GitRunner["git"]
   diffNoIndex: GitRunner["diffNoIndex"]
+  gitBuffer: GitRunner["gitBuffer"]
 }
 
 const repos = new Map<number, RepoHandle>()
@@ -154,6 +155,7 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     events,
     git: runner.git,
     diffNoIndex: runner.diffNoIndex,
+    gitBuffer: runner.gitBuffer,
   }
   r.timer = setInterval(() => autofetch?.(r), AUTOFETCH_MS)
   watchGit(r)
