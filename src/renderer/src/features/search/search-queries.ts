@@ -6,9 +6,10 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import type { RepoApi } from "@/lib/git"
 import { queryKeys, withAbort } from "@/lib/queries"
 
-/** Below this threshold, `git log -S` would sweep the entire history for nothing — same
-    guard as the old CommitSearch. `enabled` cuts it off: `data` falls back to `undefined` for
-    the new key, which clears the results without a `stale` flag to hand-copy. */
+/** Below this threshold, `git log -S` would sweep the entire history for nothing — same guard
+    as the old CommitSearch. `enabled` cuts the query off; note that with `placeholderData` the
+    disabled query still exposes its previous data, so the consumer gates on the term length to
+    clear the UI (cf. commit-search.tsx). */
 export const SEARCH_MIN = 2
 
 export function useSearchQuery(api: RepoApi, id: number, term: string, content: boolean) {
