@@ -33,9 +33,13 @@ function scrub<E extends Sentry.Event>(event: E): E {
   return event
 }
 
+/** Must run BEFORE the Electron `ready` event (@sentry/electron/main requires it — otherwise
+    it raises "Sentry SDK should be initialized before the Electron app 'ready' event is fired").
+    So `enabled` stays false here — events are dropped until applyTelemetryOptOut() reads the
+    persisted flag after loadState(). beforeSend/beforeBreadcrumb re-read `enabled` live, so no
+    reinit is needed once the flag lands. */
 export function initTelemetry(): void {
   if (!DSN) return
-  enabled = persisted.telemetry !== false
   Sentry.init({
     dsn: DSN,
     release: `amont@${app.getVersion()}`,
@@ -46,6 +50,13 @@ export function initTelemetry(): void {
     beforeBreadcrumb: (breadcrumb) => (enabled ? breadcrumb : null),
     beforeSend: (event) => (enabled ? scrub(event) : null),
   })
+}
+
+/** Apply the persisted opt-out once loadState() has run. Undefined = never chosen, treated as
+    on. Live: beforeSend re-reads `enabled` on the next event, no reinit. No-op without a DSN. */
+export function applyTelemetryOptOut(): void {
+  if (!DSN) return
+  enabled = persisted.telemetry !== false
 }
 
 /** Home-screen toggle. Live (no restart): beforeSend re-reads `enabled` on every event.
