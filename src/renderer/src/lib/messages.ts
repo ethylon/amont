@@ -401,6 +401,46 @@ export const messages = {
     },
   },
 
+  menu: {
+    get file() {
+      return t`File`
+    },
+    get view() {
+      return t`View`
+    },
+    get help() {
+      return t`Help`
+    },
+    get newRepo() {
+      return t`New repository…`
+    },
+    get openRepo() {
+      return t`Open repository…`
+    },
+    get closeTab() {
+      return t`Close tab`
+    },
+    get goHome() {
+      return t`Home`
+    },
+    get darkTheme() {
+      return t`Dark theme`
+    },
+    get reload() {
+      return t`Reload`
+    },
+    get documentation() {
+      return t`Documentation`
+    },
+    get sourceCode() {
+      return t`Source code`
+    },
+    get reportIssue() {
+      return t`Report an issue…`
+    },
+    about: (version: string) => t`Amont ${version}`,
+  },
+
   flow: {
     minutes: (n: number) => t`${n} min`,
     hours: (n: number) => t`${n} h`,
