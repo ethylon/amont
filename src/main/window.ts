@@ -8,6 +8,7 @@ import { join } from "node:path"
 import { appendFile, stat, truncate } from "node:fs/promises"
 import { app, BrowserWindow, Menu, nativeTheme, shell } from "electron"
 
+import { killCreations } from "./create.ts"
 import { closeAll } from "./repos.ts"
 
 let mainWindow: BrowserWindow | null = null
@@ -102,6 +103,7 @@ export function createWindow(): void {
   win.on("closed", () => {
     mainWindow = null
     closeAll()
+    killCreations()
   })
 
   if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)

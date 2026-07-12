@@ -22,6 +22,7 @@ export type ErrorCode =
   | "NOT_A_REPO"
   | "NO_REPO"
   | "NOT_ALLOWED"
+  | "EXISTS"
   | "BAD_ARG"
   | "BUSY"
   | "MERGE_CONFLICT"
