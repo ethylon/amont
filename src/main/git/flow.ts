@@ -4,10 +4,10 @@
    in git/parse.ts for the pure part, tested in isolation). */
 
 import { AppError } from "../../shared/errors.ts"
-import type { FlowInfo, FlowPrefixes } from "../../shared/types.ts"
-import type { RepoHandle } from "../repos.ts"
+import type { FlowInfo, FlowInitConfig, FlowKind, FlowPrefixes } from "../../shared/types.ts"
+import { withLock, type RepoHandle } from "../repos.ts"
 import { OP_TIMEOUT } from "./exec.ts"
-import { computeNextTag, flowVersionSuffix, parseFlowPrefixes } from "./parse.ts"
+import { BRANCH, computeNextTag, flowInitConfigArgs, flowVersionSuffix, parseFlowPrefixes } from "./parse.ts"
 
 export const FLOW_TYPES = ["feature", "bugfix", "release", "hotfix"] as const
 
@@ -55,6 +55,13 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
     ? parseInt((await r.git(["log", "--format=%ct", "--reverse", `${parent}..${branch}`])).split("\n", 1)[0], 10)
     : null
 
+  /* "unpushed": the branch has no remote-tracking counterpart yet — `@{upstream}` resolves only
+     once it does (git-flow `publish` sets it). A quiet failure is the nominal "never published" case. */
+  const unpushed = !(await r.git(["rev-parse", "--verify", "-q", `${branch}@{upstream}`]).then(
+    (o) => !!o.trim(),
+    () => false
+  ))
+
   /* the finish tag: gitflow names the branch after its version; otherwise, bump the last tag —
      patch for a hotfix, minor for a release */
   let nextTag: string | null = null
@@ -71,6 +78,7 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
     base: lastTag ?? parent,
     targets: tagged ? [master, develop].filter((x): x is string => x !== null) : [parent],
     nextTag,
+    unpushed,
   }
 }
 
@@ -88,4 +96,53 @@ export async function finishFlow(r: RepoHandle, name: string): Promise<void> {
   /* release and hotfix create an annotated tag: without `-m`, `git tag -a` would prompt for an editor */
   const tagged = type === "release" || type === "hotfix"
   await r.git(["flow", type, "finish", ...(tagged ? ["-m", version] : []), version], { timeout: OP_TIMEOUT })
+}
+
+/* Same option-injection guard as `finishFlow` (fix B2): the name/version comes straight from a
+   text field, so a value like `-D` (or a full name resolving to one) must never reach git-flow as
+   an option. We validate the *full* branch name with the shared BRANCH filter. */
+function flowSuffix(prefixes: FlowPrefixes | null, kind: FlowKind, x: string): { prefix: string; name: string } {
+  const prefix = (prefixes ?? {})[kind] ?? `${kind}/`
+  const name = typeof x === "string" ? x.trim() : ""
+  if (!name || name.startsWith("-") || !BRANCH.test(prefix + name)) throw new AppError("BAD_ARG", x)
+  return { prefix, name }
+}
+
+/** `git flow <kind> start <name|version>` — branch off the trunk. No tag or editor at start
+    (that only happens at finish), so nothing can hang here. */
+export async function flowStart(r: RepoHandle, kind: FlowKind, x: string): Promise<void> {
+  if (!FLOW_TYPES.includes(kind)) throw new AppError("BAD_ARG", "kind")
+  const { name } = flowSuffix(await flowPrefixes(r), kind, x)
+  await withLock(r, `flow ${kind} start`, () =>
+    r.git(["flow", kind, "start", name], { timeout: OP_TIMEOUT }).then(() => {})
+  )
+}
+
+/** `git flow <kind> publish <name>` — push the flow branch and set its upstream. */
+export async function flowPublish(r: RepoHandle, kind: FlowKind, x: string): Promise<void> {
+  if (!FLOW_TYPES.includes(kind)) throw new AppError("BAD_ARG", "kind")
+  const { name } = flowSuffix(await flowPrefixes(r), kind, x)
+  await withLock(r, `flow ${kind} publish`, () =>
+    r.git(["flow", kind, "publish", name], { timeout: OP_TIMEOUT }).then(() => {})
+  )
+}
+
+/** Initialize git-flow non-interactively: `git flow init` prompts (and would hang without a TTY),
+    so we write the `gitflow.*` config from the form ourselves, then run `git flow init -d` to let
+    it finish the wiring against those values. Every value is guarded against `-` injection, and
+    `flowPrefixes` is re-read afterwards to confirm it took. */
+export async function flowInit(r: RepoHandle, cfg: FlowInitConfig): Promise<FlowPrefixes | null> {
+  const pairs = flowInitConfigArgs(cfg)
+  /* trunk names must be real branch names; prefixes/versiontag may be empty (no prefix) but never
+     an option-injecting `-…` */
+  for (const [key, value] of pairs) {
+    if (typeof value !== "string" || value.startsWith("-")) throw new AppError("BAD_ARG", key)
+    const required = key === "gitflow.branch.master" || key === "gitflow.branch.develop"
+    if (required && (!value || !BRANCH.test(value))) throw new AppError("BAD_ARG", key)
+  }
+  await withLock(r, "flow init", async () => {
+    for (const [key, value] of pairs) await r.git(["config", key, value])
+    await r.git(["flow", "init", "-d"], { timeout: OP_TIMEOUT })
+  })
+  return flowPrefixes(r)
 }

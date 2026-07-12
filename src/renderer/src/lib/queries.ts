@@ -32,6 +32,7 @@ export const queryKeys = {
   flowInfo: (id: number, branch: string | null, kind: keyof FlowPrefixes | null) =>
     ["flowInfo", id, branch, kind] as const,
   flowInfoAll: (id: number) => ["flowInfo", id] as const,
+  countObjects: (id: number) => ["countObjects", id] as const,
   files: (id: number, hash: string, parent: string | null) => ["files", id, hash, parent] as const,
   body: (id: number, hash: string) => ["body", id, hash] as const,
   diff: (id: number, ctx: DiffCtx, path: string, old: string | null) => ["diff", id, ctx, path, old] as const,

@@ -12,14 +12,19 @@ export type {
   Commit,
   CommitMessage,
   ConflictFile,
+  CountObjects,
   FileChange,
   FlowInfo,
+  FlowInitConfig,
+  FlowKind,
   FlowPrefixes,
   GitRef,
+  MaintKind,
   MergeState,
   OpEvent,
   OpName,
   OpenResult,
+  ProgressEvent,
   Repo,
   RepoRef,
   Stash,
@@ -38,8 +43,11 @@ import type {
   Commit,
   CommitMessage,
   ConflictFile,
+  CountObjects,
   FileChange,
   FlowInfo,
+  FlowInitConfig,
+  FlowKind,
   FlowPrefixes,
   GitRef,
   MergeState,
@@ -81,6 +89,7 @@ export const host = {
 export const onOp = bridge.onOp
 export const onChanged = bridge.onChanged
 export const onTrace = bridge.onTrace
+export const onProgress = bridge.onProgress
 
 /* Opens the repos of restored tabs. Called once, explicitly, from main.tsx —
    rather than an import-time side effect (the old `bootState`, evaluated as soon as this module
@@ -99,6 +108,12 @@ export type RepoApi = {
   flow(): Promise<FlowPrefixes | null>
   /** context of the current flow branch; `null` if the reference trunk is missing */
   flowInfo(branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null>
+  /** write the `gitflow.*` config from the form then `git flow init -d`; resolves the prefixes */
+  flowInit(cfg: FlowInitConfig): Promise<FlowPrefixes | null>
+  /** `git flow <kind> start <name|version>` */
+  flowStart(kind: FlowKind, name: string): Promise<void>
+  /** `git flow <kind> publish <name>` */
+  flowPublish(kind: FlowKind, name: string): Promise<void>
   /** merge into HEAD, deletion, pull/push of a given branch, or `git flow <type> finish` */
   branch(action: BranchAct, name: string): Promise<void>
   files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
@@ -130,6 +145,12 @@ export type RepoApi = {
   /** writes the merged output to the working file and stages it — the conflict is resolved */
   resolve(path: string, content: string): Promise<void>
   mergeAbort(): Promise<void>
+  /** object-DB shape (`git count-objects -vH`) — the maintenance modal's report */
+  countObjects(): Promise<CountObjects>
+  /** `git fsck --full`; progress streamed via `onProgress` */
+  fsck(): Promise<void>
+  /** `git gc`; progress streamed via `onProgress` */
+  gc(): Promise<void>
   /** Windows icon of the file, `null` if it doesn't exist on disk */
   fileIcon(path: string): Promise<string | null>
   openFile(path: string): Promise<string>
@@ -144,6 +165,9 @@ export const repoApi = (id: number): RepoApi => ({
   refs: () => bridge.refs(id),
   flow: () => bridge.flow(id),
   flowInfo: (branch, kind) => bridge.flowInfo(id, branch, kind),
+  flowInit: (cfg) => bridge.flowInit(id, cfg),
+  flowStart: (kind, name) => bridge.flowStart(id, kind, name),
+  flowPublish: (kind, name) => bridge.flowPublish(id, kind, name),
   branch: (action, name) => bridge.branch(id, action, name),
   files: (hash, parent, requestId) => bridge.files(id, hash, parent, requestId),
   body: (hash, requestId) => bridge.body(id, hash, requestId),
@@ -164,6 +188,9 @@ export const repoApi = (id: number): RepoApi => ({
   conflict: (path) => bridge.conflict(id, path),
   resolve: (path, content) => bridge.resolve(id, path, content),
   mergeAbort: () => bridge.mergeAbort(id),
+  countObjects: () => bridge.countObjects(id),
+  fsck: () => bridge.fsck(id),
+  gc: () => bridge.gc(id),
   fileIcon: (path) => bridge.fileIcon(id, path),
   openFile: (path) => bridge.openFile(id, path),
   cancel: (requestId) => bridge.cancel(id, requestId),
