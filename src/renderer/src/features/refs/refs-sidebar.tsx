@@ -16,11 +16,13 @@ import { AsyncHint } from "@/components/ui/async-hint"
 import { RefGroup } from "@/components/ui/ref-group"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 
+/* `title` is a thunk: messages.* getters run `t`, which must not execute at module scope
+   (before setupI18n() activates the locale — throws in dev). */
 const GROUPS = [
-  { title: messages.refs.branches, kind: "head", icon: GitBranchIcon },
-  { title: messages.refs.remotes, kind: "remote", icon: CloudIcon },
-  { title: messages.refs.tags, kind: "tag", icon: Tag01Icon },
-] as const satisfies readonly { title: string; kind: GitRef["kind"]; icon: IconSvgElement }[]
+  { title: () => messages.refs.branches, kind: "head", icon: GitBranchIcon },
+  { title: () => messages.refs.remotes, kind: "remote", icon: CloudIcon },
+  { title: () => messages.refs.tags, kind: "tag", icon: Tag01Icon },
+] as const satisfies readonly { title: () => string; kind: GitRef["kind"]; icon: IconSvgElement }[]
 
 function RefGroupSection({
   title,
@@ -152,7 +154,7 @@ export function RefsSidebar() {
               return (
                 <RefGroupSection
                   key={g.kind}
-                  title={g.title}
+                  title={g.title()}
                   icon={g.icon}
                   refs={refs}
                   ctx={ctx}

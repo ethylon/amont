@@ -18,12 +18,14 @@ import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
 import type { Ctx } from "@/features/refs/refs-tree"
 
+/* Thunks, not values: reading messages.* at module scope would run `t` during import,
+   before setupI18n() has activated a locale (throws in dev). */
 const FLOW_LABEL = {
-  feature: messages.refs.finishFeature,
-  bugfix: messages.refs.finishBugfix,
-  release: messages.refs.finishRelease,
-  hotfix: messages.refs.finishHotfix,
-} as const satisfies Record<keyof FlowPrefixes, string>
+  feature: () => messages.refs.finishFeature,
+  bugfix: () => messages.refs.finishBugfix,
+  release: () => messages.refs.finishRelease,
+  hotfix: () => messages.refs.finishHotfix,
+} as const satisfies Record<keyof FlowPrefixes, () => string>
 
 const flowType = (name: string, prefixes: FlowPrefixes | null) =>
   prefixes &&
@@ -69,7 +71,7 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
           <ContextMenuItem onClick={() => ctx.onBranch("finish", r.name)}>
             <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
             <MenuItemWithCmd
-              label={FLOW_LABEL[flow]}
+              label={FLOW_LABEL[flow]()}
               cmd={`git flow ${flow} finish ${r.name.slice(ctx.flow![flow]!.length)}`}
             />
           </ContextMenuItem>
