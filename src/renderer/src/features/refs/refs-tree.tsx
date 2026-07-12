@@ -126,10 +126,10 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
   const target = r.kind === "remote" ? r.name.split("/").slice(1).join("/") : r.name
 
   /* "lit" = this ref is focused — by identity, `kind` included: the local branch and its
-     remote never light up together. Same selection language as the graph rows (ROW_CLASS):
-     primary fill + 2px left rail — the sidebar and the graph light up as one linked selection.
-     The DOM pass (see refs-focus-paint.ts) reads `data-lit` to merge contiguous runs into a
-     single filled block (only the run's outermost corners stay rounded). */
+     remote never light up together. Selection is a quiet tinted fill alone (no rail or
+     border), the same treatment as the file tree. Contiguous lit refs still merge into one
+     block: the DOM pass (see refs-focus-paint.ts) reads `data-lit` and squares the corners
+     between neighbors (app.css) so the fill reads as a single surface, not a stack of pills. */
   const lit = ctx.focusedKeys.has(refKey(r))
   const row = (
     <button
@@ -138,10 +138,10 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
       onClick={(e) => ctx.onFocusRef(r, e.ctrlKey || e.metaKey)}
       onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
       className={cn(
-        "amont-refrow flex w-full items-center gap-2 rounded-md border-l-2 border-l-transparent px-1.5 py-1 text-left text-xs select-none",
+        "amont-refrow flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs select-none",
         "text-foreground hover:bg-muted/60",
         "focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
-        "data-lit:border-l-primary data-lit:bg-primary/20 data-lit:hover:bg-primary/25"
+        "data-lit:bg-primary/15 data-lit:hover:bg-primary/20"
       )}
     >
       <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
