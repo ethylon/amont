@@ -8,9 +8,11 @@
    to silently back off when the repo is busy, whereas an explicit user action must throw
    (BUSY). */
 
+import { writeFile } from "node:fs/promises"
+
 import { AppError, decodeError } from "../../shared/errors.ts"
 import type { BranchAct, OpEvent, OpName, StashAct } from "../../shared/types.ts"
-import { assertPaths, withLock, type RepoHandle } from "../repos.ts"
+import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
 import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { finishFlow } from "./flow.ts"
@@ -204,6 +206,40 @@ export async function commit(r: RepoHandle, message: string, amend: boolean): Pr
     const args = ["commit", ...(amend ? ["--amend"] : []), "-m", message]
     await r.git(args)
     mute(r)
+  })
+}
+
+/* --- Merge conflicts ---
+   The merged output the user validated becomes the working file, then `git add` clears the
+   path's conflict stages: that's git's own definition of "resolved". The write and the add
+   stay under the mutex as a single unit — an autofetch between the two would be harmless,
+   but a concurrent stage/commit would not. */
+const RESOLVE_MAX = 4 * 1024 * 1024
+
+export async function resolveConflict(r: RepoHandle, path: string, content: string): Promise<void> {
+  if (typeof content !== "string" || content.length > RESOLVE_MAX) throw new AppError("BAD_ARG", "content")
+  const full = inRepo(r, path)
+  await withLock(r, "resolve", async () => {
+    groupTrace(r, `Resolve ${path}`)
+    try {
+      await writeFile(full, content, "utf8")
+      await r.git(["add", "--", path])
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/** Puts the tree back where the merge found it. Loses manual resolutions — same safeguard
+    policy as branch delete: git refuses when there's no merge to abort, nothing more. */
+export async function mergeAbort(r: RepoHandle): Promise<void> {
+  await withLock(r, "merge abort", async () => {
+    groupTrace(r, "Merge abort")
+    try {
+      await r.git(["merge", "--abort"])
+    } finally {
+      mute(r)
+    }
   })
 }
 
