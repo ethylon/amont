@@ -94,6 +94,14 @@ network request), or by querying Gravatar / `avatars.githubusercontent.com` dire
 reveals the (hashed) author email and your IP address to those services. An author without an
 avatar there falls back to a colored monogram.
 
+**Crash reporting.** Official release builds report unhandled errors and native crashes to
+Sentry, so bugs surface and get fixed. Reports carry no repository contents, diffs, or
+credentials, and no PII (IP, hostname, user identity) — see `src/main/telemetry.ts`. It's
+**opt-out at runtime** from a toggle on the home screen. Builds from source send nothing: the
+DSN is injected at build time from a build-env variable that only CI sets, so a build you make
+yourself has no telemetry at all. Reports leave from the main process, never the sandboxed
+renderer, so the renderer's strict CSP is unchanged.
+
 ## Development
 
 Requires Node (see `.nvmrc` / `engines.node` in `package.json`) and [pnpm](https://pnpm.io).
@@ -110,6 +118,21 @@ pnpm typecheck
 `pnpm mock` is the fastest inner loop for UI work: it boots the real renderer in a plain
 browser tab against a fake `window.amont` bridge (see `src/renderer/mock.html`), so you get
 instant reload without packaging or spawning git processes.
+
+### Crash reporting (maintainers)
+
+Error reporting is inert unless a Sentry DSN is baked in at build time, via the
+`MAIN_VITE_SENTRY_DSN` build-env variable (electron-vite reads it straight from the build
+environment — no file involved). Every build without it — including every build from source,
+`pnpm dev`, and CI on ordinary commits — sends nothing.
+
+- **Official releases (CI):** set a `SENTRY_DSN` **repository variable**; the release workflow
+  maps it into the build (`.github/workflows/release.yml`). A DSN is embedded in the shipped
+  binary, so it's not confidential — a variable, not a secret (a secret works too, just swap
+  `vars.` for `secrets.`).
+- **Local testing:** prefix the command, e.g. `MAIN_VITE_SENTRY_DSN=<dsn> pnpm dev`.
+
+See the [Privacy](#privacy) section for what's reported and `src/main/telemetry.ts` for how.
 
 ## Contributing
 
