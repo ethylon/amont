@@ -42,6 +42,23 @@ amend — with the exact git command shown on the button before you run it.
 
 ![The staging panel: unstaged and staged file trees, a live side-by-side diff of a modified file, and a commit message box with the Commit button.](docs/worktree-light.png)
 
+## Resolve merge conflicts side by side
+
+When a merge, rebase, or stash pop leaves conflicts, the conflicted files get their own
+block in the staging panel and a banner naming both sides — **A** is the branch you're on
+(_ours_), **B** the one being merged in (_theirs_). Opening a file lays the two versions out
+in aligned, syntax-highlighted panes so it's always clear which change came from where.
+
+You build the resolution by picking: a checkbox in each pane header takes a whole side across
+every conflict, a per-chunk checkbox takes one side of one conflict, and per-line `+`/`−`
+buttons take individual lines. Lines land in the merged output **in the order you click
+them** — no forced A-before-B — and each carries its position so that order stays visible.
+The output is a normal, syntax-highlighted editor: picks and hand edits coexist, so you can
+fine-tune the result and still keep clicking. `Mark as resolved` writes the file and stages
+it once no conflict markers remain.
+
+![The conflict resolution view: the "ours" (A) and "theirs" (B) versions of a file in two aligned, syntax-highlighted panes with per-side and per-line pickers, above an editable merged output.](docs/conflict-light.png)
+
 ## And more
 
 - **git-flow aware** — feature/release/hotfix branches get a context banner and a

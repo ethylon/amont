@@ -145,9 +145,7 @@ export function setSide(picks: Picks, block: ConflictBlock, side: PickSide, on: 
 export function sideState(picks: Picks, block: ConflictBlock, side: PickSide): "none" | "some" | "all" {
   const total = block[side].length
   if (!total) return "none"
-  const n = new Set(
-    (picks[block.index] ?? []).filter((r) => r.side === side).map((r) => r.line)
-  ).size
+  const n = new Set((picks[block.index] ?? []).filter((r) => r.side === side).map((r) => r.line)).size
   return n === 0 ? "none" : n === total ? "all" : "some"
 }
 

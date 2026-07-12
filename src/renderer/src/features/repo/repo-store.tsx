@@ -294,7 +294,10 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       set((s) => ({ ui: { ...s.ui, sidebarOpen: !s.ui.sidebarOpen } }))
     },
     showWorktree() {
-      set((s) => ({ selection: { ...s.selection, rows: [], hashes: [] }, ui: { ...s.ui, diff: null, conflict: null, view: "wt" } }))
+      set((s) => ({
+        selection: { ...s.selection, rows: [], hashes: [] },
+        ui: { ...s.ui, diff: null, conflict: null, view: "wt" },
+      }))
       get().graphRef.current?.setSelection([])
     },
     showCommits() {
