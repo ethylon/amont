@@ -63,6 +63,10 @@ export const host = {
   close: bridge.close,
   chooseRoot: bridge.chooseRoot,
   scanRoot: bridge.scanRoot,
+  chooseCreateDir: bridge.chooseCreateDir,
+  initRepo: bridge.initRepo,
+  initBare: bridge.initBare,
+  cloneRepo: bridge.cloneRepo,
 }
 
 /* The preload now handles unsubscription itself (`ipcRenderer.off`, see src/preload):

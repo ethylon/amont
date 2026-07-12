@@ -8,6 +8,7 @@ import { dialog, ipcMain, type IpcMainInvokeEvent } from "electron"
 import { AppError } from "../shared/errors.ts"
 import type { InvokeChannel, InvokeChannels } from "../shared/ipc-contract.ts"
 import type { BootState, Repo } from "../shared/types.ts"
+import * as create from "./create.ts"
 import * as flow from "./git/flow.ts"
 import * as ops from "./git/ops.ts"
 import { BRANCH } from "./git/parse.ts"
@@ -145,6 +146,31 @@ export function registerIpc(): void {
     await scan(persisted.root, 0, found)
     found.forEach((p) => openable.add(p))
     return found.map((path) => ({ path, name: basename(path) })).sort((a, b) => a.name.localeCompare(b.name))
+  })
+
+  /* --- Creation page (the "+" in the tab strip) ---
+     The picked folder is remembered (create.allowDir) before being handed to the renderer:
+     init/bare/clone later refuse any destination that didn't come through here or isn't the
+     root — same confinement as `openable` for opening. */
+
+  handle("create:chooseDir", async () => {
+    const win = getMainWindow()
+    const res = await dialog.showOpenDialog(win!, { properties: ["openDirectory", "createDirectory"] })
+    if (res.canceled || !res.filePaths.length) return null
+    create.allowDir(res.filePaths[0])
+    return res.filePaths[0]
+  })
+
+  handle("create:init", async (_ev, dir, name) => {
+    const dest = await create.initRepo(dir, name)
+    return openRepoPub(dest)
+  })
+
+  handle("create:bare", (_ev, dir, name) => create.initBare(dir, name))
+
+  handle("create:clone", async (_ev, dir, url, name) => {
+    const dest = await create.cloneRepo(dir, url, name)
+    return openRepoPub(dest)
   })
 
   /* --- Repo: operations, id as first argument --- */

@@ -201,6 +201,7 @@
 
       const REPO = { id: 1, path: "/mock/mock-repo", name: "mock-repo" }
       const RECENTS = [{ path: "/mock/mock-repo", name: "mock-repo" }]
+      let nextRepoId = 2
 
       /* One set of listeners per event channel, like the real preload (cf. onOp/onChanged/onTrace
      below). `window.__changed` can still be triggered by hand from the console to simulate a
@@ -232,6 +233,12 @@
         close: async () => {},
         chooseRoot: async () => "/mock",
         scanRoot: async () => RECENTS,
+        /* creation page: each call mints a fresh repo under /mock — every repo api below
+           ignores the id, so a created/cloned tab renders the same dataset as mock-repo */
+        chooseCreateDir: async () => "/mock/projects",
+        initRepo: async (_dir, name) => ({ id: nextRepoId++, path: `/mock/projects/${name}`, name }),
+        initBare: async (_dir, name) => `/mock/projects/${name.endsWith(".git") ? name : name + ".git"}`,
+        cloneRepo: async (_dir, _url, name) => ({ id: nextRepoId++, path: `/mock/projects/${name}`, name }),
         log: async (_id, skip, count) => C.slice(skip, skip + count),
         total: async () => C.length - 2, // minus the stash plumbing, same as repo:total
         refs: async () => REFS,
