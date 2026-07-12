@@ -247,6 +247,9 @@ msgstr "Flat view"
 msgid "Git console"
 msgstr "Git console"
 
+msgid "Helps fix crashes. No repository contents, diffs, or credentials are ever sent."
+msgstr "Helps fix crashes. No repository contents, diffs, or credentials are ever sent."
+
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
 
@@ -372,6 +375,9 @@ msgstr "Root folder"
 
 msgid "scanning for repositories…"
 msgstr "scanning for repositories…"
+
+msgid "Send anonymous crash reports"
+msgstr "Send anonymous crash reports"
 
 msgid "Show sidebar"
 msgstr "Show sidebar"

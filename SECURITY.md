@@ -30,6 +30,25 @@ Posture already in place:
   `avatars.githubusercontent.com` only, used solely for author avatars (see
   README's Privacy section).
 
+### Crash reporting
+
+Official release builds send unhandled errors and native crashes to Sentry. This is the only
+outbound data flow besides author avatars, and it's a deliberate one:
+
+- It's **off unless a DSN is baked in at build time** (`MAIN_VITE_SENTRY_DSN`, from a gitignored
+  `.env`), so builds from source and dev runs send nothing — nothing to disable, nothing leaks.
+- It's **opt-out at runtime** (home-screen toggle, persisted in `state.json`); when off,
+  `beforeSend` drops every event, including native minidumps, before it leaves the process.
+- Reports exclude PII (`sendDefaultPii: false`, plus hostname/user scrubbed in `beforeSend`)
+  and never carry repository contents, diffs, or credentials — only error type, message, and
+  stack (`src/main/telemetry.ts`).
+- Events leave from the **main process**, not the sandboxed renderer: `@sentry/electron`
+  forwards renderer errors over IPC, so the renderer opens no socket and the strict renderer
+  CSP is unaffected.
+
+Any change here that broadens what's sent (enabling tracing/session replay, relaxing the
+scrub, defaulting the toggle on where it wasn't) should be treated as security-relevant.
+
 ### Diff rendering (diff2html)
 
 Commit and working-tree diffs are rendered with [diff2html](https://diff2html.io/),

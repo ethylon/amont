@@ -401,6 +401,15 @@ export const messages = {
     },
   },
 
+  settings: {
+    get crashReports() {
+      return t`Send anonymous crash reports`
+    },
+    get crashReportsHint() {
+      return t`Helps fix crashes. No repository contents, diffs, or credentials are ever sent.`
+    },
+  },
+
   flow: {
     minutes: (n: number) => t`${n} min`,
     hours: (n: number) => t`${n} h`,

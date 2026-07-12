@@ -6,6 +6,7 @@ import { app } from "electron"
 import { registerIpc } from "./ipc.ts"
 import { hardenSession } from "./security.ts"
 import { loadState } from "./state.ts"
+import { initTelemetry } from "./telemetry.ts"
 import { createWindow, focusExisting } from "./window.ts"
 
 /* Single instance only: a second concurrent launch would overwrite state.json in a
@@ -29,6 +30,9 @@ if (!gotLock) {
     .whenReady()
     .then(loadState)
     .then(() => {
+      /* after loadState (reads the opt-out flag), before createWindow so a failure while
+         building the window is still reported */
+      initTelemetry()
       hardenSession()
       createWindow()
     })

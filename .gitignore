@@ -3,5 +3,10 @@ out/
 dist/
 coverage/
 
+# Local env (Sentry DSN, etc.) — .env.example is committed as the template
+.env
+.env.*
+!.env.example
+
 # Lingui compiled catalogs (the Vite plugin compiles .po at build time)
 src/renderer/src/locales/*.js

@@ -59,6 +59,8 @@ export const host = {
   close: bridge.close,
   chooseRoot: bridge.chooseRoot,
   scanRoot: bridge.scanRoot,
+  telemetryState: bridge.telemetryState,
+  setTelemetry: bridge.setTelemetry,
   chooseCreateDir: bridge.chooseCreateDir,
   initRepo: bridge.initRepo,
   initBare: bridge.initBare,

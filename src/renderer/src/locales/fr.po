@@ -247,6 +247,9 @@ msgstr "Vue à plat"
 msgid "Git console"
 msgstr "Console Git"
 
+msgid "Helps fix crashes. No repository contents, diffs, or credentials are ever sent."
+msgstr "Aide à corriger les plantages. Aucun contenu de dépôt, diff ou identifiant n'est jamais envoyé."
+
 msgid "Hide sidebar"
 msgstr "Masquer la barre latérale"
 
@@ -372,6 +375,9 @@ msgstr "Dossier racine"
 
 msgid "scanning for repositories…"
 msgstr "recherche de dépôts…"
+
+msgid "Send anonymous crash reports"
+msgstr "Envoyer des rapports de plantage anonymes"
 
 msgid "Show sidebar"
 msgstr "Afficher la barre latérale"
