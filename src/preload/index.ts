@@ -34,6 +34,10 @@ const bridge: Bridge = {
   close: invoke("repo:close"),
   chooseRoot: invoke("root:choose"),
   scanRoot: invoke("root:scan"),
+  chooseCreateDir: invoke("create:chooseDir"),
+  initRepo: invoke("create:init"),
+  initBare: invoke("create:bare"),
+  cloneRepo: invoke("create:clone"),
 
   onOp: on("git:op"),
   onChanged: on("git:changed"),

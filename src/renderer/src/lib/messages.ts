@@ -73,6 +73,64 @@ export const messages = {
     },
   },
 
+  create: {
+    get title() {
+      return t`Create a repository`
+    },
+    get intro() {
+      return t`Create a local repository, a bare remote repository, or clone an existing one.`
+    },
+    get destination() {
+      return t`Destination folder`
+    },
+    get destinationHint() {
+      return t`New repositories and clones are created inside this folder.`
+    },
+    get noDestination() {
+      return t`Choose a destination folder first.`
+    },
+    get localTitle() {
+      return t`Local repository`
+    },
+    get localHint() {
+      return t`Initialize an empty repository in a new folder.`
+    },
+    get bareTitle() {
+      return t`Remote repository (bare)`
+    },
+    get bareHint() {
+      return t`A repository without a working tree, ready to be used as a remote.`
+    },
+    get cloneTitle() {
+      return t`Clone a repository`
+    },
+    get cloneHint() {
+      return t`Clone an existing repository from a URL or a local path.`
+    },
+    get name() {
+      return t`Name`
+    },
+    get url() {
+      return t`URL`
+    },
+    get urlPlaceholder() {
+      return t`https://… or git@…`
+    },
+    get create() {
+      return t`Create`
+    },
+    get clone() {
+      return t`Clone`
+    },
+    get creating() {
+      return t`creating…`
+    },
+    get cloning() {
+      return t`cloning…`
+    },
+    createdAt: (path: string) => t`Repository created: ${path}`,
+  },
+
   repo: {
     get clickCommitForDetail() {
       return t`Click a commit for its detail.`
