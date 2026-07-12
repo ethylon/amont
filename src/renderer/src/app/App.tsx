@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { flushSync } from "react-dom"
 
 import { host, type BootState, type Repo } from "@/lib/git"
 import { afterClose, CREATE, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/app/navigation"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { messages } from "@/lib/messages"
+import { setDark, useTheme } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/app/error-boundary"
+import { AppMenu, type MenuContext } from "@/app/menu"
 import { CreateScreen } from "@/features/create/create-screen"
 import { HomeScreen } from "@/features/home/home-screen"
 import { RepoView } from "@/features/repo/repo-view"
@@ -121,8 +123,33 @@ export default function App({ boot }: Props) {
     [active, select, tabs]
   )
 
+  /* the folder-picker path shared with the home screen: open the dialog, and if a repo
+     comes back, surface it as a tab. A cancelled dialog resolves to null and is a no-op. */
+  const openDialog = useCallback(() => {
+    void host.openDialog().then((res) => res && openTab(res))
+  }, [openTab])
+
   const homeActive = active.kind === "home"
   const createActive = active.kind === "create"
+
+  /* The declarative menu bar's single seam into App state (see app/menu/types.ts). Subscribed
+     to the theme so the "Dark theme" checkbox reflects an OS flip, not just an explicit choice. */
+  const dark = useTheme()
+  const menuCtx = useMemo<MenuContext>(
+    () => ({
+      newRepo: () => select(CREATE),
+      openRepo: openDialog,
+      closeActiveTab: () => active.kind === "repo" && closeTab(active.id),
+      hasActiveRepo: active.kind === "repo",
+      goHome: () => select(HOME),
+      isDark: dark,
+      toggleTheme: () => setDark(!dark),
+      reload: () => window.location.reload(),
+      version: __APP_VERSION__,
+      openExternal: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
+    }),
+    [active, closeTab, dark, openDialog, select]
+  )
 
   return (
     <div className="flex h-full flex-col">
@@ -131,6 +158,7 @@ export default function App({ boot }: Props) {
         active={toTabKey(active)}
         onSelect={(key) => select(fromTabKey(key))}
         onClose={closeTab}
+        menu={<AppMenu ctx={menuCtx} />}
       />
 
       {/* `data-tab-active` carries the view-transition names on the only visible tab (see app.css) */}

@@ -9,10 +9,12 @@ export type {
   ChangeEvent,
   Commit,
   CommitMessage,
+  ConflictFile,
   FileChange,
   FlowInfo,
   FlowPrefixes,
   GitRef,
+  MergeState,
   OpEvent,
   OpName,
   OpenResult,
@@ -31,10 +33,12 @@ import type {
   BranchAct,
   Commit,
   CommitMessage,
+  ConflictFile,
   FileChange,
   FlowInfo,
   FlowPrefixes,
   GitRef,
+  MergeState,
   OpName,
   Stash,
   StashAct,
@@ -113,6 +117,13 @@ export type RepoApi = {
   stashes(): Promise<Stash[]>
   /** `push` stashes the tree (optional message); the others target a `stash@{N}` name */
   stash(action: StashAct, arg?: string): Promise<void>
+  /** the A/B labels of the conflict view: current branch (ours) and merged-in branch (theirs) */
+  mergeState(): Promise<MergeState>
+  /** the three index stages + working file of a conflicted path */
+  conflict(path: string): Promise<ConflictFile>
+  /** writes the merged output to the working file and stages it — the conflict is resolved */
+  resolve(path: string, content: string): Promise<void>
+  mergeAbort(): Promise<void>
   /** Windows icon of the file, `null` if it doesn't exist on disk */
   fileIcon(path: string): Promise<string | null>
   openFile(path: string): Promise<string>
@@ -142,6 +153,10 @@ export const repoApi = (id: number): RepoApi => ({
   checkout: (name) => bridge.checkout(id, name),
   stashes: () => bridge.stashes(id),
   stash: (action, arg) => bridge.stash(id, action, arg),
+  mergeState: () => bridge.mergeState(id),
+  conflict: (path) => bridge.conflict(id, path),
+  resolve: (path, content) => bridge.resolve(id, path, content),
+  mergeAbort: () => bridge.mergeAbort(id),
   fileIcon: (path) => bridge.fileIcon(id, path),
   openFile: (path) => bridge.openFile(id, path),
   cancel: (requestId) => bridge.cancel(id, requestId),
