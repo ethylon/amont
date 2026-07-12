@@ -82,6 +82,9 @@ msgstr "A · {label}"
 msgid "Abort merge"
 msgstr "Interrompre le merge"
 
+msgid "Add line to the output"
+msgstr "Ajouter la ligne au résultat"
+
 msgid "Additional references"
 msgstr "Références supplémentaires"
 
@@ -241,6 +244,9 @@ msgstr "Vue à plat"
 msgid "Git console"
 msgstr "Console Git"
 
+msgid "Hand-edited — undo the edits to re-enable the pickers."
+msgstr "Édité à la main — annulez les modifications pour réactiver les sélecteurs."
+
 msgid "Hide sidebar"
 msgstr "Masquer la barre latérale"
 
@@ -352,6 +358,9 @@ msgstr "Recharger l'onglet"
 msgid "Remotes"
 msgstr "Distants"
 
+msgid "Remove line from the output"
+msgstr "Retirer la ligne du résultat"
+
 msgid "Resolve conflicts before committing."
 msgstr "Résolvez les conflits avant de commiter."
 
@@ -394,11 +403,17 @@ msgstr "Tags"
 msgid "Take A"
 msgstr "Prendre A"
 
-msgid "Take A then B"
-msgstr "Prendre A puis B"
+msgid "Take A in every conflict"
+msgstr "Prendre A dans tous les conflits"
+
+#~ msgid "Take A then B"
+#~ msgstr "Prendre A puis B"
 
 msgid "Take B"
 msgstr "Prendre B"
+
+msgid "Take B in every conflict"
+msgstr "Prendre B dans tous les conflits"
 
 msgid "theirs — incoming"
 msgstr "theirs — entrante"
