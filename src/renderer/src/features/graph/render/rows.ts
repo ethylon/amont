@@ -2,7 +2,14 @@
    type, subject, author, date, hash) plus the measurement columns. Imperative rendering, as before
    this refactor — React owns the shell (react/commit-graph.tsx), not these rows. */
 
-import { ArrowRight01Icon, CloudIcon, Fire02Icon, FolderLinksIcon, RocketIcon, Tag01Icon } from "@hugeicons/core-free-icons"
+import {
+  ArrowRight01Icon,
+  CloudIcon,
+  Fire02Icon,
+  FolderLinksIcon,
+  RocketIcon,
+  Tag01Icon,
+} from "@hugeicons/core-free-icons"
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { avatarUrl, initials, tint } from "@/lib/avatar"

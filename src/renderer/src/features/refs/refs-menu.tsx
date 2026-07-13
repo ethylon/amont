@@ -68,10 +68,7 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
 
       <ContextMenuSeparator />
       {/* checked out here (head) or in a worktree: git refuses a second checkout of the branch */}
-      <ContextMenuItem
-        disabled={r.head || ctx.worktreeBranches.has(r.name)}
-        onClick={() => ctx.onAddWorktree(r.name)}
-      >
+      <ContextMenuItem disabled={r.head || ctx.worktreeBranches.has(r.name)} onClick={() => ctx.onAddWorktree(r.name)}>
         <HugeiconsIcon icon={FolderAddIcon} strokeWidth={2} />
         <MenuItemWithCmd label={messages.worktrees.create} cmd={`git worktree add <dir> ${r.name}`} />
       </ContextMenuItem>
