@@ -31,6 +31,7 @@ export type {
   StashAct,
   Status,
   TraceLine,
+  UpdateStatus,
   Worktree,
   WorktreeAct,
   WorktreeInfo,
@@ -86,6 +87,8 @@ export const host = {
   initRepo: bridge.initRepo,
   initBare: bridge.initBare,
   cloneRepo: bridge.cloneRepo,
+  checkForUpdates: bridge.checkForUpdates,
+  installUpdate: bridge.installUpdate,
 }
 
 /* The preload now handles unsubscription itself (`ipcRenderer.off`, see src/preload):
@@ -95,6 +98,7 @@ export const onOp = bridge.onOp
 export const onChanged = bridge.onChanged
 export const onTrace = bridge.onTrace
 export const onProgress = bridge.onProgress
+export const onUpdate = bridge.onUpdate
 
 /* Opens the repos of restored tabs. Called once, explicitly, from main.tsx —
    rather than an import-time side effect (the old `bootState`, evaluated as soon as this module
