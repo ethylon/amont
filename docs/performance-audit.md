@@ -5,6 +5,19 @@ engine, React state & re-renders, diff/highlight pipeline, and startup/bundle. F
 are ranked by expected impact on the reported "slow & clanky" feel; every item was
 verified against the code at the referenced lines.
 
+> **Fix status** — everything below is implemented on this branch except the following,
+> deferred deliberately: full windowing virtualization for file/ref lists (finding 13 —
+> `content-visibility: auto` applied instead; windowing needs a new dependency and manual
+> UX validation), shiki dual-theme tokens (the token LRU already makes theme flip-backs
+> free), the `flushSync`-in-view-transition tab switch (23 — measure first), and the
+> hugeicons deep-import churn (20 — a production build verified the barrel tree-shakes
+> cleanly; only dev-server parse cost remains). Line references below describe the
+> pre-fix code. An adversarial review pass over the combined changeset produced seven
+> follow-up fixes (detached-HEAD keying of the log index, watcher gen bump inside the
+> mute window, stale-token guard in `CodeLine`, locale subscription in `HunkSection`,
+> error-boundary recovery on selection change, search invalidation on repo change, and
+> body-ghosting/scroll parity in the detail panel), all included.
+
 ## P0 — the big four
 
 ### 1. Graph: `refresh()` is never called when pages stream in (regression)
