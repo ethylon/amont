@@ -28,7 +28,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json",
     "i18n:extract": "lingui extract",
     "i18n:compile": "lingui compile",
-    "lint": "eslint .",
+    "lint": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
