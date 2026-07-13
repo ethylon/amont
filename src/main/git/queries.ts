@@ -23,8 +23,11 @@ import type {
   WtSource,
 } from "../../shared/types.ts"
 import { inRepo, type RepoHandle } from "../repos.ts"
+import { refTips } from "./ops.ts"
 import {
   ALL_REFS,
+  hashListCount,
+  hashListSlice,
   parseForEachRef,
   parseLogPage,
   parseNameStatus,
@@ -43,21 +46,28 @@ function assertHash(hash: string, parent?: string | null): void {
    Current branch + divergence from its remote. No upstream or detached HEAD
    aren't errors: the renderer simply displays dashes. */
 export async function repoStatus(r: RepoHandle): Promise<Status> {
-  /* unborn HEAD (freshly-init repo): rev-parse fails even though nothing is wrong —
-     empty status rather than a rejection, as repo:unstage already knows to do */
-  const branch = (await r.git(["rev-parse", "--abbrev-ref", "HEAD"]).catch(() => "")).trim()
-  if (!branch) return { branch: null, head: null, ahead: null, behind: null }
-  const head = (await r.git(["rev-parse", "HEAD"]).catch(() => "")).trim() || null
-  if (branch === "HEAD") return { branch: null, head, ahead: null, behind: null }
-  try {
-    const [behind, ahead] = (await r.git(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]))
-      .trim()
-      .split(/\s+/)
-      .map(Number)
-    return { branch, head, ahead, behind }
-  } catch {
-    return { branch, head, ahead: null, behind: null }
-  }
+  /* Three independent reads, in parallel rather than chained: this runs after every mutation
+     and on every `git:changed`, so the serial fork/exec chain was pure latency. Each read
+     carries its own fallback — an unborn HEAD (freshly-init repo) makes both rev-parses fail
+     even though nothing is wrong (as repo:unstage already knows), and no upstream or a
+     detached HEAD makes the rev-list fail: empty fields rather than a rejection. */
+  const [branch, head, counts] = await Promise.all([
+    r.git(["rev-parse", "--abbrev-ref", "HEAD"]).then(
+      (o) => o.trim(),
+      () => ""
+    ),
+    r.git(["rev-parse", "HEAD"]).then(
+      (o) => o.trim(),
+      () => ""
+    ),
+    /* left side of `@{upstream}...HEAD` = commits only upstream has = behind */
+    r.git(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]).then(
+      (o) => o.trim().split(/\s+/).map(Number),
+      () => null
+    ),
+  ])
+  if (!branch || branch === "HEAD") return { branch: null, head: head || null, ahead: null, behind: null }
+  return { branch, head: head || null, ahead: counts?.[1] ?? null, behind: counts?.[0] ?? null }
 }
 
 /* --- Working tree --- */
@@ -124,8 +134,11 @@ export async function conflict(r: RepoHandle, path: string): Promise<ConflictFil
       () => null
     )
   const [base, ours, theirs] = await Promise.all([stage(1), stage(2), stage(3)])
+  /* size gate BEFORE the read, like blob(): an over-cap file never has its bytes pulled into
+     memory just to be rejected. Missing from disk (delete/delete) reads as empty, as before. */
+  const size = (await stat(full).catch(() => null))?.size ?? 0
+  if (size > CONFLICT_MAX) throw new AppError("OUTPUT_LIMIT", path)
   const merged = await readFile(full, "utf8").catch(() => "")
-  if (merged.length > CONFLICT_MAX) throw new AppError("OUTPUT_LIMIT", path)
   return { base, ours, theirs, merged }
 }
 
@@ -144,31 +157,64 @@ export const stashList = (r: RepoHandle): Promise<Stash[]> =>
     .catch(() => "")
     .then(parseStashList)
 
-const stashTips = (r: RepoHandle): Promise<string[]> =>
-  r
-    .git(["stash", "list", "--format=%H"])
-    .catch(() => "")
-    .then((o) => o.split("\n").filter(Boolean))
+/* `git stash list` walks the whole stash reflog: cached for one change-generation
+   (watcher.ts bumps `gen` on every observed .git change, mute() after each of our own
+   mutations) — logPage/total used to re-spawn it on every page, a serial fork/exec tax on
+   the hottest read path. The promise never rejects (stashList catches into an empty list),
+   so a cached failure can't get stuck. */
+function cachedStashes(r: RepoHandle): Promise<Stash[]> {
+  if (r.stashCache?.gen !== r.gen) r.stashCache = { gen: r.gen, list: stashList(r) }
+  return r.stashCache.list
+}
 
 /* --- Log ---
-   `git log --skip` re-walks history from the start on every page — fine up to roughly 100k
-   commits; switch to a persistent streaming spawn if that ever becomes the bottleneck. */
+   `git log --skip=N` used to re-walk (and `--date-order` re-sort) the whole history from the
+   tips on every page: O(history) per page, the exact bottleneck the old comment here
+   predicted. Instead, the ordered hash list of the entire graph is materialized ONCE per
+   tips snapshot (`rev-list --date-order` over the same refs+stash tips), cached on the
+   RepoHandle like `trunk`, and every page is a byte-range slice of it fed to
+   `git log --no-walk=unsorted --stdin` — page cost no longer depends on where the page sits
+   in history. Same traversal, same roots: the order is bit-identical to the old command. */
+async function orderedHashes(r: RepoHandle): Promise<{ hashes: string; stashes: Stash[] }> {
+  const [tips, stashes] = await Promise.all([refTips(r), cachedStashes(r)])
+  const key = [...tips, ...stashes.map((s) => s.h)].join(" ")
+  let entry = r.logIndex
+  if (entry?.key !== key) {
+    /* no caller signal on the build: the list is shared by every page in flight, and a
+       cancelled page must not kill the walk its siblings are waiting on (closeRepo still
+       reaps it through the children set). A failed build — timeout, repo gone mid-read —
+       drops the entry so the next call retries instead of replaying the rejection. */
+    const fresh: NonNullable<RepoHandle["logIndex"]> = {
+      key,
+      hashes: r.git(["rev-list", "--date-order", ...ALL_REFS, ...stashes.map((s) => s.h)]).catch((e: unknown) => {
+        if (r.logIndex === fresh) r.logIndex = null
+        throw e
+      }),
+    }
+    r.logIndex = entry = fresh
+  }
+  return { hashes: await entry.hashes, stashes }
+}
+
 export async function logPage(r: RepoHandle, skip: number, count: number, signal?: AbortSignal): Promise<Commit[]> {
+  const page = hashListSlice((await orderedHashes(r)).hashes, skip, count)
+  /* a blank page must never reach `git log --stdin`: with nothing on stdin, git falls back
+     to the default HEAD revision and would resurrect commits out of thin air */
+  if (!page) return []
   /* --decorate=full: `%D` then outputs `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
-     In its short form, `origin/x` and a local branch named `origin/x` are indistinguishable. */
+     In its short form, `origin/x` and a local branch named `origin/x` are indistinguishable.
+     Decorations are re-read here on every page, so the cached hash order never serves a
+     stale ref name — only tips (which key the cache) affect the order itself. */
   const out = await r.git(
     [
       "log",
-      ...ALL_REFS,
-      ...(await stashTips(r)),
-      "--date-order",
+      "--no-walk=unsorted", // keep the slice's order; git would otherwise re-sort by date
+      "--stdin",
       "--date=short",
       "--decorate=full",
-      `--skip=${skip}`,
-      `-n${count}`,
       "--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e",
     ],
-    { signal }
+    { signal, input: page }
   )
   return parseLogPage(out)
 }
@@ -202,12 +248,13 @@ export async function searchCommits(
 /* The count includes stash tips, same as the log. Each entry drags along 1 to 2
    plumbing commits (index, untracked) that the renderer collapses: we subtract them so that
    `total` stays the number of lines actually displayable. Deduplicated: two stashes created
-   in the same second share the same index commit (same tree, same parent, same date). */
+   in the same second share the same index commit (same tree, same parent, same date).
+   Derived from the same cached hash list as logPage — the `rev-list --count` full-history
+   walk this used to spawn on every `git:changed` is now O(1) once the list is built. */
 export async function total(r: RepoHandle): Promise<number> {
-  const stashes = await stashList(r)
+  const { hashes, stashes } = await orderedHashes(r)
   const plumbing = new Set(stashes.flatMap((s) => s.p.slice(1)))
-  const count = parseInt(await r.git(["rev-list", "--count", ...ALL_REFS, ...stashes.map((s) => s.h)]), 10)
-  return count - plumbing.size
+  return hashListCount(hashes) - plumbing.size
 }
 
 /* --- Refs ---
@@ -276,14 +323,34 @@ export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
   const present = new Set(remoteRefs.map((n) => n.slice(n.indexOf("/") + 1)))
   const remoteNames = [...new Set(remoteRefs.map((n) => n.slice(0, n.indexOf("/"))))]
 
+  /* The verdict only depends on the branch's own reflog (which only grows when its tip
+     moves) and on the remote names it's matched against: cached per (branch, tip), reset
+     wholesale when the remote set changes. 150 stale branches used to cost 150 spawns on
+     every refresh; now only the branches whose tip actually moved are re-probed. Entries
+     for deleted branches linger in the map — bounded by branch-name count, not worth
+     sweeping. (A reflog expired by gc can flip a cached verdict without moving the tip —
+     the same staleness the heuristic above already accepts for its 90-day window.) */
+  if (r.goneCache?.remotes !== remoteNames.join(" "))
+    r.goneCache = { remotes: remoteNames.join(" "), verdicts: new Map() }
+  const verdicts = r.goneCache.verdicts
+
   const candidates: GitRef[] = remoteNames.length
-    ? refs.filter((ref) => ref.kind === "head" && !ref.gone && !present.has(ref.name))
+    ? refs.filter((ref) => {
+        if (ref.kind !== "head" || ref.gone || present.has(ref.name)) return false
+        const known = verdicts.get(ref.name)
+        if (known && known.tip === ref.tip) {
+          ref.gone = known.gone
+          return false
+        }
+        return true
+      })
     : []
   await Promise.all(
     Array.from({ length: Math.min(REFLOG_POOL, candidates.length) }, async () => {
       for (let ref: GitRef | undefined; (ref = candidates.shift()) !== undefined;) {
         const reflog = await r.git(["reflog", "show", "--format=%gs", ref.name]).catch(() => "")
         ref.gone = remoteNames.some((remote) => reflog.includes(`${remote}/${ref.name}`))
+        verdicts.set(ref.name, { tip: ref.tip, gone: ref.gone })
       }
     })
   )

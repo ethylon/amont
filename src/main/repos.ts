@@ -13,7 +13,7 @@ import { resolve, sep } from "node:path"
 import type { ChildProcess } from "node:child_process"
 
 import { AppError } from "../shared/errors.ts"
-import type { DistributiveOmit, OpEvent, ProgressEvent, Repo, TraceLine } from "../shared/types.ts"
+import type { DistributiveOmit, OpEvent, ProgressEvent, Repo, Stash, TraceLine } from "../shared/types.ts"
 import { createGitRunner, killAll, type GitRunner } from "./git/exec.ts"
 import { basename } from "./util.ts"
 import { remember } from "./state.ts"
@@ -42,6 +42,18 @@ export interface RepoHandle extends Watchable {
   gitDir: string
   /** cache of the trunk's first-parent chain (cf. git/queries.ts refs), invalidated if its tip moves */
   trunk: { key: string; set: Set<string> } | null
+  /** cached `git stash list`, valid for one change-generation (cf. watcher.ts `gen`): the log
+      read path (git/queries.ts logPage/total) used to re-spawn `stash list` on every page */
+  stashCache: { gen: number; list: Promise<Stash[]> } | null
+  /** the graph's ordered hash list (cf. git/queries.ts logPage/total), keyed by the refs+stash
+      tips snapshot — same idea as `trunk`. One string of fixed-width `\n`-terminated lines
+      (~41 B/commit for sha1), deliberately never split into a per-commit array: a 1M-commit
+      repo costs one ~41 MB string, not a million small ones plus array overhead. */
+  logIndex: { key: string; hashes: Promise<string> } | null
+  /** reflog "gone" verdicts per local branch (cf. git/queries.ts listRefs), valid while the
+      branch's tip and the remote set are unchanged — one `git reflog show` per stale branch
+      per refresh otherwise */
+  goneCache: { remotes: string; verdicts: Map<string, { tip: string; gone: boolean }> } | null
   /** in-flight git children for this repo; killAll() terminates them all (closeRepo, app close) */
   children: Set<ChildProcess>
   /** cancellable in-flight requests, keyed by id supplied by the renderer (cf. `repo:cancel`) */
@@ -147,11 +159,15 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     running: null,
     muted: 0,
     dirty: false,
+    gen: 0,
     timer: null,
-    watcher: null,
+    watchers: [],
     watchRetries: 0,
     retryTimer: null,
     trunk: null,
+    stashCache: null,
+    logIndex: null,
+    goneCache: null,
     children,
     requests: new Map(),
     events,
@@ -179,7 +195,7 @@ export function closeRepo(id: number): void {
   if (!r) return
   if (r.timer) clearInterval(r.timer)
   if (r.retryTimer) clearTimeout(r.retryTimer)
-  r.watcher?.close()
+  for (const w of r.watchers) w.close()
   killAll(r.children)
   for (const controller of r.requests.values()) controller.abort()
   repos.delete(id)
@@ -190,7 +206,7 @@ export function closeAll(): void {
   for (const r of repos.values()) {
     if (r.timer) clearInterval(r.timer)
     if (r.retryTimer) clearTimeout(r.retryTimer)
-    r.watcher?.close()
+    for (const w of r.watchers) w.close()
     killAll(r.children)
   }
   repos.clear()

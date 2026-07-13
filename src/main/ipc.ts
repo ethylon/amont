@@ -88,13 +88,12 @@ export function registerIpc(): void {
     if (!booted) {
       booted = true
       const paths = process.env.GG_REPO ? [process.env.GG_REPO, ...persisted.tabs] : persisted.tabs
-      for (const path of [...new Set(paths)]) {
-        try {
-          tabs.push(await openRepoPub(path))
-        } catch {
-          /* repo gone since the last session: ignore it, this must not block boot */
-        }
-      }
+      /* all tabs in parallel rather than one await each: 8 restored tabs used to pay 8
+         serial `rev-parse` probes before the first useful paint. allSettled keeps the
+         persisted order and drops the failures (repo gone since the last session — that
+         must not block boot), exactly as the old loop did. */
+      const opened = await Promise.allSettled([...new Set(paths)].map((path) => openRepoPub(path)))
+      for (const res of opened) if (res.status === "fulfilled") tabs.push(res.value)
     } else {
       tabs.push(...repos.all().map(repos.pub))
     }
