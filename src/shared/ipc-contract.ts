@@ -38,6 +38,8 @@ import type {
   Status,
   TraceLine,
   Worktree,
+  WorktreeAct,
+  WorktreeInfo,
   WtSource,
 } from "./types"
 
@@ -108,6 +110,19 @@ export type InvokeChannels = {
   "repo:checkout": (id: number, name: string) => Promise<void>
   "repo:stashes": (id: number) => Promise<Stash[]>
   "repo:stash": (id: number, action: StashAct, arg?: string) => Promise<void>
+  /* Linked worktrees (`git worktree`). `worktreeOpen` only accepts a path listed by
+     `git worktree list` for this repo — never an arbitrary path, same confinement model
+     as `openable` (cf. main/state.ts). */
+  "repo:worktrees": (id: number) => Promise<WorktreeInfo[]>
+  /** `remove` targets a listed worktree path; `prune` sweeps the stale administrative entries. */
+  "repo:worktreeAct": (id: number, action: WorktreeAct, path?: string) => Promise<void>
+  /** system picker for the destination folder then `git worktree add <dir> <branch>`;
+      `null` when the dialog is cancelled — the created worktree is opened as a tab right away. */
+  "repo:worktreeAdd": (id: number, branch: string) => Promise<OpenResult>
+  /** opens a listed worktree as a new tab (same `Repo` result as `repo:openPath`). */
+  "repo:worktreeOpen": (id: number, path: string) => Promise<Repo>
+  /** reveals a listed worktree in the system file explorer. */
+  "repo:worktreeReveal": (id: number, path: string) => Promise<void>
   "repo:mergeState": (id: number) => Promise<MergeState>
   "repo:conflict": (id: number, path: string) => Promise<ConflictFile>
   /** Writes `content` to the working file and stages it (`git add`): the conflict is resolved. */
@@ -187,6 +202,11 @@ export type Bridge = {
   checkout: InvokeChannels["repo:checkout"]
   stashes: InvokeChannels["repo:stashes"]
   stash: InvokeChannels["repo:stash"]
+  worktrees: InvokeChannels["repo:worktrees"]
+  worktreeAct: InvokeChannels["repo:worktreeAct"]
+  worktreeAdd: InvokeChannels["repo:worktreeAdd"]
+  worktreeOpen: InvokeChannels["repo:worktreeOpen"]
+  worktreeReveal: InvokeChannels["repo:worktreeReveal"]
   mergeState: InvokeChannels["repo:mergeState"]
   conflict: InvokeChannels["repo:conflict"]
   resolve: InvokeChannels["repo:resolve"]
