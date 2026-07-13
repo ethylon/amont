@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
+import { ScrollName } from "@/features/graph/interactions/scroll-name"
 import { BranchMenu } from "@/features/refs/refs-menu"
 
 type RowProps = { onCheckout(name: string): void }
@@ -150,15 +151,10 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
     >
       <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
       {/* a branch whose remote has vanished is no longer a destination: it reads as a leftover */}
-      <span
-        className={cn(
-          "truncate",
-          r.head ? "font-semibold" : "font-medium",
-          r.gone && "text-muted-foreground line-through"
-        )}
-      >
-        {label}
-      </span>
+      <ScrollName
+        text={label}
+        className={cn(r.head ? "font-semibold" : "font-medium", r.gone && "text-muted-foreground line-through")}
+      />
       {/* HEAD is an identity, not a state: a marker (weight + dot), so the primary fill
           keeps a single meaning in the sidebar — selected. */}
       {r.head && <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />}
