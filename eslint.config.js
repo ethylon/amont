@@ -3,22 +3,20 @@ import reactHooks from "eslint-plugin-react-hooks"
 import reactRefresh from "eslint-plugin-react-refresh"
 import tseslint from "typescript-eslint"
 
-const nodeGlobals = { process: "readonly", console: "readonly", __dirname: "readonly" }
-
-/* Flat config (AUDIT.md §9): typed rules need `parserOptions.project` to resolve a tsconfig
-   for every linted file. The two projects (renderer vs. main/preload/shared/scripts) aren't
-   linked by a root "references" config, so both are listed explicitly rather than relying on
-   TypeScript's own project-service discovery to find them on its own. */
+/* Flat config (AUDIT.md §9): lint is confined to src/ — the build/tooling files at the root
+   (electron.vite.config.mjs, vitest.config.ts, scripts/*.mjs, ...) are covered by typecheck +
+   prettier, not by ESLint. Typed rules need `parserOptions.project` to resolve a tsconfig for
+   every linted file. The two projects (renderer vs. main/preload/shared) aren't linked by a
+   root "references" config, so both are listed explicitly rather than relying on TypeScript's
+   own project-service discovery to find them on its own. */
 export default tseslint.config(
   {
-    ignores: ["out/**", "node_modules/**", "resources/**", "pnpm-lock.yaml"],
+    ignores: ["out/**", "node_modules/**", "resources/**"],
   },
 
-  js.configs.recommended,
-
   {
-    files: ["**/*.{ts,tsx}"],
-    extends: [...tseslint.configs.recommendedTypeChecked],
+    files: ["src/**/*.{ts,tsx}"],
+    extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {
         project: ["./tsconfig.json", "./tsconfig.node.json"],
@@ -83,10 +81,5 @@ export default tseslint.config(
         },
       ],
     },
-  },
-
-  {
-    files: ["**/*.mjs"],
-    languageOptions: { sourceType: "module", globals: nodeGlobals },
   }
 )
