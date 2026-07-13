@@ -40,6 +40,7 @@ export const queryKeys = {
   diffAll: (id: number) => ["diff", id] as const,
   imageDiff: (id: number, ctx: DiffCtx, path: string, old: string | null) => ["imageDiff", id, ctx, path, old] as const,
   search: (id: number, term: string, content: boolean) => ["search", id, term, content] as const,
+  searchAll: (id: number) => ["search", id] as const,
 }
 
 /** All keys of a repo that closely track its status: invalidated together on
@@ -52,6 +53,10 @@ export function invalidateRepo(client: QueryClient, id: number): void {
   void client.invalidateQueries({ queryKey: queryKeys.worktrees(id) })
   void client.invalidateQueries({ queryKey: queryKeys.flow(id) })
   void client.invalidateQueries({ queryKey: queryKeys.flowInfoAll(id) })
+  /* search results are NOT content-addressed: commits get created, amended and rebased by
+     this very app, so cached hits (staleTime: Infinity, cf. search-queries.ts) are marked
+     stale here — an active search refetches, idle ones refetch on next use */
+  void client.invalidateQueries({ queryKey: queryKeys.searchAll(id) })
 }
 
 let seq = 0

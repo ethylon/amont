@@ -16,7 +16,9 @@ export function useBodyQuery(api: RepoApi, id: number, hash: string) {
   return useQuery({
     queryKey: queryKeys.body(id, hash),
     queryFn: ({ signal }) => withAbort(api, signal, (requestId) => api.body(hash, requestId)),
-    placeholderData: keepPreviousData,
+    /* no keepPreviousData here: DetailPanel updates in place on selection change, so the
+       previous commit's body would ghost under the new subject while the new one loads —
+       the section simply stays hidden until data arrives */
     /* content-addressed: the body of a given hash never changes — no refetch on remount
        (an amend/rebase produces a new hash, i.e. a new key) */
     staleTime: Infinity,

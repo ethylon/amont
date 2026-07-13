@@ -91,8 +91,10 @@ function PaneCell({
     scroll-synced <pre>. The placeholder line is styled apart (it isn't code); every other line
     is tokenized by shiki. The tokenize input is debounced ~200ms so a burst of keystrokes pays
     one whole-buffer tokenization, not one per key — the textarea itself stays controlled on the
-    live value, and the previous tokens keep painting until the new ones arrive (useShikiTokens
-    never clears, so there is no flash — at worst a token line lags a beat behind its text). */
+    live value. Unchanged lines keep their previous tokens (useShikiTokens never clears, so
+    there is no flash); an edited line drops to plain text until the next pass catches up —
+    CodeLine refuses tokens that no longer spell the live text, since painting stale glyphs
+    under the caret would visibly swallow the keystrokes. */
 function OutputEditor({
   value,
   onChange,

@@ -122,10 +122,7 @@ export const RefsSidebar = memo(function RefsSidebar() {
     return () => root.removeEventListener("click", onClick)
   }, [paint])
 
-  const worktreeBranches = useMemo(
-    () => new Set(worktrees.flatMap((w) => (w.branch ? [w.branch] : []))),
-    [worktrees]
-  )
+  const worktreeBranches = useMemo(() => new Set(worktrees.flatMap((w) => (w.branch ? [w.branch] : []))), [worktrees])
   const current = useMemo(() => data?.find((r) => r.head)?.name ?? null, [data])
   const onAddWorktreeCb = useCallback((name: string) => void onAddWorktree(name), [onAddWorktree])
   /* one object, memoized: a stable ctx is what lets the sections and rows below skip —
