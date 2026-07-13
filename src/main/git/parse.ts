@@ -146,6 +146,29 @@ export function parseLogPage(out: string): Commit[] {
     }))
 }
 
+/* --- Ordered hash list (log pagination) ---
+   `rev-list` output is fixed-width: every hash of a given repo has the same length (40 hex
+   for sha1, 64 for sha256 object-format repos) plus its `\n`. Pages are byte-range slices of
+   the one big string — deliberately NOT split into a per-commit array, cf. the `logIndex`
+   comment on RepoHandle (repos.ts). */
+
+/** Number of hashes in a `rev-list` output ("" = empty repo). */
+export function hashListCount(list: string): number {
+  if (!list) return 0
+  const nl = list.indexOf("\n")
+  /* defensive: a single hash without a trailing newline still counts as one line */
+  return nl < 0 ? 1 : Math.ceil(list.length / (nl + 1))
+}
+
+/** The page [skip, skip+count) of a `rev-list` output: whole `\n`-terminated hashes, ready
+    to feed back to `git log --stdin`. Empty when `skip` is past the end. */
+export function hashListSlice(list: string, skip: number, count: number): string {
+  if (!list) return ""
+  const nl = list.indexOf("\n")
+  const width = nl < 0 ? list.length : nl + 1
+  return list.slice(skip * width, (skip + count) * width)
+}
+
 /* --- Refs ---
    `origin/HEAD` is a display alias: it would duplicate the remote's default branch — we
    strip it from the array and grab its symref for the merge/gone calculation. */
