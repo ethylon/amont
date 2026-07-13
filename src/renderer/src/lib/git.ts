@@ -32,6 +32,8 @@ export type {
   Status,
   TraceLine,
   Worktree,
+  WorktreeAct,
+  WorktreeInfo,
   WtSource,
 } from "../../../shared/types.ts"
 
@@ -54,8 +56,11 @@ import type {
   OpName,
   Stash,
   StashAct,
+  Repo,
   Status,
   Worktree,
+  WorktreeAct,
+  WorktreeInfo,
   WtSource,
 } from "../../../shared/types.ts"
 
@@ -138,6 +143,15 @@ export type RepoApi = {
   stashes(): Promise<Stash[]>
   /** `push` stashes the tree (optional message); the others target a `stash@{N}` name */
   stash(action: StashAct, arg?: string): Promise<void>
+  /** entries of `git worktree list`, main worktree first */
+  worktrees(): Promise<WorktreeInfo[]>
+  /** `remove` targets a listed worktree path; `prune` sweeps the stale entries */
+  worktreeAct(action: WorktreeAct, path?: string): Promise<void>
+  /** destination picker then `git worktree add`; `null` when the dialog is cancelled */
+  worktreeAdd(branch: string): Promise<Repo | null>
+  /** opens a listed worktree as a repo — the caller surfaces it as a tab */
+  worktreeOpen(path: string): Promise<Repo>
+  worktreeReveal(path: string): Promise<void>
   /** the A/B labels of the conflict view: current branch (ours) and merged-in branch (theirs) */
   mergeState(): Promise<MergeState>
   /** the three index stages + working file of a conflicted path */
@@ -184,6 +198,11 @@ export const repoApi = (id: number): RepoApi => ({
   checkout: (name) => bridge.checkout(id, name),
   stashes: () => bridge.stashes(id),
   stash: (action, arg) => bridge.stash(id, action, arg),
+  worktrees: () => bridge.worktrees(id),
+  worktreeAct: (action, path) => bridge.worktreeAct(id, action, path),
+  worktreeAdd: (branch) => bridge.worktreeAdd(id, branch),
+  worktreeOpen: (path) => bridge.worktreeOpen(id, path),
+  worktreeReveal: (path) => bridge.worktreeReveal(id, path),
   mergeState: () => bridge.mergeState(id),
   conflict: (path) => bridge.conflict(id, path),
   resolve: (path, content) => bridge.resolve(id, path, content),
@@ -198,3 +217,6 @@ export const repoApi = (id: number): RepoApi => ({
 
 export const worktreeCount = (w: Worktree) =>
   w.staged.length + w.unstaged.length + w.untracked.length + w.conflicts.length
+
+/** display name of a linked worktree: its folder name */
+export const worktreeName = (w: WorktreeInfo) => w.path.split(/[\\/]/).pop() || w.path

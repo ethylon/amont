@@ -35,6 +35,8 @@ export type GraphCallbacks = {
       every retry. The graph stays readable and simply shows fewer rows than the total while the
       failure lasts: it's up to the caller to decide the display (toast, status badge…). */
   onError(message: string): void
+  /** a linked-worktree chip was clicked (cf. render/rows.ts `wtChip`): open it as a new tab */
+  onWorktreeOpen(path: string): void
 }
 
 export type GraphHandle = {
@@ -358,13 +360,21 @@ export function createGraph(
       return
     }
     if (t.closest(".amont-more")) return // click inside the panel itself (a ref isn't clickable): nothing to do
+    const wtBtn = t.closest<HTMLElement>(".amont-wt-open")
+    if (wtBtn) {
+      /* the chip is an action, not a selection target: the click opens the worktree's tab
+         and must not move the selection under the transition */
+      popoverCtl.closeMore()
+      if (wtBtn.dataset.path) cb.onWorktreeOpen(wtBtn.dataset.path)
+      return
+    }
     popoverCtl.closeMore()
     const i = rowIndex(ev)
     if (i !== null) cb.onSelect(i, ev.ctrlKey || ev.metaKey)
   }
   const onDblClick = (ev: MouseEvent) => {
     const t = ev.target as HTMLElement
-    if (t.closest(".amont-more, .amont-more-btn")) return
+    if (t.closest(".amont-more, .amont-more-btn, .amont-wt-open")) return
     const i = rowIndex(ev)
     if (i !== null) cb.onBranchSelect(i)
   }
