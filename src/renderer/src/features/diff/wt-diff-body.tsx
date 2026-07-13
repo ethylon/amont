@@ -26,6 +26,7 @@ import { ArrowTurnBackwardIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/c
 
 import type { RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
+import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
 import { useTheme } from "@/lib/theme"
@@ -107,10 +108,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
 
   /* The side-by-side pairing of every hunk, computed once per parse (it used to be recomputed
      on every render of every hunk). Keyed on the parsed diff: the rows only change when it does. */
-  const splitRows = useMemo(
-    () => (view === "sbs" ? parsed.hunks.map((h) => sideBySideRows(h)) : null),
-    [parsed, view]
-  )
+  const splitRows = useMemo(() => (view === "sbs" ? parsed.hunks.map((h) => sideBySideRows(h)) : null), [parsed, view])
 
   /* One in-flight apply at a time: the diff under the buttons is about to be refetched,
      a second click would build its patch against a stale parse. The gate is a ref — not the
@@ -202,6 +200,9 @@ const HunkSection = memo(function HunkSection({
   onStage,
   onDiscard,
 }: HunkSectionProps) {
+  /* memo'd with referentially stable props: the localized button labels would freeze in
+     the old language on a switch without a direct locale subscription */
+  useLocale()
   const lineButtons = (line: number) => (
     <>
       {canDiscard && (

@@ -99,10 +99,20 @@ export type FileChange = {
     `worktree` reads the file straight from disk. */
 export type BlobRef = { kind: "commit"; rev: string } | { kind: "index" } | { kind: "worktree" }
 
-/** The bytes of one side of an image diff. `b64` is null when the blob exists but is larger
-    than the preview cap — the renderer then shows the size only. The whole result is null when
-    the path is absent on that side (an added file has no "before", a deleted file no "after"). */
-export type BlobData = { size: number; b64: string | null }
+/** The bytes of one side of an image diff, raw: Electron's structured clone carries a
+    Uint8Array as binary, where the old base64 detour re-encoded up to 25 MB into a ~33 MB
+    string on the main thread before serializing it (performance audit, finding 9a). `bytes`
+    is null when the blob exists but is larger than the preview cap — the renderer then shows
+    the size only. The whole result is null when the path is absent on that side (an added
+    file has no "before", a deleted file no "after"). */
+export type BlobData = { size: number; bytes: Uint8Array | null }
+
+/** Diff text as shipped by `repo:diff`/`repo:wtdiff`: truncated on the main side a small
+    slack past DIFF_MAX_LINES (cf. shared/diff.ts) instead of carrying up to the 64 MB output
+    cap across IPC. `totalLines` is the exact line count of the full git output
+    (`split("\n")` semantics, trailing empty line included): the renderer's render-path gates
+    and its "N more lines" footer key off it, never off `text` itself. */
+export type DiffText = { text: string; totalLines: number }
 
 /** An open repo. `id` is the only handle accepted by git calls. */
 export type Repo = { id: number; path: string; name: string }
