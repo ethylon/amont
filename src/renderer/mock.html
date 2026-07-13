@@ -487,8 +487,7 @@
           onUpdateListeners.add(cb)
           return () => onUpdateListeners.delete(cb)
         },
-        checkForUpdates: async () =>
-          onUpdateListeners.forEach((cb) => cb({ origin: "manual", kind: "unavailable" })),
+        checkForUpdates: async () => onUpdateListeners.forEach((cb) => cb({ origin: "manual", kind: "unavailable" })),
         installUpdate: async () => {},
         search: async () => [],
         flow: async () => flowPrefixes,
