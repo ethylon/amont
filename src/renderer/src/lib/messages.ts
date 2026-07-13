@@ -420,8 +420,11 @@ export const messages = {
     get uncommittedChanges() {
       return t`Uncommitted changes`
     },
-    get stashChanges() {
-      return t`Stash changes (git stash push -u)`
+    get stash() {
+      return t`Stash`
+    },
+    get moreActions() {
+      return t`More actions`
     },
     get unstaged() {
       return t`Unstaged`
