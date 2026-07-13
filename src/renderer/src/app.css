@@ -92,6 +92,11 @@
   --info: oklch(0.52 0.13 250);
   --refactor: oklch(0.52 0.1 195);
 
+  /* Sync local/distant (layout/sync.ts) : ambre = à pousser, bleu = à intégrer. Alias des
+     tokens sémantiques — la chaîne var() suit le thème, pas de doublon dans .dark. */
+  --sync-ahead: var(--warning);
+  --sync-behind: var(--info);
+
   /* Lanes: hues spaced 108° apart — two adjacent lanes are never confused for each other.
        Chroma adjusted per hue (yellow and cyan saturate less than red).
        Outside @theme: consumed via var() in SVG attributes, never through a utility. */
@@ -246,6 +251,42 @@
   /* Stash: a neutral veil — the entry sits on the margin of history, not a milestone. */
   .amont-row[data-stash] {
     background: color-mix(in oklab, var(--muted-foreground) 6%, transparent);
+  }
+
+  /* Sync zones (layout/sync.ts): what only exists locally reads amber, what only exists
+     on the remote reads blue — the lag is visible at graph scale, not just per node.
+     Hover and selection (utilities) cover these, same as the flow tints above. */
+  .amont-row[data-sync="ahead"] {
+    background: color-mix(in oklab, var(--sync-ahead) 8%, transparent);
+  }
+  .amont-row[data-sync="behind"] {
+    background: color-mix(in oklab, var(--sync-behind) 7%, transparent);
+  }
+
+  /* Sync frontier: a hairline at the remote-tracking tip — everything above it hasn't
+     been pushed. Decorative overlay (pointer-events: none), rows stay clickable through it. */
+  .amont-syncmark {
+    position: absolute;
+    inset-inline: 0;
+    z-index: 2;
+    height: 0;
+    border-top: 1px dashed color-mix(in oklab, var(--sync-ahead) 60%, transparent);
+    pointer-events: none;
+  }
+  .amont-syncmark > span {
+    position: absolute;
+    top: -9px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border: 1px solid color-mix(in oklab, var(--sync-ahead) 45%, transparent);
+    border-radius: 999px;
+    background: var(--background);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--sync-ahead);
   }
 
   @keyframes amont-flash {
