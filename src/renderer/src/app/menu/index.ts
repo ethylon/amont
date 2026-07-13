@@ -12,4 +12,4 @@ import { helpMenu } from "@/app/menu/menus/help"
 export const MENUS: MenuDescriptor[] = [fileMenu, viewMenu, repositoryMenu, gitflowMenu, helpMenu]
 
 export type { MenuContext, MenuDescriptor, MenuNode } from "@/app/menu/types"
-export { AppMenu } from "@/app/menu/app-menu"
+export { AppMenu, type AppMenuContext } from "@/app/menu/app-menu"

@@ -77,16 +77,29 @@ export function createPageCache(resident: number) {
     return pageRows[pi + 1]
   }
 
+  /* Pinned pages of the current selection, cached by the identity of the iterable: every
+     caller hands over the selection Set itself, which interactions/selection.ts REPLACES
+     (never mutates in place) on each change — same reference, same rows. Re-deriving it did
+     one binary search per selected row on every eviction: a branch selection of thousands
+     of rows paid that on each scroll-driven `evictNow`. No staleness from appends either:
+     `pageOfRow` of an already-laid-out row is final (later pages start further down). */
+  let pinnedSrc: Iterable<number> | null = null
+  let pinnedPages = new Set<number>()
+
   /* A spread-out selection (an entire trunk segment) pins all of its pages — the `resident` bound
      is intentionally allowed to stretch for the duration of the selection, and tightens back up
      once it's cleared. */
   function evict(viewRowRange: readonly [number, number] | null, extraRows: Iterable<number>): void {
     if (pages.size <= resident || !pageRows.length) return
-    const pinned = new Set<number>()
+    if (extraRows !== pinnedSrc) {
+      pinnedSrc = extraRows
+      pinnedPages = new Set()
+      for (const r of extraRows) pinnedPages.add(pageOfRow(r))
+    }
+    const pinned = new Set<number>(pinnedPages)
     if (viewRowRange) {
       for (let pi = pageOfRow(viewRowRange[0]), end = pageOfRow(viewRowRange[1]); pi <= end; pi++) pinned.add(pi)
     }
-    for (const r of extraRows) pinned.add(pageOfRow(r))
     for (const pi of [...pages.keys()]) {
       if (pages.size <= resident) break
       if (!pinned.has(pi)) pages.delete(pi)
@@ -97,6 +110,11 @@ export function createPageCache(resident: number) {
     pages = new Map()
     pageRows = []
     nPages = 0
+    /* page indices restart from zero: a selection reference surviving the reset (the
+       controller clears it right after, but order isn't guaranteed) must not pin pages
+       of the previous repo generation */
+    pinnedSrc = null
+    pinnedPages = new Set()
   }
 
   return {

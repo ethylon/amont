@@ -47,3 +47,16 @@ describe("layoutChunk — lane allocation and continuity", () => {
     assert.equal(S.lanes.length, 2, "no third lane was opened")
   })
 })
+
+describe("layoutChunk — pendingGen (dangling-edge overlay gate)", () => {
+  it("bumps the generation when pending moves, and leaves it alone on a no-op chunk", () => {
+    const data = [c("c2", ["c1"], "deux"), c("c1", [], "un")]
+    const S = createState()
+    assert.equal(S.pendingGen, 0)
+    layoutChunk(S, (r) => data[r], data.length)
+    assert.ok(S.pendingGen > 0, "rows with parents pushed into (then resolved out of) pending")
+    const g = S.pendingGen
+    layoutChunk(S, (r) => data[r], data.length) // end === S.next: nothing new to lay out
+    assert.equal(S.pendingGen, g, "a chunk that laid out nothing doesn't invalidate the overlay")
+  })
+})

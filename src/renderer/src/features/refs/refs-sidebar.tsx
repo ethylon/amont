@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { CloudIcon, GitBranchIcon, Search01Icon, Tag01Icon } from "@hugeicons/core-free-icons"
 
 import type { GitRef } from "@/lib/git"
+import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
+import type { PathTree } from "@/lib/path-tree"
 import { useFlowQuery } from "@/features/flow/flow-queries"
 import { FlowShortcut } from "@/features/flow/flow-shortcut"
 import { useRefsQuery } from "@/features/refs/refs-queries"
@@ -27,10 +29,14 @@ const GROUPS = {
   tag: { title: () => messages.refs.tags, icon: Tag01Icon },
 } as const satisfies Record<GitRef["kind"], { title: () => string; icon: IconSvgElement }>
 
-function RefGroupSection({
+/* memo: per-click renders of the sidebar (focus moved) reuse the section when neither its
+   prebuilt tree nor the ctx changed; `focusedKeys` travels inside ctx, so a focus change
+   still reaches every section. */
+const RefGroupSection = memo(function RefGroupSection({
   title,
   icon,
   refs,
+  tree,
   ctx,
   openDirs,
   forceOpen,
@@ -38,21 +44,24 @@ function RefGroupSection({
   title: string
   icon: IconSvgElement
   refs: GitRef[]
+  tree: PathTree<GitRef>
   ctx: Ctx
   openDirs: boolean
   forceOpen: boolean
 }) {
-  const focused = refs.some((r) => ctx.focusedKeys.has(refKey(r)))
+  /* memo'd component: re-render on a runtime language switch even when no prop moved */
+  useLocale()
+  const focused = useMemo(() => refs.some((r) => ctx.focusedKeys.has(refKey(r))), [refs, ctx.focusedKeys])
   const { open, onOpenChange } = useResettableOpen(true, forceOpen, focused)
 
   return (
     <RefGroup title={title} count={refs.length} open={open} onOpenChange={onOpenChange}>
       <div className="mt-0.5">
-        <Tree node={buildTree(refs)} icon={icon} ctx={ctx} openDirs={openDirs} forceOpen={forceOpen} />
+        <Tree node={tree} icon={icon} ctx={ctx} openDirs={openDirs} forceOpen={forceOpen} />
       </div>
     </RefGroup>
   )
-}
+})
 
 /** Store and queries rather than 10 props (AUDIT.md §5): `open`/`focusedKeys` come from the
     store, `flow`/refs/stashes from TanStack Query — no more `refreshKey` rigged up in a chain,
@@ -62,7 +71,10 @@ function RefGroupSection({
     file orchestrates the filter and assembly; refs-tree.tsx carries the tree and the ref
     row, refs-menu.tsx the branch menu, refs-focus-paint.ts the selection-run painting, and the
     stash section now lives in features/stash/ (a full-fledged vertical feature). */
-export function RefsSidebar() {
+export const RefsSidebar = memo(function RefsSidebar() {
+  /* memo'd (propless) component: subscribe to the locale so a runtime language switch,
+     which no longer cascades through the memoized tab, still re-renders the sidebar */
+  useLocale()
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
   const open = useRepoStore((s) => s.ui.sidebarOpen)
@@ -85,9 +97,11 @@ export function RefsSidebar() {
   const [filter, setFilter] = useState("")
   const navRef = useRef<HTMLElement>(null)
 
-  /* substring filter on the full name, prefix included: `feat` catches `feature/x` */
-  const q = filter.trim().toLowerCase()
-  const match = (r: GitRef) => !q || r.name.toLowerCase().includes(q)
+  /* substring filter on the full name, prefix included: `feat` catches `feature/x`.
+     The input stays controlled on `filter` (immediate echo); the tree below filters and
+     force-expands on the deferred value, so a keystroke never waits for the rebuild
+     (perf audit, finding 14). */
+  const q = useDeferredValue(filter.trim().toLowerCase())
 
   const paint = useCallback(() => paintFocusRuns(navRef.current), [])
 
@@ -108,27 +122,48 @@ export function RefsSidebar() {
     return () => root.removeEventListener("click", onClick)
   }, [paint])
 
-  const ctx: Ctx = {
-    current: data?.find((r) => r.head)?.name ?? null,
-    flow,
-    onCheckout,
-    onBranch,
-    focusedKeys,
-    onFocusRef,
-    worktreeBranches: new Set(worktrees.flatMap((w) => (w.branch ? [w.branch] : []))),
-    onAddWorktree: (name) => void onAddWorktree(name),
-  }
+  const worktreeBranches = useMemo(() => new Set(worktrees.flatMap((w) => (w.branch ? [w.branch] : []))), [worktrees])
+  const current = useMemo(() => data?.find((r) => r.head)?.name ?? null, [data])
+  const onAddWorktreeCb = useCallback((name: string) => void onAddWorktree(name), [onAddWorktree])
+  /* one object, memoized: a stable ctx is what lets the sections and rows below skip —
+     it only changes when the focus, the flow config or the refs themselves do */
+  const ctx = useMemo<Ctx>(
+    () => ({
+      current,
+      flow,
+      onCheckout,
+      onBranch,
+      focusedKeys,
+      onFocusRef,
+      worktreeBranches,
+      onAddWorktree: onAddWorktreeCb,
+    }),
+    [current, flow, onCheckout, onBranch, focusedKeys, onFocusRef, worktreeBranches, onAddWorktreeCb]
+  )
+
+  /* Filter + tree build memoized on [data, q] (perf audit, finding 4b): they don't depend
+     on the selection, so a commit click repaints the lit rows without re-filtering or
+     rebuilding a single group. */
+  const groups = useMemo(() => {
+    if (!data) return null
+    const mk = (kind: GitRef["kind"]) => {
+      const refs = data.filter((r) => r.kind === kind && (!q || r.name.toLowerCase().includes(q)))
+      return refs.length ? { refs, tree: buildTree(refs) } : null
+    }
+    return { head: mk("head"), remote: mk("remote"), tag: mk("tag") }
+  }, [data, q])
 
   const group = (kind: GitRef["kind"]) => {
-    const refs = data!.filter((r) => r.kind === kind && match(r))
-    if (!refs.length) return null
-    const g = GROUPS[kind]
+    const g = groups?.[kind]
+    if (!g) return null
+    const meta = GROUPS[kind]
     return (
       <RefGroupSection
         key={kind}
-        title={g.title()}
-        icon={g.icon}
-        refs={refs}
+        title={meta.title()}
+        icon={meta.icon}
+        refs={g.refs}
+        tree={g.tree}
         ctx={ctx}
         openDirs={kind === "remote"}
         forceOpen={!!q}
@@ -171,22 +206,24 @@ export function RefsSidebar() {
           {!q && <FlowShortcut />}
           {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
           {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
-          {data &&
+          {groups &&
             q &&
-            !data.some(match) &&
+            !groups.head &&
+            !groups.remote &&
+            !groups.tag &&
             !stashes.some((s) => matchStash(s, q)) &&
             !worktrees.some((w) => !w.main && matchWorktree(w, q)) && (
               <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
             )}
           {/* local branches, remotes, worktrees, tags, stashes — worktrees sit with the
               branch groups (they anchor checkouts), tags and stashes close the list */}
-          {data && group("head")}
-          {data && group("remote")}
+          {group("head")}
+          {group("remote")}
           <WorktreesSection filter={q} />
-          {data && group("tag")}
+          {group("tag")}
           <StashSection filter={q} />
         </div>
       </div>
     </nav>
   )
-}
+})

@@ -24,6 +24,7 @@ import type {
   FlowInitConfig,
   FlowKind,
   ConflictFile,
+  DiffText,
   FlowPrefixes,
   GitRef,
   MergeState,
@@ -77,7 +78,9 @@ export type InvokeChannels = {
   "repo:fileIcon": (id: number, path: string) => Promise<string | null>
   "repo:openFile": (id: number, path: string) => Promise<string>
   "repo:worktree": (id: number) => Promise<Worktree>
-  "repo:wtdiff": (id: number, path: string, source: WtSource) => Promise<string>
+  /** Diff text, truncated main-side a slack past DIFF_MAX_LINES (shared/diff.ts) — same
+      shape and reason as `repo:diff` below. */
+  "repo:wtdiff": (id: number, path: string, source: WtSource) => Promise<DiffText>
   "repo:stage": (id: number, paths: string[]) => Promise<void>
   "repo:unstage": (id: number, paths: string[]) => Promise<void>
   /** Partial staging: applies a sub-patch to the index alone (`git apply --cached`);
@@ -104,6 +107,9 @@ export type InvokeChannels = {
   "repo:files": (id: number, hash: string, parent: string | null, requestId?: string) => Promise<FileChange[]>
   "repo:body": (id: number, hash: string, requestId?: string) => Promise<string>
   "repo:headMessage": (id: number) => Promise<CommitMessage>
+  /** Diff text, truncated main-side a slack past DIFF_MAX_LINES (shared/diff.ts): the
+      renderer never renders more than the cap, so the payload stops shipping up to the 64 MB
+      output cap across IPC — `totalLines` keeps its "N more lines" footer exact. */
   "repo:diff": (
     id: number,
     hash: string,
@@ -111,9 +117,11 @@ export type InvokeChannels = {
     path: string,
     oldPath: string | null,
     requestId?: string
-  ) => Promise<string>
-  /** Raw bytes of one side of a binary preview (image viewer, cf. features/diff): base64 for
-      the renderer's `data:` URL. `null` when the path is absent on that side. */
+  ) => Promise<DiffText>
+  /** Raw bytes of one side of a binary preview (image viewer, cf. features/diff): a
+      Uint8Array crosses IPC as binary under structured clone — no base64 detour — and the
+      renderer shows it through a `blob:` object URL. `null` when the path is absent on
+      that side. */
   "repo:blob": (id: number, path: string, ref: BlobRef) => Promise<BlobData | null>
   "repo:search": (id: number, q: string, content: boolean, requestId?: string) => Promise<string[]>
   "repo:total": (id: number) => Promise<number>

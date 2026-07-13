@@ -25,6 +25,9 @@ function alloc(S: LayoutState) {
 export function layoutChunk(S: LayoutState, at: (row: number) => Commit, total: number) {
   const t0 = performance.now()
   const end = Math.min(S.next + CHUNK, total)
+  /* tracked over the whole chunk, bumped once at the end: the dangling-edge overlay only
+     needs to know "did S.pending move since my last rebuild", not how many times */
+  let pendingMoved = false
   for (let row = S.next; row < end; row++) {
     const c = at(row)
     /* A capsule answers for two hashes: its own (develop side) and the absorbed master merge.
@@ -61,7 +64,7 @@ export function layoutChunk(S: LayoutState, at: (row: number) => Commit, total: 
           }
         } else if (own) S.mergedBy.set(row, e.r1)
       })
-      S.pending.delete(hh)
+      if (S.pending.delete(hh)) pendingMoved = true
       S.rowOf.set(internId(S.ids, hh), row)
     }
     S.hashOf[row] = internId(S.ids, c.h)
@@ -101,9 +104,11 @@ export function layoutChunk(S: LayoutState, at: (row: number) => Commit, total: 
       const rec: Edge = { r1: row, l1: lane, travel, k }
       if (c.stash) rec.dash = true
       S.pending.get(p)!.push(rec)
+      pendingMoved = true
       if (k === 0) S.fpEdge[row] = rec
     })
   }
+  if (pendingMoved) S.pendingGen++
   S.next = end
   S.ms += performance.now() - t0
 }

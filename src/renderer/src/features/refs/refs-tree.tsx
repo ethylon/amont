@@ -3,11 +3,12 @@
    branches first), and the ref row itself (menu included). See refs-menu.tsx for
    the context menu content and refs-focus-paint.ts for the selection-run painting. */
 
-import { useEffect, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { ArrowRight01Icon, GitBranchIcon, GitMergeIcon } from "@hugeicons/core-free-icons"
 
 import type { BranchAct, FlowPrefixes, GitRef } from "@/lib/git"
+import { useLocale } from "@/lib/i18n"
 import { typeColor } from "@/lib/commit-parse"
 import { PINNED, pinRank } from "@/lib/gitflow"
 import { buildPathTree, type PathTree } from "@/lib/path-tree"
@@ -78,7 +79,7 @@ export function useResettableOpen(defaultOpen: boolean, ...resetDeps: unknown[])
   return { open, onOpenChange: setOpen }
 }
 
-function RefDir({
+const RefDir = memo(function RefDir({
   label,
   node,
   icon,
@@ -94,12 +95,15 @@ function RefDir({
   forceOpen: boolean
 }) {
   const dot = DOT[typeColor(label.toLowerCase())]
-  const focused = ctx.focusedKeys.size > 0 && holdsFocused(node, ctx.focusedKeys)
-  const { open, onOpenChange } = useResettableOpen(
-    forceOpen || openDirs || focused || holdsHead(node),
-    forceOpen,
-    focused
+  /* memoized subtree scans (perf audit, finding 4b): `node` is stable (the tree is built
+     once per [data, filter] in the sidebar) and `focusedKeys` is reference-stable while the
+     focus doesn't move (repo-store), so repaint-only renders skip both recursions. */
+  const focused = useMemo(
+    () => ctx.focusedKeys.size > 0 && holdsFocused(node, ctx.focusedKeys),
+    [node, ctx.focusedKeys]
   )
+  const hasHead = useMemo(() => holdsHead(node), [node])
+  const { open, onOpenChange } = useResettableOpen(forceOpen || openDirs || focused || hasHead, forceOpen, focused)
 
   return (
     <li>
@@ -119,9 +123,22 @@ function RefDir({
       </Collapsible>
     </li>
   )
-}
+})
 
-function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconSvgElement; ctx: Ctx }) {
+const RefRow = memo(function RefRow({
+  r,
+  label,
+  icon,
+  ctx,
+}: {
+  r: GitRef
+  label: string
+  icon: IconSvgElement
+  ctx: Ctx
+}) {
+  /* memo'd component with localized descendants (the branch/checkout context menus):
+     re-render on a runtime language switch even when no prop moved */
+  useLocale()
   const t = track(r)
   /* a tag checks out to a detached HEAD, which a double-click can't undo.
      A remote switches to its tracking local branch (git checkout <name>'s DWIM). */
@@ -144,6 +161,9 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
       onDoubleClick={switchable ? () => ctx.onCheckout(target) : undefined}
       className={cn(
         "amont-refrow flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs select-none",
+        /* offscreen rows skip layout/paint (perf audit, finding 13); ~24px = py-1 + text-xs line.
+           On the button itself, not the li: the focus-paint pass reads the buttons' offsetParent. */
+        "[content-visibility:auto] [contain-intrinsic-size:auto_1.5rem]",
         "text-foreground hover:bg-muted/60",
         "focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
         "data-lit:bg-primary/15 data-lit:hover:bg-primary/20"
@@ -199,7 +219,7 @@ function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconS
       </ContextMenuContent>
     </ContextMenu>
   )
-}
+})
 
 /* `openDirs`: opens the folders at this single level (the recursion resets to false). Used for
    remotes, where the remote (`origin`) would otherwise stay collapsed for lack of a HEAD inside.
@@ -219,12 +239,18 @@ export function Tree({
   openDirs?: boolean
   forceOpen?: boolean
 }) {
-  const dirs = [...node.dirs.keys()].sort((a, b) => a.localeCompare(b))
-  const leaves = [...node.items].sort(
-    (a, b) => pinRank(a.name.split("/").pop()!) - pinRank(b.name.split("/").pop()!) || a.name.localeCompare(b.name)
-  )
+  /* Sorting memoized on the node (perf audit, finding 4b): the tree is rebuilt only when
+     [data, filter] change (see refs-sidebar), so per-click re-renders (focus moved) reuse
+     the sorted order instead of re-running the recursive `localeCompare`/`pinRank` sorts. */
+  const { dirs, pinned, rest } = useMemo(() => {
+    const dirs = [...node.dirs.keys()].sort((a, b) => a.localeCompare(b))
+    const leaves = [...node.items].sort(
+      (a, b) => pinRank(a.name.split("/").pop()!) - pinRank(b.name.split("/").pop()!) || a.name.localeCompare(b.name)
+    )
+    const pinned = leaves.filter((r) => pinRank(r.name.split("/").pop()!) < PINNED.length)
+    return { dirs, pinned, rest: leaves.slice(pinned.length) }
+  }, [node])
   const label = (r: GitRef) => r.name.split("/").pop()!
-  const pinned = leaves.filter((r) => pinRank(label(r)) < PINNED.length)
 
   const row = (r: GitRef) => <RefRow key={r.name} r={r} label={label(r)} icon={icon} ctx={ctx} />
 
@@ -242,7 +268,7 @@ export function Tree({
           forceOpen={forceOpen}
         />
       ))}
-      {leaves.slice(pinned.length).map(row)}
+      {rest.map(row)}
     </ul>
   )
 }

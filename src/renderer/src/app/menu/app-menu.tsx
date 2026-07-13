@@ -1,5 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 
+import type { RepoCommand } from "@/features/repo/repo-commands"
+import { useMenuRepo } from "@/app/menu/use-menu-repo"
 import {
   Menubar,
   MenubarCheckboxItem,
@@ -57,22 +59,41 @@ function MenuItemNode({ node }: { node: MenuNode }) {
   }
 }
 
+/** App's share of the menu context: everything but `activeRepo`, which this component
+    derives itself (see below). */
+export type AppMenuContext = Omit<MenuContext, "activeRepo">
+
 /** The application menu bar. Fully data-driven: it maps `MENUS` (see app/menu/index.ts),
-    building each menu's items from the live `ctx` on every render. */
-export function AppMenu({ ctx }: { ctx: MenuContext }) {
+    building each menu's items from the live `ctx` on every render.
+
+    The foreground repo's flow/status subscriptions (useMenuRepo) live here, not in App
+    (perf audit, finding 4d): they refetch on every git change, and hoisted to App they
+    re-rendered the whole tree — every mounted tab included — for a menu-only concern.
+    Here the query updates re-render just the menu bar. */
+export function AppMenu({
+  ctx,
+  activeRepoId,
+  sendRepoCommand,
+}: {
+  ctx: AppMenuContext
+  activeRepoId: number | null
+  sendRepoCommand: (repoId: number, command: RepoCommand) => void
+}) {
+  const activeRepo = useMenuRepo(activeRepoId, sendRepoCommand)
+  const full: MenuContext = { ...ctx, activeRepo }
   return (
     <Menubar>
       {MENUS.map((menu) => (
         <MenubarMenu key={menu.id}>
           <MenubarTrigger
             data-menu={menu.id}
-            disabled={menu.disabled?.(ctx)}
+            disabled={menu.disabled?.(full)}
             className="data-disabled:pointer-events-none data-disabled:opacity-40"
           >
             {menu.label}
           </MenubarTrigger>
           <MenubarContent>
-            {menu.build(ctx).map((node, i) => (
+            {menu.build(full).map((node, i) => (
               <MenuItemNode key={node.kind === "separator" ? `sep-${i}` : node.id} node={node} />
             ))}
           </MenubarContent>

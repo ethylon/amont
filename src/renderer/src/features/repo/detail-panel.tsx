@@ -144,7 +144,9 @@ function Files({
   activePath?: string
   onOpenDiff: Props["onOpenDiff"]
 }) {
-  const { data, isError } = useQuery({ queryKey, queryFn })
+  /* content-addressed (hash + parent in the key): a commit's file list never changes —
+     no refetch on remount (perf audit, finding 5) */
+  const { data, isError } = useQuery({ queryKey, queryFn, staleTime: Infinity })
   if (isError)
     return (
       <div className="mt-4 shrink-0 border-t pt-3">
@@ -157,7 +159,19 @@ function Files({
         <Loading />
       </div>
     )
-  return <FileList files={data} api={api} activePath={activePath} onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)} />
+  /* keyed by the diff span: the panel now updates in place across selection changes (the
+     ErrorBoundary in repo-view is keyed by its reset nonce alone), so the list's per-selection
+     state — collapsed folders, scroll position — resets here, on the smallest component that
+     used to rely on the remount. */
+  return (
+    <FileList
+      key={`${ctx.hash}:${ctx.parent}`}
+      files={data}
+      api={api}
+      activePath={activePath}
+      onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)}
+    />
+  )
 }
 
 function Single({
@@ -209,9 +223,13 @@ function Single({
         {ps.text}
       </h2>
 
-      {/* a fifty-line body doesn't push the file list off-screen */}
+      {/* a fifty-line body doesn't push the file list off-screen; keyed on the hash so the
+          scroll position resets per commit (the panel updates in place, no remount) */}
       {body?.text && (
-        <div className="mt-2 max-h-32 shrink-0 space-y-2 overflow-y-auto text-xs/5 text-muted-foreground [overflow-wrap:anywhere]">
+        <div
+          key={c.h}
+          className="mt-2 max-h-32 shrink-0 space-y-2 overflow-y-auto text-xs/5 text-muted-foreground [overflow-wrap:anywhere]"
+        >
           <Markdown text={body.text} />
         </div>
       )}
@@ -367,8 +385,13 @@ function Multi({
       <h2 className="shrink-0 text-sm leading-snug font-semibold tracking-tight text-balance">
         {messages.detail.commitsSelected(selection.length)}
       </h2>
-      {/* the header doesn't push the file list off-screen: beyond that, it scrolls */}
-      <div className="mt-3 flex max-h-40 shrink-0 flex-col gap-0.5 overflow-y-auto">
+      {/* the header doesn't push the file list off-screen: beyond that, it scrolls.
+          Keyed on a cheap selection fingerprint (not join(",") — selections can be huge) so
+          the scroll resets when the selection changes, like the old per-selection remount did */}
+      <div
+        key={`${selection.length}:${selection[0]}:${selection[selection.length - 1]}`}
+        className="mt-3 flex max-h-40 shrink-0 flex-col gap-0.5 overflow-y-auto"
+      >
         {selection.map((i) => {
           const c = graph.commit(i)!
           return (
