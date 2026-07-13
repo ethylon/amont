@@ -5,7 +5,7 @@ export function GitCmd({ cmd, className }: { cmd: string; className?: string }) 
   return (
     <span
       className={cn(
-        "block max-w-full truncate font-mono text-[0.625rem] leading-tight font-normal text-muted-foreground",
+        "block max-w-full truncate font-mono text-[0.625rem] leading-tight font-normal text-muted-foreground [[data-slot=context-menu-item][data-variant=destructive]_&]:text-muted-foreground!",
         className
       )}
     >
