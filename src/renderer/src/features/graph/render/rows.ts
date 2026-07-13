@@ -35,7 +35,9 @@ import type { SyncInfo } from "../layout/sync.ts"
 import { hashOfId, idOf, shortHash } from "../ids.ts"
 
 export const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
-export const cloud = () => iconEl(CloudIcon, "shrink-0")
+/* Sized explicitly: inside a badge `[&>svg]:size-2.5!` already constrains it, but the
+   sync marker label (controller.ts) has no such rule — an unsized svg renders huge. */
+export const cloud = () => iconEl(CloudIcon, "size-2.5 shrink-0")
 export const tagIcon = () => iconEl(Tag01Icon, "shrink-0")
 
 /* Hover ghost chip: the name of the branch the hovered commit belongs to, placed in
