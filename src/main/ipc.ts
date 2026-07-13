@@ -197,6 +197,7 @@ export function registerIpc(): void {
   handle("repo:wtdiff", (_ev, id, path, source) => queries.wtdiff(repos.use(id), path, source))
   handle("repo:stage", (_ev, id, paths) => ops.stage(repos.use(id), paths))
   handle("repo:unstage", (_ev, id, paths) => ops.unstage(repos.use(id), paths))
+  handle("repo:applyPatch", (_ev, id, patch, reverse) => ops.applyPatch(repos.use(id), patch, reverse === true))
   handle("repo:commit", (_ev, id, message, amend) => ops.commit(repos.use(id), message, amend))
   handle("repo:flow", (_ev, id) => flow.flowPrefixes(repos.use(id)))
 

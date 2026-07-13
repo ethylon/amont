@@ -73,6 +73,7 @@ const bridge: Bridge = {
   wtdiff: invoke("repo:wtdiff"),
   stage: invoke("repo:stage"),
   unstage: invoke("repo:unstage"),
+  applyPatch: invoke("repo:applyPatch"),
   commit: invoke("repo:commit"),
   checkout: invoke("repo:checkout"),
   stashes: invoke("repo:stashes"),

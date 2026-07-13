@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { html as d2hHtml } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
@@ -12,7 +12,9 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
+import { parseUnifiedDiff } from "@/features/diff/diff-parse"
 import { useDiffQuery } from "@/features/diff/diff-queries"
+import { WtDiffBody } from "@/features/diff/wt-diff-body"
 import { imageExt, isTextImage } from "@/features/diff/image-diff-queries"
 import { ImageDiffView } from "@/features/diff/image-diff-view"
 import { messages } from "@/lib/messages"
@@ -209,9 +211,20 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
      svg only once the user flips to the diff view (react-query fetches lazily on that toggle). */
   const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
 
+  /* A staged/unstaged text diff gets the interactive per-hunk/per-line staging body instead
+     of diff2html — unified by construction, so the view toggle disappears with it. Untracked
+     files (no index entry to patch) and oversized or out-of-grammar diffs fall through to the
+     existing render paths. */
+  const wtSrc = "wt" in ctx && ctx.wt !== "untracked" ? ctx.wt : null
+  const parsed = useMemo(
+    () =>
+      wtSrc && !showImage && text !== null && text.split("\n").length <= MAX_LINES ? parseUnifiedDiff(text) : null,
+    [wtSrc, showImage, text]
+  )
+
   useEffect(() => {
     const el = body.current
-    if (!el || showImage || text === null) return
+    if (!el || showImage || text === null || parsed) return
     if (!text.trim()) {
       el.textContent = messages.diff.empty
       el.className = DIFF_BODY + " text-muted-foreground"
@@ -231,7 +244,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
     })
     shikiPass(el).catch(() => {})
     return syncSides(el)
-  }, [text, view, dark, showImage])
+  }, [text, view, dark, showImage, parsed])
 
   return (
     <div ref={root} tabIndex={-1} className="flex min-h-0 flex-1 flex-col px-4.5 py-4 outline-none">
@@ -255,8 +268,9 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
               </ToggleGroupItem>
             </ToggleGroup>
           )}
-          {/* The unified/side-by-side toggle only applies to a text diff, not an image preview. */}
-          {!showImage && (
+          {/* The unified/side-by-side toggle only applies to a text diff, not an image preview
+              nor the interactive staging body (unified by construction). */}
+          {!showImage && !parsed && (
             <ToggleGroup
               spacing={0}
               variant="outline"
@@ -282,6 +296,8 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
         <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
       ) : text === null ? (
         <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
+      ) : parsed && wtSrc ? (
+        <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} />
       ) : (
         <div ref={body} className={DIFF_BODY} />
       )}

@@ -79,6 +79,9 @@ export type InvokeChannels = {
   "repo:wtdiff": (id: number, path: string, source: WtSource) => Promise<string>
   "repo:stage": (id: number, paths: string[]) => Promise<void>
   "repo:unstage": (id: number, paths: string[]) => Promise<void>
+  /** Partial staging: applies a sub-patch to the index alone (`git apply --cached`);
+      `reverse` unstages. The patch is built renderer-side (diff-parse.ts). */
+  "repo:applyPatch": (id: number, patch: string, reverse: boolean) => Promise<void>
   "repo:commit": (id: number, message: string, amend: boolean) => Promise<void>
   "repo:flow": (id: number) => Promise<FlowPrefixes | null>
   "repo:flowInfo": (id: number, branch: string, kind: keyof FlowPrefixes) => Promise<FlowInfo | null>
@@ -198,6 +201,7 @@ export type Bridge = {
   wtdiff: InvokeChannels["repo:wtdiff"]
   stage: InvokeChannels["repo:stage"]
   unstage: InvokeChannels["repo:unstage"]
+  applyPatch: InvokeChannels["repo:applyPatch"]
   commit: InvokeChannels["repo:commit"]
   checkout: InvokeChannels["repo:checkout"]
   stashes: InvokeChannels["repo:stashes"]
