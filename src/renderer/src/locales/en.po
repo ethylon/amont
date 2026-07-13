@@ -226,6 +226,9 @@ msgstr "Compact database"
 msgid "Compacting database…"
 msgstr "Compacting database…"
 
+msgid "Compacting recommended"
+msgstr "Compacting recommended"
+
 msgid "Conflict {n}"
 msgstr "Conflict {n}"
 

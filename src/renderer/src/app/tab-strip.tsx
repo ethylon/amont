@@ -26,7 +26,8 @@ type Props = {
   active: number
   onSelect(key: number): void
   onClose(key: number): void
-  /** The application menu bar (File/View/Help…), rendered between the mark and the tabs. */
+  /** The application menu bar (File/View/Repository/Git Flow/Help), rendered in the top row
+      beside the mark; the repository tabs sit on their own row below. */
   menu?: React.ReactNode
 }
 
@@ -71,12 +72,28 @@ export function TabStrip({ tabs, active, onSelect, onClose, menu }: Props) {
   }
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-1.5 border-b pr-3 pl-3.5">
-      <Mark className="me-1.5 size-5" />
+    <header className="flex shrink-0 flex-col border-b">
+      {/* top row: brand, application menu, quick theme toggle */}
+      <div className="flex h-9 items-center gap-1.5 pr-3 pl-3.5">
+        <Mark className="me-1.5 size-5" />
 
-      {menu}
+        {menu}
 
-      <div role="tablist" className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        <div className="flex-1" />
+
+        <IconButton
+          label={dark ? messages.theme.light : messages.theme.dark}
+          icon={Moon02Icon}
+          swapIcon={Sun03Icon}
+          swapped={dark}
+          aria-pressed={dark}
+          onClick={toggleTheme}
+          className="shrink-0"
+        />
+      </div>
+
+      {/* second row: the repository tabs, on their own line (see two-menu bar) */}
+      <div role="tablist" className="flex items-center gap-1 overflow-x-auto border-t px-2.5 py-1">
         <div
           ref={tabRef(HOME)}
           role="tab"
@@ -143,16 +160,6 @@ export function TabStrip({ tabs, active, onSelect, onClose, menu }: Props) {
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
         </div>
       </div>
-
-      <IconButton
-        label={dark ? messages.theme.light : messages.theme.dark}
-        icon={Moon02Icon}
-        swapIcon={Sun03Icon}
-        swapped={dark}
-        aria-pressed={dark}
-        onClick={toggleTheme}
-        className="shrink-0"
-      />
     </header>
   )
 }
