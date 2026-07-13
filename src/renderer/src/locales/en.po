@@ -679,6 +679,12 @@ msgstr "Stage all"
 msgid "Stage folder"
 msgstr "Stage folder"
 
+msgid "Stage hunk"
+msgstr "Stage hunk"
+
+msgid "Stage line"
+msgstr "Stage line"
+
 msgid "Staged"
 msgstr "Staged"
 
@@ -774,6 +780,12 @@ msgstr "Unstage all"
 
 msgid "Unstage folder"
 msgstr "Unstage folder"
+
+msgid "Unstage hunk"
+msgstr "Unstage hunk"
+
+msgid "Unstage line"
+msgstr "Unstage line"
 
 msgid "Unstaged"
 msgstr "Unstaged"

@@ -199,6 +199,18 @@ export async function unstage(r: RepoHandle, paths: string[]): Promise<void> {
   })
 }
 
+/* Partial staging (hunk or lines from the diff view): the renderer builds the sub-patch
+   (diff-parse.ts) and only the index moves — never the working file. `reverse` takes the
+   change out of the staged side (`git apply --cached --reverse`). Same cap as resolve: the
+   patch derives from a diff the renderer already displays in full. */
+const PATCH_MAX = 4 * 1024 * 1024
+
+export async function applyPatch(r: RepoHandle, patch: string, reverse: boolean): Promise<void> {
+  if (typeof patch !== "string" || !patch.trim() || patch.length > PATCH_MAX) throw new AppError("BAD_ARG", "patch")
+  const args = ["apply", "--cached", ...(reverse ? ["--reverse"] : []), "--whitespace=nowarn", "-"]
+  await withLock(r, "apply patch", () => r.git(args, { input: patch }).then(() => {}))
+}
+
 export async function commit(r: RepoHandle, message: string, amend: boolean): Promise<void> {
   if (typeof message !== "string" || !message.trim()) throw new AppError("BAD_ARG", "message")
   await withLock(r, amend ? "amend" : "commit", async () => {
