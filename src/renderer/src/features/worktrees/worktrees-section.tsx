@@ -1,21 +1,16 @@
 /* Linked-worktrees sidebar section (component + query + actions colocated, same shape as
-   features/stash). One row per entry of `git worktree list`: a click jumps to its HEAD in the
-   graph, a double-click opens it as a tab, the menu carries open/reveal/remove (or prune for a
-   stale entry). The main worktree is listed too — it anchors the set — but only linked ones
-   are removable. */
+   features/stash). One row per LINKED entry of `git worktree list` — the main worktree is the
+   repository itself, not a worktree to manage, so it stays out. A click jumps to its HEAD in
+   the graph, a double-click opens it as a tab, the menu carries open/reveal/remove (or prune
+   for a stale entry). */
 
 import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  ArrowUpRight01Icon,
-  CleanIcon,
-  Delete02Icon,
-  FolderLinksIcon,
-  FolderOpenIcon,
-} from "@hugeicons/core-free-icons"
+import { ArrowUpRight01Icon, CleanIcon, Delete02Icon, FolderOpenIcon, Tree02Icon } from "@hugeicons/core-free-icons"
 
 import { worktreeName, type WorktreeAct, type WorktreeInfo } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
+import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useWorktreesQuery } from "@/features/worktrees/worktrees-queries"
 import { useResettableOpen } from "@/features/refs/refs-tree"
@@ -59,10 +54,15 @@ function WorktreeRow({
           title={w.current ? messages.worktrees.currentTab : w.path}
           className="amont-refrow flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs text-foreground select-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
         >
-          <HugeiconsIcon icon={FolderLinksIcon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className={cn("shrink-0", w.current ? "font-semibold" : "font-medium", w.prunable && "line-through")}>
-            {name}
-          </span>
+          <HugeiconsIcon icon={Tree02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+          {/* a prunable entry's folder is gone: it reads as a leftover, same as a gone branch */}
+          <ScrollText
+            text={name}
+            className={cn(
+              w.current ? "font-semibold" : "font-medium",
+              w.prunable && "text-muted-foreground line-through"
+            )}
+          />
           {w.current && <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />}
           <span className="truncate text-muted-foreground">{w.branch ?? messages.worktrees.detached}</span>
         </button>
@@ -96,7 +96,7 @@ function WorktreeRow({
 }
 
 /** Sidebar worktrees section: renders `null` when the repo has no linked worktree (the main
-    one alone isn't worth a section) or when nothing matches the filter. */
+    one is the repository, not a worktree) or when nothing matches the filter. */
 export function WorktreesSection({ filter }: { filter: string }) {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
@@ -105,10 +105,10 @@ export function WorktreesSection({ filter }: { filter: string }) {
   const onAct = useRepoStore((s) => s.runWorktree)
   const { data: worktrees = [] } = useWorktreesQuery(api, repoId)
 
-  const matches = worktrees.filter((w) => matchWorktree(w, filter))
+  const matches = worktrees.filter((w) => !w.main && matchWorktree(w, filter))
   const { open, onOpenChange } = useResettableOpen(true, !!filter)
 
-  if (worktrees.length < 2 || !matches.length) return null
+  if (!matches.length) return null
 
   return (
     <RefGroup title={messages.worktrees.title} count={matches.length} open={open} onOpenChange={onOpenChange}>
