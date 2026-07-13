@@ -19,11 +19,9 @@ import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
 import { FlowStartBanner } from "@/features/flow/flow-start-banner"
 import { FlowInitDialog } from "@/features/flow/flow-init-dialog"
 import { MaintenanceDialog } from "@/features/maintenance/maintenance-dialog"
-import { MaintenanceStatus } from "@/features/maintenance/maintenance-status"
 import { repoHealth } from "@/features/maintenance/health"
 import { useRepoMenuTools } from "@/features/repo/use-repo-menu-tools"
 import type { RepoCommandEnvelope } from "@/features/repo/repo-commands"
-import { GitConsole } from "@/features/console/git-console"
 import { GraphColumn } from "@/features/graph/react/graph-column"
 import { RefsSidebar } from "@/features/refs/refs-sidebar"
 import { StatusBar } from "@/features/repo/status-bar"
@@ -268,12 +266,14 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
       </div>
 
       <StatusBar
+        repoId={repo.id}
         branch={status?.branch ?? null}
         flow={workFlow}
         opState={opState}
         stats={stats}
-        maintSlot={<MaintenanceStatus maint={tools.maint} health={health} onCompact={() => tools.runMaint("gc")} />}
-        consoleSlot={<GitConsole repoId={repo.id} />}
+        maint={tools.maint}
+        health={health}
+        onCompact={() => tools.runMaint("gc")}
       />
 
       {/* Portaled dialogs: only for the foreground tab, so a background tab's open modal can't
