@@ -658,6 +658,12 @@ msgstr "Tout indexer"
 msgid "Stage folder"
 msgstr "Indexer le dossier"
 
+msgid "Stage hunk"
+msgstr "Indexer le hunk"
+
+msgid "Stage line"
+msgstr "Indexer la ligne"
+
 msgid "Staged"
 msgstr "Indexé"
 
@@ -750,6 +756,12 @@ msgstr "Tout désindexer"
 
 msgid "Unstage folder"
 msgstr "Désindexer le dossier"
+
+msgid "Unstage hunk"
+msgstr "Désindexer le hunk"
+
+msgid "Unstage line"
+msgstr "Désindexer la ligne"
 
 msgid "Unstaged"
 msgstr "Non indexé"
