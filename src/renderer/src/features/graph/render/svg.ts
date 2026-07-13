@@ -18,9 +18,12 @@ const syncColor = (row: number, sync?: SyncInfo | null) =>
 export const edgesSvg = (list: Edge[], sync?: SyncInfo | null) =>
   list
     .map((e) => {
-      /* Dashes on the unsynced segment: the link doesn't exist (yet) on both sides. */
+      /* Dashes only on the segment to pull: those links don't exist locally yet. The
+         segment to push is real local history — sync hue, but solid (same grammar as
+         the nodes below). */
       const sc = syncColor(e.r1, sync)
-      return `<path d="${edgePath(e)}" fill="none" stroke="${sc ?? stroke(e)}" stroke-width="1.6"${e.dash || sc ? ' stroke-dasharray="3 3"' : ""}/>`
+      const dashed = e.dash || (sc !== null && sync!.behind.has(e.r1))
+      return `<path d="${edgePath(e)}" fill="none" stroke="${sc ?? stroke(e)}" stroke-width="1.6"${dashed ? ' stroke-dasharray="3 3"' : ""}/>`
     })
     .join("")
 
