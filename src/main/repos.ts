@@ -13,7 +13,7 @@ import { resolve, sep } from "node:path"
 import type { ChildProcess } from "node:child_process"
 
 import { AppError } from "../shared/errors.ts"
-import type { DistributiveOmit, OpEvent, Repo, TraceLine } from "../shared/types.ts"
+import type { DistributiveOmit, OpEvent, ProgressEvent, Repo, TraceLine } from "../shared/types.ts"
 import { createGitRunner, killAll, type GitRunner } from "./git/exec.ts"
 import { basename } from "./util.ts"
 import { remember } from "./state.ts"
@@ -24,6 +24,8 @@ import { watchGit, type Watchable } from "./watcher.ts"
 export interface RepoHooks {
   trace(line: DistributiveOmit<TraceLine, "id">): void
   op(payload: DistributiveOmit<OpEvent, "id">): void
+  /** live maintenance progress (fsck/gc), streamed to the renderer footer */
+  progress(payload: Omit<ProgressEvent, "id">): void
   changed(): void
   isFocused(): boolean
 }

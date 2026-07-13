@@ -10,6 +10,7 @@ import type { InvokeChannel, InvokeChannels } from "../shared/ipc-contract.ts"
 import type { BootState, Repo } from "../shared/types.ts"
 import * as create from "./create.ts"
 import * as flow from "./git/flow.ts"
+import * as maintenance from "./git/maintenance.ts"
 import * as ops from "./git/ops.ts"
 import { BRANCH } from "./git/parse.ts"
 import * as queries from "./git/queries.ts"
@@ -42,6 +43,7 @@ function handle<K extends InvokeChannel>(
 const makeHooks = (id: number): repos.RepoHooks => ({
   trace: (line) => getMainWindow()?.webContents.send("git:trace", { id, ...line }),
   op: (payload) => getMainWindow()?.webContents.send("git:op", { id, ...payload }),
+  progress: (payload) => getMainWindow()?.webContents.send("git:progress", { id, ...payload }),
   changed: () => getMainWindow()?.webContents.send("git:changed", { id }),
   isFocused: () => getMainWindow()?.isFocused() ?? false,
 })
@@ -203,6 +205,15 @@ export function registerIpc(): void {
     return flow.flowInfo(r, branch, kind)
   })
 
+  /* Git-flow mutations. `init` receives a plain object from the form; the rest are guarded
+     against `-`-prefixed name/version injection inside flow.ts (fix B2). */
+  handle("flow:init", (_ev, id, cfg) => {
+    if (!cfg || typeof cfg !== "object") throw new AppError("BAD_ARG", "cfg")
+    return flow.flowInit(repos.use(id), cfg)
+  })
+  handle("flow:start", (_ev, id, kind, name) => flow.flowStart(repos.use(id), kind, name))
+  handle("flow:publish", (_ev, id, kind, name) => flow.flowPublish(repos.use(id), kind, name))
+
   handle("repo:branch", (_ev, id, action, name) => ops.branchAction(repos.use(id), action, name))
 
   handle("repo:log", (_ev, id, skip, count, requestId) => {
@@ -247,6 +258,10 @@ export function registerIpc(): void {
   handle("repo:conflict", (_ev, id, path) => queries.conflict(repos.use(id), path))
   handle("repo:resolve", (_ev, id, path, content) => ops.resolveConflict(repos.use(id), path, content))
   handle("repo:mergeAbort", (_ev, id) => ops.mergeAbort(repos.use(id)))
+
+  handle("repo:countObjects", (_ev, id) => maintenance.countObjects(repos.use(id)))
+  handle("repo:fsck", (_ev, id) => maintenance.fsck(repos.use(id)))
+  handle("repo:gc", (_ev, id) => maintenance.gc(repos.use(id)))
 
   handle("repo:cancel", (_ev, id, requestId) => {
     repos.use(id).requests.get(requestId)?.abort()

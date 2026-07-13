@@ -15,8 +15,10 @@ function pref<T extends string>(key: string) {
 }
 
 export const prefs = {
-  /** explicit theme choice; `null` = no choice made, follow the OS (cf. lib/theme.ts) */
-  theme: pref<"dark" | "light">("amont.theme"),
+  /** theme mode; a legacy `null` (pre-tri-state builds) reads as "system" (cf. lib/theme.ts) */
+  theme: pref<"light" | "dark" | "system">("amont.theme"),
+  /** explicit UI language; `null` = follow the system language (cf. lib/i18n.ts) */
+  locale: pref<"en" | "fr">("amont.locale"),
   diffView: pref<DiffViewMode>("amont.diffview"),
   fileView: pref<FileView>("amont.fileview"),
 }
