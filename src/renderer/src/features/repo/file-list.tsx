@@ -11,7 +11,7 @@ import {
 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { messages } from "@/lib/messages"
-import { buildPathTree, type PathTree } from "@/lib/path-tree"
+import { buildPathTree, compactPathTree, type PathTree } from "@/lib/path-tree"
 import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -75,6 +75,24 @@ const fileStatusColor = (st: string): keyof typeof STATUS_TEXT =>
           ? "danger"
           : "neutral"
 
+/* ArrowUp/ArrowDown move to the previous/next visible file and open it — the diff follows
+   the selection, like a click. DOM-based on purpose: the rendered order already accounts
+   for tree/flat view, sorting and collapsed folders (Base UI unmounts a closed panel), no
+   need to re-derive a flattened list from state. Scope = the closest [data-file-nav]
+   container (the scroll area), so each block (staged / unstaged / commit files) navigates
+   within itself. */
+const onFileRowKeyDown = (ev: React.KeyboardEvent<HTMLButtonElement>) => {
+  if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return
+  const scope = ev.currentTarget.closest("[data-file-nav]")
+  if (!scope) return
+  const rows = [...scope.querySelectorAll<HTMLButtonElement>("[data-file-row]")]
+  const next = rows[rows.indexOf(ev.currentTarget) + (ev.key === "ArrowDown" ? 1 : -1)]
+  if (!next) return
+  ev.preventDefault()
+  next.focus()
+  next.click()
+}
+
 export type FileRowProps = {
   file: FileChange
   active?: boolean
@@ -105,8 +123,10 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
     <>
       <button
         type="button"
+        data-file-row=""
         onClick={onClick}
         onDoubleClick={onDoubleClick}
+        onKeyDown={onFileRowKeyDown}
         className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
       >
         <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
@@ -313,7 +333,7 @@ export function FileEntries<T extends FileChange>({
   if (view === "tree")
     return (
       <Tree
-        node={buildPathTree(files, (f) => f.path)}
+        node={compactPathTree(buildPathTree(files, (f) => f.path))}
         api={api}
         activePath={activePath}
         onOpen={onOpen}
@@ -359,7 +379,7 @@ export function FileList({
         {messages.repo.fileCount(files.length)}
       </FileListHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div data-file-nav="" className="min-h-0 flex-1 overflow-y-auto">
         <FileEntries files={files} view={view} api={api} activePath={activePath} onOpen={onOpen} />
       </div>
     </div>
