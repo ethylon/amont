@@ -10,10 +10,15 @@ function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {
 }
 
 function ContextMenuPortal({ ...props }: ContextMenuPrimitive.Portal.Props) {
-  return <ContextMenuPrimitive.Portal data-slot="context-menu-portal" {...props} />
+  return (
+    <ContextMenuPrimitive.Portal data-slot="context-menu-portal" {...props} />
+  )
 }
 
-function ContextMenuTrigger({ className, ...props }: ContextMenuPrimitive.Trigger.Props) {
+function ContextMenuTrigger({
+  className,
+  ...props
+}: ContextMenuPrimitive.Trigger.Props) {
   return (
     <ContextMenuPrimitive.Trigger
       data-slot="context-menu-trigger"
@@ -31,7 +36,10 @@ function ContextMenuContent({
   sideOffset = 0,
   ...props
 }: ContextMenuPrimitive.Popup.Props &
-  Pick<ContextMenuPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
+  Pick<
+    ContextMenuPrimitive.Positioner.Props,
+    "align" | "alignOffset" | "side" | "sideOffset"
+  >) {
   return (
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Positioner
@@ -44,9 +52,9 @@ function ContextMenuContent({
         <ContextMenuPrimitive.Popup
           data-slot="context-menu-content"
           className={cn(
-            "dark z-50 max-h-(--available-height) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-            className
-          )}
+                                            "dark z-50 max-h-(--available-height) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 animate-none! relative bg-popover/70 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150 **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:focus:bg-foreground/10! **:data-[variant=destructive]:text-accent-foreground! **:data-[variant=destructive]:**:text-accent-foreground!",
+                                            className
+                                          )}
           {...props}
         />
       </ContextMenuPrimitive.Positioner>
@@ -55,7 +63,9 @@ function ContextMenuContent({
 }
 
 function ContextMenuGroup({ ...props }: ContextMenuPrimitive.Group.Props) {
-  return <ContextMenuPrimitive.Group data-slot="context-menu-group" {...props} />
+  return (
+    <ContextMenuPrimitive.Group data-slot="context-menu-group" {...props} />
+  )
 }
 
 function ContextMenuLabel({
@@ -69,7 +79,10 @@ function ContextMenuLabel({
     <ContextMenuPrimitive.GroupLabel
       data-slot="context-menu-label"
       data-inset={inset}
-      className={cn("px-2 py-1.5 text-xs text-muted-foreground data-inset:pl-7.5", className)}
+      className={cn(
+        "px-2 py-1.5 text-xs text-muted-foreground data-inset:pl-7.5",
+        className
+      )}
       {...props}
     />
   )
@@ -99,7 +112,9 @@ function ContextMenuItem({
 }
 
 function ContextMenuSub({ ...props }: ContextMenuPrimitive.SubmenuRoot.Props) {
-  return <ContextMenuPrimitive.SubmenuRoot data-slot="context-menu-sub" {...props} />
+  return (
+    <ContextMenuPrimitive.SubmenuRoot data-slot="context-menu-sub" {...props} />
+  )
 }
 
 function ContextMenuSubTrigger({
@@ -126,8 +141,17 @@ function ContextMenuSubTrigger({
   )
 }
 
-function ContextMenuSubContent({ ...props }: React.ComponentProps<typeof ContextMenuContent>) {
-  return <ContextMenuContent data-slot="context-menu-sub-content" className="dark shadow-lg" side="right" {...props} />
+function ContextMenuSubContent({
+  ...props
+}: React.ComponentProps<typeof ContextMenuContent>) {
+  return (
+    <ContextMenuContent
+      data-slot="context-menu-sub-content"
+      className="dark shadow-lg animate-none! relative bg-popover/70 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150 **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:focus:bg-foreground/10! **:data-[variant=destructive]:text-accent-foreground! **:data-[variant=destructive]:**:text-accent-foreground!"
+      side="right"
+      {...props}
+    />
+  )
 }
 
 function ContextMenuCheckboxItem({
@@ -160,8 +184,15 @@ function ContextMenuCheckboxItem({
   )
 }
 
-function ContextMenuRadioGroup({ ...props }: ContextMenuPrimitive.RadioGroup.Props) {
-  return <ContextMenuPrimitive.RadioGroup data-slot="context-menu-radio-group" {...props} />
+function ContextMenuRadioGroup({
+  ...props
+}: ContextMenuPrimitive.RadioGroup.Props) {
+  return (
+    <ContextMenuPrimitive.RadioGroup
+      data-slot="context-menu-radio-group"
+      {...props}
+    />
+  )
 }
 
 function ContextMenuRadioItem({
@@ -192,7 +223,10 @@ function ContextMenuRadioItem({
   )
 }
 
-function ContextMenuSeparator({ className, ...props }: ContextMenuPrimitive.Separator.Props) {
+function ContextMenuSeparator({
+  className,
+  ...props
+}: ContextMenuPrimitive.Separator.Props) {
   return (
     <ContextMenuPrimitive.Separator
       data-slot="context-menu-separator"
@@ -202,7 +236,10 @@ function ContextMenuSeparator({ className, ...props }: ContextMenuPrimitive.Sepa
   )
 }
 
-function ContextMenuShortcut({ className, ...props }: React.ComponentProps<"span">) {
+function ContextMenuShortcut({
+  className,
+  ...props
+}: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="context-menu-shortcut"
