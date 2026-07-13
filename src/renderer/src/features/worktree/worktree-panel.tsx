@@ -1,11 +1,12 @@
 import { useId, useState } from "react"
 import type { IconSvgElement } from "@hugeicons/react"
-import { ArchiveArrowDownIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
+import { ArchiveArrowDownIcon, ArrowTurnBackwardIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { useMergeStateQuery } from "@/features/conflict/conflict-queries"
 import { useStatusQuery } from "@/features/repo/repo-queries"
+import { DiscardDialog, type DiscardRequest } from "@/features/worktree/discard-dialog"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
@@ -28,9 +29,11 @@ const UNSTAGE: WtAct = (a, p) => a.unstage(p)
 
 /* The per-row button only appears on hover, but stays reachable from the keyboard.
    after: click target widened horizontally only — vertically it would bite into the
-   invisible button of the neighboring row. */
+   invisible button of the neighboring row. Rows with two actions (discard + stage) put
+   `ms-auto` on the first button alone: two auto margins would split the free space. */
 const HIT_CLS = "relative after:absolute after:-inset-x-1 after:-inset-y-px"
-const ACTION_CLS = `ms-auto shrink-0 self-center opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
+const ROW_ACTION_CLS = `shrink-0 self-center opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
+const ACTION_CLS = `ms-auto ${ROW_ACTION_CLS}`
 const DIR_ACTION_CLS = `shrink-0 self-center opacity-0 group-hover/dirrow:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
 
 function WtBlock({
@@ -54,7 +57,7 @@ function WtBlock({
   onOpen(f: WtFile): void
   action(f: WtFile): React.ReactNode
   dirAction(files: WtFile[]): React.ReactNode
-  bulk?: { label: string; cmd: string; onClick(): void }
+  bulk?: { label: string; cmd: string; onClick(): void; destructive?: boolean }[]
   empty: string
   className?: string
 }) {
@@ -64,17 +67,23 @@ function WtBlock({
         actions={
           files.length > 0 &&
           bulk && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-auto py-0.5 normal-case tracking-normal"
-              onClick={bulk.onClick}
-            >
-              <span className="flex flex-col items-start">
-                <span>{bulk.label}</span>
-                <GitCmd cmd={bulk.cmd} />
-              </span>
-            </Button>
+            /* single flex child: the header lays out title vs actions with justify-between */
+            <span className="flex items-center gap-1">
+              {bulk.map((b) => (
+                <Button
+                  key={b.label}
+                  variant="ghost"
+                  size="sm"
+                  className={cn("h-auto py-0.5 normal-case tracking-normal", b.destructive && "text-destructive")}
+                  onClick={b.onClick}
+                >
+                  <span className="flex flex-col items-start">
+                    <span>{b.label}</span>
+                    <GitCmd cmd={b.cmd} className={cn(b.destructive && "text-destructive/70")} />
+                  </span>
+                </Button>
+              ))}
+            </span>
           )
         }
       >
@@ -121,9 +130,13 @@ export function WorktreePanel() {
   const onOpenConflict = useRepoStore((s) => s.openConflict)
   const onAbortMerge = useRepoStore((s) => s.abortMerge)
   const onRun = useRepoStore((s) => s.runWt)
+  const onDiscard = useRepoStore((s) => s.runDiscard)
   const onCommit = useRepoStore((s) => s.doCommit)
   const runStash = useRepoStore((s) => s.runStash)
   const onStash = () => runStash("push", subject.trim() || undefined)
+
+  /* pending discard, held until the confirmation dialog resolves it */
+  const [discardReq, setDiscardReq] = useState<DiscardRequest | null>(null)
 
   /* a repo with no commits has nothing to amend */
   const canAmend = !!status?.head
@@ -153,20 +166,53 @@ export function WorktreePanel() {
 
   /* The 4 stage/unstage × file/folder buttons only differed by label, icon,
      class (single vs per-folder) and target paths — a single factory (AUDIT.md §7, phase 5). */
-  const wtButton = (label: string, icon: IconSvgElement, act: WtAct, dirScoped: boolean, paths: string[]) => (
+  const wtButton = (
+    label: string,
+    icon: IconSvgElement,
+    act: WtAct,
+    dirScoped: boolean,
+    paths: string[],
+    cls?: string
+  ) => (
     <IconButton
       label={label}
       icon={icon}
       size="icon-xs"
-      className={dirScoped ? DIR_ACTION_CLS : ACTION_CLS}
+      className={cls ?? (dirScoped ? DIR_ACTION_CLS : ACTION_CLS)}
       onClick={(ev) => {
         ev.stopPropagation()
         void onRun(act, paths)
       }}
     />
   )
-  const stageBtn = (f: WtFile) => wtButton(messages.worktree.stage, PlusSignIcon, STAGE, false, [f.path])
   const unstageBtn = (f: WtFile) => wtButton(messages.worktree.unstage, MinusSignIcon, UNSTAGE, false, [f.path])
+
+  /* Splits a file set by source: tracked go through `git restore`, untracked through
+     `git clean`. Nothing runs here — the request waits for the confirmation dialog. */
+  const askDiscard = (files: WtFile[]) =>
+    setDiscardReq({
+      paths: files.filter((f) => f.source !== "untracked").map((f) => f.path),
+      untracked: files.filter((f) => f.source === "untracked").map((f) => f.path),
+    })
+  const discardBtn = (f: WtFile) => (
+    <IconButton
+      label={messages.worktree.discard}
+      icon={ArrowTurnBackwardIcon}
+      size="icon-xs"
+      className={cn(ACTION_CLS, "text-destructive hover:text-destructive")}
+      onClick={(ev) => {
+        ev.stopPropagation()
+        askDiscard([f])
+      }}
+    />
+  )
+  /* discard first, stage second: only the leading button carries `ms-auto` (ACTION_CLS) */
+  const unindexedActions = (f: WtFile) => (
+    <>
+      {discardBtn(f)}
+      {wtButton(messages.worktree.stage, PlusSignIcon, STAGE, false, [f.path], ROW_ACTION_CLS)}
+    </>
+  )
   const stageDir = (files: WtFile[]) =>
     wtButton(
       messages.worktree.stageFolder,
@@ -249,19 +295,27 @@ export function WorktreePanel() {
           api={api}
           activePath={activePath}
           onOpen={openDiff}
-          action={stageBtn}
+          action={unindexedActions}
           dirAction={stageDir}
           bulk={
             unindexed.length
-              ? {
-                  label: messages.worktree.stageAll,
-                  cmd: "git add -- …",
-                  onClick: () =>
-                    onRun(
-                      STAGE,
-                      unindexed.map((f) => f.path)
-                    ),
-                }
+              ? [
+                  {
+                    label: messages.worktree.discardAll,
+                    cmd: "git restore/clean -- …",
+                    destructive: true,
+                    onClick: () => askDiscard(unindexed),
+                  },
+                  {
+                    label: messages.worktree.stageAll,
+                    cmd: "git add -- …",
+                    onClick: () =>
+                      onRun(
+                        STAGE,
+                        unindexed.map((f) => f.path)
+                      ),
+                  },
+                ]
               : undefined
           }
           empty={messages.worktree.noChangesToStage}
@@ -278,15 +332,17 @@ export function WorktreePanel() {
           dirAction={unstageDir}
           bulk={
             indexed.length
-              ? {
-                  label: messages.worktree.unstageAll,
-                  cmd: "git restore --staged -- …",
-                  onClick: () =>
-                    onRun(
-                      UNSTAGE,
-                      indexed.map((f) => f.path)
-                    ),
-                }
+              ? [
+                  {
+                    label: messages.worktree.unstageAll,
+                    cmd: "git restore --staged -- …",
+                    onClick: () =>
+                      onRun(
+                        UNSTAGE,
+                        indexed.map((f) => f.path)
+                      ),
+                  },
+                ]
               : undefined
           }
           empty={messages.worktree.noStagedFiles}
@@ -343,6 +399,14 @@ export function WorktreePanel() {
           </div>
         </Field>
       </FieldGroup>
+
+      {discardReq && (
+        <DiscardDialog
+          request={discardReq}
+          onConfirm={(req) => void onDiscard(req.paths, req.untracked)}
+          onClose={() => setDiscardReq(null)}
+        />
+      )}
     </>
   )
 }

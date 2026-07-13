@@ -211,6 +211,41 @@ export async function applyPatch(r: RepoHandle, patch: string, reverse: boolean)
   await withLock(r, "apply patch", () => r.git(args, { input: patch }).then(() => {}))
 }
 
+/** Partial discard (hunk or lines from the diff view): the same renderer-built sub-patch as
+    applyPatch, but reverse-applied to the working tree alone — the index never moves. */
+export async function discardPatch(r: RepoHandle, patch: string): Promise<void> {
+  if (typeof patch !== "string" || !patch.trim() || patch.length > PATCH_MAX) throw new AppError("BAD_ARG", "patch")
+  await withLock(r, "discard patch", () =>
+    r.git(["apply", "--reverse", "--whitespace=nowarn", "-"], { input: patch }).then(() => {})
+  )
+}
+
+/* --- Discard (working tree) ---
+   Tracked paths go back to their index content (`git restore`); untracked paths are deleted
+   (`git clean -f` — force is required, `clean.requireForce` defaults to true). Irreversible by
+   nature: the renderer asks for confirmation before calling. `git clean` has no
+   --pathspec-from-file (checked against git 2.51), so untracked paths travel as argv, batched
+   under Windows' command-line length limit. */
+const CLEAN_ARGV_MAX = 20_000
+
+export async function discard(r: RepoHandle, paths: string[], untracked: string[]): Promise<void> {
+  const valid = (a: unknown): a is string[] => Array.isArray(a) && a.every((p) => typeof p === "string" && p.length > 0)
+  if (!valid(paths) || !valid(untracked) || (!paths.length && !untracked.length)) throw new AppError("BAD_ARG", "paths")
+  await withLock(r, "discard", async () => {
+    groupTrace(r, "Discard")
+    if (paths.length) await r.git(["restore", ...PATHSPEC], { input: paths.join("\0") })
+    for (let at = 0; at < untracked.length;) {
+      const batch: string[] = []
+      let len = 0
+      while (at < untracked.length && (batch.length === 0 || len + untracked[at].length < CLEAN_ARGV_MAX)) {
+        len += untracked[at].length + 1
+        batch.push(untracked[at++])
+      }
+      await r.git(["clean", "-f", "-q", "--", ...batch])
+    }
+  })
+}
+
 export async function commit(r: RepoHandle, message: string, amend: boolean): Promise<void> {
   if (typeof message !== "string" || !message.trim()) throw new AppError("BAD_ARG", "message")
   await withLock(r, amend ? "amend" : "commit", async () => {
