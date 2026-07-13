@@ -18,9 +18,67 @@ import {
   parsePorcelain,
   parseProgressPercent,
   parseStashList,
+  parseWorktreeList,
 } from "./parse.ts"
 
 const NUL = "\0"
+
+describe("parseWorktreeList (worktree list --porcelain -z)", () => {
+  const entry = (lines: string[]) => lines.map((l) => l + NUL).join("") + NUL
+
+  it("returns an empty array for empty output", () => {
+    assert.deepEqual(parseWorktreeList(""), [])
+  })
+
+  it("parses main worktree then a linked one on a branch", () => {
+    const out =
+      entry(["worktree C:/repo", "HEAD " + "a".repeat(40), "branch refs/heads/master"]) +
+      entry(["worktree C:/repo-wt/feat", "HEAD " + "b".repeat(40), "branch refs/heads/feature/x"])
+    assert.deepEqual(parseWorktreeList(out), [
+      { path: "C:/repo", head: "a".repeat(40), branch: "master", locked: false, prunable: false },
+      { path: "C:/repo-wt/feat", head: "b".repeat(40), branch: "feature/x", locked: false, prunable: false },
+    ])
+  })
+
+  it("reports a detached HEAD as branch null", () => {
+    const out = entry(["worktree /w", "HEAD " + "c".repeat(40), "detached"])
+    assert.deepEqual(parseWorktreeList(out), [
+      { path: "/w", head: "c".repeat(40), branch: null, locked: false, prunable: false },
+    ])
+  })
+
+  it("drops a bare entry, keeps the linked ones", () => {
+    const out = entry(["worktree /srv/repo.git", "bare"]) + entry(["worktree /w", "HEAD " + "d".repeat(40), "detached"])
+    assert.deepEqual(parseWorktreeList(out), [
+      { path: "/w", head: "d".repeat(40), branch: null, locked: false, prunable: false },
+    ])
+  })
+
+  it("flags locked and prunable, with or without a reason", () => {
+    const out =
+      entry(["worktree /a", "HEAD " + "e".repeat(40), "detached", "locked"]) +
+      entry(["worktree /b", "HEAD " + "f".repeat(40), "detached", "locked reason with spaces", "prunable gitdir file points to non-existent location"])
+    assert.deepEqual(parseWorktreeList(out), [
+      { path: "/a", head: "e".repeat(40), branch: null, locked: true, prunable: false },
+      { path: "/b", head: "f".repeat(40), branch: null, locked: true, prunable: true },
+    ])
+  })
+
+  it("keeps a path containing spaces or a newline intact", () => {
+    const out = entry(["worktree /w/dir with spaces\nand newline", "HEAD " + "0".repeat(40), "branch refs/heads/x"])
+    assert.deepEqual(parseWorktreeList(out), [
+      { path: "/w/dir with spaces\nand newline", head: "0".repeat(40), branch: "x", locked: false, prunable: false },
+    ])
+  })
+
+  it("keeps complete entries from a truncated output", () => {
+    const out = entry(["worktree /ok", "HEAD " + "1".repeat(40), "detached"]) + "worktree /cut" + NUL + "HEAD 2222"
+    assert.deepEqual(parseWorktreeList(out), [
+      { path: "/ok", head: "1".repeat(40), branch: null, locked: false, prunable: false },
+      { path: "/cut", head: "2222", branch: null, locked: false, prunable: false },
+    ])
+  })
+})
 /* the two control bytes git emits between commits (RS) and fields (US) — cf. the pretty format */
 const RS = "\x1e"
 const US = "\x1f"

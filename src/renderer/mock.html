@@ -206,6 +206,38 @@
       const RECENTS = [{ path: "/mock/mock-repo", name: "mock-repo" }]
       let nextRepoId = 2
 
+      /* Linked worktrees: the main one (this tab), a live one on feature/cost-optim (chip in
+         the graph + sidebar row), and a stale detached entry (prune path). */
+      let worktrees = [
+        {
+          path: "/mock/mock-repo",
+          head: sha("a1b2c3d4"),
+          branch: "develop",
+          main: true,
+          current: true,
+          locked: false,
+          prunable: false,
+        },
+        {
+          path: "/mock/mock-repo-worktrees/cost-optim",
+          head: sha("5a6b7c8d"),
+          branch: "feature/cost-optim",
+          main: false,
+          current: false,
+          locked: false,
+          prunable: false,
+        },
+        {
+          path: "/mock/mock-repo-worktrees/spike",
+          head: sha("4d5e6f70"),
+          branch: null,
+          main: false,
+          current: false,
+          locked: false,
+          prunable: true,
+        },
+      ]
+
       /* One set of listeners per event channel, like the real preload (cf. onOp/onChanged/onTrace
      below). `window.__changed` can still be triggered by hand from the console to simulate a
      `.git` change (checkout/commit done outside the app): it notifies every current subscriber. */
@@ -381,6 +413,19 @@
         },
         branch: async () => {},
         checkout: async () => {},
+        worktrees: async () => structuredClone(worktrees),
+        worktreeAct: async (_id, action, path) => {
+          worktrees = action === "prune" ? worktrees.filter((w) => !w.prunable) : worktrees.filter((w) => w.path !== path)
+        },
+        worktreeAdd: async (_id, branch) => {
+          const name = branch.split("/").pop()
+          const path = `/mock/mock-repo-worktrees/${name}`
+          const tip = REFS.find((r) => r.kind === "head" && r.name === branch)?.tip ?? sha("a1b2c3d4")
+          worktrees.push({ path, head: tip, branch, main: false, current: false, locked: false, prunable: false })
+          return { id: nextRepoId++, path, name }
+        },
+        worktreeOpen: async (_id, path) => ({ id: nextRepoId++, path, name: path.split("/").pop() }),
+        worktreeReveal: async () => {},
         worktree: async () => structuredClone(wt),
         wtdiff: async (_id, p) => `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`,
         stage: async (_id, paths) => {

@@ -3,7 +3,9 @@
    the shared contract — then wires each channel to repos/state/scan/git. The business logic
    lives in the dedicated modules; this file only connects it to IPC. */
 
-import { dialog, ipcMain, type IpcMainInvokeEvent } from "electron"
+import { resolve } from "node:path"
+
+import { dialog, ipcMain, shell, type IpcMainInvokeEvent } from "electron"
 
 import { AppError } from "../shared/errors.ts"
 import type { InvokeChannel, InvokeChannels } from "../shared/ipc-contract.ts"
@@ -254,6 +256,46 @@ export function registerIpc(): void {
   handle("repo:checkout", (_ev, id, name) => ops.checkout(repos.use(id), name))
   handle("repo:stashes", (_ev, id) => queries.stashList(repos.use(id)))
   handle("repo:stash", (_ev, id, action, arg) => ops.stashAction(repos.use(id), action, arg))
+
+  /* --- Linked worktrees ---
+     Every renderer-supplied path passes through `resolveWorktree` (a `git worktree list`
+     lookup): open/reveal/remove never reach an arbitrary path — same confinement model as
+     `openable`. */
+  handle("repo:worktrees", (_ev, id) => queries.worktrees(repos.use(id)))
+
+  handle("repo:worktreeAct", async (_ev, id, action, path) => {
+    const r = repos.use(id)
+    if (action !== "remove") return ops.worktreeAction(r, action)
+    const wt = await queries.resolveWorktree(r, path)
+    /* the main worktree isn't removable, and a worktree open in a tab (this one or another)
+       still holds watchers and git children: close the tab first */
+    if (wt.main || repos.all().some((o) => queries.sameWtPath(resolve(o.path), wt.path)))
+      throw new AppError("NOT_ALLOWED", wt.path)
+    return ops.worktreeAction(r, action, wt.path)
+  })
+
+  handle("repo:worktreeAdd", async (_ev, id, branch) => {
+    const r = repos.use(id)
+    const win = getMainWindow()
+    const res = await dialog.showOpenDialog(win!, { properties: ["openDirectory", "createDirectory"] })
+    if (res.canceled || !res.filePaths.length) return null
+    const dest = res.filePaths[0]
+    await ops.worktreeAdd(r, dest, branch)
+    openable.add(dest)
+    return openRepoPub(dest)
+  })
+
+  handle("repo:worktreeOpen", async (_ev, id, path) => {
+    const wt = await queries.resolveWorktree(repos.use(id), path)
+    if (wt.prunable) throw new AppError("NOT_A_REPO")
+    openable.add(wt.path) // survives tab persistence (app:tabs filters on `openable`)
+    return openRepoPub(wt.path)
+  })
+
+  handle("repo:worktreeReveal", async (_ev, id, path) => {
+    const wt = await queries.resolveWorktree(repos.use(id), path)
+    shell.showItemInFolder(wt.path)
+  })
   handle("repo:mergeState", (_ev, id) => queries.mergeState(repos.use(id)))
   handle("repo:conflict", (_ev, id, path) => queries.conflict(repos.use(id), path))
   handle("repo:resolve", (_ev, id, path, content) => ops.resolveConflict(repos.use(id), path, content))

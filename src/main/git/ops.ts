@@ -11,7 +11,7 @@
 import { writeFile } from "node:fs/promises"
 
 import { AppError, decodeError } from "../../shared/errors.ts"
-import type { BranchAct, OpEvent, OpName, StashAct } from "../../shared/types.ts"
+import type { BranchAct, OpEvent, OpName, StashAct, WorktreeAct } from "../../shared/types.ts"
 import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
 import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
@@ -237,6 +237,36 @@ export async function mergeAbort(r: RepoHandle): Promise<void> {
     groupTrace(r, "Merge abort")
     try {
       await r.git(["merge", "--abort"])
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/* --- Linked worktrees ---
+   `remove` without `--force`: git's refusal on a dirty or locked worktree is the safeguard,
+   same policy as branch delete (`-d`, never `-D`). The path has already been resolved against
+   `git worktree list` by the caller (ipc.ts → queries.resolveWorktree): normalized absolute,
+   it can never be read as an option. `dir` (add) only ever comes from the system dialog. */
+export async function worktreeAdd(r: RepoHandle, dir: string, branch: string): Promise<void> {
+  if (typeof branch !== "string" || !BRANCH.test(branch)) throw new AppError("BAD_ARG", "name")
+  await withLock(r, "worktree add", async () => {
+    groupTrace(r, `Worktree add ${branch}`)
+    try {
+      await r.git(["worktree", "add", dir, branch], { timeout: OP_TIMEOUT })
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+export async function worktreeAction(r: RepoHandle, action: WorktreeAct, path?: string): Promise<void> {
+  if (action !== "remove" && action !== "prune") throw new AppError("BAD_ARG", "action")
+  if (action === "remove" && !path) throw new AppError("BAD_ARG", "path")
+  await withLock(r, `worktree ${action}`, async () => {
+    groupTrace(r, action === "remove" ? `Worktree remove ${path}` : "Worktree prune")
+    try {
+      await r.git(action === "remove" ? ["worktree", "remove", path!] : ["worktree", "prune"])
     } finally {
       mute(r)
     }
