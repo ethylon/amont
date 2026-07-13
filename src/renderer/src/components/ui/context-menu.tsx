@@ -1,7 +1,7 @@
 import {
   ContextMenu,
   ContextMenuCheckboxItem as ContextMenuCheckboxItemPrimitive,
-  ContextMenuContent,
+  ContextMenuContent as ContextMenuContentPrimitive,
   ContextMenuGroup,
   ContextMenuItem as ContextMenuItemPrimitive,
   ContextMenuLabel,
@@ -16,6 +16,21 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/primitives/context-menu"
 import { cn } from "@/lib/utils"
+
+/* Le preset inverted-translucent (rebuild 8fad3df) neutralise la variante destructive en
+   accent-foreground!important sur le popup ; on la rétablit ici, tailwind-merge évince les
+   classes du primitive à chaîne de variantes identique. */
+function ContextMenuContent({ className, ...props }: React.ComponentProps<typeof ContextMenuContentPrimitive>) {
+  return (
+    <ContextMenuContentPrimitive
+      className={cn(
+        "**:data-[variant=destructive]:text-destructive! **:data-[variant=destructive]:**:text-destructive! **:data-[variant=destructive]:focus:bg-destructive/10!",
+        className
+      )}
+      {...props}
+    />
+  )
+}
 
 /* Overrides the primitive: min-h-7 → min-h-6 on items and sub-triggers. */
 function ContextMenuItem({ className, ...props }: React.ComponentProps<typeof ContextMenuItemPrimitive>) {
