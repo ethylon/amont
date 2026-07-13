@@ -1,8 +1,10 @@
 /* The bridge between the declarative menus and the foreground repository. Runs the same
    flow/status queries RepoView uses (shared cache keys — no extra fetch), classifies HEAD, and
    packages it all — plus the menu-triggered actions — into the `MenuRepo` the Repository menu
-   reads. `null` whenever the foreground tab isn't a repo. Hoisted to App so `build(ctx)` stays a
-   pure function of live app state. */
+   reads. `null` whenever the foreground tab isn't a repo. Consumed by AppMenu (not App): these
+   queries refetch on every git change, and subscribing App to them re-rendered every mounted
+   tab for a menu-only concern (perf audit, finding 4d) — `build(ctx)` stays a pure function of
+   live state either way. */
 
 import { useMemo } from "react"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
