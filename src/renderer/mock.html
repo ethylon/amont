@@ -220,6 +220,17 @@
          puts HEAD on a flow branch (promoted Finish/Publish + the flow banner). */
       let flowPrefixes = { feature: "feature/", bugfix: "bugfix/", release: "release/", hotfix: "hotfix/" }
       let currentBranch = "develop"
+      /* object-DB shape; the initial `garbage: 1` trips the status-bar healthcheck until a gc runs */
+      let counts = {
+        count: 128,
+        size: "512.00 KiB",
+        inPack: 3400,
+        packs: 2,
+        sizePack: "12.40 MiB",
+        prunePackable: 0,
+        garbage: 1,
+        sizeGarbage: "8.00 KiB",
+      }
       window.__setFlow = (p = flowPrefixes) => {
         flowPrefixes = p
         window.__changed()
@@ -350,21 +361,23 @@
           currentBranch = (flowPrefixes[kind] || `${kind}/`) + name
         },
         flowPublish: async () => {},
-        countObjects: async () => ({
-          count: 128,
-          size: "512.00 KiB",
-          inPack: 3400,
-          packs: 2,
-          sizePack: "12.40 MiB",
-          prunePackable: 0,
-          garbage: 1,
-          sizeGarbage: "8.00 KiB",
-        }),
+        countObjects: async () => counts,
         fsck: async () => {
           await simulateMaint("fsck")
         },
         gc: async () => {
           await simulateMaint("gc")
+          /* a real gc repacks the loose objects and prunes the garbage: the healthcheck hint
+             clears and the (still-open) stats modal refreshes to the compacted numbers */
+          counts = {
+            ...counts,
+            count: 0,
+            size: "0 bytes",
+            packs: 1,
+            prunePackable: 0,
+            garbage: 0,
+            sizeGarbage: "0 bytes",
+          }
         },
         branch: async () => {},
         checkout: async () => {},
