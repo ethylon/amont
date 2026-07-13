@@ -16,7 +16,7 @@
    so typed edits elsewhere survive and the pickers never lock. "Mark as resolved" enables once
    no placeholder or marker remains and stages the file — git's own definition of resolved. */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Cancel01Icon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, MergeState, RepoApi } from "@/lib/git"
@@ -293,11 +293,15 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
   const labels = sideLabels(ms, baseSegments)
 
   /* Same focus contract as DiffView: the overlay takes the keyboard on open (Escape lives
-     in repo-view's shortcut handler) and hands it back on close. */
-  useEffect(() => {
+     in repo-view's shortcut handler) and hands it back on close — only if it still holds
+     focus, so switching to another file doesn't yank focus and scroll back to the old row. */
+  useLayoutEffect(() => {
+    const el = root.current
     const prev = document.activeElement as HTMLElement | null
-    root.current?.focus()
-    return () => prev?.focus?.()
+    el?.focus()
+    return () => {
+      if (el?.contains(document.activeElement)) prev?.focus?.()
+    }
   }, [])
 
   /** Header checkbox of a side: none / some / all across every conflict that has lines. */

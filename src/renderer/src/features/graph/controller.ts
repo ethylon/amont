@@ -8,7 +8,7 @@
 
 import type { Commit, RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
-import { scrollTextHover, scrollTextStop } from "./interactions/scroll-text.ts"
+import { scrollTextHover, scrollTextStop } from "./interactions/scroll-text.tsx"
 import { CHUNK, FIXED_W, LANE, laneColor, MAX_LANES, PAD, PAGE, RESIDENT, ROW, ROW_BUCKET } from "./constants.ts"
 import { idOf } from "./ids.ts"
 import { branchSegment, chainInfo, chainTip, type ChainInfo } from "./layout/chains.ts"
