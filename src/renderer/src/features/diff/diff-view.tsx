@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { html as d2hHtml } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
@@ -193,11 +193,17 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
   const dark = useTheme()
 
   /* The diff overlays the graph: we bring focus to it on open (Escape and close
-     reachable from the keyboard) and return it to the previous element on close. */
-  useEffect(() => {
+     reachable from the keyboard) and return it to the previous element on close.
+     Layout effect + `contains` guard: switching file remounts the view (keyed on the path
+     in graph-column), and focus only goes back if the view still holds it — a click on
+     another row must not yank focus (and the file list scroll) back to the old row. */
+  useLayoutEffect(() => {
+    const el = root.current
     const prev = document.activeElement as HTMLElement | null
-    root.current?.focus()
-    return () => prev?.focus?.()
+    el?.focus()
+    return () => {
+      if (el?.contains(document.activeElement)) prev?.focus?.()
+    }
   }, [])
 
   /* Image paths bypass diff2html (it can only render text). A text-based image (svg) can also be

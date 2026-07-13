@@ -12,7 +12,7 @@ import type { SelMode } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
 import type { ChainInfo, GraphHandle } from "@/features/graph/controller"
 import { shortHash } from "@/features/graph/ids"
-import { SCROLL_TEXT_CLASS, scrollTextHover, scrollTextStop } from "@/features/graph/interactions/scroll-text"
+import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { Avatar } from "@/components/ui/avatar"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
@@ -49,17 +49,6 @@ function TypeChip({ commit }: { commit: Commit }) {
 
 const Cloud = () => <HugeiconsIcon icon={CloudIcon} strokeWidth={2} className="shrink-0" />
 
-/* React twin of scrollText(): the name scrolls on hover instead of overflowing the panel */
-const ScrollName = ({ text }: { text: string }) => (
-  <span
-    className={SCROLL_TEXT_CLASS}
-    onMouseEnter={(e) => scrollTextHover(e.currentTarget)}
-    onMouseLeave={() => scrollTextStop()}
-  >
-    <span>{text}</span>
-  </span>
-)
-
 /* Same grammar as the graph: cloud detached by a divider = the remote is on this commit;
    cloud stuck to `origin/develop` = the local branch is elsewhere. */
 function RefBadge({ r }: { r: RefChip }) {
@@ -72,7 +61,7 @@ function RefBadge({ r }: { r: RefChip }) {
     >
       {(r.kind === "remote" || synced) && <Cloud />}
       {synced && <span className={badgeSeparator} />}
-      <ScrollName text={r.name} />
+      <ScrollText text={r.name} />
     </Badge>
   )
 }
