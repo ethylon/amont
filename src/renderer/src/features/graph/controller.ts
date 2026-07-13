@@ -136,7 +136,10 @@ export function createGraph(
        doesn't exist on the remote (yet). */
     syncMarker.style.display = ""
     syncMarker.style.top = syncInfo.upstreamRow * ROW + "px"
-    const counts = [syncInfo.ahead.size && `↑${syncInfo.ahead.size}`, syncInfo.behind.size && `↓${syncInfo.behind.size}`]
+    const counts = [
+      syncInfo.ahead.size && `↑${syncInfo.ahead.size}`,
+      syncInfo.behind.size && `↓${syncInfo.behind.size}`,
+    ]
       .filter(Boolean)
       .join(" ")
     syncMarker.textContent = ""
