@@ -520,6 +520,9 @@ msgstr "Résultat du merge — éditable"
 msgid "Merging {theirs} (B) into {ours} (A)"
 msgstr "Merge de {theirs} (B) dans {ours} (A)"
 
+msgid "More actions"
+msgstr "Plus d'actions"
+
 msgid "name"
 msgstr "nom"
 
@@ -757,8 +760,11 @@ msgstr "Démarrer…"
 msgid "starting…"
 msgstr "démarrage…"
 
-msgid "Stash changes (git stash push -u)"
-msgstr "Remiser les modifications (git stash push -u)"
+msgid "Stash"
+msgstr "Stash"
+
+#~ msgid "Stash changes (git stash push -u)"
+#~ msgstr "Remiser les modifications (git stash push -u)"
 
 msgid "Support prefix"
 msgstr "Préfixe support"
