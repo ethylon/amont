@@ -17,6 +17,9 @@
      the harness needs to stay representative. The short seeds below stay readable in this file —
      `sha()` extends them to 40 hex characters, the only form the renderer now accepts. */
       const sha = (s) => s.repeat(Math.ceil(40 / s.length)).slice(0, 40)
+      /* repo:diff/repo:wtdiff ship `{text, totalLines}` (truncated main-side past
+     DIFF_MAX_LINES, cf. src/shared/diff.ts) — the mock diffs are tiny, so total == shipped */
+      const diffText = (text) => ({ text, totalLines: text.split("\n").length })
       /* A stash arrives from the log in its raw form: the entry commit (3 parents) followed by its
      plumbing — index, untracked — that the renderer has to fold back up (cf. foldStashes). */
       const C = [
@@ -444,20 +447,27 @@
           { st: "M", path: "assets/banner.svg", old: null },
           { st: "A", path: "assets/pixel.png", old: null },
         ],
-        diff: async () => "diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-const a = 1\n+const a = 2\n",
+        diff: async () =>
+          diffText("diff --git a/x.ts b/x.ts\n--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-const a = 1\n+const a = 2\n"),
         /* Image preview (repo:blob): svg bytes colored by the requested rev so before/after
-           differ; a real 1×1 red PNG proves the raster mime path. */
+           differ; a real 1×1 red PNG proves the raster mime path. Raw bytes (Uint8Array), like
+           the real bridge after the base64 → binary IPC change. */
         blob: async (_id, path, ref) => {
           if (/\.png$/i.test(path))
             return {
               size: 68,
-              b64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+              bytes: Uint8Array.from(
+                atob(
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                ),
+                (c) => c.charCodeAt(0)
+              ),
             }
           const key = ref.kind === "commit" ? ref.rev : ref.kind
           const hues = ["#e11d48", "#16a34a", "#2563eb", "#d97706", "#9333ea"]
           const fill = hues[[...key].reduce((a, c) => a + c.charCodeAt(0), 0) % hues.length]
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="${fill}"/><text x="80" y="56" font-size="13" fill="#fff" text-anchor="middle">${path.split("/").pop()}</text></svg>`
-          return { size: svg.length, b64: btoa(svg) }
+          return { size: svg.length, bytes: new TextEncoder().encode(svg) }
         },
         status: async () => ({ branch: currentBranch, head: sha("dd01aa11"), ahead: 2, behind: 2 }),
         body: async (_id, hash) => BODIES[hash] ?? "",
@@ -548,9 +558,9 @@
         worktree: async () => structuredClone(wt),
         wtdiff: async (_id, p, source) => {
           const entry = WT_DIFFS[p]
-          if (!entry) return `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`
+          if (!entry) return diffText(`diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`)
           const hunks = entry[source] ?? []
-          return hunks.length ? [...entry.header, ...hunks.flat(), ""].join("\n") : ""
+          return diffText(hunks.length ? [...entry.header, ...hunks.flat(), ""].join("\n") : "")
         },
         applyPatch: async (_id, patch, reverse) => {
           const path = /^diff --git a\/(.+) b\//m.exec(patch)?.[1]

@@ -11,6 +11,7 @@ import {
   SourceCodeIcon,
 } from "@hugeicons/core-free-icons"
 
+import { DIFF_MAX_LINES } from "../../../../shared/diff.ts"
 import type { FileChange, RepoApi } from "@/lib/git"
 import { parseUnifiedDiff } from "@/features/diff/diff-parse"
 import { useDiffQuery } from "@/features/diff/diff-queries"
@@ -29,7 +30,11 @@ export type DiffViewMode = "unified" | "sbs"
 /** A context carries either a pair of commits, or the source within the working tree. */
 export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" | "unstaged" | "untracked" }
 
-const MAX_LINES = 3000
+/* The line cap (DIFF_MAX_LINES, shared/diff.ts) is enforced on BOTH sides: main truncates the
+   IPC payload a slack past it and ships `{text, totalLines}`, and the gates below keep
+   diff2html/shiki away from anything whose *total* exceeds it — a truncated payload (which by
+   construction always carries more than the cap) can never reach them looking complete. */
+
 /* Reapplied on every render — the effects rewrite `className` from top to bottom. */
 const DIFF_BODY =
   "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
@@ -136,12 +141,15 @@ const RAW_CLASS: Record<string, string> = {
   ctx: "",
 }
 
-/* Past 3000 lines: plain, uncolored rendering — diff2html chokes, and nobody reads a diff that big anyway */
-function renderRaw(body: HTMLElement, text: string) {
+/* Past DIFF_MAX_LINES: plain, uncolored rendering — diff2html chokes, and nobody reads a diff
+   that big anyway. `text` is already capped main-side (at most a slack past the cap, cf.
+   shared/diff.ts); `totalLines` is the true length of the full output, so the footer count
+   stays exact even though the tail never crossed IPC. */
+function renderRaw(body: HTMLElement, text: string, totalLines: number) {
   const lines = text.split("\n")
   body.textContent = ""
   body.className = DIFF_BODY + " bg-muted py-1.5"
-  lines.slice(0, MAX_LINES).forEach((l) => {
+  lines.slice(0, DIFF_MAX_LINES).forEach((l) => {
     const kind = /^(diff |index |new file|deleted file|similarity|rename |--- |\+\+\+ )/.test(l)
       ? "meta"
       : l.startsWith("@@")
@@ -156,10 +164,10 @@ function renderRaw(body: HTMLElement, text: string) {
     d.textContent = l || " "
     body.appendChild(d)
   })
-  if (lines.length > MAX_LINES) {
+  if (totalLines > DIFF_MAX_LINES) {
     const more = document.createElement("div")
     more.className = "min-w-max px-2 text-muted-foreground"
-    more.textContent = messages.diff.truncated((lines.length - MAX_LINES).toLocaleString())
+    more.textContent = messages.diff.truncated((totalLines - DIFF_MAX_LINES).toLocaleString())
     body.appendChild(more)
   }
 }
@@ -221,17 +229,12 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
   const showImage = imgExt !== null && (!textImage || imgPreview)
   /* Fetch the text diff only when it can actually be shown — never for a raster image, and for an
      svg only once the user flips to the diff view (react-query fetches lazily on that toggle). */
-  const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
+  const { data: diff = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
 
-  /* One line-count pass shared by the interactive-body gate and the oversize gate in the
-     effect below — it used to be two full `split("\n")` allocations of the whole diff text
-     per render. */
-  const lineCount = useMemo(() => {
-    if (text === null) return 0
-    let n = 1
-    for (let i = text.indexOf("\n"); i !== -1; i = text.indexOf("\n", i + 1)) n++
-    return n
-  }, [text])
+  /* The line count ships with the text (`totalLines`, counted main-side during the truncation
+     scan — cf. shared/diff.ts): the gates below key off it, so an oversized diff is routed to
+     the raw fallback whether or not its tail actually crossed IPC. Under the cap the payload
+     is always complete, so diff2html/shiki still only ever see whole, uncapped diffs. */
 
   /* A staged/unstaged text diff gets the interactive per-hunk/per-line staging body instead
      of diff2html — it honors the same unified/side-by-side toggle. Untracked files (no index
@@ -239,8 +242,9 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
      render paths. */
   const wtSrc = "wt" in ctx && ctx.wt !== "untracked" ? ctx.wt : null
   const parsed = useMemo(
-    () => (wtSrc && !showImage && text !== null && lineCount <= MAX_LINES ? parseUnifiedDiff(text) : null),
-    [wtSrc, showImage, text, lineCount]
+    () =>
+      wtSrc && !showImage && diff !== null && diff.totalLines <= DIFF_MAX_LINES ? parseUnifiedDiff(diff.text) : null,
+    [wtSrc, showImage, diff]
   )
 
   /* diff2html's parse is memoized apart from its HTML render: the unified↔side-by-side and
@@ -249,21 +253,23 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
      instead of re-parsing the whole diff text. */
   const d2hFiles = useMemo(
     () =>
-      !showImage && text !== null && !parsed && text.trim() && lineCount <= MAX_LINES ? d2hParse(text) : null,
-    [showImage, text, parsed, lineCount]
+      !showImage && diff !== null && !parsed && diff.text.trim() && diff.totalLines <= DIFF_MAX_LINES
+        ? d2hParse(diff.text)
+        : null,
+    [showImage, diff, parsed]
   )
 
   useEffect(() => {
     const el = body.current
-    if (!el || showImage || text === null || parsed) return
-    if (!text.trim()) {
+    if (!el || showImage || diff === null || parsed) return
+    if (!diff.text.trim()) {
       el.textContent = messages.diff.empty
       el.className = DIFF_BODY + " text-muted-foreground"
       return
     }
     el.className = DIFF_BODY
     if (!d2hFiles) {
-      renderRaw(el, text) // over MAX_LINES: plain, uncolored fallback
+      renderRaw(el, diff.text, diff.totalLines) // over DIFF_MAX_LINES: plain, uncolored fallback
       return
     }
     /* diff2html escapes the content; shiki tokens are re-injected via textContent */
@@ -282,7 +288,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
       abort.abort()
       offSync?.()
     }
-  }, [text, view, dark, showImage, parsed, d2hFiles])
+  }, [diff, view, dark, showImage, parsed, d2hFiles])
 
   return (
     <div ref={root} tabIndex={-1} className="flex min-h-0 flex-1 flex-col px-4.5 py-4 outline-none">
@@ -332,7 +338,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
         <ImageDiffView api={api} repoId={repoId} ctx={ctx} file={file} ext={imgExt} />
       ) : error ? (
         <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
-      ) : text === null ? (
+      ) : diff === null ? (
         <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
       ) : parsed && wtSrc ? (
         <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} view={view} />

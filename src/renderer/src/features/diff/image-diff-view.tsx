@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import type { BlobData, FileChange, RepoApi } from "@/lib/git"
 import { IMAGE_MIME, useImageDiffQuery } from "@/features/diff/image-diff-queries"
@@ -31,11 +31,30 @@ function ImagePanel({
 }) {
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null)
 
+  /* The bytes arrive raw over IPC (Uint8Array, cf. `repo:blob`) and render through a `blob:`
+     object URL — no base64 round-trip on either side of the boundary. An object URL pins its
+     Blob in memory until revoked, so the effect owns the lifecycle: created in the effect (not
+     a useMemo, whose discarded first pass under StrictMode would leak one) and revoked in its
+     cleanup on refetch and unmount alike. */
+  const bytes = data?.bytes ?? null
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!bytes) return
+    /* the assertion narrows Node's ArrayBufferLike-backed view (a Buffer on the main side)
+       to the DOM's BlobPart: structured clone always delivers a plain ArrayBuffer here */
+    const u = URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: IMAGE_MIME[ext] }))
+    setUrl(u)
+    return () => {
+      setUrl(null)
+      URL.revokeObjectURL(u)
+    }
+  }, [bytes, ext])
+
   return (
     <figure className="flex min-w-0 flex-1 flex-col items-center gap-2">
       <figcaption className="flex items-center gap-2 text-xs">
         <span className={cn("rounded px-1.5 py-0.5 font-medium", TONE[tone])}>{label}</span>
-        {data && data.b64 !== null && (
+        {data && data.bytes !== null && (
           <span className="text-muted-foreground">
             {dims && `${messages.diff.dimensions(dims.w, dims.h)} · `}
             {formatBytes(data.size)}
@@ -46,18 +65,22 @@ function ImagePanel({
         <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-6 text-xs text-muted-foreground">
           {messages.diff.imageNone}
         </div>
-      ) : data.b64 === null ? (
+      ) : data.bytes === null ? (
         <div className="flex flex-1 items-center justify-center rounded-md border border-dashed p-6 text-xs text-muted-foreground">
           {messages.diff.imageTooLarge} ({formatBytes(data.size)})
         </div>
       ) : (
         <div className={cn("flex flex-1 items-center justify-center overflow-auto rounded-md p-2", CHECKER)}>
-          <img
-            src={`data:${IMAGE_MIME[ext]};base64,${data.b64}`}
-            alt={label}
-            className="max-h-[70vh] max-w-full object-contain"
-            onLoad={(e) => setDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-          />
+          {/* url lags the bytes by one effect tick (and is null again mid-refetch): the
+              checkerboard simply shows empty for that frame rather than a broken img */}
+          {url && (
+            <img
+              src={url}
+              alt={label}
+              className="max-h-[70vh] max-w-full object-contain"
+              onLoad={(e) => setDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+            />
+          )}
         </div>
       )}
     </figure>

@@ -70,8 +70,11 @@ export const mute = (r: Watchable): void => {
 export function watchGit(r: Watchable): void {
   let timer: NodeJS.Timeout | undefined
   const fire = () => {
+    /* even a suppressed event invalidates the read caches: an external change racing our
+       own echoes inside the mute window is indistinguishable from them, so gen is bumped
+       unconditionally — only the renderer notification is muted or held */
+    r.gen++
     if (r.running || Date.now() < r.muted) return
-    r.gen++ // a held (dirty) change invalidates the read caches all the same
     if (r.events.isFocused()) r.events.changed()
     else r.dirty = true
   }

@@ -6,6 +6,7 @@ import { readFile, stat } from "node:fs/promises"
 import { extname, resolve } from "node:path"
 import { app, shell } from "electron"
 
+import { truncateDiff } from "../../shared/diff.ts"
 import { AppError } from "../../shared/errors.ts"
 import type {
   BlobData,
@@ -13,6 +14,7 @@ import type {
   CommitMessage,
   Commit,
   ConflictFile,
+  DiffText,
   FileChange,
   GitRef,
   MergeState,
@@ -144,10 +146,14 @@ export async function conflict(r: RepoHandle, path: string): Promise<ConflictFil
 
 const WT_DIFF: Record<"staged" | "unstaged", string[]> = { staged: ["diff", "--cached"], unstaged: ["diff"] }
 
-export function wtdiff(r: RepoHandle, path: string, source: WtSource): Promise<string> {
-  if (source === "untracked") return r.diffNoIndex("/dev/null", inRepo(r, path))
+/* Both diff channels cap their payload right after the git call (truncateDiff, shared/diff.ts):
+   the renderer shows at most DIFF_MAX_LINES lines, so shipping up to the 64 MB OUTPUT_CAP
+   across IPC was pure structured-clone weight — the `{text, totalLines}` shape keeps its
+   "N more lines" footer exact without the full text ever leaving this process. */
+export function wtdiff(r: RepoHandle, path: string, source: WtSource): Promise<DiffText> {
+  if (source === "untracked") return r.diffNoIndex("/dev/null", inRepo(r, path)).then(truncateDiff)
   if (source !== "staged" && source !== "unstaged") throw new AppError("BAD_ARG", "source")
-  return r.git([...WT_DIFF[source], "--", path])
+  return r.git([...WT_DIFF[source], "--", path]).then(truncateDiff)
 }
 
 /* --- Stash --- */
@@ -176,8 +182,15 @@ function cachedStashes(r: RepoHandle): Promise<Stash[]> {
    `git log --no-walk=unsorted --stdin` — page cost no longer depends on where the page sits
    in history. Same traversal, same roots: the order is bit-identical to the old command. */
 async function orderedHashes(r: RepoHandle): Promise<{ hashes: string; stashes: Stash[] }> {
-  const [tips, stashes] = await Promise.all([refTips(r), cachedStashes(r)])
-  const key = [...tips, ...stashes.map((s) => s.h)].join(" ")
+  /* HEAD belongs in the key: `--all` walks it too, and on a detached HEAD (tag checkout,
+     bisect, rebase stop) a new commit moves no branch/tag/stash tip — without HEAD in the
+     snapshot the stale list would be served until some unrelated ref moved. */
+  const [tips, stashes, head] = await Promise.all([
+    refTips(r),
+    cachedStashes(r),
+    r.git(["rev-parse", "HEAD"]).catch(() => ""), // unborn repo: no HEAD commit yet
+  ])
+  const key = [head.trim(), ...tips, ...stashes.map((s) => s.h)].join(" ")
   let entry = r.logIndex
   if (entry?.key !== key) {
     /* no caller signal on the build: the list is shared by every page in flight, and a
@@ -386,6 +399,8 @@ export async function headMessage(r: RepoHandle): Promise<CommitMessage> {
   return { subject, body: body_ }
 }
 
+/* Truncated main-side like wtdiff (cf. the comment there): the abort/timeout/output-cap
+   plumbing of the git call itself is untouched — truncateDiff only trims what crosses IPC. */
 export function diff(
   r: RepoHandle,
   hash: string,
@@ -393,20 +408,23 @@ export function diff(
   path: string,
   oldPath: string | null,
   signal?: AbortSignal
-): Promise<string> {
+): Promise<DiffText> {
   assertHash(hash, parent)
   if (typeof path !== "string" || (oldPath != null && typeof oldPath !== "string"))
     throw new AppError("BAD_ARG", "path")
   const paths = oldPath ? [oldPath, path] : [path]
   const args = parent ? ["diff", parent, hash, "--", ...paths] : ["show", "--format=", hash, "--", ...paths]
-  return r.git(args, { signal })
+  return r.git(args, { signal }).then(truncateDiff)
 }
 
 /* --- Binary preview (image viewer) ---
    diff2html can only render text; a binary path (png, gif, an image…) collapses to git's
    "Binary files differ" line. `blob` ships the raw bytes of one side of the change so the
-   renderer can show a real preview. `cat-file -s` gates on size first: an over-cap or absent
-   object never has its bytes read into memory. */
+   renderer can show a real preview. The Buffer travels as-is — Electron's structured clone
+   carries it as binary; the old base64 re-encode built a ~33 MB string on the main thread
+   for a 25 MB image, blocking every other IPC handler while it serialized (audit finding
+   9a). `cat-file -s` gates on size first: an over-cap or absent object never has its bytes
+   read into memory. */
 const BLOB_MAX = 25 * 1024 * 1024
 
 /** A rev accepted in a `<rev>:<path>` object spec: a commit hash, or the literal `HEAD` (the
@@ -428,9 +446,9 @@ export async function blob(r: RepoHandle, path: string, ref: BlobRef): Promise<B
     } catch {
       return null // gone from disk (staged deletion still shown as a working-tree row)
     }
-    if (size > BLOB_MAX) return { size, b64: null }
+    if (size > BLOB_MAX) return { size, bytes: null }
     const buf = await readFile(full).catch(() => null)
-    return buf ? { size, b64: buf.toString("base64") } : null
+    return buf ? { size, bytes: buf } : null
   }
 
   /* `:path` = the staged blob; `<rev>:path` = a committed one. A missing side (added file has
@@ -443,9 +461,9 @@ export async function blob(r: RepoHandle, path: string, ref: BlobRef): Promise<B
     return null
   }
   if (!Number.isFinite(size)) return null
-  if (size > BLOB_MAX) return { size, b64: null }
+  if (size > BLOB_MAX) return { size, bytes: null }
   const buf = await r.gitBuffer(["cat-file", "blob", spec])
-  return { size, b64: buf.toString("base64") }
+  return { size, bytes: buf }
 }
 
 /* --- Shell: icon and opening ---

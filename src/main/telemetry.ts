@@ -7,19 +7,26 @@
 
    The DSN is injected at build time from the MAIN_VITE_SENTRY_DSN env variable (electron-vite
    reads it from the build environment — set by CI for releases, cf. .github/workflows/release.yml).
-   A build from source has no DSN, so initTelemetry() is a no-op and nothing is ever sent by
-   contributors' or unofficial builds — only the maintainer's release builds carry it.
+   A build from source has no DSN, so the SDK below is never even loaded and nothing is ever sent
+   by contributors' or unofficial builds — only the maintainer's release builds carry it.
 
    Opt-out is a persisted flag (state.json, cf. state.ts), toggled from the home screen. `enabled`
    is read on every event by beforeSend/beforeBreadcrumb, so flipping it takes effect immediately,
    no restart — and native minidumps go through the same client, so nothing is uploaded either. */
 
 import { app } from "electron"
-import * as Sentry from "@sentry/electron/main"
+import type { Event as SentryEvent } from "@sentry/electron/main"
 
 import { persisted, saveState } from "./state.ts"
 
 const DSN = import.meta.env.MAIN_VITE_SENTRY_DSN
+
+/* The SDK is loaded only when a DSN is baked in: DSN-less builds skip its module evaluation
+   entirely instead of paying it on every launch (perf audit, finding 19). Top-level await keeps
+   the DSN'd path as early as before: Electron holds the app 'ready' event until the main ESM
+   graph — this await included — has finished loading, so initTelemetry() below still runs
+   before 'ready' as @sentry/electron/main requires. */
+const Sentry = DSN ? await import("@sentry/electron/main") : null
 
 /* Default on when a DSN is present; the persisted flag (undefined on first run) only ever
    turns it off. Stays false when there's no DSN — telemetryState() reports it as unavailable. */
@@ -27,7 +34,7 @@ let enabled = false
 
 /** Drop the two identity fields Sentry attaches by default even with sendDefaultPii off.
     Generic so beforeSend keeps handing back the exact event type it received. */
-function scrub<E extends Sentry.Event>(event: E): E {
+function scrub<E extends SentryEvent>(event: E): E {
   delete event.server_name // machine hostname
   delete event.user
   return event
@@ -39,7 +46,7 @@ function scrub<E extends Sentry.Event>(event: E): E {
     persisted flag after loadState(). beforeSend/beforeBreadcrumb re-read `enabled` live, so no
     reinit is needed once the flag lands. */
 export function initTelemetry(): void {
-  if (!DSN) return
+  if (!Sentry) return
   Sentry.init({
     dsn: DSN,
     release: `amont@${app.getVersion()}`,
@@ -85,7 +92,7 @@ export function captureRendererGone(
   exitCode: number,
   info: { recentReloads: number; suspended: boolean }
 ): void {
-  if (!DSN || !enabled) return
+  if (!Sentry || !enabled) return
   Sentry.captureMessage(`renderer gone: ${reason}`, {
     level: info.suspended ? "fatal" : "error",
     fingerprint: ["renderer-gone", reason],

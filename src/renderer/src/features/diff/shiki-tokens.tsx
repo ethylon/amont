@@ -58,6 +58,11 @@ export function useShikiTokens(code: string, path: string, dark: boolean): Token
 /** One rendered code line: shiki spans when tokens are there, raw text otherwise. */
 export function CodeLine({ text, tokens }: { text: string; tokens?: TokenLine }) {
   if (!tokens || !tokens.some((t) => t.content)) return <>{text || " "}</>
+  /* tokens can lag the text (async tokenize, debounced in the conflict editor): painting
+     stale token content would visibly replace what was just typed under the caret. Tokens
+     are only used while they still spell the exact current text — otherwise the line stays
+     plain until the next pass catches up. */
+  if (tokens.reduce((acc, t) => acc + t.content, "") !== text) return <>{text || " "}</>
   return tokens.map((t, i) => (
     <span key={i} style={{ color: t.color }}>
       {t.content}
