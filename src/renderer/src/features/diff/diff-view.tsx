@@ -218,9 +218,9 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
   const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
 
   /* A staged/unstaged text diff gets the interactive per-hunk/per-line staging body instead
-     of diff2html — unified by construction, so the view toggle disappears with it. Untracked
-     files (no index entry to patch) and oversized or out-of-grammar diffs fall through to the
-     existing render paths. */
+     of diff2html — it honors the same unified/side-by-side toggle. Untracked files (no index
+     entry to patch) and oversized or out-of-grammar diffs fall through to the existing
+     render paths. */
   const wtSrc = "wt" in ctx && ctx.wt !== "untracked" ? ctx.wt : null
   const parsed = useMemo(
     () =>
@@ -274,9 +274,9 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
               </ToggleGroupItem>
             </ToggleGroup>
           )}
-          {/* The unified/side-by-side toggle only applies to a text diff, not an image preview
-              nor the interactive staging body (unified by construction). */}
-          {!showImage && !parsed && (
+          {/* The unified/side-by-side toggle applies to every text diff — diff2html render
+              and interactive staging body alike — never to an image preview. */}
+          {!showImage && (
             <ToggleGroup
               spacing={0}
               variant="outline"
@@ -303,7 +303,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
       ) : text === null ? (
         <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
       ) : parsed && wtSrc ? (
-        <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} />
+        <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} view={view} />
       ) : (
         <div ref={body} className={DIFF_BODY} />
       )}
