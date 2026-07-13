@@ -415,7 +415,8 @@
         checkout: async () => {},
         worktrees: async () => structuredClone(worktrees),
         worktreeAct: async (_id, action, path) => {
-          worktrees = action === "prune" ? worktrees.filter((w) => !w.prunable) : worktrees.filter((w) => w.path !== path)
+          worktrees =
+            action === "prune" ? worktrees.filter((w) => !w.prunable) : worktrees.filter((w) => w.path !== path)
         },
         worktreeAdd: async (_id, branch) => {
           const name = branch.split("/").pop()
