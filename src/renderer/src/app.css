@@ -92,8 +92,8 @@
   --info: oklch(0.52 0.13 250);
   --refactor: oklch(0.52 0.1 195);
 
-  /* Sync local/distant (layout/sync.ts) : ambre = à pousser, bleu = à intégrer. Alias des
-     tokens sémantiques — la chaîne var() suit le thème, pas de doublon dans .dark. */
+  /* Local/remote sync (layout/sync.ts): amber = to push, blue = to pull. Aliases of the
+     semantic tokens — the var() chain follows the theme, no duplicate in .dark. */
   --sync-ahead: var(--warning);
   --sync-behind: var(--info);
 
