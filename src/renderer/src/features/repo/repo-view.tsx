@@ -109,6 +109,8 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   }, [worktreeQuery.data, storeApi])
 
   const sidebarOpen = useRepoStore((s) => s.ui.sidebarOpen)
+  const flowStartKind = useRepoStore((s) => s.ui.flowStartKind)
+  const closeFlowStart = useRepoStore((s) => s.closeFlowStart)
   const view = useRepoStore((s) => s.ui.view)
   const diff = useRepoStore((s) => s.ui.diff)
   const selection = useRepoStore((s) => s.selection.rows)
@@ -200,12 +202,12 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
             !booted && "opacity-0"
           )}
         >
-          {tools.startKind && (
+          {flowStartKind && (
             <FlowStartBanner
-              key={tools.startKind}
-              kind={tools.startKind}
-              prefix={flow?.[tools.startKind] ?? `${tools.startKind}/`}
-              onDone={tools.closeStart}
+              key={flowStartKind}
+              kind={flowStartKind}
+              prefix={flow?.[flowStartKind] ?? `${flowStartKind}/`}
+              onDone={closeFlowStart}
             />
           )}
 
