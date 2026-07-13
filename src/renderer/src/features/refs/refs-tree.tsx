@@ -125,7 +125,17 @@ const RefDir = memo(function RefDir({
   )
 })
 
-const RefRow = memo(function RefRow({ r, label, icon, ctx }: { r: GitRef; label: string; icon: IconSvgElement; ctx: Ctx }) {
+const RefRow = memo(function RefRow({
+  r,
+  label,
+  icon,
+  ctx,
+}: {
+  r: GitRef
+  label: string
+  icon: IconSvgElement
+  ctx: Ctx
+}) {
   /* memo'd component with localized descendants (the branch/checkout context menus):
      re-render on a runtime language switch even when no prop moved */
   useLocale()

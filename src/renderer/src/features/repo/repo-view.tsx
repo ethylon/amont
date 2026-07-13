@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { branchFlow } from "@/lib/gitflow"
@@ -18,8 +18,6 @@ import { DetailPanel } from "@/features/repo/detail-panel"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
 import { FlowStartBanner } from "@/features/flow/flow-start-banner"
-import { FlowInitDialog } from "@/features/flow/flow-init-dialog"
-import { MaintenanceDialog } from "@/features/maintenance/maintenance-dialog"
 import { repoHealth } from "@/features/maintenance/health"
 import { useRepoMenuTools } from "@/features/repo/use-repo-menu-tools"
 import type { RepoCommandEnvelope } from "@/features/repo/repo-commands"
@@ -28,6 +26,18 @@ import { RefsSidebar } from "@/features/refs/refs-sidebar"
 import { StatusBar } from "@/features/repo/status-bar"
 import { Toolbar } from "@/features/repo/toolbar"
 import { WorktreePanel } from "@/features/worktree/worktree-panel"
+
+/* Menu-driven modals, code-split behind their open state (perf audit, finding 6): neither
+   exists until "Initialize Git Flow…" / "Database statistics…" is picked, so their form and
+   report UI stay out of the entry chunk. Both already unmount on close (no exit animation to
+   preserve), and both open as a dimmed overlay — a null Suspense fallback for the frame the
+   chunk takes to load is invisible. */
+const FlowInitDialog = lazy(() =>
+  import("@/features/flow/flow-init-dialog").then((m) => ({ default: m.FlowInitDialog }))
+)
+const MaintenanceDialog = lazy(() =>
+  import("@/features/maintenance/maintenance-dialog").then((m) => ({ default: m.MaintenanceDialog }))
+)
 
 /* GraphColumn belongs to features/graph — memoized here, at the import site (perf audit,
    finding 4b). It takes no props and subscribes to the store itself, so the memo cuts every
@@ -267,7 +277,10 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
                   {view === "wt" && worktree ? (
                     <WorktreePanel />
                   ) : panelOpen && graphRef.current ? (
-                    <ErrorBoundary key={detailNonce} onReset={() => setDetailNonce((n) => n + 1)}>
+                    /* resetKey: an error card caught on one commit must not survive a click on
+                       another (the old per-selection key remounted its way out of this; the
+                       boundary now recovers in place — `selection` is reference-stable) */
+                    <ErrorBoundary key={detailNonce} resetKey={selection} onReset={() => setDetailNonce((n) => n + 1)}>
                       <DetailPanel
                         api={api}
                         repoId={repoId}
@@ -311,15 +324,21 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
 
       {/* Portaled dialogs: only for the foreground tab, so a background tab's open modal can't
           escape its hidden panel and overlay the active one. */}
-      {active && tools.initOpen && <FlowInitDialog onClose={tools.closeInit} />}
+      {active && tools.initOpen && (
+        <Suspense fallback={null}>
+          <FlowInitDialog onClose={tools.closeInit} />
+        </Suspense>
+      )}
       {active && tools.statsOpen && (
-        <MaintenanceDialog
-          api={api}
-          repoId={repoId}
-          maint={tools.maint}
-          onRunMaint={tools.runMaint}
-          onClose={() => tools.setStatsOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <MaintenanceDialog
+            api={api}
+            repoId={repoId}
+            maint={tools.maint}
+            onRunMaint={tools.runMaint}
+            onClose={() => tools.setStatsOpen(false)}
+          />
+        </Suspense>
       )}
     </>
   )

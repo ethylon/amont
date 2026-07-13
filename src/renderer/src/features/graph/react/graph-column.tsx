@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react"
+import { lazy, Suspense, useMemo, useRef, useState } from "react"
 
 import { worktreeCount } from "@/lib/git"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
@@ -6,11 +6,18 @@ import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { ConflictView } from "@/features/conflict/conflict-view"
-import { DiffView } from "@/features/diff/diff-view"
 import { ErrorBoundary } from "@/app/error-boundary"
 import type { GraphCallbacks } from "@/features/graph/controller"
 import { CommitGraph } from "@/features/graph/react/commit-graph"
+
+/* Code-split at the overlay seam (perf audit, finding 6): both views render behind store
+   state (ui.diff / ui.conflict), never on first paint, and DiffView alone drags diff2html
+   (JS + CSS) into whatever chunk imports it — lazy keeps all of it out of the entry. The
+   overlay div below already paints an opaque bg-background panel, and each view brings its
+   own loading state once mounted, so a null Suspense fallback just shows the empty panel
+   for the frame the chunk takes to load. */
+const DiffView = lazy(() => import("@/features/diff/diff-view").then((m) => ({ default: m.DiffView })))
+const ConflictView = lazy(() => import("@/features/conflict/conflict-view").then((m) => ({ default: m.ConflictView })))
 
 const WT_COUNTERS = [
   { key: "conflicts", color: "danger" },
@@ -106,28 +113,34 @@ export function GraphColumn() {
         {diff && (
           <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
             <ErrorBoundary key={`${diff.file.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
-              <DiffView
-                api={api}
-                repoId={repoId}
-                ctx={diff.ctx}
-                file={diff.file}
-                view={diffMode}
-                onViewChange={setDiffMode}
-                onClose={closeDiff}
-              />
+              {/* Suspense inside the boundary: a failed chunk load surfaces as the same
+                  reset-able error card as a render throw */}
+              <Suspense fallback={null}>
+                <DiffView
+                  api={api}
+                  repoId={repoId}
+                  ctx={diff.ctx}
+                  file={diff.file}
+                  view={diffMode}
+                  onViewChange={setDiffMode}
+                  onClose={closeDiff}
+                />
+              </Suspense>
             </ErrorBoundary>
           </div>
         )}
         {conflict && (
           <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
             <ErrorBoundary key={`${conflict.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
-              <ConflictView
-                api={api}
-                repoId={repoId}
-                file={conflict}
-                onClose={closeConflict}
-                onResolve={resolveConflict}
-              />
+              <Suspense fallback={null}>
+                <ConflictView
+                  api={api}
+                  repoId={repoId}
+                  file={conflict}
+                  onClose={closeConflict}
+                  onResolve={resolveConflict}
+                />
+              </Suspense>
             </ErrorBoundary>
           </div>
         )}

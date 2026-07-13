@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 
 import { host, type BootState, type Repo } from "@/lib/git"
@@ -11,11 +11,17 @@ import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { AppMenu, type AppMenuContext } from "@/app/menu"
 import type { RepoCommand, RepoCommandEnvelope } from "@/features/repo/repo-commands"
-import { CreateDialog } from "@/features/create/create-dialog"
 import { HomeScreen } from "@/features/home/home-screen"
 import { UpdateCard } from "@/features/updater/update-card"
 import { RepoView } from "@/features/repo/repo-view"
 import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-strip"
+
+/* Code-split behind `createOpen` (perf audit, finding 6): the creation modal is pure
+   user-action UI, so its form + inputs stay out of the entry chunk. Mounted on first open
+   (see `createMounted`) and kept mounted after, so closing still plays the dialog's exit
+   animation; a null fallback for the one frame the chunk takes is invisible under the
+   opening overlay. */
+const CreateDialog = lazy(() => import("@/features/create/create-dialog").then((m) => ({ default: m.CreateDialog })))
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
@@ -140,8 +146,15 @@ export default function App({ boot }: Props) {
   const homeActive = active.kind === "home"
 
   /* Repository creation is a modal now (was a pinned tab): the "+" and File ▸ New repository
-     open it; a created/cloned repo opens as a tab through `openTab`, which closes the dialog. */
+     open it; a created/cloned repo opens as a tab through `openTab`, which closes the dialog.
+     The lazy dialog mounts on first open and stays mounted, so re-opens are instant and
+     closing keeps its exit animation. */
   const [createOpen, setCreateOpen] = useState(false)
+  const [createMounted, setCreateMounted] = useState(false)
+  const openCreate = useCallback(() => {
+    setCreateMounted(true)
+    setCreateOpen(true)
+  }, [])
   const openCreated = useCallback(
     (repo: Repo) => {
       setCreateOpen(false)
@@ -173,7 +186,7 @@ export default function App({ boot }: Props) {
   }, [locale])
   const menuCtx = useMemo<AppMenuContext>(
     () => ({
-      newRepo: () => setCreateOpen(true),
+      newRepo: openCreate,
       openRepo: openDialog,
       closeActiveTab: () => active.kind === "repo" && closeTab(active.id),
       hasActiveRepo: active.kind === "repo",
@@ -187,7 +200,7 @@ export default function App({ boot }: Props) {
       openExternal: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
       checkForUpdates: () => void host.checkForUpdates(),
     }),
-    [active, closeTab, locale, openDialog, select, themeMode]
+    [active, closeTab, locale, openCreate, openDialog, select, themeMode]
   )
 
   return (
@@ -197,11 +210,15 @@ export default function App({ boot }: Props) {
         active={toTabKey(active)}
         onSelect={(key) => select(fromTabKey(key))}
         onClose={closeTab}
-        onNew={() => setCreateOpen(true)}
+        onNew={openCreate}
         menu={<AppMenu ctx={menuCtx} activeRepoId={activeRepoId} sendRepoCommand={sendRepoCommand} />}
       />
 
-      <CreateDialog open={createOpen} onOpenChange={setCreateOpen} onOpened={openCreated} />
+      {createMounted && (
+        <Suspense fallback={null}>
+          <CreateDialog open={createOpen} onOpenChange={setCreateOpen} onOpened={openCreated} />
+        </Suspense>
+      )}
 
       {/* `data-tab-active` carries the view-transition names on the only visible tab (see app.css) */}
       <div className="relative min-h-0 flex-1">

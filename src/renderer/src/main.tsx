@@ -9,11 +9,13 @@ import { queryClient } from "@/lib/query-client"
 import { installShortcuts } from "@/app/shortcuts"
 import { applyTheme } from "@/lib/theme"
 import { setupI18n } from "@/lib/i18n"
-import { initTelemetry } from "@/lib/telemetry"
+import { initTelemetry, installTelemetryBuffer } from "@/lib/telemetry"
 
-/* first thing, so a failure anywhere in boot is still reported (a no-op unless a DSN was
-   baked into the build — cf. lib/telemetry.ts + main/telemetry.ts) */
-initTelemetry()
+/* first thing, so a failure anywhere in boot is still caught: two tiny buffering handlers now,
+   the actual SDK after first paint (see the requestIdleCallback below) — buffered errors are
+   replayed then (a no-op unless a DSN was baked into the build — cf. lib/telemetry.ts +
+   main/telemetry.ts) */
+installTelemetryBuffer()
 
 /* before the first render: pick the system locale so every string reads the right language,
    and paint the theme so there's no light flash on startup */
@@ -34,3 +36,9 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </StrictMode>
 )
+
+/* Sentry, off the critical path (perf audit, finding 19): the SDK's module evaluation used to
+   run synchronously above installShortcuts(), taxing every startup — including DSN-less builds
+   that never send anything. Deferred to idle after the render above, it no longer delays first
+   paint; the buffer handlers installed up top cover the gap. */
+requestIdleCallback(() => initTelemetry())
