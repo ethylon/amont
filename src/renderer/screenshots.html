@@ -40,6 +40,7 @@
       const onOpListeners = new Set()
       const onChangedListeners = new Set()
       const onTraceListeners = new Set()
+      const onUpdateListeners = new Set()
       window.__changed = (payload = { id: REPO.id }) => onChangedListeners.forEach((cb) => cb(payload))
 
       let wt = structuredClone(D.WT)
@@ -77,6 +78,9 @@
         onOp: (cb) => { onOpListeners.add(cb); return () => onOpListeners.delete(cb) },
         onChanged: (cb) => { onChangedListeners.add(cb); return () => onChangedListeners.delete(cb) },
         onTrace: (cb) => { onTraceListeners.add(cb); return () => onTraceListeners.delete(cb) },
+        onUpdate: (cb) => { onUpdateListeners.add(cb); return () => onUpdateListeners.delete(cb) },
+        checkForUpdates: async () => {},
+        installUpdate: async () => {},
         search: async () => [],
         flow: async () => null,
         branch: async () => {},

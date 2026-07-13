@@ -109,6 +109,12 @@ msgstr "Amend"
 msgid "Amont {version}"
 msgstr "Amont {version}"
 
+msgid "Amont {version} is ready to install."
+msgstr "Amont {version} is ready to install."
+
+msgid "Amont is up to date."
+msgstr "Amont is up to date."
+
 msgid "Apply"
 msgstr "Apply"
 
@@ -150,6 +156,12 @@ msgstr "Cancel"
 
 msgid "Change…"
 msgstr "Change…"
+
+msgid "Check for updates…"
+msgstr "Check for updates…"
+
+msgid "Checking for updates…"
+msgstr "Checking for updates…"
 
 msgid "Checkout"
 msgstr "Checkout"
@@ -301,8 +313,14 @@ msgstr "Diff unavailable."
 msgid "diff…"
 msgstr "diff…"
 
+msgid "Dismiss"
+msgstr "Dismiss"
+
 msgid "Documentation"
 msgstr "Documentation"
+
+msgid "Downloading Amont {version}…"
+msgstr "Downloading Amont {version}…"
 
 msgid "Drop"
 msgstr "Drop"
@@ -432,6 +450,9 @@ msgstr "initializing…"
 
 msgid "Language"
 msgstr "Language"
+
+msgid "Later"
+msgstr "Later"
 
 msgid "Light"
 msgstr "Light"
@@ -646,6 +667,9 @@ msgstr "Reset to selection"
 msgid "Resolve conflicts before committing."
 msgstr "Resolve conflicts before committing."
 
+msgid "Restart now"
+msgstr "Restart now"
+
 msgid "Reveal in file explorer"
 msgstr "Reveal in file explorer"
 
@@ -789,6 +813,12 @@ msgstr "Unstage line"
 
 msgid "Unstaged"
 msgstr "Unstaged"
+
+msgid "Update check failed."
+msgstr "Update check failed."
+
+msgid "Updates are not available in this build."
+msgstr "Updates are not available in this build."
 
 msgid "URL"
 msgstr "URL"

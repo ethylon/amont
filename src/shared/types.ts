@@ -203,6 +203,20 @@ export type MaintKind = "fsck" | "gc"
 /** Live progress of a maintenance run, streamed from git's stderr (`NN%`). */
 export type ProgressEvent = { id: number; op: MaintKind; percent: number }
 
+/* L'auto-update (main/updater.ts). `origin` distingue le check silencieux du démarrage du
+   check manuel (Help ▸ Check for updates) : le renderer n'affiche les états intermédiaires
+   (checking, up to date, erreur) que pour un check manuel — seul "ready" apparaît en auto.
+   "unavailable" : build non packagée (dev), l'updater est inerte. */
+export type UpdateState =
+  | { kind: "checking" }
+  | { kind: "none" }
+  | { kind: "downloading"; version: string; percent: number }
+  | { kind: "ready"; version: string }
+  | { kind: "error"; message: string }
+  | { kind: "unavailable" }
+
+export type UpdateStatus = { origin: "auto" | "manual" } & UpdateState
+
 export type WtSource = "staged" | "unstaged" | "untracked"
 
 /** Subject (first line) and description (body) of a commit message, as entered. */
