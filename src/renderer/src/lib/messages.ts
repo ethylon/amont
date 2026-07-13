@@ -736,6 +736,10 @@ export const messages = {
     get compacted() {
       return t`Database compacted`
     },
+    /* status-bar healthcheck: the object DB has grown enough that git's own auto-gc would fire */
+    get compactRecommended() {
+      return t`Compacting recommended`
+    },
   },
 
   flow: {
