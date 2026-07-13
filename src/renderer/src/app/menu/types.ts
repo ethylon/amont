@@ -86,7 +86,7 @@ export type MenuRepo = {
   openStats(): void
   /** `git fsck --full`, progress reported in the footer. */
   verifyDatabase(): void
-  /** `git gc`, progress reported in the footer. */
+  /** `git gc`, indeterminate spinner in the footer. */
   compactDatabase(): void
 }
 
