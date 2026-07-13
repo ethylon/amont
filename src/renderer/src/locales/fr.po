@@ -58,6 +58,12 @@ msgstr "{n, plural, one {# autre branche sur ce sommet} other {# autres branches
 msgid "{n, plural, one {# result} other {# results}}"
 msgstr "{n, plural, one {# résultat} other {# résultats}}"
 
+msgid "{n, plural, one {# untracked file will be deleted.} other {# untracked files will be deleted.}}"
+msgstr "{n, plural, one {# fichier non suivi sera supprimé.} other {# fichiers non suivis seront supprimés.}}"
+
+msgid "{n, plural, one {Changes to # file will be permanently lost.} other {Changes to # files will be permanently lost.}}"
+msgstr "{n, plural, one {Les modifications de # fichier seront définitivement perdues.} other {Les modifications de # fichiers seront définitivement perdues.}}"
+
 msgid "{n} d"
 msgstr "{n} j"
 
@@ -156,6 +162,9 @@ msgstr "Annuler"
 
 msgid "Change…"
 msgstr "Changer…"
+
+msgid "Changes to « {path} » will be permanently lost."
+msgstr "Les modifications de « {path} » seront définitivement perdues."
 
 msgid "Check for updates…"
 msgstr "Rechercher des mises à jour…"
@@ -312,6 +321,24 @@ msgstr "Diff indisponible."
 
 msgid "diff…"
 msgstr "diff…"
+
+msgid "Discard"
+msgstr "Abandonner"
+
+msgid "Discard all"
+msgstr "Tout abandonner"
+
+msgid "Discard changes"
+msgstr "Abandonner les modifications"
+
+msgid "Discard changes?"
+msgstr "Abandonner les modifications ?"
+
+msgid "Discard hunk"
+msgstr "Abandonner le bloc"
+
+msgid "Discard line"
+msgstr "Abandonner la ligne"
 
 msgid "Dismiss"
 msgstr "Fermer"

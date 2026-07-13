@@ -139,6 +139,10 @@ export type RepoApi = {
   unstage(paths: string[]): Promise<void>
   /** partial staging: sub-patch applied to the index alone; `reverse` unstages */
   applyPatch(patch: string, reverse: boolean): Promise<void>
+  /** discards working-tree changes: tracked paths restored from the index, untracked deleted */
+  discard(paths: string[], untracked: string[]): Promise<void>
+  /** partial discard: sub-patch reverse-applied to the working tree alone */
+  discardPatch(patch: string): Promise<void>
   /** `amend` rewrites the last commit (message, and staged tree if any) instead of creating a new one */
   commit(message: string, amend: boolean): Promise<void>
   /** subject and body of the last commit, to prefill an amend */
@@ -200,6 +204,8 @@ export const repoApi = (id: number): RepoApi => ({
   stage: (paths) => bridge.stage(id, paths),
   unstage: (paths) => bridge.unstage(id, paths),
   applyPatch: (patch, reverse) => bridge.applyPatch(id, patch, reverse),
+  discard: (paths, untracked) => bridge.discard(id, paths, untracked),
+  discardPatch: (patch) => bridge.discardPatch(id, patch),
   commit: (message, amend) => bridge.commit(id, message, amend),
   headMessage: () => bridge.headMessage(id),
   checkout: (name) => bridge.checkout(id, name),
