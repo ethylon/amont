@@ -5,7 +5,13 @@
    are removable. */
 
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowUpRight01Icon, CleanIcon, Delete02Icon, FolderLinksIcon, FolderOpenIcon } from "@hugeicons/core-free-icons"
+import {
+  ArrowUpRight01Icon,
+  CleanIcon,
+  Delete02Icon,
+  FolderLinksIcon,
+  FolderOpenIcon,
+} from "@hugeicons/core-free-icons"
 
 import { worktreeName, type WorktreeAct, type WorktreeInfo } from "@/lib/git"
 import { messages } from "@/lib/messages"
@@ -79,11 +85,7 @@ function WorktreeRow({
             <MenuItemWithCmd label={messages.worktrees.prune} cmd="git worktree prune" />
           </ContextMenuItem>
         ) : (
-          <ContextMenuItem
-            variant="destructive"
-            disabled={w.main || w.current}
-            onClick={() => onAct("remove", w.path)}
-          >
+          <ContextMenuItem variant="destructive" disabled={w.main || w.current} onClick={() => onAct("remove", w.path)}>
             <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
             <MenuItemWithCmd label={messages.worktrees.remove} cmd={`git worktree remove ${name}`} />
           </ContextMenuItem>
