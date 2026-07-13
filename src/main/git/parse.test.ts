@@ -57,7 +57,13 @@ describe("parseWorktreeList (worktree list --porcelain -z)", () => {
   it("flags locked and prunable, with or without a reason", () => {
     const out =
       entry(["worktree /a", "HEAD " + "e".repeat(40), "detached", "locked"]) +
-      entry(["worktree /b", "HEAD " + "f".repeat(40), "detached", "locked reason with spaces", "prunable gitdir file points to non-existent location"])
+      entry([
+        "worktree /b",
+        "HEAD " + "f".repeat(40),
+        "detached",
+        "locked reason with spaces",
+        "prunable gitdir file points to non-existent location",
+      ])
     assert.deepEqual(parseWorktreeList(out), [
       { path: "/a", head: "e".repeat(40), branch: null, locked: true, prunable: false },
       { path: "/b", head: "f".repeat(40), branch: null, locked: true, prunable: true },
