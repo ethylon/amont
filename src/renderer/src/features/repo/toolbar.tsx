@@ -42,23 +42,25 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
   }
 
   return (
-    <div className="flex h-11.5 shrink-0 items-center gap-2 overflow-x-auto border-b pr-3.5 pl-2.5">
-      <IconButton
-        label={sidebarOpen ? messages.repo.hideSidebar : messages.repo.showSidebar}
-        icon={PanelLeftCloseIcon}
-        swapIcon={PanelLeftOpenIcon}
-        swapped={sidebarOpen}
-        onClick={onToggleSidebar}
-      />
+    <div className="flex h-11.5 shrink-0 items-center gap-2 overflow-x-auto border-b pr-3.5">
+      {/* w-59 = the sidebar's width: the closing separator lands on its border-r.
+          Fixed width also keeps the bar's geometry stable across repo-name lengths. */}
+      <div className="flex w-59 shrink-0 items-center gap-2 self-stretch pl-2.5">
+        <IconButton
+          label={sidebarOpen ? messages.repo.hideSidebar : messages.repo.showSidebar}
+          icon={PanelLeftCloseIcon}
+          swapIcon={PanelLeftOpenIcon}
+          swapped={sidebarOpen}
+          onClick={onToggleSidebar}
+        />
 
-      {/* fixed width: without it, a longer name would shift the whole bar on tab
-          change — and the name's cross-fade would happen at variable geometry */}
-      <span className="amont-reponame flex w-42 shrink-0 items-center gap-1.5 text-xs">
-        <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate font-medium">{repo.name}</span>
-      </span>
+        <span className="amont-reponame flex min-w-0 flex-1 items-center gap-1.5 text-xs">
+          <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate font-medium">{repo.name}</span>
+        </span>
 
-      <Separator orientation="vertical" className="mx-1 my-2" />
+        <Separator orientation="vertical" className="my-2" />
+      </div>
 
       <div className="flex shrink-0 items-center gap-1">
         {OPS.map(({ op, label, icon, cmd }) => {
