@@ -23,6 +23,7 @@ import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/li
 import { scrollText } from "../interactions/scroll-text.ts"
 import { BRANCH_BUDGET, BRANCH_MAX, GRID_COLS, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
 import type { LayoutState } from "../layout/state.ts"
+import type { SyncInfo } from "../layout/sync.ts"
 import { hashOfId, idOf, shortHash } from "../ids.ts"
 
 export const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
@@ -175,7 +176,8 @@ export function rowDiv(
   selected: boolean,
   matched: boolean | null,
   active: boolean,
-  total: number
+  total: number,
+  sync?: SyncInfo | null
 ): HTMLDivElement {
   const row = document.createElement("div")
   row.className = ROW_CLASS
@@ -205,6 +207,10 @@ export function rowDiv(
   const flow = c.cap ? c.cap.flow : rowFlow(S, c, mg)
   if (flow) row.dataset.flow = flow
   if (c.stash) row.dataset.stash = ""
+  /* Sync zone (cf. layout/sync.ts): background tint via app.css — amber "to push",
+     blue "to pull" — so the lag reads at graph scale, not just per node. */
+  if (sync?.ahead.has(i)) row.dataset.sync = "ahead"
+  else if (sync?.behind.has(i)) row.dataset.sync = "behind"
 
   /* Branch column, left of the metro: branch name(s) then tags, folded to the budget.
      A capsule puts its version there up front; otherwise hovering places a ghost chip (cf. hover.ts). */
@@ -328,7 +334,8 @@ export function rowBucket(
   selection: ReadonlySet<number>,
   matches: ReadonlySet<number> | null,
   active: number | null,
-  total: number
+  total: number,
+  sync?: SyncInfo | null
 ): HTMLDivElement {
   const div = document.createElement("div")
   div.className = "absolute inset-x-0"
@@ -337,7 +344,7 @@ export function rowBucket(
     const c = commitAt(i)
     if (!c) continue
     const matched = matches ? matches.has(S.hashOf[i]) : null
-    div.appendChild(rowDiv(S, i, c, selection.has(i), matched, i === active, total))
+    div.appendChild(rowDiv(S, i, c, selection.has(i), matched, i === active, total, sync))
   }
   return div
 }
