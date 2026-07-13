@@ -47,13 +47,52 @@
           r: "",
           s: "untracked files on develop: a1b2c3d4 Merge…",
         },
+        /* Diverged develop: two local commits (ahead, to push) and two remote-only ones under
+       origin/develop (behind, to pull) fork from a1b2c3d4 — exercises the sync styling
+       (layout/sync.ts): amber hollow nodes above the frontier marker, blue dashed ones below. */
+        {
+          h: sha("dd01aa11"),
+          p: [sha("dd02bb22")],
+          d: "2026-07-09",
+          a: "Grace Hopper",
+          e: ME,
+          r: "HEAD -> refs/heads/develop",
+          s: "feat(ui): sync-state styling on the graph",
+        },
+        {
+          h: sha("dd02bb22"),
+          p: [sha("a1b2c3d4")],
+          d: "2026-07-09",
+          a: "Grace Hopper",
+          e: ME,
+          r: "",
+          s: "refactor(graph): local/remote divergence plumbing",
+        },
+        {
+          h: sha("cc01aa11"),
+          p: [sha("cc02bb22")],
+          d: "2026-07-08",
+          a: "Ada Lovelace",
+          e: "ada@analytical.engine",
+          r: "refs/remotes/origin/develop, refs/remotes/origin/HEAD",
+          s: "fix(solver): premix ratio rounding",
+        },
+        {
+          h: sha("cc02bb22"),
+          p: [sha("a1b2c3d4")],
+          d: "2026-07-08",
+          a: "Ada Lovelace",
+          e: "ada@analytical.engine",
+          r: "",
+          s: "feat(export): composition matrix export",
+        },
         {
           h: sha("a1b2c3d4"),
           p: [sha("9f8e7d6c"), sha("5a6b7c8d")],
           d: "2026-07-07",
           a: "Grace Hopper",
           e: ME,
-          r: "HEAD -> refs/heads/develop, refs/remotes/origin/develop, refs/remotes/origin/HEAD",
+          r: "",
           s: "Merge branch 'feature/cost-optim' into develop",
         },
         {
@@ -250,12 +289,12 @@
       }
 
       const REFS = [
-        { name: "develop", kind: "head", head: true, ahead: 2, behind: 0, tip: sha("a1b2c3d4") },
+        { name: "develop", kind: "head", head: true, ahead: 2, behind: 2, tip: sha("dd01aa11") },
         { name: "feature/cost-optim", kind: "head", head: false, ahead: 0, behind: 0, tip: sha("5a6b7c8d") },
         { name: "feature/ui/graph", kind: "head", head: false, ahead: 0, behind: 0, tip: sha("7e8f9a0b") },
         { name: "hotfix/empty-matrix", kind: "head", head: false, ahead: 0, behind: 1, tip: sha("9f8e7d6c") },
         { name: "master", kind: "head", head: false, ahead: 0, behind: 0, tip: sha("9f8e7d6c") },
-        { name: "origin/develop", kind: "remote", head: false, ahead: 0, behind: 0, tip: sha("a1b2c3d4") },
+        { name: "origin/develop", kind: "remote", head: false, ahead: 0, behind: 0, tip: sha("cc01aa11") },
         { name: "origin/master", kind: "remote", head: false, ahead: 0, behind: 0, tip: sha("9f8e7d6c") },
         { name: "origin/release/4.2", kind: "remote", head: false, ahead: 0, behind: 0, tip: sha("5a6b7c8d") },
         { name: "v4.1.3", kind: "tag", head: false, ahead: 0, behind: 0, tip: sha("4d5e6f70") },
@@ -317,7 +356,7 @@
           const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="${fill}"/><text x="80" y="56" font-size="13" fill="#fff" text-anchor="middle">${path.split("/").pop()}</text></svg>`
           return { size: svg.length, b64: btoa(svg) }
         },
-        status: async () => ({ branch: currentBranch, head: C[0].h, ahead: 1, behind: 2 }),
+        status: async () => ({ branch: currentBranch, head: sha("dd01aa11"), ahead: 2, behind: 2 }),
         body: async (_id, hash) => BODIES[hash] ?? "",
         op: async () => {},
         /* The real bridge returns an unsubscribe function per call (ipcRenderer.off, cf.

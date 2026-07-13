@@ -12,13 +12,14 @@ import { scrollTextHover, scrollTextStop } from "./interactions/scroll-text.ts"
 import { CHUNK, FIXED_W, LANE, laneColor, MAX_LANES, PAD, PAGE, RESIDENT, ROW, ROW_BUCKET } from "./constants.ts"
 import { idOf } from "./ids.ts"
 import { branchSegment, chainInfo, chainTip, type ChainInfo } from "./layout/chains.ts"
+import { computeSync, syncSignature, type SyncInfo } from "./layout/sync.ts"
 
 export type { ChainInfo }
 import { createLoader } from "./data/loader.ts"
 import { createOverlay } from "./render/overlay.ts"
 import { createMarkupCache } from "./render/svg.ts"
 import { createMeasurer } from "./render/measure.ts"
-import { rowBucket } from "./render/rows.ts"
+import { cloud, rowBucket } from "./render/rows.ts"
 import { createSelection } from "./interactions/selection.ts"
 import { createHover, refChips, tipBranches } from "./interactions/hover.ts"
 import { createPopover } from "./interactions/popover.ts"
@@ -112,6 +113,55 @@ export function createGraph(
   const mountedRows = new Map<number, HTMLDivElement>()
   let statsScheduled = false
 
+  /* --- Local/remote divergence (cf. layout/sync.ts) ---
+     Recomputed when the state moved (decorated refs or layout progress), applied only when
+     the fingerprint changes: the SVG cache and the mounted rows carry the tint, so a change
+     forces a reset + remount — same channel as a layout rebuild. */
+  let syncInfo: SyncInfo | null = null
+  let syncSig = ""
+  let syncRefsN = -1
+  let syncNext = -1
+  const syncMarker = document.createElement("div")
+  syncMarker.className = "amont-syncmark"
+  syncMarker.setAttribute("aria-hidden", "true")
+  syncMarker.style.display = "none"
+  inner.appendChild(syncMarker)
+
+  function placeSyncMarker() {
+    if (!syncInfo) {
+      syncMarker.style.display = "none"
+      return
+    }
+    /* Frontier set at the top edge of the remote-tracking row: everything above it
+       doesn't exist on the remote (yet). */
+    syncMarker.style.display = ""
+    syncMarker.style.top = syncInfo.upstreamRow * ROW + "px"
+    const counts = [syncInfo.ahead.size && `↑${syncInfo.ahead.size}`, syncInfo.behind.size && `↓${syncInfo.behind.size}`]
+      .filter(Boolean)
+      .join(" ")
+    syncMarker.textContent = ""
+    const label = document.createElement("span")
+    label.append(cloud(), document.createTextNode(`${syncInfo.upstream}${counts ? " · " + counts : ""}`))
+    syncMarker.appendChild(label)
+  }
+
+  /** true if the divergence changed: mounted views are stale, remount already triggered. */
+  function updateSync(): boolean {
+    const S = loader.state
+    if (S.refsOf.size === syncRefsN && S.next === syncNext) return false
+    syncRefsN = S.refsOf.size
+    syncNext = S.next
+    const s = computeSync(S)
+    const sig = syncSignature(s)
+    if (sig === syncSig) return false
+    syncSig = sig
+    syncInfo = s
+    markup.reset()
+    placeSyncMarker()
+    remount()
+    return true
+  }
+
   function evictNow() {
     const [c0, c1] = viewChunks()
     const last = Math.min(loader.state.next - 1, (c1 + 1) * CHUNK - 1)
@@ -164,6 +214,8 @@ export function createGraph(
 
   function sync() {
     if (destroyed) return // the overlay is no longer in the SVG: insertBefore would fail
+    /* divergence changed: updateSync already remounted everything (remount → sync), stop here */
+    if (updateSync()) return
     const S = loader.state
     const [c0, c1] = viewChunks()
     const need = (c1 + 1) * CHUNK
@@ -185,7 +237,7 @@ export function createGraph(
     for (let ci = c0; ci <= c1 && ci * CHUNK < S.next; ci++) {
       if (mountedG.has(ci)) continue
       const g = document.createElementNS(SVG_NS, "g")
-      g.innerHTML = markup.chunkMarkup(ci, S)
+      g.innerHTML = markup.chunkMarkup(ci, S, syncInfo)
       svg.insertBefore(g, overlay.root)
       mountedG.set(ci, g)
     }
@@ -223,7 +275,8 @@ export function createGraph(
             selectionCtl.selection,
             selectionCtl.matches,
             selectionCtl.active,
-            loader.total
+            loader.total,
+            syncInfo
           )
           inner.appendChild(d)
           mountedRows.set(bi, d)
@@ -445,6 +498,12 @@ export function createGraph(
       overlay.reset()
       markup.reset()
       measurer.reset()
+      /* sync state: starts over against the fresh LayoutState */
+      syncInfo = null
+      syncSig = ""
+      syncRefsN = -1
+      syncNext = -1
+      placeSyncMarker()
       stashNames = stashes.map((s) => s.name)
       measurer.queueStashNames(stashNames)
       selectionCtl.setSelection([])
@@ -557,6 +616,7 @@ export function createGraph(
       document.removeEventListener("keydown", onKeyDown)
       mountedG.forEach((g) => g.remove())
       mountedRows.forEach((d) => d.remove())
+      syncMarker.remove()
       popoverCtl.destroy()
       overlay.root.remove()
     },
