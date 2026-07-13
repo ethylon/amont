@@ -179,7 +179,10 @@
       const BODIES = Object.fromEntries(Object.entries(BODIES_SEED).map(([h, v]) => [sha(h), v]))
 
       let wt = {
-        staged: [{ st: "A", path: "src/solver/cost.ts", old: null }],
+        staged: [
+          { st: "A", path: "src/solver/cost.ts", old: null },
+          { st: "M", path: "src/solver/pricing.ts", old: null },
+        ],
         unstaged: [
           { st: "M", path: "src/solver/constraints.ts" },
           { st: "D", path: "src/legacy/old.ts" },
@@ -194,6 +197,72 @@
         ],
       }
       const drop = (arr, paths) => arr.filter((f) => !paths.includes(f.path))
+
+      /* Working-tree diffs with real hunks for the partial-staging view. Each hunk is the
+         array of its lines (header first); applyPatch moves whole hunks between the two
+         sides, matched by their old-side start — a line-level patch moves its whole hunk,
+         enough fidelity for the UI harness. Paths without an entry keep the generic stub. */
+      const WT_DIFFS = {
+        "src/solver/constraints.ts": {
+          header: [
+            "diff --git a/src/solver/constraints.ts b/src/solver/constraints.ts",
+            "index 1111111..2222222 100644",
+            "--- a/src/solver/constraints.ts",
+            "+++ b/src/solver/constraints.ts",
+          ],
+          unstaged: [
+            [
+              "@@ -1,5 +1,5 @@",
+              ' import { Matrix } from "./matrix"',
+              " ",
+              "-const MAX_ITER = 100",
+              "+const MAX_ITER = 250",
+              " const EPS = 1e-9",
+              " ",
+            ],
+            [
+              "@@ -12,6 +12,7 @@ export function normalize(m) {",
+              " export function addRow(m, row) {",
+              '   if (!row.length) throw new Error("empty row")',
+              '+  if (row.some(Number.isNaN)) throw new Error("NaN in row")',
+              "   m.rows.push(row)",
+              "-  m.dirty = true",
+              "+  m.dirty = m.rows.length > 1",
+              "   return m",
+              " }",
+            ],
+          ],
+          staged: [],
+        },
+        "src/solver/pricing.ts": {
+          header: [
+            "diff --git a/src/solver/pricing.ts b/src/solver/pricing.ts",
+            "index 3333333..4444444 100644",
+            "--- a/src/solver/pricing.ts",
+            "+++ b/src/solver/pricing.ts",
+          ],
+          unstaged: [],
+          staged: [
+            [
+              "@@ -3,4 +3,5 @@",
+              " export function price(basis) {",
+              "-  return basis.cost",
+              "+  const devex = basis.weights ?? 1",
+              "+  return basis.cost * devex",
+              " }",
+              " ",
+            ],
+          ],
+        },
+      }
+      const oldStartOf = (hunk) => Number(/^@@ -(\d+)/.exec(hunk[0])[1])
+      /* re-derives the file's presence in each list from its remaining hunks */
+      const syncWtLists = (path, entry) => {
+        wt.unstaged = drop(wt.unstaged, [path])
+        wt.staged = drop(wt.staged, [path])
+        if (entry.unstaged.length) wt.unstaged.push({ st: "M", path })
+        if (entry.staged.length) wt.staged.push({ st: "M", path, old: null })
+      }
       /* MERGE_HEAD outlives the last resolved file (until commit or abort), like real git */
       let merging = true
 
@@ -467,17 +536,43 @@
         worktreeOpen: async (_id, path) => ({ id: nextRepoId++, path, name: path.split("/").pop() }),
         worktreeReveal: async () => {},
         worktree: async () => structuredClone(wt),
-        wtdiff: async (_id, p) => `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`,
+        wtdiff: async (_id, p, source) => {
+          const entry = WT_DIFFS[p]
+          if (!entry) return `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`
+          const hunks = entry[source] ?? []
+          return hunks.length ? [...entry.header, ...hunks.flat(), ""].join("\n") : ""
+        },
+        applyPatch: async (_id, patch, reverse) => {
+          const path = /^diff --git a\/(.+) b\//m.exec(patch)?.[1]
+          const entry = WT_DIFFS[path]
+          if (!entry) return
+          const from = reverse ? "staged" : "unstaged"
+          const to = reverse ? "unstaged" : "staged"
+          const starts = [...patch.matchAll(/^@@ -(\d+)/gm)].map((m) => Number(m[1]))
+          const moved = entry[from].filter((h) => starts.includes(oldStartOf(h)))
+          entry[from] = entry[from].filter((h) => !moved.includes(h))
+          entry[to].push(...moved)
+          entry[to].sort((a, b) => oldStartOf(a) - oldStartOf(b))
+          syncWtLists(path, entry)
+        },
         stage: async (_id, paths) => {
           const moved = [...wt.unstaged, ...wt.untracked].filter((f) => paths.includes(f.path))
           wt.unstaged = drop(wt.unstaged, paths)
           wt.untracked = drop(wt.untracked, paths)
           wt.staged.push(...moved.map((f) => ({ st: f.st === "?" ? "A" : f.st, path: f.path, old: null })))
+          for (const p of paths) {
+            const entry = WT_DIFFS[p]
+            if (entry) entry.staged.push(...entry.unstaged.splice(0))
+          }
         },
         unstage: async (_id, paths) => {
           const moved = wt.staged.filter((f) => paths.includes(f.path))
           wt.staged = drop(wt.staged, paths)
           wt.unstaged.push(...moved.map((f) => ({ st: "M", path: f.path })))
+          for (const p of paths) {
+            const entry = WT_DIFFS[p]
+            if (entry) entry.unstaged.push(...entry.staged.splice(0))
+          }
         },
         commit: async () => {
           wt.staged = []
