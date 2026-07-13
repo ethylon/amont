@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { html as d2hHtml } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
@@ -12,7 +12,9 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
+import { parseUnifiedDiff } from "@/features/diff/diff-parse"
 import { useDiffQuery } from "@/features/diff/diff-queries"
+import { WtDiffBody } from "@/features/diff/wt-diff-body"
 import { imageExt, isTextImage } from "@/features/diff/image-diff-queries"
 import { ImageDiffView } from "@/features/diff/image-diff-view"
 import { messages } from "@/lib/messages"
@@ -191,11 +193,17 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
   const dark = useTheme()
 
   /* The diff overlays the graph: we bring focus to it on open (Escape and close
-     reachable from the keyboard) and return it to the previous element on close. */
-  useEffect(() => {
+     reachable from the keyboard) and return it to the previous element on close.
+     Layout effect + `contains` guard: switching file remounts the view (keyed on the path
+     in graph-column), and focus only goes back if the view still holds it — a click on
+     another row must not yank focus (and the file list scroll) back to the old row. */
+  useLayoutEffect(() => {
+    const el = root.current
     const prev = document.activeElement as HTMLElement | null
-    root.current?.focus()
-    return () => prev?.focus?.()
+    el?.focus()
+    return () => {
+      if (el?.contains(document.activeElement)) prev?.focus?.()
+    }
   }, [])
 
   /* Image paths bypass diff2html (it can only render text). A text-based image (svg) can also be
@@ -209,9 +217,20 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
      svg only once the user flips to the diff view (react-query fetches lazily on that toggle). */
   const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
 
+  /* A staged/unstaged text diff gets the interactive per-hunk/per-line staging body instead
+     of diff2html — it honors the same unified/side-by-side toggle. Untracked files (no index
+     entry to patch) and oversized or out-of-grammar diffs fall through to the existing
+     render paths. */
+  const wtSrc = "wt" in ctx && ctx.wt !== "untracked" ? ctx.wt : null
+  const parsed = useMemo(
+    () =>
+      wtSrc && !showImage && text !== null && text.split("\n").length <= MAX_LINES ? parseUnifiedDiff(text) : null,
+    [wtSrc, showImage, text]
+  )
+
   useEffect(() => {
     const el = body.current
-    if (!el || showImage || text === null) return
+    if (!el || showImage || text === null || parsed) return
     if (!text.trim()) {
       el.textContent = messages.diff.empty
       el.className = DIFF_BODY + " text-muted-foreground"
@@ -231,7 +250,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
     })
     shikiPass(el).catch(() => {})
     return syncSides(el)
-  }, [text, view, dark, showImage])
+  }, [text, view, dark, showImage, parsed])
 
   return (
     <div ref={root} tabIndex={-1} className="flex min-h-0 flex-1 flex-col px-4.5 py-4 outline-none">
@@ -255,7 +274,8 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
               </ToggleGroupItem>
             </ToggleGroup>
           )}
-          {/* The unified/side-by-side toggle only applies to a text diff, not an image preview. */}
+          {/* The unified/side-by-side toggle applies to every text diff — diff2html render
+              and interactive staging body alike — never to an image preview. */}
           {!showImage && (
             <ToggleGroup
               spacing={0}
@@ -282,6 +302,8 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
         <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
       ) : text === null ? (
         <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
+      ) : parsed && wtSrc ? (
+        <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} view={view} />
       ) : (
         <div ref={body} className={DIFF_BODY} />
       )}

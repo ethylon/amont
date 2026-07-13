@@ -12,6 +12,7 @@ import type {
   GitRef,
   Stash,
   Worktree,
+  WorktreeInfo,
 } from "../../shared/types.ts"
 import type { ErrorPayload } from "../../shared/errors.ts"
 
@@ -61,6 +62,47 @@ export function parseNameStatus(out: string): FileChange[] {
     files.push({ st: st[0], path, old })
   }
   return files
+}
+
+/* --- Linked worktrees ---
+   `worktree list --porcelain -z`: one NUL-terminated attribute line per field, an empty
+   field closes the entry. `-z` keeps a path containing a newline intact — the LF format
+   would split it. The first entry is always the main worktree; a bare one (no working
+   tree to display or open) is dropped. `locked`/`prunable` may carry a reason after a
+   space: only the presence matters here. `path`/`main`/`current` are finalized by the
+   caller (queries.ts), which knows the platform and the repo asking. */
+export function parseWorktreeList(out: string): Omit<WorktreeInfo, "main" | "current">[] {
+  const list: Omit<WorktreeInfo, "main" | "current">[] = []
+  let wt: { path: string; head: string; branch: string | null; bare: boolean; locked: boolean; prunable: boolean } = {
+    path: "",
+    head: "",
+    branch: null,
+    bare: false,
+    locked: false,
+    prunable: false,
+  }
+  const flush = () => {
+    if (wt.path && !wt.bare)
+      list.push({ path: wt.path, head: wt.head, branch: wt.branch, locked: wt.locked, prunable: wt.prunable })
+    wt = { path: "", head: "", branch: null, bare: false, locked: false, prunable: false }
+  }
+  for (const line of out.split("\0")) {
+    if (!line) {
+      flush()
+      continue
+    }
+    const sp = line.indexOf(" ")
+    const key = sp < 0 ? line : line.slice(0, sp)
+    const value = sp < 0 ? "" : line.slice(sp + 1)
+    if (key === "worktree") wt.path = value
+    else if (key === "HEAD") wt.head = value
+    else if (key === "branch") wt.branch = value.replace(/^refs\/heads\//, "")
+    else if (key === "bare") wt.bare = true
+    else if (key === "locked") wt.locked = true
+    else if (key === "prunable") wt.prunable = true
+  }
+  flush() // truncated output without the final terminator: keep what's complete
+  return list
 }
 
 /* --- Stash --- */

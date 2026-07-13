@@ -31,7 +31,10 @@ export type {
   StashAct,
   Status,
   TraceLine,
+  UpdateStatus,
   Worktree,
+  WorktreeAct,
+  WorktreeInfo,
   WtSource,
 } from "../../../shared/types.ts"
 
@@ -54,8 +57,11 @@ import type {
   OpName,
   Stash,
   StashAct,
+  Repo,
   Status,
   Worktree,
+  WorktreeAct,
+  WorktreeInfo,
   WtSource,
 } from "../../../shared/types.ts"
 
@@ -81,6 +87,8 @@ export const host = {
   initRepo: bridge.initRepo,
   initBare: bridge.initBare,
   cloneRepo: bridge.cloneRepo,
+  checkForUpdates: bridge.checkForUpdates,
+  installUpdate: bridge.installUpdate,
 }
 
 /* The preload now handles unsubscription itself (`ipcRenderer.off`, see src/preload):
@@ -90,6 +98,7 @@ export const onOp = bridge.onOp
 export const onChanged = bridge.onChanged
 export const onTrace = bridge.onTrace
 export const onProgress = bridge.onProgress
+export const onUpdate = bridge.onUpdate
 
 /* Opens the repos of restored tabs. Called once, explicitly, from main.tsx —
    rather than an import-time side effect (the old `bootState`, evaluated as soon as this module
@@ -128,6 +137,12 @@ export type RepoApi = {
   wtdiff(path: string, source: WtSource): Promise<string>
   stage(paths: string[]): Promise<void>
   unstage(paths: string[]): Promise<void>
+  /** partial staging: sub-patch applied to the index alone; `reverse` unstages */
+  applyPatch(patch: string, reverse: boolean): Promise<void>
+  /** discards working-tree changes: tracked paths restored from the index, untracked deleted */
+  discard(paths: string[], untracked: string[]): Promise<void>
+  /** partial discard: sub-patch reverse-applied to the working tree alone */
+  discardPatch(patch: string): Promise<void>
   /** `amend` rewrites the last commit (message, and staged tree if any) instead of creating a new one */
   commit(message: string, amend: boolean): Promise<void>
   /** subject and body of the last commit, to prefill an amend */
@@ -138,6 +153,15 @@ export type RepoApi = {
   stashes(): Promise<Stash[]>
   /** `push` stashes the tree (optional message); the others target a `stash@{N}` name */
   stash(action: StashAct, arg?: string): Promise<void>
+  /** entries of `git worktree list`, main worktree first */
+  worktrees(): Promise<WorktreeInfo[]>
+  /** `remove` targets a listed worktree path; `prune` sweeps the stale entries */
+  worktreeAct(action: WorktreeAct, path?: string): Promise<void>
+  /** destination picker then `git worktree add`; `null` when the dialog is cancelled */
+  worktreeAdd(branch: string): Promise<Repo | null>
+  /** opens a listed worktree as a repo — the caller surfaces it as a tab */
+  worktreeOpen(path: string): Promise<Repo>
+  worktreeReveal(path: string): Promise<void>
   /** the A/B labels of the conflict view: current branch (ours) and merged-in branch (theirs) */
   mergeState(): Promise<MergeState>
   /** the three index stages + working file of a conflicted path */
@@ -179,11 +203,19 @@ export const repoApi = (id: number): RepoApi => ({
   wtdiff: (path, source) => bridge.wtdiff(id, path, source),
   stage: (paths) => bridge.stage(id, paths),
   unstage: (paths) => bridge.unstage(id, paths),
+  applyPatch: (patch, reverse) => bridge.applyPatch(id, patch, reverse),
+  discard: (paths, untracked) => bridge.discard(id, paths, untracked),
+  discardPatch: (patch) => bridge.discardPatch(id, patch),
   commit: (message, amend) => bridge.commit(id, message, amend),
   headMessage: () => bridge.headMessage(id),
   checkout: (name) => bridge.checkout(id, name),
   stashes: () => bridge.stashes(id),
   stash: (action, arg) => bridge.stash(id, action, arg),
+  worktrees: () => bridge.worktrees(id),
+  worktreeAct: (action, path) => bridge.worktreeAct(id, action, path),
+  worktreeAdd: (branch) => bridge.worktreeAdd(id, branch),
+  worktreeOpen: (path) => bridge.worktreeOpen(id, path),
+  worktreeReveal: (path) => bridge.worktreeReveal(id, path),
   mergeState: () => bridge.mergeState(id),
   conflict: (path) => bridge.conflict(id, path),
   resolve: (path, content) => bridge.resolve(id, path, content),
@@ -198,3 +230,6 @@ export const repoApi = (id: number): RepoApi => ({
 
 export const worktreeCount = (w: Worktree) =>
   w.staged.length + w.unstaged.length + w.untracked.length + w.conflicts.length
+
+/** display name of a linked worktree: its folder name */
+export const worktreeName = (w: WorktreeInfo) => w.path.split(/[\\/]/).pop() || w.path

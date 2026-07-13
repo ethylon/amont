@@ -16,7 +16,7 @@
    so typed edits elsewhere survive and the pickers never lock. "Mark as resolved" enables once
    no placeholder or marker remains and stages the file — git's own definition of resolved. */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Cancel01Icon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
 import type { FileChange, MergeState, RepoApi } from "@/lib/git"
@@ -41,6 +41,7 @@ import {
   type PickSide,
 } from "./conflict-parse"
 import { useConflictQuery, useMergeStateQuery } from "./conflict-queries"
+import { CodeLine, useShikiTokens, type TokenLine } from "@/features/diff/shiki-tokens"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,59 +55,6 @@ const SIDE_TINT: Record<PickSide, string> = { ours: "bg-info/8", theirs: "bg-suc
 const PICKED_TINT: Record<PickSide, string> = { ours: "bg-info/20", theirs: "bg-success/20" }
 
 const MONO = "font-mono text-xs leading-normal [tab-size:4]"
-
-/* --- Syntax highlighting ---
-   Same aliases as diff-view's, kept local: importing ANYTHING statically from
-   shiki-highlighter.ts would pull shiki into the initial bundle and defeat its lazy load. */
-const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
-
-function langOf(path: string): string {
-  const name = path.slice(path.lastIndexOf("/") + 1)
-  const dot = name.lastIndexOf(".")
-  const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : ""
-  return LANG_ALIASES[ext] || ext
-}
-
-type TokenLine = { content: string; color?: string }[]
-
-/** Shiki tokens for one document, or null while loading / for an unknown grammar (the caller
-    then renders plain — same fallback policy as the diff view). Tokens are NOT cleared while a
-    new highlight is computing, so keystrokes in the output don't flash the code back to plain. */
-function useShikiTokens(code: string, path: string, dark: boolean): TokenLine[] | null {
-  const [tokens, setTokens] = useState<TokenLine[] | null>(null)
-  useEffect(() => {
-    const lang = langOf(path)
-    if (!lang || lang === "txt") {
-      setTokens(null)
-      return
-    }
-    let live = true
-    void (async () => {
-      try {
-        const { codeToTokens, getHighlighter } = await import("@/features/diff/shiki-highlighter")
-        const highlighter = await getHighlighter()
-        const res = codeToTokens(highlighter, code, { lang, theme: dark ? "github-dark" : "github-light" })
-        if (live) setTokens(res.tokens)
-      } catch {
-        /* unknown grammar: stay plain */
-      }
-    })()
-    return () => {
-      live = false
-    }
-  }, [code, path, dark])
-  return tokens
-}
-
-/** One rendered code line: shiki spans when tokens are there, raw text otherwise. */
-function CodeLine({ text, tokens }: { text: string; tokens?: TokenLine }) {
-  if (!tokens || !tokens.some((t) => t.content)) return <>{text || " "}</>
-  return tokens.map((t, i) => (
-    <span key={i} style={{ color: t.color }}>
-      {t.content}
-    </span>
-  ))
-}
 
 /** A run of context lines (same text both sides), highlighted with its pane's tokens. */
 function PaneCell({
@@ -345,11 +293,15 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
   const labels = sideLabels(ms, baseSegments)
 
   /* Same focus contract as DiffView: the overlay takes the keyboard on open (Escape lives
-     in repo-view's shortcut handler) and hands it back on close. */
-  useEffect(() => {
+     in repo-view's shortcut handler) and hands it back on close — only if it still holds
+     focus, so switching to another file doesn't yank focus and scroll back to the old row. */
+  useLayoutEffect(() => {
+    const el = root.current
     const prev = document.activeElement as HTMLElement | null
-    root.current?.focus()
-    return () => prev?.focus?.()
+    el?.focus()
+    return () => {
+      if (el?.contains(document.activeElement)) prev?.focus?.()
+    }
   }, [])
 
   /** Header checkbox of a side: none / some / all across every conflict that has lines. */

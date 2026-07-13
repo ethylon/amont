@@ -1,4 +1,10 @@
-import { Book02Icon, BugIcon, Github01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons"
+import {
+  Book02Icon,
+  BugIcon,
+  Github01Icon,
+  InformationCircleIcon,
+  SystemUpdate01Icon,
+} from "@hugeicons/core-free-icons"
 
 import { messages } from "@/lib/messages"
 import type { MenuDescriptor } from "@/app/menu/types"
@@ -32,6 +38,14 @@ export const helpMenu: MenuDescriptor = {
       label: messages.menu.reportIssue,
       icon: BugIcon,
       run: () => ctx.openExternal(`${REPO}/issues/new`),
+    },
+    { kind: "separator" },
+    {
+      kind: "action",
+      id: "help.updates",
+      label: messages.menu.checkForUpdates,
+      icon: SystemUpdate01Icon,
+      run: () => ctx.checkForUpdates(),
     },
     { kind: "separator" },
     {

@@ -58,6 +58,12 @@ msgstr "{n, plural, one {# autre branche sur ce sommet} other {# autres branches
 msgid "{n, plural, one {# result} other {# results}}"
 msgstr "{n, plural, one {# résultat} other {# résultats}}"
 
+msgid "{n, plural, one {# untracked file will be deleted.} other {# untracked files will be deleted.}}"
+msgstr "{n, plural, one {# fichier non suivi sera supprimé.} other {# fichiers non suivis seront supprimés.}}"
+
+msgid "{n, plural, one {Changes to # file will be permanently lost.} other {Changes to # files will be permanently lost.}}"
+msgstr "{n, plural, one {Les modifications de # fichier seront définitivement perdues.} other {Les modifications de # fichiers seront définitivement perdues.}}"
+
 msgid "{n} d"
 msgstr "{n} j"
 
@@ -109,6 +115,12 @@ msgstr "Amender"
 msgid "Amont {version}"
 msgstr "Amont {version}"
 
+msgid "Amont {version} is ready to install."
+msgstr "Amont {version} est prêt à être installé."
+
+msgid "Amont is up to date."
+msgstr "Amont est à jour."
+
 msgid "Apply"
 msgstr "Appliquer"
 
@@ -150,6 +162,15 @@ msgstr "Annuler"
 
 msgid "Change…"
 msgstr "Changer…"
+
+msgid "Changes to « {path} » will be permanently lost."
+msgstr "Les modifications de « {path} » seront définitivement perdues."
+
+msgid "Check for updates…"
+msgstr "Rechercher des mises à jour…"
+
+msgid "Checking for updates…"
+msgstr "Recherche de mises à jour…"
 
 msgid "Checkout"
 msgstr "Basculer"
@@ -250,6 +271,9 @@ msgstr "Créez un dépôt local, un dépôt distant (bare), ou clonez un dépôt
 msgid "Create a repository"
 msgstr "Créer un dépôt"
 
+msgid "Create worktree…"
+msgstr "Créer un worktree…"
+
 msgid "creating…"
 msgstr "création…"
 
@@ -286,6 +310,9 @@ msgstr "supprimé de ce côté"
 msgid "Destination folder"
 msgstr "Dossier de destination"
 
+msgid "detached HEAD"
+msgstr "HEAD détachée"
+
 msgid "Development branch"
 msgstr "Branche de développement"
 
@@ -295,8 +322,32 @@ msgstr "Diff indisponible."
 msgid "diff…"
 msgstr "diff…"
 
+msgid "Discard"
+msgstr "Abandonner"
+
+msgid "Discard all"
+msgstr "Tout abandonner"
+
+msgid "Discard changes"
+msgstr "Abandonner les modifications"
+
+msgid "Discard changes?"
+msgstr "Abandonner les modifications ?"
+
+msgid "Discard hunk"
+msgstr "Abandonner le bloc"
+
+msgid "Discard line"
+msgstr "Abandonner la ligne"
+
+msgid "Dismiss"
+msgstr "Fermer"
+
 msgid "Documentation"
 msgstr "Documentation"
+
+msgid "Downloading Amont {version}…"
+msgstr "Téléchargement d'Amont {version}…"
 
 msgid "Drop"
 msgstr "Supprimer"
@@ -427,6 +478,9 @@ msgstr "initialisation…"
 msgid "Language"
 msgstr "Langue"
 
+msgid "Later"
+msgstr "Plus tard"
+
 msgid "Light"
 msgstr "Clair"
 
@@ -526,11 +580,17 @@ msgstr "Ouvrir un dépôt dans un nouvel onglet."
 msgid "Open a repository…"
 msgstr "Ouvrir un dépôt…"
 
+msgid "Open in a new tab"
+msgstr "Ouvrir dans un nouvel onglet"
+
 msgid "Open in file explorer"
 msgstr "Ouvrir dans l'explorateur de fichiers"
 
 msgid "Open repository…"
 msgstr "Ouvrir un dépôt…"
+
+msgid "Open worktree « {name} »"
+msgstr "Ouvrir le worktree « {name} »"
 
 msgid "ours — current branch"
 msgstr "ours — branche courante"
@@ -561,6 +621,9 @@ msgstr "Branche de production"
 
 msgid "Prunable objects"
 msgstr "Objets élaguables"
+
+msgid "Prune worktrees"
+msgstr "Nettoyer les worktrees (prune)"
 
 msgid "Publish"
 msgstr "Publier"
@@ -613,6 +676,9 @@ msgstr "Distants"
 msgid "Remove line from the output"
 msgstr "Retirer la ligne du résultat"
 
+msgid "Remove worktree"
+msgstr "Supprimer le worktree"
+
 msgid "Report an issue…"
 msgstr "Signaler un problème…"
 
@@ -627,6 +693,12 @@ msgstr "Réinitialiser sur la sélection"
 
 msgid "Resolve conflicts before committing."
 msgstr "Résolvez les conflits avant de commiter."
+
+msgid "Restart now"
+msgstr "Redémarrer maintenant"
+
+msgid "Reveal in file explorer"
+msgstr "Afficher dans l'explorateur de fichiers"
 
 msgid "Root folder"
 msgstr "Dossier racine"
@@ -657,6 +729,12 @@ msgstr "Tout indexer"
 
 msgid "Stage folder"
 msgstr "Indexer le dossier"
+
+msgid "Stage hunk"
+msgstr "Indexer le hunk"
+
+msgid "Stage line"
+msgstr "Indexer la ligne"
 
 msgid "Staged"
 msgstr "Indexé"
@@ -718,6 +796,9 @@ msgstr "theirs — entrante"
 msgid "Theme"
 msgstr "Thème"
 
+msgid "This worktree is open in this tab"
+msgstr "Ce worktree est ouvert dans cet onglet"
+
 msgid "to {targets}"
 msgstr "vers {targets}"
 
@@ -751,8 +832,20 @@ msgstr "Tout désindexer"
 msgid "Unstage folder"
 msgstr "Désindexer le dossier"
 
+msgid "Unstage hunk"
+msgstr "Désindexer le hunk"
+
+msgid "Unstage line"
+msgstr "Désindexer la ligne"
+
 msgid "Unstaged"
 msgstr "Non indexé"
+
+msgid "Update check failed."
+msgstr "La recherche de mises à jour a échoué."
+
+msgid "Updates are not available in this build."
+msgstr "Les mises à jour ne sont pas disponibles dans cette version."
 
 msgid "URL"
 msgstr "URL"
@@ -774,3 +867,6 @@ msgstr "Préfixe d'étiquette de version"
 
 msgid "View"
 msgstr "Affichage"
+
+msgid "Worktrees"
+msgstr "Worktrees"
