@@ -12,7 +12,7 @@ import type { SelMode } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
 import type { ChainInfo, GraphHandle } from "@/features/graph/controller"
 import { shortHash } from "@/features/graph/ids"
-import { ScrollName } from "@/features/graph/interactions/scroll-name"
+import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { Avatar } from "@/components/ui/avatar"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
@@ -61,7 +61,7 @@ function RefBadge({ r }: { r: RefChip }) {
     >
       {(r.kind === "remote" || synced) && <Cloud />}
       {synced && <span className={badgeSeparator} />}
-      <ScrollName text={r.name} />
+      <ScrollText text={r.name} />
     </Badge>
   )
 }

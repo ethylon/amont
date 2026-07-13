@@ -565,6 +565,27 @@
           entry[to].sort((a, b) => oldStartOf(a) - oldStartOf(b))
           syncWtLists(path, entry)
         },
+        discard: async (_id, paths, untracked) => {
+          wt.unstaged = drop(wt.unstaged, paths)
+          wt.untracked = drop(wt.untracked, untracked)
+          for (const p of paths) {
+            const entry = WT_DIFFS[p]
+            if (entry) {
+              entry.unstaged = []
+              syncWtLists(p, entry)
+            }
+          }
+        },
+        /* removes the matched hunks from the unstaged side — same matching as applyPatch,
+           but the change vanishes instead of moving to the index */
+        discardPatch: async (_id, patch) => {
+          const path = /^diff --git a\/(.+) b\//m.exec(patch)?.[1]
+          const entry = WT_DIFFS[path]
+          if (!entry) return
+          const starts = [...patch.matchAll(/^@@ -(\d+)/gm)].map((m) => Number(m[1]))
+          entry.unstaged = entry.unstaged.filter((h) => !starts.includes(oldStartOf(h)))
+          syncWtLists(path, entry)
+        },
         stage: async (_id, paths) => {
           const moved = [...wt.unstaged, ...wt.untracked].filter((f) => paths.includes(f.path))
           wt.unstaged = drop(wt.unstaged, paths)

@@ -83,6 +83,12 @@ export type InvokeChannels = {
   /** Partial staging: applies a sub-patch to the index alone (`git apply --cached`);
       `reverse` unstages. The patch is built renderer-side (diff-parse.ts). */
   "repo:applyPatch": (id: number, patch: string, reverse: boolean) => Promise<void>
+  /** Discards working-tree changes: tracked paths restored from the index (`git restore`),
+      untracked paths deleted (`git clean -f`). Irreversible — the renderer confirms first. */
+  "repo:discard": (id: number, paths: string[], untracked: string[]) => Promise<void>
+  /** Partial discard (hunk or lines): reverse-applies a sub-patch to the working tree alone
+      (`git apply --reverse`); the index never moves. Built renderer-side like applyPatch's. */
+  "repo:discardPatch": (id: number, patch: string) => Promise<void>
   "repo:commit": (id: number, message: string, amend: boolean) => Promise<void>
   "repo:flow": (id: number) => Promise<FlowPrefixes | null>
   "repo:flowInfo": (id: number, branch: string, kind: keyof FlowPrefixes) => Promise<FlowInfo | null>
@@ -215,6 +221,8 @@ export type Bridge = {
   stage: InvokeChannels["repo:stage"]
   unstage: InvokeChannels["repo:unstage"]
   applyPatch: InvokeChannels["repo:applyPatch"]
+  discard: InvokeChannels["repo:discard"]
+  discardPatch: InvokeChannels["repo:discardPatch"]
   commit: InvokeChannels["repo:commit"]
   checkout: InvokeChannels["repo:checkout"]
   stashes: InvokeChannels["repo:stashes"]

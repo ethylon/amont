@@ -10,7 +10,7 @@ import { ArrowUpRight01Icon, CleanIcon, Delete02Icon, FolderOpenIcon, Tree02Icon
 import { worktreeName, type WorktreeAct, type WorktreeInfo } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
-import { ScrollName } from "@/features/graph/interactions/scroll-name"
+import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useWorktreesQuery } from "@/features/worktrees/worktrees-queries"
 import { useResettableOpen } from "@/features/refs/refs-tree"
@@ -56,7 +56,7 @@ function WorktreeRow({
         >
           <HugeiconsIcon icon={Tree02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
           {/* a prunable entry's folder is gone: it reads as a leftover, same as a gone branch */}
-          <ScrollName
+          <ScrollText
             text={name}
             className={cn(
               w.current ? "font-semibold" : "font-medium",
