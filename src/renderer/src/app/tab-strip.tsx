@@ -12,9 +12,6 @@ import { IconButton } from "@/components/ui/icon-button"
 /** The home screen lives in a pinned tab, never closed. The others carry the repo id. */
 export const HOME = 0
 
-/** The creation page behind the "+": pinned like home (repo ids start at 1, cf. navigation.ts). */
-export const CREATE = -1
-
 /** Link the tab to its panel (aria-controls / aria-labelledby), see `App`. */
 export const tabId = (key: number) => `amont-tab-${key}`
 export const panelId = (key: number) => `amont-panel-${key}`
@@ -26,6 +23,8 @@ type Props = {
   active: number
   onSelect(key: number): void
   onClose(key: number): void
+  /** The "+" at the end of the tab row: opens the repository-creation dialog (see App). */
+  onNew(): void
   /** The application menu bar (File/View/Repository/Git Flow/Help), rendered in the top row
       beside the mark; the repository tabs sit on their own row below. */
   menu?: React.ReactNode
@@ -34,7 +33,7 @@ type Props = {
 const tabClass =
   "group/tab flex h-7.5 shrink-0 cursor-pointer items-center rounded-md border text-xs focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none aria-selected:border-border aria-selected:bg-muted aria-selected:font-medium aria-selected:text-foreground"
 
-export function TabStrip({ tabs, active, onSelect, onClose, menu }: Props) {
+export function TabStrip({ tabs, active, onSelect, onClose, onNew, menu }: Props) {
   /* subscribed to the theme rather than a local copy: an OS flip (without an explicit
      choice saved) must flip the icon too */
   const dark = useTheme()
@@ -42,8 +41,9 @@ export function TabStrip({ tabs, active, onSelect, onClose, menu }: Props) {
   const toggleTheme = () => setDark(!dark)
 
   /* ARIA "tabs" pattern: only one tab in the tabulation order (roving tabindex), the
-     arrows move focus from tab to tab and activate it along the way. */
-  const order = [HOME, ...tabs.map((t) => t.key), CREATE]
+     arrows move focus from tab to tab and activate it along the way. The "+" is an action,
+     not a tab, so it stays out of this list (reachable by Tab, like any button). */
+  const order = [HOME, ...tabs.map((t) => t.key)]
   const tabEls = useRef(new Map<number, HTMLDivElement>())
   const tabRef = (key: number) => (el: HTMLDivElement | null) => {
     el ? tabEls.current.set(key, el) : tabEls.current.delete(key)
@@ -92,73 +92,73 @@ export function TabStrip({ tabs, active, onSelect, onClose, menu }: Props) {
         />
       </div>
 
-      {/* second row: the repository tabs, on their own line (see two-menu bar) */}
-      <div role="tablist" className="flex items-center gap-1 overflow-x-auto border-t px-2.5 py-1">
-        <div
-          ref={tabRef(HOME)}
-          role="tab"
-          id={tabId(HOME)}
-          aria-controls={panelId(HOME)}
-          tabIndex={active === HOME ? 0 : -1}
-          aria-selected={active === HOME}
-          aria-label={messages.app.home}
-          onClick={() => onSelect(HOME)}
-          onKeyDown={(e) => onTabKey(e, HOME)}
-          className={cn(tabClass, "w-9 justify-center border-transparent text-muted-foreground hover:bg-muted/60")}
-        >
-          <HugeiconsIcon icon={Home01Icon} strokeWidth={2} className="size-3.5" />
+      {/* second row: the repository tabs, on their own line (see two-menu bar). The row scrolls;
+          the tablist holds the actual tabs and the "+" rides along at its end as a plain action. */}
+      <div className="flex items-center gap-1 overflow-x-auto border-t px-2.5 py-1">
+        <div role="tablist" className="flex shrink-0 items-center gap-1">
+          <div
+            ref={tabRef(HOME)}
+            role="tab"
+            id={tabId(HOME)}
+            aria-controls={panelId(HOME)}
+            tabIndex={active === HOME ? 0 : -1}
+            aria-selected={active === HOME}
+            aria-label={messages.app.home}
+            onClick={() => onSelect(HOME)}
+            onKeyDown={(e) => onTabKey(e, HOME)}
+            className={cn(tabClass, "w-9 justify-center border-transparent text-muted-foreground hover:bg-muted/60")}
+          >
+            <HugeiconsIcon icon={Home01Icon} strokeWidth={2} className="size-3.5" />
+          </div>
+
+          {tabs.map((t) => (
+            <div
+              key={t.key}
+              ref={tabRef(t.key)}
+              role="tab"
+              id={tabId(t.key)}
+              aria-controls={panelId(t.key)}
+              tabIndex={t.key === active ? 0 : -1}
+              aria-selected={t.key === active}
+              onClick={() => onSelect(t.key)}
+              onKeyDown={(e) => onTabKey(e, t.key)}
+              /* middle click: closes, like a browser */
+              onAuxClick={(e) => e.button === 1 && onClose(t.key)}
+              className={cn(
+                tabClass,
+                "max-w-44 gap-1.5 border-transparent px-2.5 text-muted-foreground hover:bg-muted/60"
+              )}
+            >
+              <span className="truncate">{t.name}</span>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={messages.app.closeTab(t.name)}
+                /* after: the click target goes from 20 to 28px without growing the icon (see checkbox) */
+                className="relative -me-1.5 shrink-0 opacity-0 group-aria-selected/tab:opacity-100 group-hover/tab:opacity-100 focus-visible:opacity-100 after:absolute after:-inset-1"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClose(t.key)
+                }}
+              >
+                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-2.5" />
+              </Button>
+            </div>
+          ))}
         </div>
 
-        {tabs.map((t) => (
-          <div
-            key={t.key}
-            ref={tabRef(t.key)}
-            role="tab"
-            id={tabId(t.key)}
-            aria-controls={panelId(t.key)}
-            tabIndex={t.key === active ? 0 : -1}
-            aria-selected={t.key === active}
-            onClick={() => onSelect(t.key)}
-            onKeyDown={(e) => onTabKey(e, t.key)}
-            /* middle click: closes, like a browser */
-            onAuxClick={(e) => e.button === 1 && onClose(t.key)}
-            className={cn(
-              tabClass,
-              "max-w-44 gap-1.5 border-transparent px-2.5 text-muted-foreground hover:bg-muted/60"
-            )}
-          >
-            <span className="truncate">{t.name}</span>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label={messages.app.closeTab(t.name)}
-              /* after: the click target goes from 20 to 28px without growing the icon (see checkbox) */
-              className="relative -me-1.5 shrink-0 opacity-0 group-aria-selected/tab:opacity-100 group-hover/tab:opacity-100 focus-visible:opacity-100 after:absolute after:-inset-1"
-              onClick={(e) => {
-                e.stopPropagation()
-                onClose(t.key)
-              }}
-            >
-              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-2.5" />
-            </Button>
-          </div>
-        ))}
-
-        {/* the "+" no longer jumps home: it's a tab of its own, opening the creation page */}
-        <div
-          ref={tabRef(CREATE)}
-          role="tab"
-          id={tabId(CREATE)}
-          aria-controls={panelId(CREATE)}
-          tabIndex={active === CREATE ? 0 : -1}
-          aria-selected={active === CREATE}
+        {/* the "+" is no longer a tab: it opens the repository-creation dialog (see App) */}
+        <button
+          type="button"
           aria-label={messages.app.newTab}
-          onClick={() => onSelect(CREATE)}
-          onKeyDown={(e) => onTabKey(e, CREATE)}
-          className={cn(tabClass, "w-9 justify-center border-transparent text-muted-foreground hover:bg-muted/60")}
+          onClick={onNew}
+          className={cn(
+            tabClass,
+            "w-9 shrink-0 justify-center border-transparent text-muted-foreground hover:bg-muted/60"
+          )}
         >
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-        </div>
+        </button>
       </div>
     </header>
   )
