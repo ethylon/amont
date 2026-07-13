@@ -16,7 +16,7 @@ lanes, merges as curves, refs as chips. It's built for repositories with tens to
 of thousands of commits — the graph engine pages and virtualizes both the layout and the
 DOM instead of rendering everything up front.
 
-![Amont's main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit's message, co-authors, and file tree.](docs/graph-light.png)
+![Amont's main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit's message and file tree.](docs/graph-light.png)
 
 ## Built for big histories
 
