@@ -12,9 +12,15 @@
 
    Renders unified or side-by-side (diff-split.ts pairs the lines); untracked files never
    reach here: without an index entry there is nothing to patch — whole-file staging remains
-   their only path. */
+   their only path.
 
-import { useMemo, useRef, useState } from "react"
+   Hunks render through a `React.memo` component with stable props: a big diff is a 15-20k
+   element tree, and the busy flip around every stage/discard click used to reconcile all of
+   it twice (audit §4). The in-flight gate lives in a ref (the correctness guard) plus a CSS
+   pointer-events rule keyed on the container's aria-busy (the UX guard), so no per-line
+   button ever receives a changing `busy` prop. */
+
+import { memo, useCallback, useMemo, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ArrowTurnBackwardIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
@@ -33,7 +39,7 @@ import {
   type ParsedDiff,
   type StageDirection,
 } from "./diff-parse"
-import { sideBySideRows, type SideCell } from "./diff-split"
+import { sideBySideRows, type SideCell, type SideRow } from "./diff-split"
 import type { DiffViewMode } from "./diff-view"
 import { CodeLine, useShikiTokens, type TokenLine } from "@/features/diff/shiki-tokens"
 import { Button } from "@/components/ui/button"
@@ -46,6 +52,10 @@ const TINT: Record<DiffLineKind, string> = { add: "bg-success/16", del: "bg-dest
 const MONO = "font-mono text-xs leading-normal [tab-size:4]"
 const LINE_NO = "w-9 shrink-0 text-right text-[0.625rem] leading-normal text-muted-foreground tabular-nums select-none"
 const BTN_CLS = "my-px ms-0.5 size-4 shrink-0 opacity-50 hover:opacity-100 focus-visible:opacity-100"
+/* Off-screen rows skip layout and paint entirely (`content-visibility: auto`); the intrinsic
+   size keeps scrollbars honest before a row's real size is remembered — 18px is one
+   text-xs/leading-normal mono line (audit §13, the cheap 80% of virtualization). */
+const CV_ROW = "[content-visibility:auto] [contain-intrinsic-size:auto_18px]"
 
 type Props = {
   api: RepoApi
@@ -61,6 +71,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
   const queryClient = useQueryClient()
   const showOp = useRepoStore((s) => s.showOp)
   const [busy, setBusy] = useState(false)
+  const busyRef = useRef(false)
   const dir: StageDirection = source === "unstaged" ? "stage" : "unstage"
   /* discarding only exists on the unstaged side (cf. header comment) */
   const canDiscard = source === "unstaged"
@@ -86,34 +97,112 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
   }, [parsed])
   const oldTokens = useShikiTokens(oldDoc, path, dark)
   const newTokens = useShikiTokens(newDoc, path, dark)
-  const tokensAt = (hi: number, li: number): TokenLine | undefined => {
-    const ref = refs[hi][li]
-    return (ref.doc === "old" ? oldTokens : newTokens)?.[ref.idx]
-  }
+  const tokensAt = useCallback(
+    (hi: number, li: number): TokenLine | undefined => {
+      const ref = refs[hi][li]
+      return (ref.doc === "old" ? oldTokens : newTokens)?.[ref.idx]
+    },
+    [refs, oldTokens, newTokens]
+  )
+
+  /* The side-by-side pairing of every hunk, computed once per parse (it used to be recomputed
+     on every render of every hunk). Keyed on the parsed diff: the rows only change when it does. */
+  const splitRows = useMemo(
+    () => (view === "sbs" ? parsed.hunks.map((h) => sideBySideRows(h)) : null),
+    [parsed, view]
+  )
 
   /* One in-flight apply at a time: the diff under the buttons is about to be refetched,
-     a second click would build its patch against a stale parse. */
-  const run = async (patch: string | null, send: (patch: string) => Promise<void>) => {
-    if (!patch || busy) return
-    setBusy(true)
-    try {
-      await send(patch)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.diffAll(repoId) }),
-      ])
-    } catch (e) {
-      showOp(describeError(e), "danger")
-    } finally {
-      setBusy(false)
-    }
-  }
-  const stage = (patch: string | null) => run(patch, (p) => api.applyPatch(p, dir === "unstage"))
+     a second click would build its patch against a stale parse. The gate is a ref — not the
+     `busy` state — so these callbacks stay referentially stable and the memoized hunk
+     sections don't re-render on every flip; `busy` only feeds the container's aria-busy. */
+  const run = useCallback(
+    async (patch: string | null, send: (patch: string) => Promise<void>) => {
+      if (!patch || busyRef.current) return
+      busyRef.current = true
+      setBusy(true)
+      try {
+        await send(patch)
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.diffAll(repoId) }),
+        ])
+      } catch (e) {
+        showOp(describeError(e), "danger")
+      } finally {
+        busyRef.current = false
+        setBusy(false)
+      }
+    },
+    [queryClient, repoId, showOp]
+  )
+  const stage = useCallback(
+    (patch: string | null) => run(patch, (p) => api.applyPatch(p, dir === "unstage")),
+    [run, api, dir]
+  )
   /* built in the "unstage" direction whatever the view: the target is the working file,
      which matches the unstaged diff's `+` side — what `git apply --reverse` checks against */
-  const discard = (patch: string | null) => run(patch, (p) => api.discardPatch(p))
+  const discard = useCallback((patch: string | null) => run(patch, (p) => api.discardPatch(p)), [run, api])
 
-  const lineButtons = (hunk: number, line: number) => (
+  return (
+    /* While an apply is in flight the buttons go inert via CSS instead of a `disabled` prop:
+       flipping `disabled` on thousands of IconButtons is exactly the full-tree reconciliation
+       this component structure exists to avoid. Keyboard activation slips past pointer-events,
+       but `run`'s ref guard makes a second submission a no-op either way. */
+    <div
+      className="min-h-0 flex-auto overflow-y-auto rounded-md border [&[aria-busy=true]_button]:pointer-events-none"
+      aria-busy={busy}
+    >
+      {parsed.hunks.map((h, hi) => (
+        <HunkSection
+          key={hi}
+          h={h}
+          hi={hi}
+          rows={splitRows?.[hi] ?? null}
+          view={view}
+          dir={dir}
+          canDiscard={canDiscard}
+          parsed={parsed}
+          tokensAt={tokensAt}
+          onStage={stage}
+          onDiscard={discard}
+        />
+      ))}
+    </div>
+  )
+}
+
+type HunkSectionProps = {
+  h: Hunk
+  hi: number
+  /** Pre-paired side-by-side rows for this hunk (null in unified view). */
+  rows: SideRow[] | null
+  view: DiffViewMode
+  dir: StageDirection
+  canDiscard: boolean
+  parsed: ParsedDiff
+  tokensAt: (hi: number, li: number) => TokenLine | undefined
+  onStage: (patch: string | null) => void
+  onDiscard: (patch: string | null) => void
+}
+
+/* One hunk — header plus its unified or side-by-side body. `memo` is the point: every prop is
+   referentially stable across the busy flips around a stage/discard click (callbacks are
+   `useCallback`ed, rows/parsed are memoized), so a click reconciles zero hunk subtrees; only a
+   new parse (refetch after the apply) or arriving shiki tokens re-render them. */
+const HunkSection = memo(function HunkSection({
+  h,
+  hi,
+  rows,
+  view,
+  dir,
+  canDiscard,
+  parsed,
+  tokensAt,
+  onStage,
+  onDiscard,
+}: HunkSectionProps) {
+  const lineButtons = (line: number) => (
     <>
       {canDiscard && (
         <IconButton
@@ -121,8 +210,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
           icon={ArrowTurnBackwardIcon}
           size="icon-xs"
           className={cn(BTN_CLS, "text-destructive hover:text-destructive")}
-          disabled={busy}
-          onClick={() => discard(buildPatch(parsed, hunk, new Set([line]), "unstage"))}
+          onClick={() => onDiscard(buildPatch(parsed, hi, new Set([line]), "unstage"))}
         />
       )}
       <IconButton
@@ -130,8 +218,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
         icon={dir === "stage" ? PlusSignIcon : MinusSignIcon}
         size="icon-xs"
         className={BTN_CLS}
-        disabled={busy}
-        onClick={() => stage(buildPatch(parsed, hunk, new Set([line]), dir))}
+        onClick={() => onStage(buildPatch(parsed, hi, new Set([line]), dir))}
       />
     </>
   )
@@ -143,7 +230,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
     </>
   )
 
-  const hunkHeader = (h: Hunk, hi: number) => (
+  const header = (
     <div
       className={cn("flex items-center justify-between gap-2 border-b bg-muted/60 px-2 py-0.5", hi > 0 && "border-t")}
     >
@@ -154,8 +241,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
             variant="ghost"
             size="sm"
             className="h-auto py-0.5 text-[0.625rem] font-medium text-destructive"
-            disabled={busy}
-            onClick={() => discard(buildHunkPatch(parsed, hi, "unstage"))}
+            onClick={() => onDiscard(buildHunkPatch(parsed, hi, "unstage"))}
           >
             {messages.diff.discardHunk}
           </Button>
@@ -164,8 +250,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
           variant="ghost"
           size="sm"
           className="h-auto py-0.5 text-[0.625rem] font-medium"
-          disabled={busy}
-          onClick={() => stage(buildHunkPatch(parsed, hi, dir))}
+          onClick={() => onStage(buildHunkPatch(parsed, hi, dir))}
         >
           {dir === "stage" ? messages.diff.stageHunk : messages.diff.unstageHunk}
         </Button>
@@ -173,7 +258,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
     </div>
   )
 
-  const unifiedHunk = (h: Hunk, hi: number) => {
+  const unifiedBody = () => {
     let oldNo = h.oldStart
     let newNo = h.newStart
     return (
@@ -184,8 +269,8 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
             new: l.kind === "del" ? null : newNo++,
           }
           return (
-            <div key={li} className={cn("flex min-w-max items-start", TINT[l.kind])}>
-              {l.kind === "ctx" ? gutterBlanks() : lineButtons(hi, li)}
+            <div key={li} className={cn("flex min-w-max items-start", CV_ROW, TINT[l.kind])}>
+              {l.kind === "ctx" ? gutterBlanks() : lineButtons(li)}
               <span className={LINE_NO}>{no.old}</span>
               <span className={LINE_NO}>{no.new}</span>
               <pre className={cn("flex-1 px-1.5 whitespace-pre", MONO)}>
@@ -198,11 +283,11 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
     )
   }
 
-  const sideCell = (hi: number, cell: SideCell | null, actioned: DiffLineKind) => {
+  const sideCell = (cell: SideCell | null, actioned: DiffLineKind) => {
     /* blank filler opposite an unpaired line: no number, hatched-quiet background */
     if (!cell)
       return (
-        <div className="flex min-w-max items-start bg-muted/30">
+        <div className={cn("flex min-w-max items-start bg-muted/30", CV_ROW)}>
           {gutterBlanks()}
           <span className={LINE_NO} />
           <pre className={cn("flex-1 px-1.5 whitespace-pre", MONO)}> </pre>
@@ -210,8 +295,8 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
       )
     const { at, line, no } = cell
     return (
-      <div className={cn("flex min-w-max items-start", TINT[line.kind])}>
-        {line.kind === actioned ? lineButtons(hi, at) : gutterBlanks()}
+      <div className={cn("flex min-w-max items-start", CV_ROW, TINT[line.kind])}>
+        {line.kind === actioned ? lineButtons(at) : gutterBlanks()}
         <span className={LINE_NO}>{no}</span>
         <pre className={cn("flex-1 px-1.5 whitespace-pre", MONO)}>
           <CodeLine text={line.text} tokens={tokensAt(hi, at)} />
@@ -220,39 +305,32 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
     )
   }
 
-  const splitHunk = (h: Hunk, hi: number) => {
-    const rows = sideBySideRows(h)
-    return (
-      <SyncedColumns
-        old={
-          <div>
-            {rows.map((r, i) => (
-              <div key={i}>{sideCell(hi, r.old, "del")}</div>
-            ))}
-          </div>
-        }
-        neu={
-          <div>
-            {rows.map((r, i) => (
-              <div key={i}>{sideCell(hi, r.new, "add")}</div>
-            ))}
-          </div>
-        }
-      />
-    )
-  }
+  const splitBody = (rows: SideRow[]) => (
+    <SyncedColumns
+      old={
+        <div>
+          {rows.map((r, i) => (
+            <div key={i}>{sideCell(r.old, "del")}</div>
+          ))}
+        </div>
+      }
+      neu={
+        <div>
+          {rows.map((r, i) => (
+            <div key={i}>{sideCell(r.new, "add")}</div>
+          ))}
+        </div>
+      }
+    />
+  )
 
   return (
-    <div className="min-h-0 flex-auto overflow-y-auto rounded-md border" aria-busy={busy}>
-      {parsed.hunks.map((h, hi) => (
-        <div key={hi}>
-          {hunkHeader(h, hi)}
-          {view === "sbs" ? splitHunk(h, hi) : unifiedHunk(h, hi)}
-        </div>
-      ))}
+    <div>
+      {header}
+      {view === "sbs" && rows ? splitBody(rows) : unifiedBody()}
     </div>
   )
-}
+})
 
 /* Two half-width panes whose horizontal scrollbars advance together — same policy as
    diff-view's syncSides for the diff2html render; rows stay facing each other because every

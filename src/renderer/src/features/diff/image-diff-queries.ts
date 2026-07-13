@@ -70,8 +70,14 @@ export function imageSides(ctx: DiffCtx, file: FileChange): { old: ImageSide | n
 }
 
 export function useImageDiffQuery(api: RepoApi, id: number, ctx: DiffCtx, file: FileChange, enabled: boolean) {
+  /* A commit↔commit image pair reads blobs at two fixed hashes — content-addressed, it can
+     never change — so it never goes stale (same policy as useDiffQuery). Working-tree/index
+     sides live on disk and keep the default freshness. gcTime stays at the default: decoded
+     image payloads are big, no reason to pin them in memory longer. */
+  const immutable = !("wt" in ctx)
   return useQuery({
     enabled,
+    staleTime: immutable ? Infinity : 0,
     queryKey: queryKeys.imageDiff(id, ctx, file.path, file.old ?? null),
     queryFn: async (): Promise<ImageDiff> => {
       const sides = imageSides(ctx, file)
