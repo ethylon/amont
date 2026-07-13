@@ -13,8 +13,9 @@ export type ImageSide = { path: string; ref: BlobRef }
 export type ImageDiff = { old: BlobData | null; new: BlobData | null }
 
 /* Extensions we render as an image rather than a text/binary diff, mapped to their MIME type
-   for the renderer's `data:` URL. `<img>` (unlike inline markup) never executes an SVG's
-   scripts, so svg is safe to include as a rendered preview. */
+   for the Blob behind the renderer's `blob:` object URL (image-diff-view.tsx). `<img>` (unlike
+   inline markup) never executes an SVG's scripts, so svg is safe to include as a rendered
+   preview. */
 export const IMAGE_MIME: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",

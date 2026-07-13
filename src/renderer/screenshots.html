@@ -50,6 +50,8 @@
 
       const genericDiff = (path) =>
         `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1,3 +1,3 @@\n-const value = 1\n+const value = 2\n `
+      /* repo:diff/repo:wtdiff ship `{text, totalLines}` (cf. src/shared/diff.ts) */
+      const diffText = (text) => ({ text, totalLines: text.split("\n").length })
 
       window.amont = {
         state: async () => ({ root: "/", recents: RECENTS, tabs: [REPO], active: REPO.id }),
@@ -72,7 +74,7 @@
         stashes: async () => [],
         stash: async () => {},
         files: async (_id, hash) => D.FILES[hash] ?? [{ st: "M", path: "src/renderer/src/app.tsx", old: null }],
-        diff: async (_id, hash, _parent, path) => D.DIFFS[hash + " " + path] ?? genericDiff(path),
+        diff: async (_id, hash, _parent, path) => diffText(D.DIFFS[hash + " " + path] ?? genericDiff(path)),
         status: async () => ({ branch: "master", head: D.REFS.find((r) => r.name === "master").tip, ahead: 0, behind: 0 }),
         body: async (_id, hash) => D.BODIES[hash] ?? "",
         op: async () => {},
@@ -87,7 +89,7 @@
         branch: async () => {},
         checkout: async () => {},
         worktree: async () => structuredClone(wt),
-        wtdiff: async (_id, p) => D.WTDIFF[p] ?? genericDiff(p),
+        wtdiff: async (_id, p) => diffText(D.WTDIFF[p] ?? genericDiff(p)),
         stage: async (_id, paths) => {
           const moved = [...wt.unstaged, ...wt.untracked].filter((f) => paths.includes(f.path))
           wt.unstaged = drop(wt.unstaged, paths)
@@ -122,7 +124,7 @@
         applyPatch: async () => {},
         discard: async (_id, paths, untracked) => { wt.unstaged = drop(wt.unstaged, paths); wt.untracked = drop(wt.untracked, untracked) },
         discardPatch: async () => {},
-        blob: async () => ({ size: 68, b64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }),
+        blob: async () => ({ size: 68, bytes: Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0)) }),
         flowInfo: async () => null,
         flowInit: async () => null,
         flowStart: async () => {},
