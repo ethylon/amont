@@ -63,6 +63,7 @@
     "diff2html": "^3.4.56",
     "electron": "^43.0.0",
     "electron-builder": "^26.15.3",
+    "electron-updater": "6.8.9",
     "electron-vite": "^5.0.0",
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",

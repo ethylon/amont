@@ -7,6 +7,7 @@ import { registerIpc } from "./ipc.ts"
 import { hardenSession } from "./security.ts"
 import { loadState } from "./state.ts"
 import { applyTelemetryOptOut, initTelemetry } from "./telemetry.ts"
+import { initUpdater } from "./updater.ts"
 import { createWindow, focusExisting } from "./window.ts"
 
 /* Single instance only: a second concurrent launch would overwrite state.json in a
@@ -40,6 +41,8 @@ if (!gotLock) {
       applyTelemetryOptOut()
       hardenSession()
       createWindow()
+      /* after createWindow: the updater pushes its events to the main window */
+      initUpdater()
     })
 
   app.on("window-all-closed", () => app.quit())
