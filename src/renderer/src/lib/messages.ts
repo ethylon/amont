@@ -549,6 +549,33 @@ export const messages = {
     },
   },
 
+  /* the auto-update card (features/updater) */
+  updater: {
+    get checking() {
+      return t`Checking for updates…`
+    },
+    get upToDate() {
+      return t`Amont is up to date.`
+    },
+    downloading: (version: string) => t`Downloading Amont ${version}…`,
+    ready: (version: string) => t`Amont ${version} is ready to install.`,
+    get restartNow() {
+      return t`Restart now`
+    },
+    get later() {
+      return t`Later`
+    },
+    get failed() {
+      return t`Update check failed.`
+    },
+    get unavailable() {
+      return t`Updates are not available in this build.`
+    },
+    get dismiss() {
+      return t`Dismiss`
+    },
+  },
+
   menu: {
     get file() {
       return t`File`
@@ -585,6 +612,9 @@ export const messages = {
     },
     get reportIssue() {
       return t`Report an issue…`
+    },
+    get checkForUpdates() {
+      return t`Check for updates…`
     },
     about: (version: string) => t`Amont ${version}`,
 

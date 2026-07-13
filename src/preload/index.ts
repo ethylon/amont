@@ -47,7 +47,11 @@ const bridge: Bridge = {
   initBare: invoke("create:bare"),
   cloneRepo: invoke("create:clone"),
 
+  checkForUpdates: invoke("update:check"),
+  installUpdate: invoke("update:install"),
+
   onOp: on("git:op"),
+  onUpdate: on("update:status"),
   onChanged: on("git:changed"),
   onTrace: on("git:trace"),
   onProgress: on("git:progress"),
