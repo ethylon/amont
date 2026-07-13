@@ -64,7 +64,11 @@ describe("compactPathTree", () => {
   })
 
   it("stops joining where the tree branches", () => {
-    const t = compact(["src/components/ui/combobox.tsx", "src/components/ui/input.tsx", "src/components/shared/hook.ts"])
+    const t = compact([
+      "src/components/ui/combobox.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/shared/hook.ts",
+    ])
     assert.deepEqual([...t.dirs.keys()], ["src/components"])
     const c = t.dirs.get("src/components")!
     assert.deepEqual([...c.dirs.keys()].sort(), ["shared", "ui"])
