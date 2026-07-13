@@ -28,7 +28,7 @@ import {
   type RefChip,
 } from "@/lib/commit-parse"
 import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/lib/gitflow"
-import { scrollText } from "../interactions/scroll-text.ts"
+import { scrollText } from "../interactions/scroll-text.tsx"
 import { BRANCH_BUDGET, BRANCH_MAX, GRID_COLS, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
 import type { LayoutState } from "../layout/state.ts"
 import type { SyncInfo } from "../layout/sync.ts"
