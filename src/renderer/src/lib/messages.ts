@@ -245,6 +245,24 @@ export const messages = {
       return t`diff…`
     },
     truncated: (n: string) => t`… ${n} lines truncated`,
+    get stageHunk() {
+      return t`Stage hunk`
+    },
+    get unstageHunk() {
+      return t`Unstage hunk`
+    },
+    get stageLine() {
+      return t`Stage line`
+    },
+    get unstageLine() {
+      return t`Unstage line`
+    },
+    get discardHunk() {
+      return t`Discard hunk`
+    },
+    get discardLine() {
+      return t`Discard line`
+    },
     get before() {
       return t`Before`
     },
@@ -355,6 +373,37 @@ export const messages = {
     },
   },
 
+  /* Linked worktrees (`git worktree`) — distinct from `worktree` below, the working-tree
+     file status. */
+  worktrees: {
+    get title() {
+      return t`Worktrees`
+    },
+    get openInTab() {
+      return t`Open in a new tab`
+    },
+    get reveal() {
+      return t`Reveal in file explorer`
+    },
+    get remove() {
+      return t`Remove worktree`
+    },
+    get prune() {
+      return t`Prune worktrees`
+    },
+    get create() {
+      return t`Create worktree…`
+    },
+    get detached() {
+      return t`detached HEAD`
+    },
+    /** tooltip of the row of the worktree already open in this tab */
+    get currentTab() {
+      return t`This worktree is open in this tab`
+    },
+    openWorktree: (name: string) => t`Open worktree « ${name} »`,
+  },
+
   worktree: {
     get stage() {
       return t`Stage`
@@ -388,6 +437,29 @@ export const messages = {
     },
     get unstageAll() {
       return t`Unstage all`
+    },
+    get discard() {
+      return t`Discard changes`
+    },
+    get discardAll() {
+      return t`Discard all`
+    },
+    get discardTitle() {
+      return t`Discard changes?`
+    },
+    discardOne: (path: string) => t`Changes to « ${path} » will be permanently lost.`,
+    discardMany: (n: number) =>
+      plural(n, {
+        one: "Changes to # file will be permanently lost.",
+        other: "Changes to # files will be permanently lost.",
+      }),
+    discardUntracked: (n: number) =>
+      plural(n, { one: "# untracked file will be deleted.", other: "# untracked files will be deleted." }),
+    get discardConfirm() {
+      return t`Discard`
+    },
+    get discardCancel() {
+      return t`Cancel`
     },
     get noStagedFiles() {
       return t`No staged files.`
@@ -506,6 +578,33 @@ export const messages = {
     },
   },
 
+  /* the auto-update card (features/updater) */
+  updater: {
+    get checking() {
+      return t`Checking for updates…`
+    },
+    get upToDate() {
+      return t`Amont is up to date.`
+    },
+    downloading: (version: string) => t`Downloading Amont ${version}…`,
+    ready: (version: string) => t`Amont ${version} is ready to install.`,
+    get restartNow() {
+      return t`Restart now`
+    },
+    get later() {
+      return t`Later`
+    },
+    get failed() {
+      return t`Update check failed.`
+    },
+    get unavailable() {
+      return t`Updates are not available in this build.`
+    },
+    get dismiss() {
+      return t`Dismiss`
+    },
+  },
+
   menu: {
     get file() {
       return t`File`
@@ -542,6 +641,9 @@ export const messages = {
     },
     get reportIssue() {
       return t`Report an issue…`
+    },
+    get checkForUpdates() {
+      return t`Check for updates…`
     },
     about: (version: string) => t`Amont ${version}`,
 

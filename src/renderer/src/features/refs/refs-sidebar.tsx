@@ -6,9 +6,12 @@ import type { GitRef } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { useFlowQuery } from "@/features/flow/flow-queries"
+import { FlowShortcut } from "@/features/flow/flow-shortcut"
 import { useRefsQuery } from "@/features/refs/refs-queries"
 import { useStashesQuery } from "@/features/stash/stash-queries"
 import { matchStash, StashSection } from "@/features/stash/stash-section"
+import { useWorktreesQuery } from "@/features/worktrees/worktrees-queries"
+import { matchWorktree, WorktreesSection } from "@/features/worktrees/worktrees-section"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { buildTree, refKey, Tree, useResettableOpen, type Ctx } from "@/features/refs/refs-tree"
 import { paintFocusRuns } from "@/features/refs/refs-focus-paint"
@@ -18,11 +21,11 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 
 /* `title` is a thunk: messages.* getters run `t`, which must not execute at module scope
    (before setupI18n() activates the locale — throws in dev). */
-const GROUPS = [
-  { title: () => messages.refs.branches, kind: "head", icon: GitBranchIcon },
-  { title: () => messages.refs.remotes, kind: "remote", icon: CloudIcon },
-  { title: () => messages.refs.tags, kind: "tag", icon: Tag01Icon },
-] as const satisfies readonly { title: () => string; kind: GitRef["kind"]; icon: IconSvgElement }[]
+const GROUPS = {
+  head: { title: () => messages.refs.branches, icon: GitBranchIcon },
+  remote: { title: () => messages.refs.remotes, icon: CloudIcon },
+  tag: { title: () => messages.refs.tags, icon: Tag01Icon },
+} as const satisfies Record<GitRef["kind"], { title: () => string; icon: IconSvgElement }>
 
 function RefGroupSection({
   title,
@@ -67,6 +70,7 @@ export function RefsSidebar() {
   const onCheckout = useRepoStore((s) => s.checkout)
   const onBranch = useRepoStore((s) => s.runBranch)
   const onFocusRef = useRepoStore((s) => s.focusRef)
+  const onAddWorktree = useRepoStore((s) => s.addWorktree)
 
   const { data: flow = null } = useFlowQuery(api, repoId)
   /* no `stale` flag to copy over: `placeholderData: keepPreviousData` (see lib/queries.ts)
@@ -74,8 +78,10 @@ export function RefsSidebar() {
      `useAsync` (cleared on every key) would have produced every five minutes (auto-fetch). */
   const { data, isError: error } = useRefsQuery(api, repoId)
   /* only the count matters to us here ("no results" message): the list's rendering lives
-     in <StashSection>, which calls the same query — TanStack Query dedupes by key. */
+     in <StashSection>/<WorktreesSection>, which call the same queries — TanStack Query
+     dedupes by key. */
   const { data: stashes = [] } = useStashesQuery(api, repoId)
+  const { data: worktrees = [] } = useWorktreesQuery(api, repoId)
   const [filter, setFilter] = useState("")
   const navRef = useRef<HTMLElement>(null)
 
@@ -109,6 +115,25 @@ export function RefsSidebar() {
     onBranch,
     focusedKeys,
     onFocusRef,
+    worktreeBranches: new Set(worktrees.flatMap((w) => (w.branch ? [w.branch] : []))),
+    onAddWorktree: (name) => void onAddWorktree(name),
+  }
+
+  const group = (kind: GitRef["kind"]) => {
+    const refs = data!.filter((r) => r.kind === kind && match(r))
+    if (!refs.length) return null
+    const g = GROUPS[kind]
+    return (
+      <RefGroupSection
+        key={kind}
+        title={g.title()}
+        icon={g.icon}
+        refs={refs}
+        ctx={ctx}
+        openDirs={kind === "remote"}
+        forceOpen={!!q}
+      />
+    )
   }
 
   return (
@@ -142,27 +167,23 @@ export function RefsSidebar() {
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 overflow-auto px-2 pt-2 pb-4">
+          {/* the promoted gitflow move — a shortcut, not a ref: it steps aside while filtering */}
+          {!q && <FlowShortcut />}
           {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
           {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
-          {data && q && !data.some(match) && !stashes.some((s) => matchStash(s, q)) && (
-            <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
-          )}
           {data &&
-            GROUPS.map((g) => {
-              const refs = data.filter((r) => r.kind === g.kind && match(r))
-              if (!refs.length) return null
-              return (
-                <RefGroupSection
-                  key={g.kind}
-                  title={g.title()}
-                  icon={g.icon}
-                  refs={refs}
-                  ctx={ctx}
-                  openDirs={g.kind === "remote"}
-                  forceOpen={!!q}
-                />
-              )
-            })}
+            q &&
+            !data.some(match) &&
+            !stashes.some((s) => matchStash(s, q)) &&
+            !worktrees.some((w) => !w.main && matchWorktree(w, q)) && (
+              <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
+            )}
+          {/* local branches, remotes, worktrees, tags, stashes — worktrees sit with the
+              branch groups (they anchor checkouts), tags and stashes close the list */}
+          {data && group("head")}
+          {data && group("remote")}
+          <WorktreesSection filter={q} />
+          {data && group("tag")}
           <StashSection filter={q} />
         </div>
       </div>

@@ -61,6 +61,7 @@ export function GraphColumn() {
       /* `api.log` failures are no longer silent (AUDIT.md §6): the existing status badge
          (git op → refresh → resetAndLoad → showOp) carries this one too */
       onError: (message) => storeApi.getState().showOp(message, "danger"),
+      onWorktreeOpen: (path) => void storeApi.getState().openWorktree(path),
     }),
     [storeApi]
   )

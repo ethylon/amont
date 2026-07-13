@@ -33,6 +33,7 @@ export function CommitGraph({ api, callbacks, onReady }: Props) {
       onGraphWidth: (px) => cb.current.onGraphWidth(px),
       onBranchWidth: (px) => cb.current.onBranchWidth(px),
       onError: (message) => cb.current.onError(message),
+      onWorktreeOpen: (path) => cb.current.onWorktreeOpen(path),
     })
     ready.current(graph)
     return () => {

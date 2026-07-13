@@ -28,6 +28,7 @@ export const queryKeys = {
   conflict: (id: number, path: string) => ["conflict", id, path] as const,
   conflictAll: (id: number) => ["conflict", id] as const,
   stashes: (id: number) => ["stashes", id] as const,
+  worktrees: (id: number) => ["worktrees", id] as const,
   flow: (id: number) => ["flow", id] as const,
   flowInfo: (id: number, branch: string | null, kind: keyof FlowPrefixes | null) =>
     ["flowInfo", id, branch, kind] as const,
@@ -36,6 +37,7 @@ export const queryKeys = {
   files: (id: number, hash: string, parent: string | null) => ["files", id, hash, parent] as const,
   body: (id: number, hash: string) => ["body", id, hash] as const,
   diff: (id: number, ctx: DiffCtx, path: string, old: string | null) => ["diff", id, ctx, path, old] as const,
+  diffAll: (id: number) => ["diff", id] as const,
   imageDiff: (id: number, ctx: DiffCtx, path: string, old: string | null) => ["imageDiff", id, ctx, path, old] as const,
   search: (id: number, term: string, content: boolean) => ["search", id, term, content] as const,
 }
@@ -47,6 +49,7 @@ export function invalidateRepo(client: QueryClient, id: number): void {
   void client.invalidateQueries({ queryKey: queryKeys.mergeState(id) })
   void client.invalidateQueries({ queryKey: queryKeys.refs(id) })
   void client.invalidateQueries({ queryKey: queryKeys.stashes(id) })
+  void client.invalidateQueries({ queryKey: queryKeys.worktrees(id) })
   void client.invalidateQueries({ queryKey: queryKeys.flow(id) })
   void client.invalidateQueries({ queryKey: queryKeys.flowInfoAll(id) })
 }

@@ -30,10 +30,14 @@ import {
   type FileChange,
   type GitRef,
   type OpName,
+  type Repo,
   type RepoApi,
   type Stash,
   type StashAct,
+  type WorktreeAct,
+  type WorktreeInfo,
 } from "@/lib/git"
+import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { prefs } from "@/lib/prefs"
 import { invalidateRepo, queryKeys } from "@/lib/queries"
@@ -71,6 +75,9 @@ export interface RepoStoreState {
     diffMode: DiffViewMode
     /** conflicted file open in the resolution view — exclusive with `diff`, same overlay slot */
     conflict: FileChange | null
+    /** inline `git flow <kind> start` banner open in RepoView — openable from the app menu
+        (command channel) and from the sidebar's flow shortcut */
+    flowStartKind: BranchFlow | null
   }
   ops: {
     busyOp: OpName | null
@@ -84,6 +91,7 @@ export interface RepoStoreState {
   selectBranch(row: number): Promise<void>
   focusRef(r: GitRef, additive: boolean): Promise<void>
   focusStash(s: Stash): Promise<void>
+  focusWorktree(w: WorktreeInfo): Promise<void>
   clearFocus(): void
   /** re-resolves `selection.hashes` into rows after a graph reset (pull/checkout/stash);
       a hash that's become unfindable (amend, rebase) is silently dropped. */
@@ -98,6 +106,8 @@ export interface RepoStoreState {
   toggleSidebar(): void
   showWorktree(): void
   showCommits(): void
+  openFlowStart(kind: BranchFlow): void
+  closeFlowStart(): void
   openDiff(ctx: DiffCtx, file: FileChange): void
   closeDiff(): void
   setDiffMode(v: DiffViewMode): void
@@ -124,6 +134,14 @@ export interface RepoStoreState {
   runBranch(action: BranchAct, name: string): Promise<void>
   checkout(name: string): Promise<void>
   runWt(act: WtAct, paths: string[]): Promise<void>
+  /** whole-file discard: tracked paths restored from the index, untracked deleted */
+  runDiscard(paths: string[], untracked: string[]): Promise<void>
+  /** remove/prune of a linked worktree; the graph reloads (the chip must disappear) */
+  runWorktree(action: WorktreeAct, path?: string): Promise<void>
+  /** opens a listed worktree as a new tab (via `onOpenRepo`, wired to App's `openTab`) */
+  openWorktree(path: string): Promise<void>
+  /** destination picker + `git worktree add <dir> <branch>`, then opens the new tab */
+  addWorktree(branch: string): Promise<void>
 }
 
 /** Ctrl-click: toggles a set of items at once — removes if the first is already in,
@@ -140,7 +158,11 @@ const keyOfRow = (g: GraphHandle, row: number): string | null => {
   return b ? `${b.kind}:${b.name}` : null
 }
 
-export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStoreState> {
+export function createRepoStore(
+  repoId: number,
+  api: RepoApi,
+  onOpenRepo: (repo: Repo) => void
+): StoreApi<RepoStoreState> {
   let okTimer = 0
   /* message draft set aside while an amend borrows the last commit's */
   let draftBackup: { subject: string; description: string } | null = null
@@ -158,6 +180,7 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       diff: null,
       conflict: null,
       diffMode: prefs.diffView.get() || "unified",
+      flowStartKind: null,
     },
     ops: { busyOp: null, opState: null },
     graph: { stats: null },
@@ -247,6 +270,10 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       await get().graphRef.current?.jumpTo(s.h)
     },
 
+    async focusWorktree(w) {
+      await get().graphRef.current?.jumpTo(w.head)
+    },
+
     clearFocus() {
       set((s) => ({
         selection: { hashes: [], rows: [], mode: s.selection.mode, focusedKeys: new Set() },
@@ -305,6 +332,12 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
     },
     showCommits() {
       set((s) => ({ ui: { ...s.ui, view: "commits" } }))
+    },
+    openFlowStart(kind) {
+      set((s) => ({ ui: { ...s.ui, flowStartKind: kind } }))
+    },
+    closeFlowStart() {
+      set((s) => ({ ui: { ...s.ui, flowStartKind: null } }))
     },
     openDiff(ctx, file) {
       set((s) => ({ ui: { ...s.ui, diff: { ctx, file } } }))
@@ -426,16 +459,75 @@ export function createRepoStore(repoId: number, api: RepoApi): StoreApi<RepoStor
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
     },
+
+    /* Same shape as runWt (failure = badge, no reload), plus: the diff caches refresh — the
+       discarded file's diff may be on screen — and a diff open on a discarded path closes,
+       there is nothing left to show. */
+    async runDiscard(paths, untracked) {
+      try {
+        await api.discard(paths, untracked)
+      } catch (e) {
+        get().showOp(describeError(e), "danger")
+        return
+      }
+      const open = get().ui.diff
+      if (open && "wt" in open.ctx && [...paths, ...untracked].includes(open.file.path))
+        set((s) => ({ ui: { ...s.ui, diff: null } }))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.diffAll(repoId) }),
+      ])
+    },
+
+    runWorktree(action, path) {
+      return get().runGitAction(() => api.worktreeAct(action, path))
+    },
+
+    async openWorktree(path) {
+      try {
+        onOpenRepo(await api.worktreeOpen(path))
+      } catch (e) {
+        get().showOp(describeError(e), "danger")
+      }
+    },
+
+    async addWorktree(branch) {
+      let repo: Repo | null
+      try {
+        repo = await api.worktreeAdd(branch)
+      } catch (e) {
+        get().showOp(describeError(e), "danger")
+        return
+      }
+      if (!repo) return // dialog cancelled
+      invalidateRepo(queryClient, repoId)
+      await get().resetAndLoad() // the new worktree's chip appears on its branch tip
+      onOpenRepo(repo)
+    },
   }))
 }
 
 const RepoStoreContext = createContext<StoreApi<RepoStoreState> | null>(null)
 
-export function RepoProvider({ repoId, api, children }: { repoId: number; api: RepoApi; children: ReactNode }) {
+export function RepoProvider({
+  repoId,
+  api,
+  onOpenRepo,
+  children,
+}: {
+  repoId: number
+  api: RepoApi
+  /** surfaces a repo opened from inside the tab (a linked worktree) as a new tab — App's `openTab` */
+  onOpenRepo: (repo: Repo) => void
+  children: ReactNode
+}) {
   /* created once per mounted tab: App keeps visited tabs mounted (keep-mounted), the
-     store follows the same lifetime as RepoView for this repo. */
+     store follows the same lifetime as RepoView for this repo. The callback goes through a
+     ref: App recreates `openTab` on every tab/active change, the store must call the live one. */
+  const openRef = useRef(onOpenRepo)
+  openRef.current = onOpenRepo
   const store = useRef<StoreApi<RepoStoreState> | null>(null)
-  store.current ??= createRepoStore(repoId, api)
+  store.current ??= createRepoStore(repoId, api, (repo) => openRef.current(repo))
   return <RepoStoreContext.Provider value={store.current}>{children}</RepoStoreContext.Provider>
 }
 
