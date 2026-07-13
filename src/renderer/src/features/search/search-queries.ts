@@ -18,5 +18,9 @@ export function useSearchQuery(api: RepoApi, id: number, term: string, content: 
     queryFn: ({ signal }) => withAbort(api, signal, (requestId) => api.search(term, content, requestId)),
     enabled: term.length >= SEARCH_MIN,
     placeholderData: keepPreviousData,
+    /* history is effectively append-only within a session: keep a term's hits cached
+       instead of respawning `git log -S/--grep` on every remount of the search bar
+       (perf audit, finding 5) */
+    staleTime: Infinity,
   })
 }

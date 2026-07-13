@@ -12,7 +12,7 @@
    (stopPropagation before it even reaches this registry): that's already the narrowest scope
    there could be, routing through this module wouldn't add anything. */
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export const PRIORITY = {
   /** floating popovers/dialogs above the content (git console) */
@@ -30,10 +30,25 @@ interface Entry {
   handler: ShortcutHandler
 }
 
+/** kept sorted by descending priority at registration time (see `register`) — keydown is the
+    hot path, it must not re-sort per event */
 const entries: Entry[] = []
 
+/** Inserts after the existing entries of equal priority: the same order the old stable
+    per-dispatch sort produced (registration order within a priority level). */
+function register(entry: Entry): () => void {
+  let i = entries.length
+  while (i > 0 && entries[i - 1].priority < entry.priority) i--
+  entries.splice(i, 0, entry)
+  return () => {
+    const j = entries.indexOf(entry)
+    if (j >= 0) entries.splice(j, 1)
+  }
+}
+
 function dispatch(ev: KeyboardEvent): void {
-  for (const { handler } of [...entries].sort((a, b) => b.priority - a.priority)) {
+  /* iterate a snapshot: a handler may unregister entries mid-dispatch (closing a popover) */
+  for (const { handler } of [...entries]) {
     if (handler(ev) === true) return
   }
 }
@@ -49,15 +64,17 @@ export function installShortcuts(): void {
 }
 
 /** Registers `handler` as long as `active` is true (tab in the foreground, popover open…).
-    High priority = tested first; `handler` returns `true` to stop the descent. */
+    High priority = tested first; `handler` returns `true` to stop the descent.
+    The handler goes through a ref: callers pass inline closures (a new identity every
+    render), and re-running the splice/insert dance per render is churn for nothing — the
+    subscription only follows `active`/`priority`, the ref always calls the latest closure. */
 export function useShortcut(active: boolean, priority: number, handler: ShortcutHandler): void {
+  const handlerRef = useRef(handler)
+  useEffect(() => {
+    handlerRef.current = handler
+  })
   useEffect(() => {
     if (!active) return
-    const entry: Entry = { priority, handler }
-    entries.push(entry)
-    return () => {
-      const i = entries.indexOf(entry)
-      if (i >= 0) entries.splice(i, 1)
-    }
-  }, [active, priority, handler])
+    return register({ priority, handler: (ev) => handlerRef.current(ev) })
+  }, [active, priority])
 }

@@ -17,5 +17,8 @@ export function useBodyQuery(api: RepoApi, id: number, hash: string) {
     queryKey: queryKeys.body(id, hash),
     queryFn: ({ signal }) => withAbort(api, signal, (requestId) => api.body(hash, requestId)),
     placeholderData: keepPreviousData,
+    /* content-addressed: the body of a given hash never changes — no refetch on remount
+       (an amend/rebase produces a new hash, i.e. a new key) */
+    staleTime: Infinity,
   })
 }
