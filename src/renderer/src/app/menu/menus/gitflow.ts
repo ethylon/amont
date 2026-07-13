@@ -10,7 +10,7 @@ import {
 import type { IconSvgElement } from "@hugeicons/react"
 
 import { messages } from "@/lib/messages"
-import type { BranchFlow } from "@/lib/gitflow"
+import { promotedFlow, type BranchFlow } from "@/lib/gitflow"
 import type { MenuDescriptor, MenuNode, MenuRepo } from "@/app/menu/types"
 
 /** The four git-flow work types, in the bar order of the type grid. */
@@ -54,53 +54,49 @@ function currentOf(repo: MenuRepo, kind: BranchFlow): string | null {
 }
 
 /* The promoted section: the obvious next move derived from HEAD (see the design table). A real
-   flow branch surfaces Finish (+ Publish while unpushed); a trunk surfaces the matching Start. */
+   flow branch surfaces Finish (+ Publish while unpushed); a trunk surfaces the matching Start.
+   The derivation itself (`promotedFlow`) is shared with the sidebar shortcut. */
 function promotedItems(repo: MenuRepo): MenuNode[] {
-  const kind = repo.workFlow
-  if (kind && repo.branch) {
-    const name = currentOf(repo, kind)
-    if (name !== null) {
-      const items: MenuNode[] = [
-        {
-          kind: "action",
-          id: "gitflow.promoted.finish",
-          label: FINISH_NAMED[kind](name),
-          icon: CheckmarkCircle02Icon,
-          run: () => repo.finishFlow(repo.branch!),
-        },
-      ]
-      if (repo.flowInfo?.unpushed)
-        items.push({
-          kind: "action",
-          id: "gitflow.promoted.publish",
-          label: PUBLISH_NAMED[kind](name),
-          icon: ArrowUp02Icon,
-          run: () => repo.publishFlow(kind, name),
-        })
-      return items
-    }
+  const promoted = promotedFlow(repo.branch, repo.flowPrefixes)
+  if (!promoted) return []
+  if (promoted.move === "finish") {
+    const { kind, name } = promoted
+    const items: MenuNode[] = [
+      {
+        kind: "action",
+        id: "gitflow.promoted.finish",
+        label: FINISH_NAMED[kind](name),
+        icon: CheckmarkCircle02Icon,
+        run: () => repo.finishFlow(repo.branch!),
+      },
+    ]
+    if (repo.flowInfo?.unpushed)
+      items.push({
+        kind: "action",
+        id: "gitflow.promoted.publish",
+        label: PUBLISH_NAMED[kind](name),
+        icon: ArrowUp02Icon,
+        run: () => repo.publishFlow(kind, name),
+      })
+    return items
   }
-  if (repo.branch === "develop")
-    return [
-      {
-        kind: "action",
-        id: "gitflow.promoted.startFeature",
-        label: messages.menu.startFeature,
-        icon: GitBranchIcon,
-        run: () => repo.startFlow("feature"),
-      },
-    ]
-  if (repo.branch === "master" || repo.branch === "main")
-    return [
-      {
-        kind: "action",
-        id: "gitflow.promoted.startHotfix",
-        label: messages.menu.startHotfix,
-        icon: Fire02Icon,
-        run: () => repo.startFlow("hotfix"),
-      },
-    ]
-  return []
+  return [
+    promoted.kind === "feature"
+      ? {
+          kind: "action",
+          id: "gitflow.promoted.startFeature",
+          label: messages.menu.startFeature,
+          icon: GitBranchIcon,
+          run: () => repo.startFlow("feature"),
+        }
+      : {
+          kind: "action",
+          id: "gitflow.promoted.startHotfix",
+          label: messages.menu.startHotfix,
+          icon: Fire02Icon,
+          run: () => repo.startFlow("hotfix"),
+        },
+  ]
 }
 
 /* One type submenu (Feature/Bugfix/…): Start is always available; Finish/Publish act on HEAD and

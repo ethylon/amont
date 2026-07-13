@@ -37,6 +37,7 @@ import {
   type WorktreeAct,
   type WorktreeInfo,
 } from "@/lib/git"
+import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { prefs } from "@/lib/prefs"
 import { invalidateRepo, queryKeys } from "@/lib/queries"
@@ -74,6 +75,9 @@ export interface RepoStoreState {
     diffMode: DiffViewMode
     /** conflicted file open in the resolution view — exclusive with `diff`, same overlay slot */
     conflict: FileChange | null
+    /** inline `git flow <kind> start` banner open in RepoView — openable from the app menu
+        (command channel) and from the sidebar's flow shortcut */
+    flowStartKind: BranchFlow | null
   }
   ops: {
     busyOp: OpName | null
@@ -102,6 +106,8 @@ export interface RepoStoreState {
   toggleSidebar(): void
   showWorktree(): void
   showCommits(): void
+  openFlowStart(kind: BranchFlow): void
+  closeFlowStart(): void
   openDiff(ctx: DiffCtx, file: FileChange): void
   closeDiff(): void
   setDiffMode(v: DiffViewMode): void
@@ -172,6 +178,7 @@ export function createRepoStore(
       diff: null,
       conflict: null,
       diffMode: prefs.diffView.get() || "unified",
+      flowStartKind: null,
     },
     ops: { busyOp: null, opState: null },
     graph: { stats: null },
@@ -323,6 +330,12 @@ export function createRepoStore(
     },
     showCommits() {
       set((s) => ({ ui: { ...s.ui, view: "commits" } }))
+    },
+    openFlowStart(kind) {
+      set((s) => ({ ui: { ...s.ui, flowStartKind: kind } }))
+    },
+    closeFlowStart() {
+      set((s) => ({ ui: { ...s.ui, flowStartKind: null } }))
     },
     openDiff(ctx, file) {
       set((s) => ({ ui: { ...s.ui, diff: { ctx, file } } }))
