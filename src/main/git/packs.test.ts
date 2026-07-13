@@ -31,7 +31,13 @@ describe("orphanedPacks (pack-directory listing filter)", () => {
   })
 
   it("ignores the other companion extensions: they neither validate nor protect", () => {
-    const files = [`pack-${SHA}.pack`, `pack-${SHA}.rev`, `pack-${SHA}.bitmap`, `pack-${SHA}.mtimes`, `pack-${SHA}.promisor`]
+    const files = [
+      `pack-${SHA}.pack`,
+      `pack-${SHA}.rev`,
+      `pack-${SHA}.bitmap`,
+      `pack-${SHA}.mtimes`,
+      `pack-${SHA}.promisor`,
+    ]
     assert.deepEqual(orphanedPacks(files), [`pack-${SHA}.pack`])
   })
 
