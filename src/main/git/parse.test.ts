@@ -8,12 +8,15 @@ import {
   BRANCH,
   classifyGitFailure,
   computeNextTag,
+  flowInitConfigArgs,
   flowVersionSuffix,
+  parseCountObjects,
   parseFlowPrefixes,
   parseForEachRef,
   parseLogPage,
   parseNameStatus,
   parsePorcelain,
+  parseProgressPercent,
   parseStashList,
 } from "./parse.ts"
 
@@ -330,5 +333,105 @@ describe("git-flow — parseFlowPrefixes / computeNextTag / flowVersionSuffix", 
 
   it("rend null sans version explicite ni dernier tag", () => {
     assert.equal(computeNextTag("release", "", null), null)
+  })
+})
+
+describe("flowInitConfigArgs (init-config building)", () => {
+  it("maps the form to gitflow.* key/value pairs in a stable order", () => {
+    assert.deepEqual(
+      flowInitConfigArgs({
+        master: "main",
+        develop: "develop",
+        feature: "feature/",
+        bugfix: "bugfix/",
+        release: "release/",
+        hotfix: "hotfix/",
+        support: "support/",
+        versiontag: "v",
+      }),
+      [
+        ["gitflow.branch.master", "main"],
+        ["gitflow.branch.develop", "develop"],
+        ["gitflow.prefix.feature", "feature/"],
+        ["gitflow.prefix.bugfix", "bugfix/"],
+        ["gitflow.prefix.release", "release/"],
+        ["gitflow.prefix.hotfix", "hotfix/"],
+        ["gitflow.prefix.support", "support/"],
+        ["gitflow.prefix.versiontag", "v"],
+      ]
+    )
+  })
+
+  it("passes an empty version-tag prefix straight through (no prefix is a valid choice)", () => {
+    const pairs = flowInitConfigArgs({
+      master: "master",
+      develop: "develop",
+      feature: "feature/",
+      bugfix: "bugfix/",
+      release: "release/",
+      hotfix: "hotfix/",
+      support: "support/",
+      versiontag: "",
+    })
+    assert.deepEqual(pairs.at(-1), ["gitflow.prefix.versiontag", ""])
+  })
+})
+
+describe("parseProgressPercent (maintenance progress)", () => {
+  it("extracts the percentage from a git progress line", () => {
+    assert.equal(parseProgressPercent("Counting objects:  45% (90/200)"), 45)
+    assert.equal(parseProgressPercent("Checking objects: 100% (200/200), done."), 100)
+  })
+
+  it("takes the last percentage when a chunk carries several phases", () => {
+    assert.equal(parseProgressPercent("Counting objects: 100%\rWriting objects:  30% (6/20)"), 30)
+  })
+
+  it("returns null when there is no percentage", () => {
+    assert.equal(parseProgressPercent("remote: Enumerating objects"), null)
+    assert.equal(parseProgressPercent(""), null)
+  })
+
+  it("rejects an out-of-range number that happens to be followed by %", () => {
+    assert.equal(parseProgressPercent("173% nonsense"), null)
+  })
+})
+
+describe("parseCountObjects (git count-objects -vH)", () => {
+  const OUT = [
+    "count: 12",
+    "size: 48.00 KiB",
+    "in-pack: 340",
+    "packs: 1",
+    "size-pack: 1.20 MiB",
+    "prune-packable: 0",
+    "garbage: 2",
+    "size-garbage: 16.00 KiB",
+  ].join("\n")
+
+  it("parses counts as numbers and keeps human-readable sizes as strings", () => {
+    assert.deepEqual(parseCountObjects(OUT), {
+      count: 12,
+      size: "48.00 KiB",
+      inPack: 340,
+      packs: 1,
+      sizePack: "1.20 MiB",
+      prunePackable: 0,
+      garbage: 2,
+      sizeGarbage: "16.00 KiB",
+    })
+  })
+
+  it("falls back to zeros/'0' for missing keys, ignoring unrelated lines", () => {
+    assert.deepEqual(parseCountObjects("count: 3\nsomething else\n"), {
+      count: 3,
+      size: "0",
+      inPack: 0,
+      packs: 0,
+      sizePack: "0",
+      prunePackable: 0,
+      garbage: 0,
+      sizeGarbage: "0",
+    })
   })
 })

@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 
 import { host, type BootState, type Repo } from "@/lib/git"
 import { afterClose, CREATE, HOME, navKeyEquals, repoKey, transitionKind, type NavKey } from "@/app/navigation"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { messages } from "@/lib/messages"
-import { setDark, useTheme } from "@/lib/theme"
+import { setTheme, useThemeMode } from "@/lib/theme"
+import { setLocale, useLocale } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { AppMenu, type MenuContext } from "@/app/menu"
+import { useMenuRepo } from "@/app/menu/use-menu-repo"
+import type { RepoCommand, RepoCommandEnvelope } from "@/features/repo/repo-commands"
 import { CreateScreen } from "@/features/create/create-screen"
 import { HomeScreen } from "@/features/home/home-screen"
 import { RepoView } from "@/features/repo/repo-view"
@@ -132,23 +135,42 @@ export default function App({ boot }: Props) {
   const homeActive = active.kind === "home"
   const createActive = active.kind === "create"
 
+  /* Menu → active repo: a menu item can't reach into a RepoView (different subtree), so it
+     dispatches a nonce-stamped command that the foreground RepoView executes through its store. */
+  const cmdSeq = useRef(0)
+  const [repoCommand, setRepoCommand] = useState<RepoCommandEnvelope | null>(null)
+  const sendRepoCommand = useCallback(
+    (repoId: number, command: RepoCommand) => setRepoCommand({ repoId, command, nonce: ++cmdSeq.current }),
+    []
+  )
+  const activeRepoId = active.kind === "repo" ? active.id : null
+  const menuRepo = useMenuRepo(activeRepoId, sendRepoCommand)
+
   /* The declarative menu bar's single seam into App state (see app/menu/types.ts). Subscribed
-     to the theme so the "Dark theme" checkbox reflects an OS flip, not just an explicit choice. */
-  const dark = useTheme()
+     to the theme mode and locale so the View menu's checkmarks stay live and a language switch
+     re-renders the whole tree (the `messages` getters re-read the active locale on the next render). */
+  const themeMode = useThemeMode()
+  const locale = useLocale()
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
   const menuCtx = useMemo<MenuContext>(
     () => ({
       newRepo: () => select(CREATE),
       openRepo: openDialog,
       closeActiveTab: () => active.kind === "repo" && closeTab(active.id),
       hasActiveRepo: active.kind === "repo",
+      activeRepo: menuRepo,
       goHome: () => select(HOME),
-      isDark: dark,
-      toggleTheme: () => setDark(!dark),
+      locale,
+      setLocale,
+      themeMode,
+      setTheme,
       reload: () => window.location.reload(),
       version: __APP_VERSION__,
       openExternal: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
     }),
-    [active, closeTab, dark, openDialog, select]
+    [active, closeTab, locale, menuRepo, openDialog, select, themeMode]
   )
 
   return (
@@ -204,7 +226,7 @@ export default function App({ boot }: Props) {
                   label={messages.app.reloadTab}
                   onReset={() => bumpReset(r.id)}
                 >
-                  <RepoView repo={r} active={tabActive} />
+                  <RepoView repo={r} active={tabActive} command={repoCommand} />
                 </ErrorBoundary>
               </div>
             )
