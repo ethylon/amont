@@ -138,9 +138,47 @@ export type FlowInfo = {
   targets: string[]
   /** tag that the finish will create — version from the branch name, otherwise a bump of the last tag */
   nextTag: string | null
+  /** the branch has no remote-tracking branch yet: `git flow <kind> publish` is still available */
+  unpushed: boolean
 }
 
 export type BranchAct = "merge" | "delete" | "pull" | "push" | "finish"
+
+/** The four git-flow work types (feature/bugfix/release/hotfix). */
+export type FlowKind = keyof FlowPrefixes
+
+/** The `gitflow.*` config the initialization form writes before `git flow init -d` (avoiding the
+    interactive prompt that would hang without a TTY). Trunk branch names + the five prefixes. */
+export type FlowInitConfig = {
+  master: string
+  develop: string
+  feature: string
+  bugfix: string
+  release: string
+  hotfix: string
+  support: string
+  /** version-tag prefix (`gitflow.prefix.versiontag`) — often "v" or empty. */
+  versiontag: string
+}
+
+/** Parsed `git count-objects -vH`. Counts are numbers; sizes stay the human-readable strings
+    `-H` produces ("48.00 KiB") — the maintenance modal only displays them. */
+export type CountObjects = {
+  count: number
+  size: string
+  inPack: number
+  packs: number
+  sizePack: string
+  prunePackable: number
+  garbage: number
+  sizeGarbage: string
+}
+
+/** Long-running database maintenance: `git fsck --full` (verify) / `git gc` (compact). */
+export type MaintKind = "fsck" | "gc"
+
+/** Live progress of a maintenance run, streamed from git's stderr (`NN%`). */
+export type ProgressEvent = { id: number; op: MaintKind; percent: number }
 
 export type WtSource = "staged" | "unstaged" | "untracked"
 

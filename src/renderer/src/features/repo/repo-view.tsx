@@ -16,6 +16,12 @@ import { CommitSearch } from "@/features/search/commit-search"
 import { DetailPanel } from "@/features/repo/detail-panel"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
+import { FlowStartBanner } from "@/features/flow/flow-start-banner"
+import { FlowInitDialog } from "@/features/flow/flow-init-dialog"
+import { MaintenanceDialog } from "@/features/maintenance/maintenance-dialog"
+import { MaintenanceStatus } from "@/features/maintenance/maintenance-status"
+import { useRepoMenuTools } from "@/features/repo/use-repo-menu-tools"
+import type { RepoCommandEnvelope } from "@/features/repo/repo-commands"
 import { GitConsole } from "@/features/console/git-console"
 import { GraphColumn } from "@/features/graph/react/graph-column"
 import { RefsSidebar } from "@/features/refs/refs-sidebar"
@@ -45,21 +51,23 @@ type Props = {
   repo: Repo
   /** a background tab stays mounted: it takes neither the keyboard nor the window title */
   active: boolean
+  /** the latest app-menu command; each RepoView acts only on the one addressed to its repo */
+  command: RepoCommandEnvelope | null
 }
 
 /** Slot layout (AUDIT.md §5): banner / sidebar / center / panel / statusbar. Each
     panel subscribes to its own slice of the store or the query layer — the prop drilling
     (10 props to RefsSidebar, 14 to WorktreePanel) disappears with it. */
-export function RepoView({ repo, active }: Props) {
+export function RepoView({ repo, active, command }: Props) {
   const api = useMemo(() => repoApi(repo.id), [repo.id])
   return (
     <RepoProvider repoId={repo.id} api={api}>
-      <RepoViewContent repo={repo} active={active} />
+      <RepoViewContent repo={repo} active={active} command={command} />
     </RepoProvider>
   )
 }
 
-function RepoViewContent({ repo, active }: Props) {
+function RepoViewContent({ repo, active, command }: Props) {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
   const storeApi = useRepoStoreApi()
@@ -73,6 +81,10 @@ function RepoViewContent({ repo, active }: Props) {
   const workFlow = status?.branch ? branchFlow(status.branch, flow) : null
   const flowInfoQuery = useFlowInfoQuery(api, repoId, status?.branch ?? null, workFlow)
   const flowInfo = flowInfoQuery.data ?? null
+
+  /* Repository-menu surfaces (Git Flow init/start, database maintenance), driven by the app menu
+     through the command channel (see repo-commands.ts). */
+  const tools = useRepoMenuTools(api, repoId, command)
 
   /* the tree emptied out while we were looking at it: the view no longer has a subject, and an
      in-progress amend no longer has a block to display in */
@@ -176,6 +188,15 @@ function RepoViewContent({ repo, active }: Props) {
             !booted && "opacity-0"
           )}
         >
+          {tools.startKind && (
+            <FlowStartBanner
+              key={tools.startKind}
+              kind={tools.startKind}
+              prefix={flow?.[tools.startKind] ?? `${tools.startKind}/`}
+              onDone={tools.closeStart}
+            />
+          )}
+
           {workFlow && flowInfo && status?.branch && (
             <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />
           )}
@@ -237,8 +258,22 @@ function RepoViewContent({ repo, active }: Props) {
         flow={workFlow}
         opState={opState}
         stats={stats}
+        maintSlot={<MaintenanceStatus maint={tools.maint} />}
         consoleSlot={<GitConsole repoId={repo.id} />}
       />
+
+      {/* Portaled dialogs: only for the foreground tab, so a background tab's open modal can't
+          escape its hidden panel and overlay the active one. */}
+      {active && tools.initOpen && <FlowInitDialog onClose={tools.closeInit} />}
+      {active && tools.statsOpen && (
+        <MaintenanceDialog
+          api={api}
+          repoId={repoId}
+          maint={tools.maint}
+          onRunMaint={tools.runMaint}
+          onClose={() => tools.setStatsOpen(false)}
+        />
+      )}
     </>
   )
 }

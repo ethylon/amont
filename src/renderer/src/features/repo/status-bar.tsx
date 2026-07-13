@@ -21,6 +21,9 @@ type Props = {
   flow: BranchFlow | null
   opState: OpState | null
   stats: Stats | null
+  /** live database-maintenance progress (Verify/Compact), as a slot — rendered only while a
+      run is active (cf. features/maintenance). */
+  maintSlot?: React.ReactNode
   /** the git console, as a slot — named this way to avoid shadowing the global `console` (AUDIT.md §7,
       phase 5, item 6). */
   consoleSlot?: React.ReactNode
@@ -30,7 +33,7 @@ const nf = new Intl.NumberFormat()
 
 const Num = ({ children }: { children: React.ReactNode }) => <b className="font-medium text-foreground">{children}</b>
 
-export function StatusBar({ branch, flow, opState, stats, consoleSlot }: Props) {
+export function StatusBar({ branch, flow, opState, stats, maintSlot, consoleSlot }: Props) {
   /* the work type tints the branch segment: shared signals from flow-context */
   const f = flow && FLOW_META[flow]
   return (
@@ -61,6 +64,8 @@ export function StatusBar({ branch, flow, opState, stats, consoleSlot }: Props) 
           )}
         </Badge>
       )}
+
+      {maintSlot}
 
       {consoleSlot}
 
