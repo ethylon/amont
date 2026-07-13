@@ -1,6 +1,12 @@
 import { useId, useState } from "react"
-import type { IconSvgElement } from "@hugeicons/react"
-import { ArchiveArrowDownIcon, ArrowTurnBackwardIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
+import {
+  ArchiveArrowDownIcon,
+  ArrowTurnBackwardIcon,
+  MinusSignIcon,
+  MoreVerticalIcon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
 import { messages } from "@/lib/messages"
@@ -11,7 +17,14 @@ import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
 import { FileEntries, FileListHeader, FileViewToggle, useFileView, type FileView } from "@/features/repo/file-list"
-import { GitCmd } from "@/components/ui/git-cmd"
+import { GitCmd, MenuItemWithCmd } from "@/components/ui/git-cmd"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -36,6 +49,33 @@ const ROW_ACTION_CLS = `shrink-0 self-center opacity-0 group-hover/file:opacity-
 const ACTION_CLS = `ms-auto ${ROW_ACTION_CLS}`
 const DIR_ACTION_CLS = `shrink-0 self-center opacity-0 group-hover/dirrow:opacity-100 focus-visible:opacity-100 ${HIT_CLS}`
 
+/** Bulk action of a block, an entry of its kebab menu. Destructive entries land
+    after a separator, at the bottom, whatever order the caller passes. */
+type WtMenuItem = { label: string; cmd: string; icon: IconSvgElement; onClick(): void; destructive?: boolean }
+
+function WtBlockMenu({ items }: { items: WtMenuItem[] }) {
+  const entry = (i: WtMenuItem) => (
+    <DropdownMenuItem key={i.label} variant={i.destructive ? "destructive" : "default"} onClick={i.onClick}>
+      <HugeiconsIcon icon={i.icon} strokeWidth={2} />
+      <MenuItemWithCmd label={i.label} cmd={i.cmd} />
+    </DropdownMenuItem>
+  )
+  const safe = items.filter((i) => !i.destructive)
+  const destructive = items.filter((i) => i.destructive)
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<IconButton label={messages.worktree.moreActions} icon={MoreVerticalIcon} size="icon-xs" />}
+      />
+      <DropdownMenuContent align="end" className="w-max min-w-44">
+        {safe.map(entry)}
+        {destructive.length > 0 && <DropdownMenuSeparator />}
+        {destructive.map(entry)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function WtBlock({
   title,
   files,
@@ -45,7 +85,7 @@ function WtBlock({
   onOpen,
   action,
   dirAction,
-  bulk,
+  menu,
   empty,
   className,
 }: {
@@ -57,36 +97,13 @@ function WtBlock({
   onOpen(f: WtFile): void
   action(f: WtFile): React.ReactNode
   dirAction(files: WtFile[]): React.ReactNode
-  bulk?: { label: string; cmd: string; onClick(): void; destructive?: boolean }[]
+  menu?: WtMenuItem[]
   empty: string
   className?: string
 }) {
   return (
     <div className={cn("flex min-h-0 flex-1 basis-0 flex-col", className)}>
-      <FileListHeader
-        actions={
-          files.length > 0 &&
-          bulk && (
-            /* single flex child: the header lays out title vs actions with justify-between */
-            <span className="flex items-center gap-1">
-              {bulk.map((b) => (
-                <Button
-                  key={b.label}
-                  variant="ghost"
-                  size="sm"
-                  className={cn("h-auto py-0.5 normal-case tracking-normal", b.destructive && "text-destructive")}
-                  onClick={b.onClick}
-                >
-                  <span className="flex flex-col items-start">
-                    <span>{b.label}</span>
-                    <GitCmd cmd={b.cmd} className={cn(b.destructive && "text-destructive/70")} />
-                  </span>
-                </Button>
-              ))}
-            </span>
-          )
-        }
-      >
+      <FileListHeader actions={files.length > 0 && menu && <WtBlockMenu items={menu} />}>
         {title} · {files.length}
       </FileListHeader>
 
@@ -133,7 +150,14 @@ export function WorktreePanel() {
   const onDiscard = useRepoStore((s) => s.runDiscard)
   const onCommit = useRepoStore((s) => s.doCommit)
   const runStash = useRepoStore((s) => s.runStash)
-  const onStash = () => runStash("push", subject.trim() || undefined)
+  /* stash covers the whole worktree (staged included): the entry sits in both block menus
+     so it stays reachable when only one side has files */
+  const stashItem: WtMenuItem = {
+    label: messages.worktree.stash,
+    cmd: "git stash push -u",
+    icon: ArchiveArrowDownIcon,
+    onClick: () => void runStash("push", subject.trim() || undefined),
+  }
 
   /* pending discard, held until the confirmation dialog resolves it */
   const [discardReq, setDiscardReq] = useState<DiscardRequest | null>(null)
@@ -239,16 +263,7 @@ export function WorktreePanel() {
         <h2 className="text-sm leading-snug font-semibold tracking-tight text-balance">
           {messages.worktree.uncommittedChanges}
         </h2>
-        <div className="flex items-center gap-1">
-          <IconButton
-            label={messages.worktree.stashChanges}
-            title={messages.worktree.stashChanges}
-            icon={ArchiveArrowDownIcon}
-            size="icon-sm"
-            onClick={onStash}
-          />
-          <FileViewToggle view={view} onChange={setView} />
-        </div>
+        <FileViewToggle view={view} onChange={setView} />
       </div>
 
       {/* Merge in progress: names both sides once for the whole panel — the same A/B
@@ -297,27 +312,26 @@ export function WorktreePanel() {
           onOpen={openDiff}
           action={unindexedActions}
           dirAction={stageDir}
-          bulk={
-            unindexed.length
-              ? [
-                  {
-                    label: messages.worktree.discardAll,
-                    cmd: "git restore/clean -- …",
-                    destructive: true,
-                    onClick: () => askDiscard(unindexed),
-                  },
-                  {
-                    label: messages.worktree.stageAll,
-                    cmd: "git add -- …",
-                    onClick: () =>
-                      onRun(
-                        STAGE,
-                        unindexed.map((f) => f.path)
-                      ),
-                  },
-                ]
-              : undefined
-          }
+          menu={[
+            {
+              label: messages.worktree.stageAll,
+              cmd: "git add -- …",
+              icon: PlusSignIcon,
+              onClick: () =>
+                void onRun(
+                  STAGE,
+                  unindexed.map((f) => f.path)
+                ),
+            },
+            stashItem,
+            {
+              label: messages.worktree.discardAll,
+              cmd: "git restore/clean -- …",
+              icon: ArrowTurnBackwardIcon,
+              destructive: true,
+              onClick: () => askDiscard(unindexed),
+            },
+          ]}
           empty={messages.worktree.noChangesToStage}
           className={cn("pb-3", hasConflicts && "border-t pt-3")}
         />
@@ -330,21 +344,19 @@ export function WorktreePanel() {
           onOpen={openDiff}
           action={unstageBtn}
           dirAction={unstageDir}
-          bulk={
-            indexed.length
-              ? [
-                  {
-                    label: messages.worktree.unstageAll,
-                    cmd: "git restore --staged -- …",
-                    onClick: () =>
-                      onRun(
-                        UNSTAGE,
-                        indexed.map((f) => f.path)
-                      ),
-                  },
-                ]
-              : undefined
-          }
+          menu={[
+            {
+              label: messages.worktree.unstageAll,
+              cmd: "git restore --staged -- …",
+              icon: MinusSignIcon,
+              onClick: () =>
+                void onRun(
+                  UNSTAGE,
+                  indexed.map((f) => f.path)
+                ),
+            },
+            stashItem,
+          ]}
           empty={messages.worktree.noStagedFiles}
           className="border-t pt-3"
         />
