@@ -121,4 +121,6 @@ export type MenuContext = {
   version: string
   /** Open a URL in the system browser (never in-app; cf. main/window.ts). */
   openExternal(url: string): void
+  /** Manual update check (Help ▸ Check for updates); feedback via the update card. */
+  checkForUpdates(): void
 }

@@ -37,6 +37,7 @@ import type {
   StashAct,
   Status,
   TraceLine,
+  UpdateStatus,
   Worktree,
   WorktreeAct,
   WorktreeInfo,
@@ -139,6 +140,13 @@ export type InvokeChannels = {
   /** Kills the git process associated with `requestId` for this repo, if it's still running
       (AUDIT.md §2 B4). Silent no-op if the request has already finished or doesn't exist. */
   "repo:cancel": (id: number, requestId: string) => Promise<void>
+
+  /* Auto-update (main/updater.ts). Le retour passe par l'événement `update:status`, pas par
+     ces promesses : le téléchargement est long, l'invoke ne fait que déclencher. */
+  /** Check manuel (Help ▸ Check for updates) ; pousse `update:status` avec origin "manual". */
+  "update:check": () => Promise<void>
+  /** Quitte et installe la mise à jour téléchargée (`quitAndInstall`). */
+  "update:install": () => Promise<void>
 }
 
 /** `invoke`/`handle` channel name — derived from the contract, never redeclared by hand. */
@@ -150,6 +158,7 @@ export type EventChannels = {
   "git:changed": ChangeEvent
   "git:trace": TraceLine
   "git:progress": ProgressEvent
+  "update:status": UpdateStatus
 }
 
 export type EventChannel = keyof EventChannels
@@ -175,10 +184,14 @@ export type Bridge = {
   initBare: InvokeChannels["create:bare"]
   cloneRepo: InvokeChannels["create:clone"]
 
+  checkForUpdates: InvokeChannels["update:check"]
+  installUpdate: InvokeChannels["update:install"]
+
   onOp(cb: (payload: EventChannels["git:op"]) => void): () => void
   onChanged(cb: (payload: EventChannels["git:changed"]) => void): () => void
   onTrace(cb: (payload: EventChannels["git:trace"]) => void): () => void
   onProgress(cb: (payload: EventChannels["git:progress"]) => void): () => void
+  onUpdate(cb: (payload: EventChannels["update:status"]) => void): () => void
 
   log: InvokeChannels["repo:log"]
   total: InvokeChannels["repo:total"]
