@@ -15,13 +15,43 @@ type Entry = TraceLine & { key: number }
 /* Bounded buffer: a debug console, not a log. Beyond that, the oldest lines drop. */
 const CAP = 500
 
-/** Read-only git console: last line in the status bar, full history on click.
+/** One footer-feed occupant: a status dot, an optional operation verb, a detail line, and an
+    optional inline action. The status bar arbitrates which entry owns the feed (op feedback,
+    maintenance, repo health); with no entry the feed falls back to the live console line. */
+export type FeedEntry = {
+  tone: "neutral" | "busy" | "primary" | "success" | "danger" | "warning"
+  /** short operation name (`fsck`, `gc`, `health`), kept stable while the detail scrolls */
+  verb?: string
+  text: string
+  /** streamed progress percentage (fsck) — `gc` emits none, the busy dot alone carries it */
+  percent?: number | null
+  action?: { label: string; run(): void }
+}
+
+const DOT: Record<FeedEntry["tone"], string> = {
+  neutral: "bg-muted-foreground/60",
+  busy: "animate-pulse bg-primary",
+  primary: "bg-primary",
+  success: "bg-success",
+  danger: "bg-destructive",
+  warning: "bg-warning",
+}
+
+/* the verb carries the tone; the detail only turns red on failure, everything else stays muted */
+const VERB: Partial<Record<FeedEntry["tone"], string>> = {
+  primary: "text-primary",
+  success: "text-success",
+  danger: "text-destructive",
+  warning: "text-warning",
+}
+
+/** Read-only git console: the footer feed as trigger, full history on click.
 
     Base UI Popover rather than a hand-rolled popover (AUDIT.md §8): role="dialog" set on the Popup by
     the primitive, initial focus in the panel and returned to the trigger on close, Escape and
     click outside the panel handled natively — the old `fixed inset-0` button that simulated a click
     outside the panel goes away with it. */
-export function GitConsole({ repoId }: { repoId: number }) {
+export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntry | null }) {
   const [lines, setLines] = useState<Entry[]>([])
   const [open, setOpen] = useState(false)
   const keyRef = useRef(0)
@@ -48,10 +78,13 @@ export function GitConsole({ repoId }: { repoId: number }) {
     return true
   })
 
-  /* on open: show the most recent */
-  useLayoutEffect(() => {
-    if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-  }, [open])
+  /* on open: show the most recent. Callback ref rather than an effect keyed on `open` — the
+     panel mounts after the state flips (portal), an effect can measure before the content lays
+     out and land mid-history. The ref attaches once the container exists, scrollHeight is final. */
+  const attachScroll = useCallback((el: HTMLDivElement | null) => {
+    scrollRef.current = el
+    if (el) el.scrollTop = el.scrollHeight
+  }, [])
 
   /* new line: follow the bottom, unless the user has scrolled up to read the history */
   useLayoutEffect(() => {
@@ -89,8 +122,12 @@ export function GitConsole({ repoId }: { repoId: number }) {
     }
   }
 
+  /* what the feed says: the arbitrated entry when one is active, the live console line otherwise */
+  const tone = entry?.tone ?? (busy ? "busy" : "neutral")
+  const text = entry?.text ?? last?.text ?? messages.console.ready
+
   return (
-    <div className="flex min-w-0">
+    <div className="flex min-w-0 flex-1 items-center gap-1">
       <span aria-live="polite" className="sr-only">
         {lastFailure ? messages.console.commandFailed(lastFailure) : ""}
       </span>
@@ -99,15 +136,30 @@ export function GitConsole({ repoId }: { repoId: number }) {
         <PopoverTrigger
           aria-busy={busy}
           className={cn(
-            "flex min-w-0 items-center gap-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-popup-open:bg-muted data-popup-open:text-foreground"
+            "flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-popup-open:bg-muted data-popup-open:text-foreground"
           )}
         >
-          <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 shrink-0" />
-          <span className="max-w-[52ch] truncate">{last?.text ?? messages.console.ready}</span>
-          {busy && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />}
+          <span className={cn("size-1.5 shrink-0 rounded-full", DOT[tone])} />
+          {entry?.verb && (
+            <span className={cn("shrink-0 font-medium", VERB[tone] ?? "text-foreground")}>{entry.verb}</span>
+          )}
+          <span className={cn("truncate", tone === "danger" && "text-destructive")}>{text}</span>
+          {entry?.percent != null && <span className="shrink-0 text-foreground tabular-nums">{entry.percent}%</span>}
         </PopoverTrigger>
 
-        <PopoverContent aria-label={messages.console.gitConsole} className="flex w-[min(90vw,44rem)] flex-col">
+        {/* the inline action lives beside the trigger, not inside it — no nested buttons */}
+        {entry?.action && (
+          <Button variant="ghost" size="xs" onClick={entry.action.run} className="shrink-0">
+            {entry.action.label}
+          </Button>
+        )}
+
+        <PopoverContent
+          side="top"
+          align="start"
+          aria-label={messages.console.gitConsole}
+          className="flex w-[min(90vw,44rem)] flex-col"
+        >
           <div className="flex shrink-0 items-center gap-2 border-b px-2.5 py-1.5">
             <HugeiconsIcon icon={TerminalIcon} strokeWidth={2} className="size-3 text-muted-foreground" />
             <span className="text-[0.6875rem] font-medium">{messages.console.gitConsole}</span>
@@ -127,7 +179,7 @@ export function GitConsole({ repoId }: { repoId: number }) {
           </div>
 
           <div
-            ref={scrollRef}
+            ref={attachScroll}
             className="min-h-0 max-h-[min(60vh,24rem)] flex-1 overflow-auto px-2.5 py-2 font-mono text-[0.6875rem] leading-relaxed"
           >
             {lines.length === 0 ? (
