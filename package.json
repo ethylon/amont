@@ -20,6 +20,7 @@
   },
   "packageManager": "pnpm@10.14.0",
   "scripts": {
+    "postinstall": "node scripts/ensure-electron.mjs",
     "dev": "electron-vite dev",
     "mock": "vite --config vite.preview.config.mjs",
     "build": "electron-vite build",
