@@ -10,6 +10,8 @@ import {
   computeNextTag,
   flowInitConfigArgs,
   flowVersionSuffix,
+  hashListCount,
+  hashListSlice,
   parseCountObjects,
   parseFlowPrefixes,
   parseForEachRef,
@@ -206,6 +208,46 @@ describe("parsePorcelain (status --porcelain=v1 -z)", () => {
   it("consumes a rename's extra NUL field (old path, after the new one)", () => {
     const wt = parsePorcelain(entry("R ", "new.ts") + NUL + "old.ts" + NUL)
     assert.deepEqual(wt.staged, [{ st: "R", path: "new.ts", old: "old.ts" }])
+  })
+})
+
+describe("hashListCount / hashListSlice (materialized log pagination)", () => {
+  /* rev-list output: fixed-width lines, one full hash + \n each */
+  const sha1 = (c: string) => c.repeat(40)
+  const list = ["a", "b", "c", "d", "e"].map((c) => sha1(c) + "\n").join("")
+
+  it("counts zero hashes for an empty output (empty repo)", () => {
+    assert.equal(hashListCount(""), 0)
+  })
+
+  it("counts newline-terminated fixed-width lines", () => {
+    assert.equal(hashListCount(list), 5)
+  })
+
+  it("counts sha256-width lines just as well (one object format per repo)", () => {
+    const wide = ["a", "b"].map((c) => c.repeat(64) + "\n").join("")
+    assert.equal(hashListCount(wide), 2)
+  })
+
+  it("still counts a lone hash without a trailing newline", () => {
+    assert.equal(hashListCount(sha1("f")), 1)
+  })
+
+  it("slices the first page as whole newline-terminated hashes", () => {
+    assert.equal(hashListSlice(list, 0, 2), sha1("a") + "\n" + sha1("b") + "\n")
+  })
+
+  it("slices a middle page at the right offset", () => {
+    assert.equal(hashListSlice(list, 2, 2), sha1("c") + "\n" + sha1("d") + "\n")
+  })
+
+  it("clamps a page overlapping the end to the remaining hashes", () => {
+    assert.equal(hashListSlice(list, 3, 10), sha1("d") + "\n" + sha1("e") + "\n")
+  })
+
+  it("returns empty past the end and for an empty list — the caller must not spawn git log", () => {
+    assert.equal(hashListSlice(list, 5, 100), "")
+    assert.equal(hashListSlice("", 0, 100), "")
   })
 })
 

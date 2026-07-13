@@ -1,8 +1,10 @@
+import { memo } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { GitBranchIcon } from "@hugeicons/core-free-icons"
 
 import type { Stats } from "@/features/graph/controller"
 import type { BranchFlow } from "@/lib/gitflow"
+import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { FLOW_META } from "@/features/flow/flow-context"
@@ -49,7 +51,12 @@ function feedEntry({ opState, maint, health, onCompact }: Props): FeedEntry | nu
   return null
 }
 
-export function StatusBar(props: Props) {
+/* memo (perf audit, finding 4b): selection clicks re-render the tab but leave the footer's
+   props untouched — with RepoView memoizing `health`/`onCompact`, the bar only re-renders
+   when an operation, the branch or the graph stats actually move. */
+export const StatusBar = memo(function StatusBar(props: Props) {
+  /* memo'd component: re-render on a runtime language switch even when no prop moved */
+  useLocale()
   const { repoId, branch, flow, stats } = props
   /* the work type tints the branch segment: shared signals from flow-context */
   const f = flow && FLOW_META[flow]
@@ -81,4 +88,4 @@ export function StatusBar(props: Props) {
       )}
     </footer>
   )
-}
+})

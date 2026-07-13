@@ -13,8 +13,9 @@ export type ImageSide = { path: string; ref: BlobRef }
 export type ImageDiff = { old: BlobData | null; new: BlobData | null }
 
 /* Extensions we render as an image rather than a text/binary diff, mapped to their MIME type
-   for the renderer's `data:` URL. `<img>` (unlike inline markup) never executes an SVG's
-   scripts, so svg is safe to include as a rendered preview. */
+   for the Blob behind the renderer's `blob:` object URL (image-diff-view.tsx). `<img>` (unlike
+   inline markup) never executes an SVG's scripts, so svg is safe to include as a rendered
+   preview. */
 export const IMAGE_MIME: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
@@ -70,8 +71,14 @@ export function imageSides(ctx: DiffCtx, file: FileChange): { old: ImageSide | n
 }
 
 export function useImageDiffQuery(api: RepoApi, id: number, ctx: DiffCtx, file: FileChange, enabled: boolean) {
+  /* A commit↔commit image pair reads blobs at two fixed hashes — content-addressed, it can
+     never change — so it never goes stale (same policy as useDiffQuery). Working-tree/index
+     sides live on disk and keep the default freshness. gcTime stays at the default: decoded
+     image payloads are big, no reason to pin them in memory longer. */
+  const immutable = !("wt" in ctx)
   return useQuery({
     enabled,
+    staleTime: immutable ? Infinity : 0,
     queryKey: queryKeys.imageDiff(id, ctx, file.path, file.old ?? null),
     queryFn: async (): Promise<ImageDiff> => {
       const sides = imageSides(ctx, file)

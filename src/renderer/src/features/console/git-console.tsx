@@ -57,17 +57,34 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
   const keyRef = useRef(0)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(
-    () =>
-      onTrace((p) => {
-        if (p.id !== repoId) return
+  /* Traced lines are batched behind a rAF (perf audit, finding 23): a chatty command (fetch
+     progress, fsck) streams dozens of lines per frame, and one setState per line meant as
+     many re-renders of the whole status bar. The buffer flushes once per frame; the 500-line
+     cap applies at flush like before. */
+  const pendingRef = useRef<Entry[]>([])
+  const rafRef = useRef(0)
+  useEffect(() => {
+    const unsub = onTrace((p) => {
+      if (p.id !== repoId) return
+      pendingRef.current.push({ ...p, key: keyRef.current++ })
+      if (rafRef.current) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0
+        const batch = pendingRef.current
+        pendingRef.current = []
         setLines((prev) => {
-          const next = [...prev, { ...p, key: keyRef.current++ }]
+          const next = [...prev, ...batch]
           return next.length > CAP ? next.slice(next.length - CAP) : next
         })
-      }),
-    [repoId]
-  )
+      })
+    })
+    return () => {
+      unsub()
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = 0
+      pendingRef.current = []
+    }
+  }, [repoId])
 
   /* high priority, in addition to the primitive's native Escape: the console is a floating overlay
      above everything else, its Escape must never fall through to the one that closes the diff (see
@@ -94,6 +111,11 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
   }, [lines, open])
 
   const clear = useCallback(() => {
+    /* also drop the un-flushed batch: resetting the key counter with old-keyed entries
+       still buffered could otherwise hand two lines the same React key later on */
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = 0
+    pendingRef.current = []
     setLines([])
     keyRef.current = 0
   }, [])
