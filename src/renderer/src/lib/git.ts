@@ -13,6 +13,7 @@ export type {
   CommitMessage,
   ConflictFile,
   CountObjects,
+  DiffText,
   FileChange,
   FlowInfo,
   FlowInitConfig,
@@ -47,6 +48,7 @@ import type {
   CommitMessage,
   ConflictFile,
   CountObjects,
+  DiffText,
   FileChange,
   FlowInfo,
   FlowInitConfig,
@@ -128,13 +130,15 @@ export type RepoApi = {
   files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
   /** message body (`%b`), trailers included */
   body(hash: string, requestId?: string): Promise<string>
-  diff(hash: string, parent: string | null, path: string, oldPath: string | null, requestId?: string): Promise<string>
+  /** diff text, truncated main-side past DIFF_MAX_LINES (shared/diff.ts) — `totalLines`
+      carries the exact length of the full output for the truncation footer */
+  diff(hash: string, parent: string | null, path: string, oldPath: string | null, requestId?: string): Promise<DiffText>
   /** raw bytes of one side of a binary path (image preview); `null` if absent on that side */
   blob(path: string, ref: BlobRef): Promise<BlobData | null>
   status(): Promise<Status>
   op(name: OpName): Promise<void>
   worktree(): Promise<Worktree>
-  wtdiff(path: string, source: WtSource): Promise<string>
+  wtdiff(path: string, source: WtSource): Promise<DiffText>
   stage(paths: string[]): Promise<void>
   unstage(paths: string[]): Promise<void>
   /** partial staging: sub-patch applied to the index alone; `reverse` unstages */
