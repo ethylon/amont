@@ -20,3 +20,22 @@ export function buildPathTree<T>(list: T[], pathOf: (item: T) => string): PathTr
   }
   return root
 }
+
+/* Compactage façon VS Code ("compact folders") : une chaîne de dossiers à enfant unique
+   devient un seul nœud dont la clé joint les segments ("src/components/ui"). Transformation
+   séparée de buildPathTree : la vue refs garde les niveaux distincts (un préfixe de branche
+   est un groupe, pas un chemin), seule la vue fichiers compacte. */
+export function compactPathTree<T>(node: PathTree<T>): PathTree<T> {
+  const dirs = new Map<string, PathTree<T>>()
+  for (const [key, child] of node.dirs) {
+    let label = key
+    let n = child
+    while (n.items.length === 0 && n.dirs.size === 1) {
+      const [next] = n.dirs.keys()
+      label += "/" + next
+      n = n.dirs.get(next)!
+    }
+    dirs.set(label, compactPathTree(n))
+  }
+  return { dirs, items: node.items }
+}
