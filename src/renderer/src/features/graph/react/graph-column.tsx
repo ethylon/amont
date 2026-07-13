@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 
 import { worktreeCount } from "@/lib/git"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
@@ -29,7 +29,6 @@ export function GraphColumn() {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
   const graphRef = useRepoStore((s) => s.graphRef)
-  const rows = useRepoStore((s) => s.selection.rows)
   const view = useRepoStore((s) => s.ui.view)
   const diff = useRepoStore((s) => s.ui.diff)
   const diffMode = useRepoStore((s) => s.ui.diffMode)
@@ -46,10 +45,12 @@ export function GraphColumn() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [diffNonce, setDiffNonce] = useState(0)
 
-  /* --- Selection: the store is the source of truth, the canvas only applies the classes --- */
-  useEffect(() => {
-    graphRef.current?.setSelection(rows)
-  }, [rows, graphRef])
+  /* No selection-syncing effect here: the store is the source of truth AND already pushes
+     every `selection.rows` change to the canvas imperatively (each mutation in
+     repo-store.tsx ends with `g.setSelection(...)` — selectRow, selectBranch, focusRef,
+     clearFocus, reresolveSelection, showWorktree). Mirroring it through a subscription
+     would only re-render this whole column on every commit click to re-apply what the
+     canvas already displays. */
 
   const callbacks = useMemo<GraphCallbacks>(
     () => ({

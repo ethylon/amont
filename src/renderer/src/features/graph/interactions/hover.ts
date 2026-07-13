@@ -11,11 +11,16 @@ import { ghostChips } from "../render/rows.ts"
 
 /* Branch refs placed on a row, at parseRefs rank (HEAD, local, remote); a
    synced remote is absorbed by its local counterpart. `kind` aligned with GitRef so the
-   sidebar can find its row. Read from the layout state, independent of the page cache. */
-export const refChips = (S: LayoutState, row: number) =>
-  parseRefs(S.refsOf.get(row) ?? "")
+   sidebar can find its row. Read from the layout state, independent of the page cache.
+   Undecorated rows (the vast majority) skip `parseRefs` outright — this runs on every row
+   the cursor crosses (cf. `hoverRow` → tipBranches), an empty parse per hover added up. */
+export const refChips = (S: LayoutState, row: number) => {
+  const raw = S.refsOf.get(row)
+  if (raw === undefined) return []
+  return parseRefs(raw)
     .filter((c) => c.kind !== "tag")
     .map((c) => ({ name: c.name, kind: c.kind === "remote" ? ("remote" as const) : ("head" as const) }))
+}
 
 /* Branches the tip belongs to: its live refs, otherwise the one absorbed by the merge
    commit (`mergedBy` → `from`). Without this fallback, a branch merged then deleted — the

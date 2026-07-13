@@ -5,24 +5,44 @@ import { parseRefs } from "../../../lib/commit-parse.ts"
 import { hashOfId } from "../ids.ts"
 import type { LayoutState } from "./state.ts"
 
+/* shared empty result: the overwhelming majority of rows carry no refs, and `branchRefs`
+   runs once per climb step — a fresh `parseRefs("")` (split + Map + arrays) per undecorated
+   row was pure allocation churn (hovering row 15 000 walked ~15k of them) */
+const NO_REFS: string[] = []
+
 /* Branch refs of a row, short name on the remote side: `origin/x` designates branch `x`.
    Segment boundaries — a branch's base is often another branch's tip (develop with no
    commit since the fork), which no topological fork signals. The detached HEAD marker and
    tags aren't among them. Read from the layout state: chains are walked without the
    commits, whose page may have been evicted. */
-export const branchRefs = (S: LayoutState, row: number) =>
-  parseRefs(S.refsOf.get(row) ?? "")
+export const branchRefs = (S: LayoutState, row: number) => {
+  const raw = S.refsOf.get(row) // decorated rows only: absent means no refs, skip the parse
+  if (raw === undefined) return NO_REFS
+  return parseRefs(raw)
     .filter((r) => r.kind !== "tag" && r.name !== "HEAD")
     .map((r) => (r.kind === "remote" ? r.name.slice(r.name.indexOf("/") + 1) : r.name))
+}
 
 /** Row of the tip of `i`'s chain: climbs the first-parent trunk up to the commit carrying
     the branch name (or up to an unnamed fork). O(climb), no array — replaces the old
     `branchChain(S, i)[0]`, whose building of the entire array (with quadratic `unshift`)
     only served to read its first element on every hover (AUDIT.md §6, perf item: "no more
-    walking branchChain to the root on every mouseover"). */
+    walking branchChain to the root on every mouseover").
+    Memoized in `S.tipOf` — for `i` AND every row crossed on the way up, which all share the
+    same tip: sweeping the cursor down a long chain costs O(chain) once, not O(chain) per
+    hovered row. Valid for the state's lifetime (cf. layout/state.ts `tipOf`). */
 export function chainTip(S: LayoutState, i: number): number {
+  const hit = S.tipOf.get(i)
+  if (hit !== undefined) return hit
+  const path: number[] = []
   let r = i
   for (;;) {
+    /* an already-memoized ancestor short-circuits the rest of the climb */
+    const up0 = S.tipOf.get(r)
+    if (up0 !== undefined) {
+      r = up0
+      break
+    }
     /* we don't climb past a tip: whatever is higher belongs to a descendant
        (hovering develop's tip while a feature branch sits on top of it, linear so no fork) */
     if (branchRefs(S, r).length) break
@@ -33,14 +53,19 @@ export function chainTip(S: LayoutState, i: number): number {
        a ref-less commit would lose its branch name there (e.g. a WIP right under a "Merge tag … into develop"). */
     const up = kids.length === 1 ? kids[0] : kids.find((k) => S.laneOf[k] === S.laneOf[r])
     if (up === undefined) break
+    path.push(r)
     r = up
   }
+  S.tipOf.set(i, r)
+  for (const v of path) S.tipOf.set(v, r)
   return r
 }
 
 /** Like `chainTip`, but bounded by the fork point or the first foreign ref, and returns the
     entire segment (descendant chain + trunk up to the boundary): used for a branch's clean diff. */
 export function branchSegment(S: LayoutState, i: number) {
+  /* climbed in visit order then reversed once: the old per-step `unshift` was O(k²) —
+     selecting a 10k-commit branch shifted ~5×10⁷ elements for the same tip-first result */
   const rows = [i]
   let r = i
   for (;;) {
@@ -48,8 +73,9 @@ export function branchSegment(S: LayoutState, i: number) {
     const kids = S.fpChildren.get(r)
     if (!kids || kids.length !== 1) break
     r = kids[0]
-    rows.unshift(r)
+    rows.push(r)
   }
+  rows.reverse()
   /* refs at the top of the segment: its lagging remote (`origin/x` set further down) doesn't cut it off */
   const own = new Set(branchRefs(S, rows[0]))
   r = i
