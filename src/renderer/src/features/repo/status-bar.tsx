@@ -6,8 +6,9 @@ import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { FLOW_META } from "@/features/flow/flow-context"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { GitConsole, type FeedEntry } from "@/features/console/git-console"
+import { MAINT_RUNNING, type MaintState } from "@/features/maintenance/maintenance-status"
+import type { RepoHealth } from "@/features/maintenance/health"
 
 export type OpState = {
   text: string
@@ -16,31 +17,48 @@ export type OpState = {
 }
 
 type Props = {
+  repoId: number
   branch: string | null
   /** work type of the current branch, `null` outside a flow (master, detached HEAD…) */
   flow: BranchFlow | null
   opState: OpState | null
   stats: Stats | null
-  /** live database-maintenance progress (Verify/Compact), as a slot — rendered only while a
-      run is active (cf. features/maintenance). */
-  maintSlot?: React.ReactNode
-  /** the git console, as a slot — named this way to avoid shadowing the global `console` (AUDIT.md §7,
-      phase 5, item 6). */
-  consoleSlot?: React.ReactNode
+  /** live database-maintenance progress (Verify/Compact), cf. features/maintenance */
+  maint: MaintState | null
+  /** repo healthcheck: when it recommends compaction and the feed is idle, a hint appears */
+  health: RepoHealth | null
+  onCompact(): void
 }
 
 const nf = new Intl.NumberFormat()
 
-const Num = ({ children }: { children: React.ReactNode }) => <b className="font-medium text-foreground">{children}</b>
+/* A single feed occupant at a time, by priority: a running maintenance op, then operation
+   feedback (errors, "new commits" + Reload — auto-cleared by the store), then a settled
+   maintenance result, then the health hint. `null` hands the feed back to the console line. */
+function feedEntry({ opState, maint, health, onCompact }: Props): FeedEntry | null {
+  if (maint?.running) return { tone: "busy", verb: maint.op, text: MAINT_RUNNING[maint.op](), percent: maint.percent }
+  if (opState) return { tone: opState.color, text: opState.text, action: opState.action }
+  if (maint?.result) return { tone: maint.result.ok ? "success" : "danger", verb: maint.op, text: maint.result.text }
+  if (health?.needsCompaction)
+    return {
+      tone: "warning",
+      verb: "health",
+      text: messages.maintenance.compactRecommended,
+      action: { label: messages.maintenance.compact, run: onCompact },
+    }
+  return null
+}
 
-export function StatusBar({ branch, flow, opState, stats, maintSlot, consoleSlot }: Props) {
+export function StatusBar(props: Props) {
+  const { repoId, branch, flow, stats } = props
   /* the work type tints the branch segment: shared signals from flow-context */
   const f = flow && FLOW_META[flow]
+  const entry = feedEntry(props)
   return (
     <footer className="flex h-7 shrink-0 items-center gap-3 border-t pr-3 pl-3.5 text-[0.625rem] text-muted-foreground">
-      {/* outcome of git operations announced to screen readers; the hover (hoverInfo) stays silent */}
+      {/* feed occupant announced to screen readers (operation outcomes, maintenance, health) */}
       <span aria-live="polite" className="sr-only">
-        {opState?.text ?? ""}
+        {entry?.text ?? ""}
       </span>
       {/* graph loading stats (AUDIT.md §8): polite, not assertive — doesn't interrupt an
           ongoing selection announcement for a mere pagination progress update. */}
@@ -48,33 +66,18 @@ export function StatusBar({ branch, flow, opState, stats, maintSlot, consoleSlot
         {stats ? messages.graph.commitsLoaded(nf.format(stats.loaded), nf.format(stats.total)) : ""}
       </span>
 
-      {/* min-w-0 + truncate: a long branch name ellipses instead of pushing stats out of view */}
-      <span className={cn("flex min-w-0 shrink items-center gap-1.5", f && `font-medium ${f.text}`)}>
+      {/* min-w-0 + truncate: a long branch name ellipses instead of pushing the feed out of view */}
+      <span className={cn("flex max-w-[40ch] min-w-0 shrink items-center gap-1.5", f && `font-medium ${f.text}`)}>
         <HugeiconsIcon icon={f ? f.icon : GitBranchIcon} strokeWidth={2} className="size-3 shrink-0" />
         <span className="truncate">{branch ?? "—"}</span>
       </span>
 
-      {opState && (
-        <Badge color={opState.color} shape="squared" className="min-w-0 max-w-[46ch] shrink gap-2 ps-2 pe-1">
-          <span className="truncate">{opState.text}</span>
-          {opState.action && (
-            <Button variant="ghost" size="xs" onClick={opState.action.run} className="text-(--badge-fg)">
-              {opState.action.label}
-            </Button>
-          )}
-        </Badge>
-      )}
-
-      {maintSlot}
-
-      {consoleSlot}
+      <GitConsole repoId={repoId} entry={entry} />
 
       {stats && (
-        <div className="ms-auto flex shrink-0 items-center gap-3 whitespace-nowrap tabular-nums">
-          <span>
-            <Num>{nf.format(stats.loaded)}</Num> / {nf.format(stats.total)} commits
-          </span>
-        </div>
+        <span className="shrink-0 whitespace-nowrap tabular-nums">
+          <b className="font-medium text-foreground">{nf.format(stats.loaded)}</b> / {nf.format(stats.total)} commits
+        </span>
       )}
     </footer>
   )
