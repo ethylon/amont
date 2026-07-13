@@ -250,6 +250,9 @@ msgstr "Create a local repository, a bare remote repository, or clone an existin
 msgid "Create a repository"
 msgstr "Create a repository"
 
+msgid "Create worktree…"
+msgstr "Create worktree…"
+
 msgid "creating…"
 msgstr "creating…"
 
@@ -285,6 +288,9 @@ msgstr "deleted on this side"
 
 msgid "Destination folder"
 msgstr "Destination folder"
+
+msgid "detached HEAD"
+msgstr "detached HEAD"
 
 msgid "Development branch"
 msgstr "Development branch"
@@ -526,11 +532,17 @@ msgstr "Open a repository in a new tab."
 msgid "Open a repository…"
 msgstr "Open a repository…"
 
+msgid "Open in a new tab"
+msgstr "Open in a new tab"
+
 msgid "Open in file explorer"
 msgstr "Open in file explorer"
 
 msgid "Open repository…"
 msgstr "Open repository…"
+
+msgid "Open worktree « {name} »"
+msgstr "Open worktree « {name} »"
 
 msgid "ours — current branch"
 msgstr "ours — current branch"
@@ -561,6 +573,9 @@ msgstr "Production branch"
 
 msgid "Prunable objects"
 msgstr "Prunable objects"
+
+msgid "Prune worktrees"
+msgstr "Prune worktrees"
 
 msgid "Publish"
 msgstr "Publish"
@@ -613,6 +628,9 @@ msgstr "Remotes"
 msgid "Remove line from the output"
 msgstr "Remove line from the output"
 
+msgid "Remove worktree"
+msgstr "Remove worktree"
+
 msgid "Report an issue…"
 msgstr "Report an issue…"
 
@@ -627,6 +645,9 @@ msgstr "Reset to selection"
 
 msgid "Resolve conflicts before committing."
 msgstr "Resolve conflicts before committing."
+
+msgid "Reveal in file explorer"
+msgstr "Reveal in file explorer"
 
 msgid "Root folder"
 msgstr "Root folder"
@@ -718,6 +739,9 @@ msgstr "theirs — incoming"
 msgid "Theme"
 msgstr "Theme"
 
+msgid "This worktree is open in this tab"
+msgstr "This worktree is open in this tab"
+
 msgid "to {targets}"
 msgstr "to {targets}"
 
@@ -774,3 +798,6 @@ msgstr "Version tag prefix"
 
 msgid "View"
 msgstr "View"
+
+msgid "Worktrees"
+msgstr "Worktrees"

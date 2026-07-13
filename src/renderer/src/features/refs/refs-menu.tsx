@@ -8,6 +8,7 @@ import {
   ArrowUp02Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
+  FolderAddIcon,
   GitBranchIcon,
   GitMergeIcon,
 } from "@hugeicons/core-free-icons"
@@ -63,6 +64,13 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
           label={r.upstream ? messages.refs.pushTo(r.upstream) : messages.refs.push}
           cmd={r.upstream ? `git push ${remote} ${r.name}:${upBranch}` : "git push"}
         />
+      </ContextMenuItem>
+
+      <ContextMenuSeparator />
+      {/* checked out here (head) or in a worktree: git refuses a second checkout of the branch */}
+      <ContextMenuItem disabled={r.head || ctx.worktreeBranches.has(r.name)} onClick={() => ctx.onAddWorktree(r.name)}>
+        <HugeiconsIcon icon={FolderAddIcon} strokeWidth={2} />
+        <MenuItemWithCmd label={messages.worktrees.create} cmd={`git worktree add <dir> ${r.name}`} />
       </ContextMenuItem>
 
       {flow && (
