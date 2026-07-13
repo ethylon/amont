@@ -78,6 +78,8 @@ const bridge: Bridge = {
   stage: invoke("repo:stage"),
   unstage: invoke("repo:unstage"),
   applyPatch: invoke("repo:applyPatch"),
+  discard: invoke("repo:discard"),
+  discardPatch: invoke("repo:discardPatch"),
   commit: invoke("repo:commit"),
   checkout: invoke("repo:checkout"),
   stashes: invoke("repo:stashes"),
