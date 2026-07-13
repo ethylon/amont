@@ -12,7 +12,7 @@
    of waiting for one page at a time: on a long-distance jump (old ref), IPC round-trips
    overlap instead of chaining. */
 
-import type { Commit, Stash } from "../../../../../shared/types.ts"
+import type { Commit, Stash, WorktreeInfo } from "../../../../../shared/types.ts"
 import type { RepoApi } from "@/lib/git"
 import { collapsePairs, foldStashes } from "../layout/collapse.ts"
 import { layoutChunk } from "../layout/lanes.ts"
@@ -46,6 +46,7 @@ export function createLoader(opts: LoaderOptions) {
   let gen = 0 // invalidates in-flight fetches after a reset/destroy
   let stashOf = new Map<string, string>()
   let plumbing = new Set<string>()
+  let wtOf = new Map<string, WorktreeInfo[]>()
   let errorReported = false
 
   function reportError(err: unknown) {
@@ -66,6 +67,13 @@ export function createLoader(opts: LoaderOptions) {
       controller knows — it calls `evict()` back afterward. */
   function ingest(pi: number, raw: Commit[], isNew: boolean): Commit[] | null {
     const commits = collapsePairs(foldStashes(raw, stashOf, plumbing))
+    /* linked-worktree HEADs, stamped at ingestion like the stash fold: the row shows one
+       openable chip per entry (cf. render/rows.ts) */
+    if (wtOf.size)
+      for (const c of commits) {
+        const wt = wtOf.get(c.h)
+        if (wt) c.wt = wt
+      }
     if (isNew) {
       const rowStart = S.next
       pageCache.appendPage(rowStart, commits)
@@ -225,7 +233,11 @@ export function createLoader(opts: LoaderOptions) {
         DOM, that stays the controller's business (`remount`/`scrollTop`). */
     async reset(): Promise<{ stashes: Stash[] }> {
       ++gen // invalidates in-flight fetches
-      const [total, stashes] = await Promise.all([api.total(), api.stashes().catch((): Stash[] => [])])
+      const [total, stashes, worktrees] = await Promise.all([
+        api.total(),
+        api.stashes().catch((): Stash[] => []),
+        api.worktrees().catch((): WorktreeInfo[] => []),
+      ])
       /* Re-init in one shot, AFTER the await, under a re-bumped gen: a scroll during
          the await can relaunch fetchMore — started against the old state, it must be discarded
          on arrival, not seed a page into the fresh state. The controller compares `token` before/after
@@ -237,6 +249,14 @@ export function createLoader(opts: LoaderOptions) {
       TOTAL = total
       stashOf = new Map(stashes.map((s) => [s.h, s.name]))
       plumbing = new Set(stashes.flatMap((s) => s.p.slice(1)))
+      /* the current worktree is this very tab (its HEAD already carries the working-tree dot)
+         and a prunable one has no folder to open: neither gets a chip */
+      wtOf = new Map()
+      for (const w of worktrees) {
+        if (w.current || w.prunable || !w.head) continue
+        const list = wtOf.get(w.head)
+        list ? list.push(w) : wtOf.set(w.head, [w])
+      }
       exhausted = TOTAL === 0
       S = createState()
       errorReported = false

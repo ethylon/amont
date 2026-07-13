@@ -5,13 +5,18 @@
    scrolling ever moves a column. */
 
 import type { Commit } from "../../../../../shared/types.ts"
+import { worktreeName } from "@/lib/git"
 import { parseRefs, parseSubject, type RefChip } from "@/lib/commit-parse"
 import { badgeVariants } from "@/components/ui/badge"
 import { BRANCH_BUDGET, BRANCH_MAX, GAP, TYPE_MAX } from "../constants.ts"
-import { refGroup } from "./rows.ts"
+import { refGroup, wtChip } from "./rows.ts"
 
 /** signature of a branch cell: two commits rendering the same chips have the same width */
-const cellSig = (refs: RefChip[]) => refs.map((r) => r.kind + r.name + (r.remotes.length ? "~" : "")).join(",")
+const cellSig = (refs: RefChip[], wt: string[]) =>
+  refs.map((r) => r.kind + r.name + (r.remotes.length ? "~" : "")).join(",") + (wt.length ? "|wt:" + wt.join(",") : "")
+
+/** distinct branch-cell source, kept for re-measurement once the real font arrives */
+type CellSrc = { r: string; wt: string[] }
 
 export function createMeasurer(inner: HTMLDivElement) {
   const ruler = document.createElement("div")
@@ -24,10 +29,10 @@ export function createMeasurer(inner: HTMLDivElement) {
      unique types and decorated cells) so we can re-measure once the real font arrives —
      commit pages, on the other hand, may have been evicted in the meantime */
   let queueTypes: string[] = []
-  let queueCells: RefChip[][] = []
+  let queueCells: { refs: RefChip[]; wt: string[] }[] = []
   let queueStash: string[] = []
   const allTypes: string[] = []
-  const allCells: string[] = [] // raw refs of the distinct cells, re-parsed on re-measurement
+  const allCells: CellSrc[] = [] // raw refs + worktree names of the distinct cells, re-parsed on re-measurement
 
   function widest(texts: string[], maxw: string) {
     ruler.replaceChildren(
@@ -53,13 +58,14 @@ export function createMeasurer(inner: HTMLDivElement) {
         queueTypes.push(label)
         allTypes.push(label)
       }
-      if (!c.r) continue
-      const refs = parseRefs(c.r)
-      const sig = cellSig(refs)
+      const wt = c.wt?.map(worktreeName) ?? []
+      if (!c.r && !wt.length) continue
+      const refs = c.r ? parseRefs(c.r) : []
+      const sig = cellSig(refs, wt)
       if (seenCell.has(sig)) continue
       seenCell.add(sig)
-      queueCells.push(refs)
-      allCells.push(c.r)
+      queueCells.push({ refs, wt })
+      allCells.push({ r: c.r, wt })
     }
   }
 
@@ -88,10 +94,11 @@ export function createMeasurer(inner: HTMLDivElement) {
        included), not a sum of independent maxima that would inflate it. One signature per
        distinct cell is enough — same chips, same width. */
     if (queueCells.length) {
-      const cells = queueCells.map((refs) => {
+      const cells = queueCells.map(({ refs, wt }) => {
         const cell = document.createElement("div")
         cell.className = "flex items-center gap-1.5"
         refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, cell)
+        for (const name of wt) cell.appendChild(wtChip(name, ""))
         return cell
       })
       ruler.replaceChildren(...cells)
@@ -112,7 +119,7 @@ export function createMeasurer(inner: HTMLDivElement) {
   function requeueAll(stashNames: string[]) {
     typeW = cellW = 0
     queueTypes = [...allTypes]
-    queueCells = allCells.map(parseRefs)
+    queueCells = allCells.map(({ r, wt }) => ({ refs: r ? parseRefs(r) : [], wt }))
     queueStash = [...new Set(stashNames)]
   }
 

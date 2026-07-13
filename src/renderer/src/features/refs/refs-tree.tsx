@@ -32,6 +32,10 @@ export type Ctx = RowProps & {
   /** focuses the ref in the graph: scroll to the tip and select the whole branch.
       Ctrl (`additive`) adds or removes; the focus clears on a click in empty space */
   onFocusRef(r: GitRef, additive: boolean): void
+  /** branches already checked out in a worktree: git refuses a second checkout of the same
+      branch, so "Create worktree" is disabled for them */
+  worktreeBranches: Set<string>
+  onAddWorktree(name: string): void
 }
 
 /** identity of a ref, shared with RepoView: local `master` and `origin/master` coexist */
