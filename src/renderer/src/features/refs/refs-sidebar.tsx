@@ -6,6 +6,7 @@ import type { GitRef } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { useFlowQuery } from "@/features/flow/flow-queries"
+import { FlowShortcut } from "@/features/flow/flow-shortcut"
 import { useRefsQuery } from "@/features/refs/refs-queries"
 import { useStashesQuery } from "@/features/stash/stash-queries"
 import { matchStash, StashSection } from "@/features/stash/stash-section"
@@ -20,11 +21,11 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 
 /* `title` is a thunk: messages.* getters run `t`, which must not execute at module scope
    (before setupI18n() activates the locale — throws in dev). */
-const GROUPS = [
-  { title: () => messages.refs.branches, kind: "head", icon: GitBranchIcon },
-  { title: () => messages.refs.remotes, kind: "remote", icon: CloudIcon },
-  { title: () => messages.refs.tags, kind: "tag", icon: Tag01Icon },
-] as const satisfies readonly { title: () => string; kind: GitRef["kind"]; icon: IconSvgElement }[]
+const GROUPS = {
+  head: { title: () => messages.refs.branches, icon: GitBranchIcon },
+  remote: { title: () => messages.refs.remotes, icon: CloudIcon },
+  tag: { title: () => messages.refs.tags, icon: Tag01Icon },
+} as const satisfies Record<GitRef["kind"], { title: () => string; icon: IconSvgElement }>
 
 function RefGroupSection({
   title,
@@ -118,6 +119,23 @@ export function RefsSidebar() {
     onAddWorktree: (name) => void onAddWorktree(name),
   }
 
+  const group = (kind: GitRef["kind"]) => {
+    const refs = data!.filter((r) => r.kind === kind && match(r))
+    if (!refs.length) return null
+    const g = GROUPS[kind]
+    return (
+      <RefGroupSection
+        key={kind}
+        title={g.title()}
+        icon={g.icon}
+        refs={refs}
+        ctx={ctx}
+        openDirs={kind === "remote"}
+        forceOpen={!!q}
+      />
+    )
+  }
+
   return (
     /* collapsed = zero width, not unmounted: the content keeps its width and gets clipped,
        otherwise the fields and labels would squeeze together during the animation. */
@@ -149,32 +167,23 @@ export function RefsSidebar() {
         </div>
 
         <div className="flex flex-1 flex-col gap-1.5 overflow-auto px-2 pt-2 pb-4">
+          {/* the promoted gitflow move — a shortcut, not a ref: it steps aside while filtering */}
+          {!q && <FlowShortcut />}
           {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
           {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
           {data &&
             q &&
             !data.some(match) &&
             !stashes.some((s) => matchStash(s, q)) &&
-            !(worktrees.length > 1 && worktrees.some((w) => matchWorktree(w, q))) && (
+            !worktrees.some((w) => !w.main && matchWorktree(w, q)) && (
               <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
             )}
-          {data &&
-            GROUPS.map((g) => {
-              const refs = data.filter((r) => r.kind === g.kind && match(r))
-              if (!refs.length) return null
-              return (
-                <RefGroupSection
-                  key={g.kind}
-                  title={g.title()}
-                  icon={g.icon}
-                  refs={refs}
-                  ctx={ctx}
-                  openDirs={g.kind === "remote"}
-                  forceOpen={!!q}
-                />
-              )
-            })}
+          {/* local branches, remotes, worktrees, tags, stashes — worktrees sit with the
+              branch groups (they anchor checkouts), tags and stashes close the list */}
+          {data && group("head")}
+          {data && group("remote")}
           <WorktreesSection filter={q} />
+          {data && group("tag")}
           <StashSection filter={q} />
         </div>
       </div>
