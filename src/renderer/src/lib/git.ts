@@ -173,7 +173,7 @@ export type RepoApi = {
   countObjects(): Promise<CountObjects>
   /** `git fsck --full`; progress streamed via `onProgress` */
   fsck(): Promise<void>
-  /** `git gc`; progress streamed via `onProgress` */
+  /** `git gc`; no progress without a TTY — footer shows an indeterminate spinner */
   gc(): Promise<void>
   /** Windows icon of the file, `null` if it doesn't exist on disk */
   fileIcon(path: string): Promise<string | null>

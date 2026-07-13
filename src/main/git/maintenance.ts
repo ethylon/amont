@@ -1,6 +1,6 @@
 /* Database maintenance (Repository menu): a read of the object DB's shape (`count-objects`), and
    the two long-running housekeeping commands — `fsck --full` (integrity) and `gc` (repack). Both
-   mutations take the per-repo mutex and stream their `NN%` progress to the renderer footer via
+   mutations take the per-repo mutex; fsck streams its `NN%` progress to the renderer footer via
    the runner's `onProgress` hook (cf. git/exec.ts). The pure `count-objects` parser lives in
    parse.ts, unit-tested there. */
 
@@ -28,13 +28,8 @@ export const fsck = (r: RepoHandle): Promise<void> =>
       .then(() => {})
   )
 
-/** `git gc`: repack loose objects and prune. Mutating; footer progress. */
+/** `git gc`: repack loose objects and prune. Mutating. Unlike fsck, gc rejects `--progress`
+    (usage error, exit 129) and its subcommands emit nothing without a TTY, so the footer
+    shows the indeterminate spinner (percent: null). */
 export const gc = (r: RepoHandle): Promise<void> =>
-  withLock(r, "gc", () =>
-    r
-      .git(["gc", "--progress"], {
-        timeout: MAINT_TIMEOUT,
-        onProgress: (percent) => r.events.progress({ op: "gc", percent }),
-      })
-      .then(() => {})
-  )
+  withLock(r, "gc", () => r.git(["gc"], { timeout: MAINT_TIMEOUT }).then(() => {}))
