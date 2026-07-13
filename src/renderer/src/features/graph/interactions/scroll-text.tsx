@@ -5,11 +5,36 @@
    a copy of the text takes over behind a constant gap, the scroll drops back to 0 at the
    seam — undetectable, since the two copies coincide there. */
 
+import { cn } from "@/lib/utils"
+
 const SPEED = 30 // px/s, independent of text length
 
-/** container classes, shared with React renders (cf. detail-panel) */
+/** container classes, shared between scrollText() and ScrollText */
 export const SCROLL_TEXT_CLASS =
   "amont-scrolltext scroll-fade-x flex min-w-0 max-w-full gap-3 overflow-hidden whitespace-nowrap"
+
+/* React twin of scrollText(). `selfHover: false` leaves the activation to an ancestor
+   (a list row triggers the marquee for its whole surface, cf. FileRow) via
+   scrollTextHover/scrollTextStop on its own mouse events. */
+export function ScrollText({
+  text,
+  className,
+  selfHover = true,
+}: {
+  text: string
+  className?: string
+  selfHover?: boolean
+}) {
+  return (
+    <span
+      className={cn(SCROLL_TEXT_CLASS, className)}
+      onMouseEnter={selfHover ? (e) => scrollTextHover(e.currentTarget) : undefined}
+      onMouseLeave={selfHover ? () => scrollTextStop() : undefined}
+    >
+      <span>{text}</span>
+    </span>
+  )
+}
 
 export function scrollText(text: string) {
   const el = document.createElement("span")

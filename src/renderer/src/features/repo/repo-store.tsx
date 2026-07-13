@@ -134,6 +134,8 @@ export interface RepoStoreState {
   runBranch(action: BranchAct, name: string): Promise<void>
   checkout(name: string): Promise<void>
   runWt(act: WtAct, paths: string[]): Promise<void>
+  /** whole-file discard: tracked paths restored from the index, untracked deleted */
+  runDiscard(paths: string[], untracked: string[]): Promise<void>
   /** remove/prune of a linked worktree; the graph reloads (the chip must disappear) */
   runWorktree(action: WorktreeAct, path?: string): Promise<void>
   /** opens a listed worktree as a new tab (via `onOpenRepo`, wired to App's `openTab`) */
@@ -456,6 +458,25 @@ export function createRepoStore(
         return
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+    },
+
+    /* Same shape as runWt (failure = badge, no reload), plus: the diff caches refresh — the
+       discarded file's diff may be on screen — and a diff open on a discarded path closes,
+       there is nothing left to show. */
+    async runDiscard(paths, untracked) {
+      try {
+        await api.discard(paths, untracked)
+      } catch (e) {
+        get().showOp(describeError(e), "danger")
+        return
+      }
+      const open = get().ui.diff
+      if (open && "wt" in open.ctx && [...paths, ...untracked].includes(open.file.path))
+        set((s) => ({ ui: { ...s.ui, diff: null } }))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.diffAll(repoId) }),
+      ])
     },
 
     runWorktree(action, path) {

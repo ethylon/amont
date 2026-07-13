@@ -12,6 +12,7 @@ import {
 import type { FileChange, RepoApi } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { buildPathTree, compactPathTree, type PathTree } from "@/lib/path-tree"
+import { ScrollText, scrollTextHover, scrollTextStop } from "@/features/graph/interactions/scroll-text"
 import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -113,12 +114,20 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
      open diff, neutral hover on the rest. Rounded list rows read cleaner with just the fill
      than with the left rail the flat graph rows carry. */
   const rowCls = cn(
-    "group/file flex items-baseline gap-2 rounded-sm px-1.5 py-0.5 hover:bg-muted/60",
+    "group/file flex items-baseline gap-2 rounded-sm pe-1.5 hover:bg-muted/60",
     active && "bg-primary/15 hover:bg-primary/20"
   )
+  /* The marquee is armed by the whole row, like the graph rows — not just the name span. */
+  const rowHover = {
+    onMouseEnter: (ev: React.MouseEvent<HTMLElement>) =>
+      scrollTextHover(ev.currentTarget.querySelector<HTMLElement>(".amont-scrolltext")),
+    onMouseLeave: () => scrollTextStop(),
+  }
   /* The stage/unstage button (`action`) is a real <button> too: it stays a sibling of the
      main button, never nested inside it (two <button>s nested would be invalid
-     and would break focus/AT) — `action`'s `onClick` already stops its propagation (worktree-panel.tsx). */
+     and would break focus/AT) — `action`'s `onClick` already stops its propagation (worktree-panel.tsx).
+     The row's padding lives on the main button so the pointer and the click cover the
+     full row surface, not just the text. */
   const inner = (
     <>
       <button
@@ -127,29 +136,36 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
         onClick={onClick}
         onDoubleClick={onDoubleClick}
         onKeyDown={onFileRowKeyDown}
-        className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-2 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+        className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-2 rounded-sm ps-1.5 py-0.5 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
       >
         <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
           {file.st}
         </span>
         {icon}
-        {/* flat: the folder truncates, the file name stays whole */}
-        <span className="flex min-w-0 text-xs whitespace-nowrap">
-          {!nameOnly && cut >= 0 && (
-            <span className="truncate text-muted-foreground">{file.path.slice(0, cut + 1)}</span>
-          )}
-          <span className="shrink-0 truncate">{file.path.slice(cut + 1)}</span>
-        </span>
+        {/* tree: the name marquee-scrolls on hover; flat: the folder truncates, the file name stays whole */}
+        {nameOnly ? (
+          <ScrollText text={file.path.slice(cut + 1)} className="text-xs" selfHover={false} />
+        ) : (
+          <span className="flex min-w-0 text-xs whitespace-nowrap">
+            {cut >= 0 && <span className="truncate text-muted-foreground">{file.path.slice(0, cut + 1)}</span>}
+            <span className="shrink-0 truncate">{file.path.slice(cut + 1)}</span>
+          </span>
+        )}
       </button>
       {action}
     </>
   )
 
-  if (!onOpenFile) return <div className={rowCls}>{inner}</div>
+  if (!onOpenFile)
+    return (
+      <div className={rowCls} {...rowHover}>
+        {inner}
+      </div>
+    )
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger render={<div className={rowCls} />}>{inner}</ContextMenuTrigger>
+      <ContextMenuTrigger render={<div className={rowCls} {...rowHover} />}>{inner}</ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={onOpenFile}>
           <HugeiconsIcon icon={FolderOpenIcon} strokeWidth={2} />
