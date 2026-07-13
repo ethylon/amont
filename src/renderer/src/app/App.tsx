@@ -227,7 +227,7 @@ export default function App({ boot }: Props) {
                   label={messages.app.reloadTab}
                   onReset={() => bumpReset(r.id)}
                 >
-                  <RepoView repo={r} active={tabActive} command={repoCommand} />
+                  <RepoView repo={r} active={tabActive} command={repoCommand} onOpenRepo={openTab} />
                 </ErrorBoundary>
               </div>
             )

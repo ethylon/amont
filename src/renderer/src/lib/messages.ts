@@ -355,6 +355,37 @@ export const messages = {
     },
   },
 
+  /* Linked worktrees (`git worktree`) — distinct from `worktree` below, the working-tree
+     file status. */
+  worktrees: {
+    get title() {
+      return t`Worktrees`
+    },
+    get openInTab() {
+      return t`Open in a new tab`
+    },
+    get reveal() {
+      return t`Reveal in file explorer`
+    },
+    get remove() {
+      return t`Remove worktree`
+    },
+    get prune() {
+      return t`Prune worktrees`
+    },
+    get create() {
+      return t`Create worktree…`
+    },
+    get detached() {
+      return t`detached HEAD`
+    },
+    /** tooltip of the row of the worktree already open in this tab */
+    get currentTab() {
+      return t`This worktree is open in this tab`
+    },
+    openWorktree: (name: string) => t`Open worktree « ${name} »`,
+  },
+
   worktree: {
     get stage() {
       return t`Stage`

@@ -3,7 +3,7 @@
    mutation here — no mutex, same as before this refactor. */
 
 import { readFile, stat } from "node:fs/promises"
-import { extname } from "node:path"
+import { extname, resolve } from "node:path"
 import { app, shell } from "electron"
 
 import { AppError } from "../../shared/errors.ts"
@@ -19,10 +19,19 @@ import type {
   Stash,
   Status,
   Worktree,
+  WorktreeInfo,
   WtSource,
 } from "../../shared/types.ts"
 import { inRepo, type RepoHandle } from "../repos.ts"
-import { ALL_REFS, parseForEachRef, parseLogPage, parseNameStatus, parsePorcelain, parseStashList } from "./parse.ts"
+import {
+  ALL_REFS,
+  parseForEachRef,
+  parseLogPage,
+  parseNameStatus,
+  parsePorcelain,
+  parseStashList,
+  parseWorktreeList,
+} from "./parse.ts"
 
 const HASH = /^[0-9a-f]{7,64}$/ // 40 hex for sha1, 64 for sha256 object-format repos
 
@@ -54,6 +63,33 @@ export async function repoStatus(r: RepoHandle): Promise<Status> {
 /* --- Working tree --- */
 export const worktree = (r: RepoHandle): Promise<Worktree> =>
   r.git(["status", "--porcelain=v1", "-z", "-uall"]).then(parsePorcelain)
+
+/* --- Linked worktrees ---
+   Git prints forward-slash paths even on Windows: `resolve()` brings them back to platform
+   separators so the renderer can compare them to `Repo.path` as-is. The comparison is
+   case-insensitive on Windows — two spellings of the same folder are the same worktree. */
+export const sameWtPath = (a: string, b: string): boolean =>
+  process.platform === "win32" ? a.toLowerCase() === b.toLowerCase() : a === b
+
+export async function worktrees(r: RepoHandle): Promise<WorktreeInfo[]> {
+  const out = await r.git(["worktree", "list", "--porcelain", "-z"])
+  const self = resolve(r.path)
+  return parseWorktreeList(out).map((w, i) => {
+    const path = resolve(w.path)
+    return { ...w, path, main: i === 0, current: sameWtPath(path, self) }
+  })
+}
+
+/** The entry of `git worktree list` matching `path`, or NOT_ALLOWED: the only gate through
+    which a renderer-supplied worktree path may reach an open/reveal/remove. */
+export async function resolveWorktree(r: RepoHandle, path: unknown): Promise<WorktreeInfo> {
+  if (typeof path !== "string" || !path) throw new AppError("BAD_ARG", "path")
+  const list = await worktrees(r)
+  const target = resolve(path)
+  const wt = list.find((w) => sameWtPath(w.path, target))
+  if (!wt) throw new AppError("NOT_ALLOWED", path)
+  return wt
+}
 
 /* --- Merge conflicts ---
    The A/B labels of the conflict view. `MERGE_HEAD` only exists during a merge: rev-parse

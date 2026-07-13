@@ -250,6 +250,9 @@ msgstr "Créez un dépôt local, un dépôt distant (bare), ou clonez un dépôt
 msgid "Create a repository"
 msgstr "Créer un dépôt"
 
+msgid "Create worktree…"
+msgstr "Créer un worktree…"
+
 msgid "creating…"
 msgstr "création…"
 
@@ -285,6 +288,9 @@ msgstr "supprimé de ce côté"
 
 msgid "Destination folder"
 msgstr "Dossier de destination"
+
+msgid "detached HEAD"
+msgstr "HEAD détachée"
 
 msgid "Development branch"
 msgstr "Branche de développement"
@@ -526,11 +532,17 @@ msgstr "Ouvrir un dépôt dans un nouvel onglet."
 msgid "Open a repository…"
 msgstr "Ouvrir un dépôt…"
 
+msgid "Open in a new tab"
+msgstr "Ouvrir dans un nouvel onglet"
+
 msgid "Open in file explorer"
 msgstr "Ouvrir dans l'explorateur de fichiers"
 
 msgid "Open repository…"
 msgstr "Ouvrir un dépôt…"
+
+msgid "Open worktree « {name} »"
+msgstr "Ouvrir le worktree « {name} »"
 
 msgid "ours — current branch"
 msgstr "ours — branche courante"
@@ -561,6 +573,9 @@ msgstr "Branche de production"
 
 msgid "Prunable objects"
 msgstr "Objets élaguables"
+
+msgid "Prune worktrees"
+msgstr "Nettoyer les worktrees (prune)"
 
 msgid "Publish"
 msgstr "Publier"
@@ -613,6 +628,9 @@ msgstr "Distants"
 msgid "Remove line from the output"
 msgstr "Retirer la ligne du résultat"
 
+msgid "Remove worktree"
+msgstr "Supprimer le worktree"
+
 msgid "Report an issue…"
 msgstr "Signaler un problème…"
 
@@ -627,6 +645,9 @@ msgstr "Réinitialiser sur la sélection"
 
 msgid "Resolve conflicts before committing."
 msgstr "Résolvez les conflits avant de commiter."
+
+msgid "Reveal in file explorer"
+msgstr "Afficher dans l'explorateur de fichiers"
 
 msgid "Root folder"
 msgstr "Dossier racine"
@@ -718,6 +739,9 @@ msgstr "theirs — entrante"
 msgid "Theme"
 msgstr "Thème"
 
+msgid "This worktree is open in this tab"
+msgstr "Ce worktree est ouvert dans cet onglet"
+
 msgid "to {targets}"
 msgstr "vers {targets}"
 
@@ -774,3 +798,6 @@ msgstr "Préfixe d'étiquette de version"
 
 msgid "View"
 msgstr "Affichage"
+
+msgid "Worktrees"
+msgstr "Worktrees"

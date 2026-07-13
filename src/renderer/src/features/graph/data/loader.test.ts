@@ -27,6 +27,7 @@ function fakeApi(commits: Commit[]): RepoApi {
   return {
     total: () => Promise.resolve(commits.length),
     stashes: () => Promise.resolve([]),
+    worktrees: () => Promise.resolve([]),
     log: (skip: number, count: number) =>
       new Promise<Commit[]>((res) => setTimeout(() => res(commits.slice(skip, skip + count)), 0)),
   } as unknown as RepoApi

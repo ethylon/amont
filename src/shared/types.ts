@@ -47,6 +47,9 @@ export type Commit = {
     /** full SHA of the untracked-files commit (`stash push -u`), `null` without them */
     untracked: string | null
   }
+  /** set at ingestion (cf. renderer/features/graph/data/loader.ts): linked worktrees whose HEAD
+      sits on this commit — the row shows one openable chip per entry. */
+  wt?: WorktreeInfo[]
 }
 
 /** An entry from `git stash list`. `p` keeps all parents: base, index, untracked. */
@@ -63,6 +66,26 @@ export type Stash = {
 }
 
 export type StashAct = "push" | "apply" | "pop" | "drop"
+
+/** An entry from `git worktree list --porcelain`, bare entries excluded. Not to be confused
+    with `Worktree` (the working-tree file status): this one describes a checkout location. */
+export type WorktreeInfo = {
+  /** absolute path, normalized to platform separators */
+  path: string
+  /** full SHA of the checked-out commit, its anchor in the graph */
+  head: string
+  /** short branch name, `null` when the HEAD is detached */
+  branch: string | null
+  /** the repository's main worktree (always first in the list) */
+  main: boolean
+  /** the worktree answering this query — the one already open in this tab */
+  current: boolean
+  locked: boolean
+  /** its directory is gone from disk: only `git worktree prune` can clean it up */
+  prunable: boolean
+}
+
+export type WorktreeAct = "remove" | "prune"
 
 export type FileChange = {
   /** A, M, D, R, C, ? or a conflict pair (UU, AA…) */
