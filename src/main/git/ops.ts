@@ -11,7 +11,7 @@
 import { writeFile } from "node:fs/promises"
 
 import { AppError, decodeError } from "../../shared/errors.ts"
-import type { BranchAct, OpEvent, OpName, StashAct } from "../../shared/types.ts"
+import type { BranchAct, OpEvent, OpName, StashAct, WorktreeAct } from "../../shared/types.ts"
 import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
 import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
@@ -199,6 +199,53 @@ export async function unstage(r: RepoHandle, paths: string[]): Promise<void> {
   })
 }
 
+/* Partial staging (hunk or lines from the diff view): the renderer builds the sub-patch
+   (diff-parse.ts) and only the index moves — never the working file. `reverse` takes the
+   change out of the staged side (`git apply --cached --reverse`). Same cap as resolve: the
+   patch derives from a diff the renderer already displays in full. */
+const PATCH_MAX = 4 * 1024 * 1024
+
+export async function applyPatch(r: RepoHandle, patch: string, reverse: boolean): Promise<void> {
+  if (typeof patch !== "string" || !patch.trim() || patch.length > PATCH_MAX) throw new AppError("BAD_ARG", "patch")
+  const args = ["apply", "--cached", ...(reverse ? ["--reverse"] : []), "--whitespace=nowarn", "-"]
+  await withLock(r, "apply patch", () => r.git(args, { input: patch }).then(() => {}))
+}
+
+/** Partial discard (hunk or lines from the diff view): the same renderer-built sub-patch as
+    applyPatch, but reverse-applied to the working tree alone — the index never moves. */
+export async function discardPatch(r: RepoHandle, patch: string): Promise<void> {
+  if (typeof patch !== "string" || !patch.trim() || patch.length > PATCH_MAX) throw new AppError("BAD_ARG", "patch")
+  await withLock(r, "discard patch", () =>
+    r.git(["apply", "--reverse", "--whitespace=nowarn", "-"], { input: patch }).then(() => {})
+  )
+}
+
+/* --- Discard (working tree) ---
+   Tracked paths go back to their index content (`git restore`); untracked paths are deleted
+   (`git clean -f` — force is required, `clean.requireForce` defaults to true). Irreversible by
+   nature: the renderer asks for confirmation before calling. `git clean` has no
+   --pathspec-from-file (checked against git 2.51), so untracked paths travel as argv, batched
+   under Windows' command-line length limit. */
+const CLEAN_ARGV_MAX = 20_000
+
+export async function discard(r: RepoHandle, paths: string[], untracked: string[]): Promise<void> {
+  const valid = (a: unknown): a is string[] => Array.isArray(a) && a.every((p) => typeof p === "string" && p.length > 0)
+  if (!valid(paths) || !valid(untracked) || (!paths.length && !untracked.length)) throw new AppError("BAD_ARG", "paths")
+  await withLock(r, "discard", async () => {
+    groupTrace(r, "Discard")
+    if (paths.length) await r.git(["restore", ...PATHSPEC], { input: paths.join("\0") })
+    for (let at = 0; at < untracked.length;) {
+      const batch: string[] = []
+      let len = 0
+      while (at < untracked.length && (batch.length === 0 || len + untracked[at].length < CLEAN_ARGV_MAX)) {
+        len += untracked[at].length + 1
+        batch.push(untracked[at++])
+      }
+      await r.git(["clean", "-f", "-q", "--", ...batch])
+    }
+  })
+}
+
 export async function commit(r: RepoHandle, message: string, amend: boolean): Promise<void> {
   if (typeof message !== "string" || !message.trim()) throw new AppError("BAD_ARG", "message")
   await withLock(r, amend ? "amend" : "commit", async () => {
@@ -237,6 +284,36 @@ export async function mergeAbort(r: RepoHandle): Promise<void> {
     groupTrace(r, "Merge abort")
     try {
       await r.git(["merge", "--abort"])
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/* --- Linked worktrees ---
+   `remove` without `--force`: git's refusal on a dirty or locked worktree is the safeguard,
+   same policy as branch delete (`-d`, never `-D`). The path has already been resolved against
+   `git worktree list` by the caller (ipc.ts → queries.resolveWorktree): normalized absolute,
+   it can never be read as an option. `dir` (add) only ever comes from the system dialog. */
+export async function worktreeAdd(r: RepoHandle, dir: string, branch: string): Promise<void> {
+  if (typeof branch !== "string" || !BRANCH.test(branch)) throw new AppError("BAD_ARG", "name")
+  await withLock(r, "worktree add", async () => {
+    groupTrace(r, `Worktree add ${branch}`)
+    try {
+      await r.git(["worktree", "add", dir, branch], { timeout: OP_TIMEOUT })
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+export async function worktreeAction(r: RepoHandle, action: WorktreeAct, path?: string): Promise<void> {
+  if (action !== "remove" && action !== "prune") throw new AppError("BAD_ARG", "action")
+  if (action === "remove" && !path) throw new AppError("BAD_ARG", "path")
+  await withLock(r, `worktree ${action}`, async () => {
+    groupTrace(r, action === "remove" ? `Worktree remove ${path}` : "Worktree prune")
+    try {
+      await r.git(action === "remove" ? ["worktree", "remove", path!] : ["worktree", "prune"])
     } finally {
       mute(r)
     }

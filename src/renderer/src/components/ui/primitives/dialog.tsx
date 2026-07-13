@@ -1,10 +1,10 @@
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon } from "@hugeicons/core-free-icons"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/primitives/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -58,13 +58,11 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            render={
-              <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
-                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-                <span className="sr-only">Close</span>
-              </Button>
-            }
-          />
+            render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
     </DialogPortal>
@@ -90,7 +88,7 @@ function DialogFooter({
       {...props}
     >
       {children}
-      {showCloseButton && <DialogPrimitive.Close render={<Button variant="outline">Close</Button>} />}
+      {showCloseButton && <DialogPrimitive.Close render={<Button variant="outline" />}>Close</DialogPrimitive.Close>}
     </div>
   )
 }

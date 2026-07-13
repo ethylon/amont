@@ -54,21 +54,23 @@ type Props = {
   active: boolean
   /** the latest app-menu command; each RepoView acts only on the one addressed to its repo */
   command: RepoCommandEnvelope | null
+  /** surfaces a repo opened from inside this tab (a linked worktree) as a new tab */
+  onOpenRepo: (repo: Repo) => void
 }
 
 /** Slot layout (AUDIT.md §5): banner / sidebar / center / panel / statusbar. Each
     panel subscribes to its own slice of the store or the query layer — the prop drilling
     (10 props to RefsSidebar, 14 to WorktreePanel) disappears with it. */
-export function RepoView({ repo, active, command }: Props) {
+export function RepoView({ repo, active, command, onOpenRepo }: Props) {
   const api = useMemo(() => repoApi(repo.id), [repo.id])
   return (
-    <RepoProvider repoId={repo.id} api={api}>
+    <RepoProvider repoId={repo.id} api={api} onOpenRepo={onOpenRepo}>
       <RepoViewContent repo={repo} active={active} command={command} />
     </RepoProvider>
   )
 }
 
-function RepoViewContent({ repo, active, command }: Props) {
+function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
   const storeApi = useRepoStoreApi()
@@ -107,6 +109,8 @@ function RepoViewContent({ repo, active, command }: Props) {
   }, [worktreeQuery.data, storeApi])
 
   const sidebarOpen = useRepoStore((s) => s.ui.sidebarOpen)
+  const flowStartKind = useRepoStore((s) => s.ui.flowStartKind)
+  const closeFlowStart = useRepoStore((s) => s.closeFlowStart)
   const view = useRepoStore((s) => s.ui.view)
   const diff = useRepoStore((s) => s.ui.diff)
   const selection = useRepoStore((s) => s.selection.rows)
@@ -198,12 +202,12 @@ function RepoViewContent({ repo, active, command }: Props) {
             !booted && "opacity-0"
           )}
         >
-          {tools.startKind && (
+          {flowStartKind && (
             <FlowStartBanner
-              key={tools.startKind}
-              kind={tools.startKind}
-              prefix={flow?.[tools.startKind] ?? `${tools.startKind}/`}
-              onDone={tools.closeStart}
+              key={flowStartKind}
+              kind={flowStartKind}
+              prefix={flow?.[flowStartKind] ?? `${flowStartKind}/`}
+              onDone={closeFlowStart}
             />
           )}
 

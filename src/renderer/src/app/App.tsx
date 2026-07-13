@@ -14,6 +14,7 @@ import { useMenuRepo } from "@/app/menu/use-menu-repo"
 import type { RepoCommand, RepoCommandEnvelope } from "@/features/repo/repo-commands"
 import { CreateDialog } from "@/features/create/create-dialog"
 import { HomeScreen } from "@/features/home/home-screen"
+import { UpdateCard } from "@/features/updater/update-card"
 import { RepoView } from "@/features/repo/repo-view"
 import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-strip"
 
@@ -178,6 +179,7 @@ export default function App({ boot }: Props) {
       reload: () => window.location.reload(),
       version: __APP_VERSION__,
       openExternal: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
+      checkForUpdates: () => void host.checkForUpdates(),
     }),
     [active, closeTab, locale, menuRepo, openDialog, select, themeMode]
   )
@@ -227,11 +229,13 @@ export default function App({ boot }: Props) {
                   label={messages.app.reloadTab}
                   onReset={() => bumpReset(r.id)}
                 >
-                  <RepoView repo={r} active={tabActive} command={repoCommand} />
+                  <RepoView repo={r} active={tabActive} command={repoCommand} onOpenRepo={openTab} />
                 </ErrorBoundary>
               </div>
             )
           })}
+
+        <UpdateCard />
       </div>
     </div>
   )

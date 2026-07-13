@@ -2,10 +2,18 @@
    type, subject, author, date, hash) plus the measurement columns. Imperative rendering, as before
    this refactor — React owns the shell (react/commit-graph.tsx), not these rows. */
 
-import { ArrowRight01Icon, CloudIcon, Fire02Icon, RocketIcon, Tag01Icon } from "@hugeicons/core-free-icons"
+import {
+  ArrowRight01Icon,
+  CloudIcon,
+  Fire02Icon,
+  FolderLinksIcon,
+  RocketIcon,
+  Tag01Icon,
+} from "@hugeicons/core-free-icons"
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { avatarUrl, initials, tint } from "@/lib/avatar"
+import { worktreeName } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { iconEl } from "./icon-el.ts"
 import { badgeSeparator, badgeVariants, type BadgeColor } from "@/components/ui/badge"
@@ -20,9 +28,10 @@ import {
   type RefChip,
 } from "@/lib/commit-parse"
 import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/lib/gitflow"
-import { scrollText } from "../interactions/scroll-text.ts"
+import { scrollText } from "../interactions/scroll-text.tsx"
 import { BRANCH_BUDGET, BRANCH_MAX, GRID_COLS, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
 import type { LayoutState } from "../layout/state.ts"
+import type { SyncInfo } from "../layout/sync.ts"
 import { hashOfId, idOf, shortHash } from "../ids.ts"
 
 export const chip = (color: BadgeColor) => badgeVariants({ color, shape: "squared" })
@@ -37,6 +46,24 @@ export function ghostChip(name: string, color: string, maxw = BRANCH_MAX) {
   el.className =
     badgeVariants({ color: "lane", shape: "squared", variant: "outline" }) + " border-dashed opacity-70 " + maxw
   if (color) el.style.setProperty("--badge-color", color)
+  el.appendChild(scrollText(name))
+  return el
+}
+
+/* Linked-worktree chip: a real button — clicking it opens the worktree as a new tab
+   (cf. controller.ts `.amont-wt-open` delegation) instead of selecting the row. Outline like
+   the stash chip but solid, folder icon up front: a place on disk, not a suspended state.
+   `tabIndex=-1`: the same action stays keyboard-reachable through the sidebar's menu. */
+export function wtChip(name: string, path: string, maxw = BRANCH_MAX) {
+  const el = document.createElement("button")
+  el.type = "button"
+  el.className =
+    badgeVariants({ color: "lane", shape: "squared", variant: "outline" }) + " amont-wt-open cursor-pointer " + maxw
+  el.dataset.path = path
+  el.title = path
+  el.setAttribute("aria-label", messages.worktrees.openWorktree(name))
+  el.tabIndex = -1
+  el.appendChild(iconEl(FolderLinksIcon, "shrink-0"))
   el.appendChild(scrollText(name))
   return el
 }
@@ -175,7 +202,8 @@ export function rowDiv(
   selected: boolean,
   matched: boolean | null,
   active: boolean,
-  total: number
+  total: number,
+  sync?: SyncInfo | null
 ): HTMLDivElement {
   const row = document.createElement("div")
   row.className = ROW_CLASS
@@ -205,6 +233,10 @@ export function rowDiv(
   const flow = c.cap ? c.cap.flow : rowFlow(S, c, mg)
   if (flow) row.dataset.flow = flow
   if (c.stash) row.dataset.stash = ""
+  /* Sync zone (cf. layout/sync.ts): background tint via app.css — amber "to push",
+     blue "to pull" — so the lag reads at graph scale, not just per node. */
+  if (sync?.ahead.has(i)) row.dataset.sync = "ahead"
+  else if (sync?.behind.has(i)) row.dataset.sync = "behind"
 
   /* Branch column, left of the metro: branch name(s) then tags, folded to the budget.
      A capsule puts its version there up front; otherwise hovering places a ghost chip (cf. hover.ts). */
@@ -229,6 +261,7 @@ export function rowDiv(
   } else {
     refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, branch, flow, active)
   }
+  if (c.wt) for (const w of c.wt) branch.appendChild(wtChip(worktreeName(w), w.path))
   row.appendChild(branch)
 
   row.appendChild(document.createElement("div")) // spacer: the graph column, under the SVG
@@ -328,7 +361,8 @@ export function rowBucket(
   selection: ReadonlySet<number>,
   matches: ReadonlySet<number> | null,
   active: number | null,
-  total: number
+  total: number,
+  sync?: SyncInfo | null
 ): HTMLDivElement {
   const div = document.createElement("div")
   div.className = "absolute inset-x-0"
@@ -337,7 +371,7 @@ export function rowBucket(
     const c = commitAt(i)
     if (!c) continue
     const matched = matches ? matches.has(S.hashOf[i]) : null
-    div.appendChild(rowDiv(S, i, c, selection.has(i), matched, i === active, total))
+    div.appendChild(rowDiv(S, i, c, selection.has(i), matched, i === active, total, sync))
   }
   return div
 }

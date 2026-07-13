@@ -48,6 +48,19 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
 }
 
 :root {
@@ -79,6 +92,11 @@
   --info: oklch(0.52 0.13 250);
   --refactor: oklch(0.52 0.1 195);
 
+  /* Local/remote sync (layout/sync.ts): amber = to push, blue = to pull. Aliases of the
+     semantic tokens — the var() chain follows the theme, no duplicate in .dark. */
+  --sync-ahead: var(--warning);
+  --sync-behind: var(--info);
+
   /* Lanes: hues spaced 108° apart — two adjacent lanes are never confused for each other.
        Chroma adjusted per hue (yellow and cyan saturate less than red).
        Outside @theme: consumed via var() in SVG attributes, never through a utility. */
@@ -92,6 +110,19 @@
   --lane-7: oklch(0.53 0.19 286);
   --lane-8: oklch(0.58 0.16 34);
   --lane-9: oklch(0.55 0.14 142);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.609 0.126 221.723);
+  --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
@@ -130,6 +161,19 @@
   --lane-7: oklch(0.69 0.16 286);
   --lane-8: oklch(0.73 0.15 34);
   --lane-9: oklch(0.72 0.14 142);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.715 0.143 215.221);
+  --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
@@ -137,7 +181,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground tabular-nums;
+    @apply tabular-nums bg-background text-foreground;
   }
   html {
     @apply font-sans;
@@ -207,6 +251,42 @@
   /* Stash: a neutral veil — the entry sits on the margin of history, not a milestone. */
   .amont-row[data-stash] {
     background: color-mix(in oklab, var(--muted-foreground) 6%, transparent);
+  }
+
+  /* Sync zones (layout/sync.ts): what only exists locally reads amber, what only exists
+     on the remote reads blue — the lag is visible at graph scale, not just per node.
+     Hover and selection (utilities) cover these, same as the flow tints above. */
+  .amont-row[data-sync="ahead"] {
+    background: color-mix(in oklab, var(--sync-ahead) 8%, transparent);
+  }
+  .amont-row[data-sync="behind"] {
+    background: color-mix(in oklab, var(--sync-behind) 7%, transparent);
+  }
+
+  /* Sync frontier: a hairline at the remote-tracking tip — everything above it hasn't
+     been pushed. Decorative overlay (pointer-events: none), rows stay clickable through it. */
+  .amont-syncmark {
+    position: absolute;
+    inset-inline: 0;
+    z-index: 2;
+    height: 0;
+    border-top: 1px dashed color-mix(in oklab, var(--sync-ahead) 60%, transparent);
+    pointer-events: none;
+  }
+  .amont-syncmark > span {
+    position: absolute;
+    top: -9px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border: 1px solid color-mix(in oklab, var(--sync-ahead) 45%, transparent);
+    border-radius: 999px;
+    background: var(--background);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--sync-ahead);
   }
 
   @keyframes amont-flash {

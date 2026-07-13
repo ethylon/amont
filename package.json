@@ -1,6 +1,6 @@
 {
   "name": "amont",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "private": true,
   "type": "module",
   "description": "A Git history visualizer",
@@ -20,6 +20,7 @@
   },
   "packageManager": "pnpm@10.14.0",
   "scripts": {
+    "postinstall": "node scripts/ensure-electron.mjs",
     "dev": "electron-vite dev",
     "mock": "vite --config vite.preview.config.mjs",
     "build": "electron-vite build",
@@ -62,6 +63,7 @@
     "diff2html": "^3.4.56",
     "electron": "^43.0.0",
     "electron-builder": "^26.15.3",
+    "electron-updater": "6.8.9",
     "electron-vite": "^5.0.0",
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",
