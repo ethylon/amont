@@ -245,6 +245,18 @@ export const messages = {
       return t`diff…`
     },
     truncated: (n: string) => t`… ${n} lines truncated`,
+    get stageHunk() {
+      return t`Stage hunk`
+    },
+    get unstageHunk() {
+      return t`Unstage hunk`
+    },
+    get stageLine() {
+      return t`Stage line`
+    },
+    get unstageLine() {
+      return t`Unstage line`
+    },
     get before() {
       return t`Before`
     },

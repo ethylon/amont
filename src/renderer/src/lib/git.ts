@@ -128,6 +128,8 @@ export type RepoApi = {
   wtdiff(path: string, source: WtSource): Promise<string>
   stage(paths: string[]): Promise<void>
   unstage(paths: string[]): Promise<void>
+  /** partial staging: sub-patch applied to the index alone; `reverse` unstages */
+  applyPatch(patch: string, reverse: boolean): Promise<void>
   /** `amend` rewrites the last commit (message, and staged tree if any) instead of creating a new one */
   commit(message: string, amend: boolean): Promise<void>
   /** subject and body of the last commit, to prefill an amend */
@@ -179,6 +181,7 @@ export const repoApi = (id: number): RepoApi => ({
   wtdiff: (path, source) => bridge.wtdiff(id, path, source),
   stage: (paths) => bridge.stage(id, paths),
   unstage: (paths) => bridge.unstage(id, paths),
+  applyPatch: (patch, reverse) => bridge.applyPatch(id, patch, reverse),
   commit: (message, amend) => bridge.commit(id, message, amend),
   headMessage: () => bridge.headMessage(id),
   checkout: (name) => bridge.checkout(id, name),
