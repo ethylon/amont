@@ -41,6 +41,7 @@ import {
   type PickSide,
 } from "./conflict-parse"
 import { useConflictQuery, useMergeStateQuery } from "./conflict-queries"
+import { CodeLine, useShikiTokens, type TokenLine } from "@/features/diff/shiki-tokens"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,59 +55,6 @@ const SIDE_TINT: Record<PickSide, string> = { ours: "bg-info/8", theirs: "bg-suc
 const PICKED_TINT: Record<PickSide, string> = { ours: "bg-info/20", theirs: "bg-success/20" }
 
 const MONO = "font-mono text-xs leading-normal [tab-size:4]"
-
-/* --- Syntax highlighting ---
-   Same aliases as diff-view's, kept local: importing ANYTHING statically from
-   shiki-highlighter.ts would pull shiki into the initial bundle and defeat its lazy load. */
-const LANG_ALIASES: Record<string, string> = { jet: "sql", csproj: "xml", props: "xml", targets: "xml", slnx: "xml" }
-
-function langOf(path: string): string {
-  const name = path.slice(path.lastIndexOf("/") + 1)
-  const dot = name.lastIndexOf(".")
-  const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : ""
-  return LANG_ALIASES[ext] || ext
-}
-
-type TokenLine = { content: string; color?: string }[]
-
-/** Shiki tokens for one document, or null while loading / for an unknown grammar (the caller
-    then renders plain — same fallback policy as the diff view). Tokens are NOT cleared while a
-    new highlight is computing, so keystrokes in the output don't flash the code back to plain. */
-function useShikiTokens(code: string, path: string, dark: boolean): TokenLine[] | null {
-  const [tokens, setTokens] = useState<TokenLine[] | null>(null)
-  useEffect(() => {
-    const lang = langOf(path)
-    if (!lang || lang === "txt") {
-      setTokens(null)
-      return
-    }
-    let live = true
-    void (async () => {
-      try {
-        const { codeToTokens, getHighlighter } = await import("@/features/diff/shiki-highlighter")
-        const highlighter = await getHighlighter()
-        const res = codeToTokens(highlighter, code, { lang, theme: dark ? "github-dark" : "github-light" })
-        if (live) setTokens(res.tokens)
-      } catch {
-        /* unknown grammar: stay plain */
-      }
-    })()
-    return () => {
-      live = false
-    }
-  }, [code, path, dark])
-  return tokens
-}
-
-/** One rendered code line: shiki spans when tokens are there, raw text otherwise. */
-function CodeLine({ text, tokens }: { text: string; tokens?: TokenLine }) {
-  if (!tokens || !tokens.some((t) => t.content)) return <>{text || " "}</>
-  return tokens.map((t, i) => (
-    <span key={i} style={{ color: t.color }}>
-      {t.content}
-    </span>
-  ))
-}
 
 /** A run of context lines (same text both sides), highlighted with its pane's tokens. */
 function PaneCell({

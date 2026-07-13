@@ -50,6 +50,15 @@ editable")`) over a scroll-synced `<pre>`; count its colored spans via
   pick splices only that conflict's block, preserving edits elsewhere ("Reset to selection"
   regenerates the output from the current picks). "Mark as resolved" enables once no
   placeholder or marker remains and moves the file to STAGED. Escape closes the overlay.
+- **Partial staging**: opening a tracked staged/unstaged file from the worktree panel shows
+  the interactive diff (wt-diff-body.tsx) instead of diff2html — the unified/side-by-side
+  toggle disappears with it. Each hunk has a `@@ …` header row with a "Stage hunk"/"Unstage
+  hunk" ghost button; each add/del line has an icon button (`aria-label` "Stage line" /
+  "Unstage line" — "Indexer/Désindexer …" under the fr locale). Clicks apply immediately
+  (`repo:applyPatch`), then the worktree lists and both wt diffs refetch. The mock backs
+  `constraints.ts` (2 unstaged hunks) and `pricing.ts` (1 staged hunk) with real hunks
+  (`WT_DIFFS`); a line-level patch moves its whole hunk in the mock, and a partially staged
+  file appears in BOTH lists. Untracked files keep the old non-interactive render.
 - `window.__changed()` in the console simulates an external `.git` change.
 
 ## Gotchas
