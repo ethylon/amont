@@ -20,6 +20,7 @@ import * as repos from "./repos.ts"
 import { scan } from "./scan.ts"
 import { openable, persisted, saveState } from "./state.ts"
 import { setTelemetryEnabled, telemetryState } from "./telemetry.ts"
+import { checkForUpdates, installUpdate } from "./updater.ts"
 import { basename } from "./util.ts"
 import { getMainWindow } from "./window.ts"
 
@@ -149,6 +150,10 @@ export function registerIpc(): void {
      is the source, and every other handler validates its arguments the same way. */
   handle("telemetry:state", () => Promise.resolve(telemetryState()))
   handle("telemetry:set", (_ev, enabled) => setTelemetryEnabled(enabled === true))
+
+  /* Auto-update (cf. updater.ts) : l'invoke déclenche, le retour passe par `update:status`. */
+  handle("update:check", () => checkForUpdates())
+  handle("update:install", () => installUpdate())
 
   handle("root:scan", async () => {
     if (!persisted.root) return []
