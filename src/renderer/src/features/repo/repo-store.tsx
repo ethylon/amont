@@ -11,8 +11,9 @@
    - `ui`: side panel, current view, open diff.
    - `ops`: in-flight network operation, status badge (auto-cleared by a timer).
    `graphRef` lives in the store as a non-reactive ref (same shape as the `RefObject` that
-   `CommitGraph` expects): mutating it notifies no subscriber, only a thin effect
-   (in the graph component) syncs `selection.rows` → `graphRef.current.setSelection`.
+   `CommitGraph` expects): mutating it notifies no subscriber. The selection actions here push
+   `selection.rows` to the canvas imperatively (`graphRef.current.setSelection`) — there is no
+   mirror effect on the graph component's side.
 
    The "git op → refresh → resetAndLoad → showOp" quartet, copy-pasted four times in the old
    repo-view.tsx (checkout, stash, branch — the commit has its own shape, a failure doesn't
@@ -158,6 +159,15 @@ const keyOfRow = (g: GraphHandle, row: number): string | null => {
   return b ? `${b.kind}:${b.name}` : null
 }
 
+/* Selection updates are the hottest store writes (one per commit click): reuse the previous
+   Set/array when the contents haven't actually changed, so selector-based subscribers
+   (RefsSidebar on `focusedKeys`, RepoView on `rows`) and downstream memos see a stable
+   reference instead of re-rendering on every click of an already-selected commit. */
+const sameSet = (prev: Set<string>, next: Set<string>): Set<string> =>
+  prev.size === next.size && [...next].every((k) => prev.has(k)) ? prev : next
+const sameArr = <T,>(prev: T[], next: T[]): T[] =>
+  prev.length === next.length && next.every((v, i) => prev[i] === v) ? prev : next
+
 export function createRepoStore(
   repoId: number,
   api: RepoApi,
@@ -192,10 +202,21 @@ export function createRepoStore(
       if (!c) return
       const key = keyOfRow(g, row)
       set((s) => {
+        /* the click clears any open diff/conflict and returns to commits; reuse `ui`
+           untouched when it's already there — a new object would wake `s.ui` subscribers */
+        const ui =
+          s.ui.view === "commits" && !s.ui.diff && !s.ui.conflict
+            ? s.ui
+            : { ...s.ui, view: "commits" as const, diff: null, conflict: null }
         if (!additive) {
           return {
-            selection: { hashes: [c.h], rows: [row], mode: "multi", focusedKeys: new Set(key ? [key] : []) },
-            ui: { ...s.ui, view: "commits", diff: null, conflict: null },
+            selection: {
+              hashes: sameArr(s.selection.hashes, [c.h]),
+              rows: sameArr(s.selection.rows, [row]),
+              mode: "multi",
+              focusedKeys: sameSet(s.selection.focusedKeys, new Set(key ? [key] : [])),
+            },
+            ui,
           }
         }
         const hashes = new Set(s.selection.hashes)
@@ -205,8 +226,13 @@ export function createRepoStore(
         const focusedKeys = new Set(s.selection.focusedKeys)
         if (key) removing ? focusedKeys.delete(key) : focusedKeys.add(key)
         return {
-          selection: { hashes: [...hashes], rows: [...rows].sort((a, b) => a - b), mode: "multi", focusedKeys },
-          ui: { ...s.ui, view: "commits", diff: null, conflict: null },
+          selection: {
+            hashes: [...hashes],
+            rows: [...rows].sort((a, b) => a - b),
+            mode: "multi",
+            focusedKeys: sameSet(s.selection.focusedKeys, focusedKeys),
+          },
+          ui,
         }
       })
       /* explicit `active`: `row` is the row that just acted (click, ctrl-click, arrow…) — the
@@ -223,7 +249,12 @@ export function createRepoStore(
       const key = keyOfRow(g, row)
       const hashes = rows.map((r) => g.commit(r)!.h)
       set((s) => ({
-        selection: { hashes, rows, mode: "branch", focusedKeys: new Set(key ? [key] : []) },
+        selection: {
+          hashes,
+          rows,
+          mode: "branch",
+          focusedKeys: sameSet(s.selection.focusedKeys, new Set(key ? [key] : [])),
+        },
         ui: { ...s.ui, view: "commits", diff: null, conflict: null },
       }))
       g.setSelection(rows, row)
@@ -244,7 +275,12 @@ export function createRepoStore(
         const sorted = [...seg].sort((a, b) => a - b)
         const hashes = sorted.map((x) => g.commit(x)!.h)
         set((s) => ({
-          selection: { hashes, rows: sorted, mode: r.kind === "tag" ? "multi" : "branch", focusedKeys: new Set([key]) },
+          selection: {
+            hashes,
+            rows: sorted,
+            mode: r.kind === "tag" ? "multi" : "branch",
+            focusedKeys: sameSet(s.selection.focusedKeys, new Set([key])),
+          },
           ui: { ...s.ui, view: "commits", diff: null, conflict: null },
         }))
         g.setSelection(get().selection.rows, row)
@@ -276,7 +312,12 @@ export function createRepoStore(
 
     clearFocus() {
       set((s) => ({
-        selection: { hashes: [], rows: [], mode: s.selection.mode, focusedKeys: new Set() },
+        selection: {
+          hashes: sameArr(s.selection.hashes, []),
+          rows: sameArr(s.selection.rows, []),
+          mode: s.selection.mode,
+          focusedKeys: sameSet(s.selection.focusedKeys, new Set()),
+        },
         ui: { ...s.ui, diff: null, conflict: null },
       }))
       get().graphRef.current?.setSelection([])

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { html as d2hHtml } from "diff2html"
+import { html as d2hHtml, parse as d2hParse } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -11,6 +11,7 @@ import {
   SourceCodeIcon,
 } from "@hugeicons/core-free-icons"
 
+import { DIFF_MAX_LINES } from "../../../../shared/diff.ts"
 import type { FileChange, RepoApi } from "@/lib/git"
 import { parseUnifiedDiff } from "@/features/diff/diff-parse"
 import { useDiffQuery } from "@/features/diff/diff-queries"
@@ -29,7 +30,11 @@ export type DiffViewMode = "unified" | "sbs"
 /** A context carries either a pair of commits, or the source within the working tree. */
 export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" | "unstaged" | "untracked" }
 
-const MAX_LINES = 3000
+/* The line cap (DIFF_MAX_LINES, shared/diff.ts) is enforced on BOTH sides: main truncates the
+   IPC payload a slack past it and ships `{text, totalLines}`, and the gates below keep
+   diff2html/shiki away from anything whose *total* exceeds it — a truncated payload (which by
+   construction always carries more than the cap) can never reach them looking complete. */
+
 /* Reapplied on every render — the effects rewrite `className` from top to bottom. */
 const DIFF_BODY =
   "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
@@ -47,8 +52,12 @@ const LANG_ALIASES: Record<string, string> = {
 /* Shiki coloring on top of the diff2html render.
    <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.
    The highlighter (shiki/core + the JS regex engine, cf. shiki-highlighter.ts) is loaded
-   dynamically here — its own module graph never touches the app's initial bundle. */
-async function shikiPass(body: HTMLElement) {
+   dynamically here — its own module graph never touches the app's initial bundle.
+   `signal` comes from the owning effect: tokenization yields to the event loop between
+   slices (cf. shiki-highlighter.ts tokenize), so by the time a slice finishes the effect
+   may have re-run and `body` may be detached — the abort check stops the pass instead of
+   tokenizing and painting DOM nobody is looking at (audit §23). */
+async function shikiPass(body: HTMLElement, signal: AbortSignal) {
   let lang = body.querySelector(".d2h-file-wrapper")?.getAttribute("data-lang")
   if (!lang || lang === "txt") return
   lang = LANG_ALIASES[lang] || lang
@@ -71,15 +80,17 @@ async function shikiPass(body: HTMLElement) {
   }
 
   try {
-    const { codeToTokens, getHighlighter } = await import("./shiki-highlighter")
-    const highlighter = await getHighlighter()
+    const { tokenize } = await import("./shiki-highlighter")
     const theme = isDark() ? "github-dark" : "github-light"
     for (const group of groups.values()) {
-      const lines = codeToTokens(highlighter, group.map((e) => e.textContent).join("\n"), { lang, theme }).tokens
+      /* One await per pane document: painting only happens once the whole group's tokens are
+         in, so a pane is either fully colored or untouched — never striped mid-slice. */
+      const lines = await tokenize(group.map((e) => e.textContent).join("\n"), lang, theme, signal)
+      if (!lines || signal.aborted) return // unknown grammar (same for every group) or stale run
       group.forEach((ctn, i) => paintLine(ctn, lines[i]))
     }
   } catch {
-    return // unknown grammar / load failure: stay plain
+    return // grammar / theme load failure: stay plain
   }
 }
 
@@ -130,12 +141,15 @@ const RAW_CLASS: Record<string, string> = {
   ctx: "",
 }
 
-/* Past 3000 lines: plain, uncolored rendering — diff2html chokes, and nobody reads a diff that big anyway */
-function renderRaw(body: HTMLElement, text: string) {
+/* Past DIFF_MAX_LINES: plain, uncolored rendering — diff2html chokes, and nobody reads a diff
+   that big anyway. `text` is already capped main-side (at most a slack past the cap, cf.
+   shared/diff.ts); `totalLines` is the true length of the full output, so the footer count
+   stays exact even though the tail never crossed IPC. */
+function renderRaw(body: HTMLElement, text: string, totalLines: number) {
   const lines = text.split("\n")
   body.textContent = ""
   body.className = DIFF_BODY + " bg-muted py-1.5"
-  lines.slice(0, MAX_LINES).forEach((l) => {
+  lines.slice(0, DIFF_MAX_LINES).forEach((l) => {
     const kind = /^(diff |index |new file|deleted file|similarity|rename |--- |\+\+\+ )/.test(l)
       ? "meta"
       : l.startsWith("@@")
@@ -150,10 +164,10 @@ function renderRaw(body: HTMLElement, text: string) {
     d.textContent = l || " "
     body.appendChild(d)
   })
-  if (lines.length > MAX_LINES) {
+  if (totalLines > DIFF_MAX_LINES) {
     const more = document.createElement("div")
     more.className = "min-w-max px-2 text-muted-foreground"
-    more.textContent = messages.diff.truncated((lines.length - MAX_LINES).toLocaleString())
+    more.textContent = messages.diff.truncated((totalLines - DIFF_MAX_LINES).toLocaleString())
     body.appendChild(more)
   }
 }
@@ -215,7 +229,12 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
   const showImage = imgExt !== null && (!textImage || imgPreview)
   /* Fetch the text diff only when it can actually be shown — never for a raster image, and for an
      svg only once the user flips to the diff view (react-query fetches lazily on that toggle). */
-  const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
+  const { data: diff = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
+
+  /* The line count ships with the text (`totalLines`, counted main-side during the truncation
+     scan — cf. shared/diff.ts): the gates below key off it, so an oversized diff is routed to
+     the raw fallback whether or not its tail actually crossed IPC. Under the cap the payload
+     is always complete, so diff2html/shiki still only ever see whole, uncapped diffs. */
 
   /* A staged/unstaged text diff gets the interactive per-hunk/per-line staging body instead
      of diff2html — it honors the same unified/side-by-side toggle. Untracked files (no index
@@ -224,33 +243,52 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
   const wtSrc = "wt" in ctx && ctx.wt !== "untracked" ? ctx.wt : null
   const parsed = useMemo(
     () =>
-      wtSrc && !showImage && text !== null && text.split("\n").length <= MAX_LINES ? parseUnifiedDiff(text) : null,
-    [wtSrc, showImage, text]
+      wtSrc && !showImage && diff !== null && diff.totalLines <= DIFF_MAX_LINES ? parseUnifiedDiff(diff.text) : null,
+    [wtSrc, showImage, diff]
+  )
+
+  /* diff2html's parse is memoized apart from its HTML render: the unified↔side-by-side and
+     theme toggles only change render options (`outputFormat`, `colorScheme`, and `matching`
+     is applied by the renderers too), so they re-run `d2hHtml` on the already-parsed files
+     instead of re-parsing the whole diff text. */
+  const d2hFiles = useMemo(
+    () =>
+      !showImage && diff !== null && !parsed && diff.text.trim() && diff.totalLines <= DIFF_MAX_LINES
+        ? d2hParse(diff.text)
+        : null,
+    [showImage, diff, parsed]
   )
 
   useEffect(() => {
     const el = body.current
-    if (!el || showImage || text === null || parsed) return
-    if (!text.trim()) {
+    if (!el || showImage || diff === null || parsed) return
+    if (!diff.text.trim()) {
       el.textContent = messages.diff.empty
       el.className = DIFF_BODY + " text-muted-foreground"
       return
     }
     el.className = DIFF_BODY
-    if (text.split("\n").length > MAX_LINES) {
-      renderRaw(el, text)
+    if (!d2hFiles) {
+      renderRaw(el, diff.text, diff.totalLines) // over DIFF_MAX_LINES: plain, uncolored fallback
       return
     }
     /* diff2html escapes the content; shiki tokens are re-injected via textContent */
-    el.innerHTML = d2hHtml(text, {
+    el.innerHTML = d2hHtml(d2hFiles, {
       outputFormat: view === "sbs" ? OutputFormatType.SIDE_BY_SIDE : OutputFormatType.LINE_BY_LINE,
       drawFileList: false,
       matching: "lines",
       colorScheme: dark ? ColorSchemeType.DARK : ColorSchemeType.LIGHT,
     })
-    shikiPass(el).catch(() => {})
-    return syncSides(el)
-  }, [text, view, dark, showImage, parsed])
+    /* Aborted on cleanup so a superseded pass (file switch, view/theme toggle) stops
+       tokenizing between slices instead of finishing against detached DOM. */
+    const abort = new AbortController()
+    shikiPass(el, abort.signal).catch(() => {})
+    const offSync = syncSides(el)
+    return () => {
+      abort.abort()
+      offSync?.()
+    }
+  }, [diff, view, dark, showImage, parsed, d2hFiles])
 
   return (
     <div ref={root} tabIndex={-1} className="flex min-h-0 flex-1 flex-col px-4.5 py-4 outline-none">
@@ -300,7 +338,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
         <ImageDiffView api={api} repoId={repoId} ctx={ctx} file={file} ext={imgExt} />
       ) : error ? (
         <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
-      ) : text === null ? (
+      ) : diff === null ? (
         <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
       ) : parsed && wtSrc ? (
         <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} view={view} />

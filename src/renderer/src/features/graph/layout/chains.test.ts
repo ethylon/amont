@@ -49,6 +49,43 @@ describe("branchSegment / chainTip — segment boundaries", () => {
   })
 })
 
+describe("chainTip — per-row memoization (append-only layout)", () => {
+  it("memoizes the tip for the queried row and every row crossed on the climb", () => {
+    const data = [
+      c("f3", ["f2"], "wip 3", "HEAD -> refs/heads/feature/x"),
+      c("f2", ["f1"], "wip 2"),
+      c("f1", ["f0"], "wip 1"),
+      c("f0", [], "init"),
+    ]
+    const S = createState()
+    layoutChunk(S, (r) => data[r], data.length)
+
+    assert.equal(chainTip(S, 3), 0)
+    assert.equal(S.tipOf.get(3), 0, "the queried row is memoized")
+    assert.equal(S.tipOf.get(2), 0, "so is every intermediate row of the climb")
+    assert.equal(S.tipOf.get(1), 0)
+    assert.equal(chainTip(S, 1), 0, "a memo hit returns the same tip")
+  })
+
+  it("rides a memoized prefix for rows laid out after the first climb", () => {
+    const data = [
+      c("f4", ["f3"], "wip 4", "HEAD -> refs/heads/feature/x"),
+      c("f3", ["f2"], "wip 3"),
+      c("f2", ["f1"], "wip 2"),
+      c("f1", ["f0"], "wip 1"),
+      c("f0", [], "init"),
+    ]
+    const S = createState()
+    /* two-phase layout, like pagination: entries memoized against the first window must
+       stay valid once more rows land (that's what "append-only" buys us) */
+    layoutChunk(S, (r) => data[r], 3)
+    assert.equal(chainTip(S, 2), 0)
+    layoutChunk(S, (r) => data[r], data.length)
+    assert.equal(chainTip(S, 4), 0, "the new row's climb short-circuits on the memoized prefix")
+    assert.equal(chainTip(S, 3), 0)
+  })
+})
+
 describe("stash — dashed node and edge, transparent to branch chains", () => {
   it("marks the stash node and edge, without cutting the branch segment", () => {
     const data = [

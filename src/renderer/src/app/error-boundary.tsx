@@ -21,6 +21,10 @@ type Props = {
   children: ReactNode
   /** recovery button label */
   label?: string
+  /** clears a caught error when it changes (compared with Object.is): lets the caller
+      recover the boundary on navigation (e.g. a new selection) without keying the whole
+      subtree — healthy children keep updating in place */
+  resetKey?: unknown
   onReset?(): void
 }
 
@@ -31,6 +35,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: unknown): State {
     return { error }
+  }
+
+  componentDidUpdate(prev: Props) {
+    if (this.state.error && !Object.is(prev.resetKey, this.props.resetKey)) this.setState({ error: null })
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {

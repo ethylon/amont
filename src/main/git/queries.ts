@@ -6,6 +6,7 @@ import { readFile, stat } from "node:fs/promises"
 import { extname, resolve } from "node:path"
 import { app, shell } from "electron"
 
+import { truncateDiff } from "../../shared/diff.ts"
 import { AppError } from "../../shared/errors.ts"
 import type {
   BlobData,
@@ -13,6 +14,7 @@ import type {
   CommitMessage,
   Commit,
   ConflictFile,
+  DiffText,
   FileChange,
   GitRef,
   MergeState,
@@ -23,8 +25,11 @@ import type {
   WtSource,
 } from "../../shared/types.ts"
 import { inRepo, type RepoHandle } from "../repos.ts"
+import { refTips } from "./ops.ts"
 import {
   ALL_REFS,
+  hashListCount,
+  hashListSlice,
   parseForEachRef,
   parseLogPage,
   parseNameStatus,
@@ -43,21 +48,28 @@ function assertHash(hash: string, parent?: string | null): void {
    Current branch + divergence from its remote. No upstream or detached HEAD
    aren't errors: the renderer simply displays dashes. */
 export async function repoStatus(r: RepoHandle): Promise<Status> {
-  /* unborn HEAD (freshly-init repo): rev-parse fails even though nothing is wrong —
-     empty status rather than a rejection, as repo:unstage already knows to do */
-  const branch = (await r.git(["rev-parse", "--abbrev-ref", "HEAD"]).catch(() => "")).trim()
-  if (!branch) return { branch: null, head: null, ahead: null, behind: null }
-  const head = (await r.git(["rev-parse", "HEAD"]).catch(() => "")).trim() || null
-  if (branch === "HEAD") return { branch: null, head, ahead: null, behind: null }
-  try {
-    const [behind, ahead] = (await r.git(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]))
-      .trim()
-      .split(/\s+/)
-      .map(Number)
-    return { branch, head, ahead, behind }
-  } catch {
-    return { branch, head, ahead: null, behind: null }
-  }
+  /* Three independent reads, in parallel rather than chained: this runs after every mutation
+     and on every `git:changed`, so the serial fork/exec chain was pure latency. Each read
+     carries its own fallback — an unborn HEAD (freshly-init repo) makes both rev-parses fail
+     even though nothing is wrong (as repo:unstage already knows), and no upstream or a
+     detached HEAD makes the rev-list fail: empty fields rather than a rejection. */
+  const [branch, head, counts] = await Promise.all([
+    r.git(["rev-parse", "--abbrev-ref", "HEAD"]).then(
+      (o) => o.trim(),
+      () => ""
+    ),
+    r.git(["rev-parse", "HEAD"]).then(
+      (o) => o.trim(),
+      () => ""
+    ),
+    /* left side of `@{upstream}...HEAD` = commits only upstream has = behind */
+    r.git(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]).then(
+      (o) => o.trim().split(/\s+/).map(Number),
+      () => null
+    ),
+  ])
+  if (!branch || branch === "HEAD") return { branch: null, head: head || null, ahead: null, behind: null }
+  return { branch, head: head || null, ahead: counts?.[1] ?? null, behind: counts?.[0] ?? null }
 }
 
 /* --- Working tree --- */
@@ -124,17 +136,24 @@ export async function conflict(r: RepoHandle, path: string): Promise<ConflictFil
       () => null
     )
   const [base, ours, theirs] = await Promise.all([stage(1), stage(2), stage(3)])
+  /* size gate BEFORE the read, like blob(): an over-cap file never has its bytes pulled into
+     memory just to be rejected. Missing from disk (delete/delete) reads as empty, as before. */
+  const size = (await stat(full).catch(() => null))?.size ?? 0
+  if (size > CONFLICT_MAX) throw new AppError("OUTPUT_LIMIT", path)
   const merged = await readFile(full, "utf8").catch(() => "")
-  if (merged.length > CONFLICT_MAX) throw new AppError("OUTPUT_LIMIT", path)
   return { base, ours, theirs, merged }
 }
 
 const WT_DIFF: Record<"staged" | "unstaged", string[]> = { staged: ["diff", "--cached"], unstaged: ["diff"] }
 
-export function wtdiff(r: RepoHandle, path: string, source: WtSource): Promise<string> {
-  if (source === "untracked") return r.diffNoIndex("/dev/null", inRepo(r, path))
+/* Both diff channels cap their payload right after the git call (truncateDiff, shared/diff.ts):
+   the renderer shows at most DIFF_MAX_LINES lines, so shipping up to the 64 MB OUTPUT_CAP
+   across IPC was pure structured-clone weight — the `{text, totalLines}` shape keeps its
+   "N more lines" footer exact without the full text ever leaving this process. */
+export function wtdiff(r: RepoHandle, path: string, source: WtSource): Promise<DiffText> {
+  if (source === "untracked") return r.diffNoIndex("/dev/null", inRepo(r, path)).then(truncateDiff)
   if (source !== "staged" && source !== "unstaged") throw new AppError("BAD_ARG", "source")
-  return r.git([...WT_DIFF[source], "--", path])
+  return r.git([...WT_DIFF[source], "--", path]).then(truncateDiff)
 }
 
 /* --- Stash --- */
@@ -144,31 +163,71 @@ export const stashList = (r: RepoHandle): Promise<Stash[]> =>
     .catch(() => "")
     .then(parseStashList)
 
-const stashTips = (r: RepoHandle): Promise<string[]> =>
-  r
-    .git(["stash", "list", "--format=%H"])
-    .catch(() => "")
-    .then((o) => o.split("\n").filter(Boolean))
+/* `git stash list` walks the whole stash reflog: cached for one change-generation
+   (watcher.ts bumps `gen` on every observed .git change, mute() after each of our own
+   mutations) — logPage/total used to re-spawn it on every page, a serial fork/exec tax on
+   the hottest read path. The promise never rejects (stashList catches into an empty list),
+   so a cached failure can't get stuck. */
+function cachedStashes(r: RepoHandle): Promise<Stash[]> {
+  if (r.stashCache?.gen !== r.gen) r.stashCache = { gen: r.gen, list: stashList(r) }
+  return r.stashCache.list
+}
 
 /* --- Log ---
-   `git log --skip` re-walks history from the start on every page — fine up to roughly 100k
-   commits; switch to a persistent streaming spawn if that ever becomes the bottleneck. */
+   `git log --skip=N` used to re-walk (and `--date-order` re-sort) the whole history from the
+   tips on every page: O(history) per page, the exact bottleneck the old comment here
+   predicted. Instead, the ordered hash list of the entire graph is materialized ONCE per
+   tips snapshot (`rev-list --date-order` over the same refs+stash tips), cached on the
+   RepoHandle like `trunk`, and every page is a byte-range slice of it fed to
+   `git log --no-walk=unsorted --stdin` — page cost no longer depends on where the page sits
+   in history. Same traversal, same roots: the order is bit-identical to the old command. */
+async function orderedHashes(r: RepoHandle): Promise<{ hashes: string; stashes: Stash[] }> {
+  /* HEAD belongs in the key: `--all` walks it too, and on a detached HEAD (tag checkout,
+     bisect, rebase stop) a new commit moves no branch/tag/stash tip — without HEAD in the
+     snapshot the stale list would be served until some unrelated ref moved. */
+  const [tips, stashes, head] = await Promise.all([
+    refTips(r),
+    cachedStashes(r),
+    r.git(["rev-parse", "HEAD"]).catch(() => ""), // unborn repo: no HEAD commit yet
+  ])
+  const key = [head.trim(), ...tips, ...stashes.map((s) => s.h)].join(" ")
+  let entry = r.logIndex
+  if (entry?.key !== key) {
+    /* no caller signal on the build: the list is shared by every page in flight, and a
+       cancelled page must not kill the walk its siblings are waiting on (closeRepo still
+       reaps it through the children set). A failed build — timeout, repo gone mid-read —
+       drops the entry so the next call retries instead of replaying the rejection. */
+    const fresh: NonNullable<RepoHandle["logIndex"]> = {
+      key,
+      hashes: r.git(["rev-list", "--date-order", ...ALL_REFS, ...stashes.map((s) => s.h)]).catch((e: unknown) => {
+        if (r.logIndex === fresh) r.logIndex = null
+        throw e
+      }),
+    }
+    r.logIndex = entry = fresh
+  }
+  return { hashes: await entry.hashes, stashes }
+}
+
 export async function logPage(r: RepoHandle, skip: number, count: number, signal?: AbortSignal): Promise<Commit[]> {
+  const page = hashListSlice((await orderedHashes(r)).hashes, skip, count)
+  /* a blank page must never reach `git log --stdin`: with nothing on stdin, git falls back
+     to the default HEAD revision and would resurrect commits out of thin air */
+  if (!page) return []
   /* --decorate=full: `%D` then outputs `refs/heads/x` / `refs/remotes/origin/x` / `refs/tags/x`.
-     In its short form, `origin/x` and a local branch named `origin/x` are indistinguishable. */
+     In its short form, `origin/x` and a local branch named `origin/x` are indistinguishable.
+     Decorations are re-read here on every page, so the cached hash order never serves a
+     stale ref name — only tips (which key the cache) affect the order itself. */
   const out = await r.git(
     [
       "log",
-      ...ALL_REFS,
-      ...(await stashTips(r)),
-      "--date-order",
+      "--no-walk=unsorted", // keep the slice's order; git would otherwise re-sort by date
+      "--stdin",
       "--date=short",
       "--decorate=full",
-      `--skip=${skip}`,
-      `-n${count}`,
       "--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e",
     ],
-    { signal }
+    { signal, input: page }
   )
   return parseLogPage(out)
 }
@@ -202,12 +261,13 @@ export async function searchCommits(
 /* The count includes stash tips, same as the log. Each entry drags along 1 to 2
    plumbing commits (index, untracked) that the renderer collapses: we subtract them so that
    `total` stays the number of lines actually displayable. Deduplicated: two stashes created
-   in the same second share the same index commit (same tree, same parent, same date). */
+   in the same second share the same index commit (same tree, same parent, same date).
+   Derived from the same cached hash list as logPage — the `rev-list --count` full-history
+   walk this used to spawn on every `git:changed` is now O(1) once the list is built. */
 export async function total(r: RepoHandle): Promise<number> {
-  const stashes = await stashList(r)
+  const { hashes, stashes } = await orderedHashes(r)
   const plumbing = new Set(stashes.flatMap((s) => s.p.slice(1)))
-  const count = parseInt(await r.git(["rev-list", "--count", ...ALL_REFS, ...stashes.map((s) => s.h)]), 10)
-  return count - plumbing.size
+  return hashListCount(hashes) - plumbing.size
 }
 
 /* --- Refs ---
@@ -276,14 +336,34 @@ export async function listRefs(r: RepoHandle): Promise<GitRef[]> {
   const present = new Set(remoteRefs.map((n) => n.slice(n.indexOf("/") + 1)))
   const remoteNames = [...new Set(remoteRefs.map((n) => n.slice(0, n.indexOf("/"))))]
 
+  /* The verdict only depends on the branch's own reflog (which only grows when its tip
+     moves) and on the remote names it's matched against: cached per (branch, tip), reset
+     wholesale when the remote set changes. 150 stale branches used to cost 150 spawns on
+     every refresh; now only the branches whose tip actually moved are re-probed. Entries
+     for deleted branches linger in the map — bounded by branch-name count, not worth
+     sweeping. (A reflog expired by gc can flip a cached verdict without moving the tip —
+     the same staleness the heuristic above already accepts for its 90-day window.) */
+  if (r.goneCache?.remotes !== remoteNames.join(" "))
+    r.goneCache = { remotes: remoteNames.join(" "), verdicts: new Map() }
+  const verdicts = r.goneCache.verdicts
+
   const candidates: GitRef[] = remoteNames.length
-    ? refs.filter((ref) => ref.kind === "head" && !ref.gone && !present.has(ref.name))
+    ? refs.filter((ref) => {
+        if (ref.kind !== "head" || ref.gone || present.has(ref.name)) return false
+        const known = verdicts.get(ref.name)
+        if (known && known.tip === ref.tip) {
+          ref.gone = known.gone
+          return false
+        }
+        return true
+      })
     : []
   await Promise.all(
     Array.from({ length: Math.min(REFLOG_POOL, candidates.length) }, async () => {
       for (let ref: GitRef | undefined; (ref = candidates.shift()) !== undefined;) {
         const reflog = await r.git(["reflog", "show", "--format=%gs", ref.name]).catch(() => "")
         ref.gone = remoteNames.some((remote) => reflog.includes(`${remote}/${ref.name}`))
+        verdicts.set(ref.name, { tip: ref.tip, gone: ref.gone })
       }
     })
   )
@@ -319,6 +399,8 @@ export async function headMessage(r: RepoHandle): Promise<CommitMessage> {
   return { subject, body: body_ }
 }
 
+/* Truncated main-side like wtdiff (cf. the comment there): the abort/timeout/output-cap
+   plumbing of the git call itself is untouched — truncateDiff only trims what crosses IPC. */
 export function diff(
   r: RepoHandle,
   hash: string,
@@ -326,20 +408,23 @@ export function diff(
   path: string,
   oldPath: string | null,
   signal?: AbortSignal
-): Promise<string> {
+): Promise<DiffText> {
   assertHash(hash, parent)
   if (typeof path !== "string" || (oldPath != null && typeof oldPath !== "string"))
     throw new AppError("BAD_ARG", "path")
   const paths = oldPath ? [oldPath, path] : [path]
   const args = parent ? ["diff", parent, hash, "--", ...paths] : ["show", "--format=", hash, "--", ...paths]
-  return r.git(args, { signal })
+  return r.git(args, { signal }).then(truncateDiff)
 }
 
 /* --- Binary preview (image viewer) ---
    diff2html can only render text; a binary path (png, gif, an image…) collapses to git's
    "Binary files differ" line. `blob` ships the raw bytes of one side of the change so the
-   renderer can show a real preview. `cat-file -s` gates on size first: an over-cap or absent
-   object never has its bytes read into memory. */
+   renderer can show a real preview. The Buffer travels as-is — Electron's structured clone
+   carries it as binary; the old base64 re-encode built a ~33 MB string on the main thread
+   for a 25 MB image, blocking every other IPC handler while it serialized (audit finding
+   9a). `cat-file -s` gates on size first: an over-cap or absent object never has its bytes
+   read into memory. */
 const BLOB_MAX = 25 * 1024 * 1024
 
 /** A rev accepted in a `<rev>:<path>` object spec: a commit hash, or the literal `HEAD` (the
@@ -361,9 +446,9 @@ export async function blob(r: RepoHandle, path: string, ref: BlobRef): Promise<B
     } catch {
       return null // gone from disk (staged deletion still shown as a working-tree row)
     }
-    if (size > BLOB_MAX) return { size, b64: null }
+    if (size > BLOB_MAX) return { size, bytes: null }
     const buf = await readFile(full).catch(() => null)
-    return buf ? { size, b64: buf.toString("base64") } : null
+    return buf ? { size, bytes: buf } : null
   }
 
   /* `:path` = the staged blob; `<rev>:path` = a committed one. A missing side (added file has
@@ -376,9 +461,9 @@ export async function blob(r: RepoHandle, path: string, ref: BlobRef): Promise<B
     return null
   }
   if (!Number.isFinite(size)) return null
-  if (size > BLOB_MAX) return { size, b64: null }
+  if (size > BLOB_MAX) return { size, bytes: null }
   const buf = await r.gitBuffer(["cat-file", "blob", spec])
-  return { size, b64: buf.toString("base64") }
+  return { size, bytes: buf }
 }
 
 /* --- Shell: icon and opening ---

@@ -7,9 +7,11 @@
      mounted rather than reserializing everything;
    - `sync()` only mounts the buckets that intersect the viewport, like the short SVG chunks —
      the overlay grows with the history but its DOM footprint stays bounded to the viewport.
-   Dangling edges (`S.pending`) are still fully rebuilt on every call: there are
-   few of them (bounded by the number of open lanes, not by the size of the history),
-   they weren't the O(n²) offender. */
+   Dangling edges (`S.pending`) are few (bounded by the number of open lanes, not by the
+   size of the history) but `sync()` runs on every scroll event and RO tick: their group is
+   fully rebuilt only when `S.pendingGen` (bumped by layoutChunk when `pending` actually
+   mutates) or the graph height (the extension of the dashes to the bottom) moved —
+   i.e. once per ingested page, never per scroll tick. */
 
 import { OVERLAY_BUCKET } from "../constants.ts"
 import type { Edge, LayoutState } from "../layout/state.ts"
@@ -43,6 +45,10 @@ export function createOverlay() {
   const mounted = new Map<number, SVGGElement>()
   /** how many of `S.long` have already been distributed into buckets — S.long only ever grows */
   let assignedLen = 0
+  /* last (pendingGen, height) the dangling group was serialized against — `-1` forces the
+     first rebuild (pendingGen starts at 0) */
+  let danglingGen = -1
+  let danglingHeight = -1
 
   function assignNew(S: LayoutState) {
     for (; assignedLen < S.long.length; assignedLen++) {
@@ -78,6 +84,12 @@ export function createOverlay() {
       mounted.set(b, g)
     }
 
+    /* gated rebuild (cf. header): `height` participates because a still-pending edge is
+       drawn all the way down to the current bottom — a taller graph must re-extend the
+       dashes even if `pending` itself hasn't moved */
+    if (S.pendingGen === danglingGen && height === danglingHeight) return
+    danglingGen = S.pendingGen
+    danglingHeight = height
     let html = ""
     S.pending.forEach((list) =>
       list.forEach((e) => {
@@ -99,6 +111,10 @@ export function createOverlay() {
     buckets.clear()
     assignedLen = 0
     dangling.innerHTML = ""
+    /* same monotony trap as `assignedLen`: the fresh state's pendingGen restarts at 0,
+       which could collide with the stale fingerprint and skip the first rebuild */
+    danglingGen = -1
+    danglingHeight = -1
   }
 
   return { root, sync, reset }

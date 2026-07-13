@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react"
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { branchFlow } from "@/lib/gitflow"
-import { repoApi, worktreeCount, type Repo } from "@/lib/git"
+import { repoApi, worktreeCount, type OpName, type Repo } from "@/lib/git"
+import { useLocale, type Locale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
 import { useFlowInfoQuery, useFlowQuery } from "@/features/flow/flow-queries"
@@ -17,8 +18,6 @@ import { DetailPanel } from "@/features/repo/detail-panel"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
 import { FlowStartBanner } from "@/features/flow/flow-start-banner"
-import { FlowInitDialog } from "@/features/flow/flow-init-dialog"
-import { MaintenanceDialog } from "@/features/maintenance/maintenance-dialog"
 import { repoHealth } from "@/features/maintenance/health"
 import { useRepoMenuTools } from "@/features/repo/use-repo-menu-tools"
 import type { RepoCommandEnvelope } from "@/features/repo/repo-commands"
@@ -27,6 +26,28 @@ import { RefsSidebar } from "@/features/refs/refs-sidebar"
 import { StatusBar } from "@/features/repo/status-bar"
 import { Toolbar } from "@/features/repo/toolbar"
 import { WorktreePanel } from "@/features/worktree/worktree-panel"
+
+/* Menu-driven modals, code-split behind their open state (perf audit, finding 6): neither
+   exists until "Initialize Git Flow…" / "Database statistics…" is picked, so their form and
+   report UI stay out of the entry chunk. Both already unmount on close (no exit animation to
+   preserve), and both open as a dimmed overlay — a null Suspense fallback for the frame the
+   chunk takes to load is invisible. */
+const FlowInitDialog = lazy(() =>
+  import("@/features/flow/flow-init-dialog").then((m) => ({ default: m.FlowInitDialog }))
+)
+const MaintenanceDialog = lazy(() =>
+  import("@/features/maintenance/maintenance-dialog").then((m) => ({ default: m.MaintenanceDialog }))
+)
+
+/* GraphColumn belongs to features/graph — memoized here, at the import site (perf audit,
+   finding 4b). It takes no props and subscribes to the store itself, so the memo cuts every
+   re-render coming from this tab shell (boot reveal, status refetches, selection clicks…).
+   `locale` is the one render input that arrives by cascade rather than by subscription:
+   carrying it as the wrapper's sole prop lets a runtime language switch through the memo
+   without remounting the canvas. */
+const GraphColumnMemo = memo(function GraphColumnMemo({ locale: _locale }: { locale: Locale }) {
+  return <GraphColumn />
+})
 
 /** Boot reveal: the skeleton survives its exit fade before being unmounted, and
     `settled` waits for the next frame so it doesn't replay the animated entrances of content already
@@ -58,17 +79,25 @@ type Props = {
 
 /** Slot layout (AUDIT.md §5): banner / sidebar / center / panel / statusbar. Each
     panel subscribes to its own slice of the store or the query layer — the prop drilling
-    (10 props to RefsSidebar, 14 to WorktreePanel) disappears with it. */
-export function RepoView({ repo, active, command, onOpenRepo }: Props) {
+    (10 props to RefsSidebar, 14 to WorktreePanel) disappears with it.
+
+    memo (perf audit, finding 4d): App re-renders on any app-level change (theme, dialogs,
+    tab moves) and keeps background tabs mounted — with stable props (App passes a
+    ref-stable `onOpenRepo`; `command` only changes identity when a menu command actually
+    fires) every mounted tab skips instead of re-rendering. */
+export const RepoView = memo(function RepoView({ repo, active, command, onOpenRepo }: Props) {
   const api = useMemo(() => repoApi(repo.id), [repo.id])
   return (
     <RepoProvider repoId={repo.id} api={api} onOpenRepo={onOpenRepo}>
       <RepoViewContent repo={repo} active={active} command={command} />
     </RepoProvider>
   )
-}
+})
 
 function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
+  /* the memo above cuts App's render cascade, which runtime language switches ride on:
+     subscribe directly so the tab (and its non-memoized descendants) still re-renders */
+  const locale = useLocale()
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
   const storeApi = useRepoStoreApi()
@@ -94,7 +123,9 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
     queryFn: () => api.countObjects(),
     staleTime: 5 * 60_000,
   }).data
-  const health = counts ? repoHealth(counts) : null
+  /* memoized: `health` feeds the memoized StatusBar — a fresh object per render would
+     defeat its memo */
+  const health = useMemo(() => (counts ? repoHealth(counts) : null), [counts])
 
   /* the tree emptied out while we were looking at it: the view no longer has a subject, and an
      in-progress amend no longer has a block to display in */
@@ -123,9 +154,24 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const closeDiff = useRepoStore((s) => s.closeDiff)
   const openDiff = useRepoStore((s) => s.openDiff)
   const clearFocus = useRepoStore((s) => s.clearFocus)
-  /* fallback key for the detail's ErrorBoundary: the selection already changes the key, this
-     covers the case of an error that would persist on the same selection */
+  /* key for the detail's ErrorBoundary — bumped by its "reload" button, so recovery still
+     gets a fresh subtree. The selection is deliberately NOT part of the key (perf audit,
+     finding 4b): the panel updates in place on selection change instead of remounting
+     (and rebuilding a huge join string) per click; per-selection resets live on an inner
+     key in detail-panel.tsx. */
   const [detailNonce, setDetailNonce] = useState(0)
+
+  /* stable callbacks/elements for the memoized children below — an inline closure or JSX
+     literal would change identity every render and void their memos */
+  const onRunOp = useCallback((op: OpName) => void api.op(op), [api])
+  const onJump = useCallback((hash: string) => void graphRef.current?.jumpTo(hash), [graphRef])
+  const runMaint = tools.runMaint
+  const onCompact = useCallback(() => runMaint("gc"), [runMaint])
+  const commitSearch = useMemo(
+    () => <CommitSearch api={api} repoId={repoId} graph={graphRef} active={active} />,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- locale: the element must be recreated for a language switch to reach it through the memoized Toolbar
+    [api, repoId, graphRef, active, locale]
+  )
 
   /* Tab boot: status, flow, flowInfo, worktree and graph arrive in scattered order —
      the union of the queries' `isLoading` replaces the `B_STATUS…B_ALL` bitmask: a disabled
@@ -185,9 +231,9 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         busyOp={busyOp}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
-        onRunOp={(op) => api.op(op)}
+        onRunOp={onRunOp}
       >
-        <CommitSearch api={api} repoId={repoId} graph={graphRef} active={active} />
+        {commitSearch}
       </Toolbar>
 
       {/* Boot: the content stays invisible until all the initial reads have
@@ -219,7 +265,7 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
 
             <main className="flex min-w-0 flex-1 flex-col">
               <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,1fr)_minmax(240px,320px)] grid-rows-[minmax(0,1fr)]">
-                <GraphColumn />
+                <GraphColumnMemo locale={locale} />
 
                 {/* column: the detail header is fixed, the list and diff each scroll on their own.
                     The panels render fragments — so their children are the flex items. */}
@@ -231,10 +277,10 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
                   {view === "wt" && worktree ? (
                     <WorktreePanel />
                   ) : panelOpen && graphRef.current ? (
-                    <ErrorBoundary
-                      key={`${selection.join(",")}:${detailNonce}`}
-                      onReset={() => setDetailNonce((n) => n + 1)}
-                    >
+                    /* resetKey: an error card caught on one commit must not survive a click on
+                       another (the old per-selection key remounted its way out of this; the
+                       boundary now recovers in place — `selection` is reference-stable) */
+                    <ErrorBoundary key={detailNonce} resetKey={selection} onReset={() => setDetailNonce((n) => n + 1)}>
                       <DetailPanel
                         api={api}
                         repoId={repoId}
@@ -243,7 +289,7 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
                         selMode={selMode}
                         activePath={diff?.file.path}
                         onOpenDiff={openDiff}
-                        onJump={(hash) => graphRef.current?.jumpTo(hash)}
+                        onJump={onJump}
                       />
                     </ErrorBoundary>
                   ) : workFlow && flowInfo && status?.branch ? (
@@ -273,20 +319,26 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         stats={stats}
         maint={tools.maint}
         health={health}
-        onCompact={() => tools.runMaint("gc")}
+        onCompact={onCompact}
       />
 
       {/* Portaled dialogs: only for the foreground tab, so a background tab's open modal can't
           escape its hidden panel and overlay the active one. */}
-      {active && tools.initOpen && <FlowInitDialog onClose={tools.closeInit} />}
+      {active && tools.initOpen && (
+        <Suspense fallback={null}>
+          <FlowInitDialog onClose={tools.closeInit} />
+        </Suspense>
+      )}
       {active && tools.statsOpen && (
-        <MaintenanceDialog
-          api={api}
-          repoId={repoId}
-          maint={tools.maint}
-          onRunMaint={tools.runMaint}
-          onClose={() => tools.setStatsOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <MaintenanceDialog
+            api={api}
+            repoId={repoId}
+            maint={tools.maint}
+            onRunMaint={tools.runMaint}
+            onClose={() => tools.setStatsOpen(false)}
+          />
+        </Suspense>
       )}
     </>
   )
