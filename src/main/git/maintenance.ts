@@ -50,5 +50,6 @@ export const gc = (r: RepoHandle): Promise<void> =>
     /* re-check: the sweep should have brought `garbage` to 0 (the renderer refetches the stats
        when gc resolves) — a leftover means something new to diagnose, so leave a trace of it */
     const after = await countObjects(r)
-    if (after.garbage > 0) r.events.trace({ kind: "out", text: `garbage files remain after compaction: ${after.garbage}` })
+    if (after.garbage > 0)
+      r.events.trace({ kind: "out", text: `garbage files remain after compaction: ${after.garbage}` })
   })

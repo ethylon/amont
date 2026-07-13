@@ -52,7 +52,7 @@ queues, `emitStats` is rAF-coalesced. Essentially a one-line restore.
   (`growUntil`, 4 concurrent pages) sums to ~1.25M commit visits; evicted pages
   (`RESIDENT = 12`) re-pay the full skip when scrolled back. The comment at
   `queries.ts:154` already predicts this bottleneck.
-- `queries.ts:163` — each page also awaits a fresh `git stash list` spawn *before* the
+- `queries.ts:163` — each page also awaits a fresh `git stash list` spawn _before_ the
   log starts: a serial ~10-40 ms fork/exec tax on the hottest read path.
 - `queries.ts:206-211` — `total()` runs `git rev-list --count --all` (full-history walk)
   on **every** `git:changed` event and every loader reset, with no cache.
@@ -137,7 +137,7 @@ children and `RepoView` (route menu commands via the store instead of a prop); k
    (`loader.ts:130-156`) — a 15-page span = 15 chained IPC round-trips. Use
    `push`+`reverse`; batch refetches 4-wide like `growRound` (`loader.ts:161-184`).
 8. **Hover climbs unbounded chains** — `chainTip` (`chains.ts:23-39`) walks first-parent
-   until a *branch* ref; tags don't stop it, so hovering row 15 000 walks ~15k steps,
+   until a _branch_ ref; tags don't stop it, so hovering row 15 000 walks ~15k steps,
    allocating via `parseRefs("")` at each undecorated step, per row the cursor crosses
    (`hover.ts:46-58`). Skip parse when `!S.refsOf.has(r)`; memoize per row (layout is
    append-only).
