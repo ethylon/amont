@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { html as d2hHtml } from "diff2html"
+import { html as d2hHtml, parse as d2hParse } from "diff2html"
 import { ColorSchemeType, OutputFormatType } from "diff2html/lib/types"
 import "diff2html/bundles/css/diff2html.min.css"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -47,8 +47,12 @@ const LANG_ALIASES: Record<string, string> = {
 /* Shiki coloring on top of the diff2html render.
    <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.
    The highlighter (shiki/core + the JS regex engine, cf. shiki-highlighter.ts) is loaded
-   dynamically here — its own module graph never touches the app's initial bundle. */
-async function shikiPass(body: HTMLElement) {
+   dynamically here — its own module graph never touches the app's initial bundle.
+   `signal` comes from the owning effect: tokenization yields to the event loop between
+   slices (cf. shiki-highlighter.ts tokenize), so by the time a slice finishes the effect
+   may have re-run and `body` may be detached — the abort check stops the pass instead of
+   tokenizing and painting DOM nobody is looking at (audit §23). */
+async function shikiPass(body: HTMLElement, signal: AbortSignal) {
   let lang = body.querySelector(".d2h-file-wrapper")?.getAttribute("data-lang")
   if (!lang || lang === "txt") return
   lang = LANG_ALIASES[lang] || lang
@@ -71,15 +75,17 @@ async function shikiPass(body: HTMLElement) {
   }
 
   try {
-    const { codeToTokens, getHighlighter } = await import("./shiki-highlighter")
-    const highlighter = await getHighlighter()
+    const { tokenize } = await import("./shiki-highlighter")
     const theme = isDark() ? "github-dark" : "github-light"
     for (const group of groups.values()) {
-      const lines = codeToTokens(highlighter, group.map((e) => e.textContent).join("\n"), { lang, theme }).tokens
+      /* One await per pane document: painting only happens once the whole group's tokens are
+         in, so a pane is either fully colored or untouched — never striped mid-slice. */
+      const lines = await tokenize(group.map((e) => e.textContent).join("\n"), lang, theme, signal)
+      if (!lines || signal.aborted) return // unknown grammar (same for every group) or stale run
       group.forEach((ctn, i) => paintLine(ctn, lines[i]))
     }
   } catch {
-    return // unknown grammar / load failure: stay plain
+    return // grammar / theme load failure: stay plain
   }
 }
 
@@ -217,15 +223,34 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
      svg only once the user flips to the diff view (react-query fetches lazily on that toggle). */
   const { data: text = null, isError: error } = useDiffQuery(api, repoId, ctx, file.path, file.old ?? null, !showImage)
 
+  /* One line-count pass shared by the interactive-body gate and the oversize gate in the
+     effect below — it used to be two full `split("\n")` allocations of the whole diff text
+     per render. */
+  const lineCount = useMemo(() => {
+    if (text === null) return 0
+    let n = 1
+    for (let i = text.indexOf("\n"); i !== -1; i = text.indexOf("\n", i + 1)) n++
+    return n
+  }, [text])
+
   /* A staged/unstaged text diff gets the interactive per-hunk/per-line staging body instead
      of diff2html — it honors the same unified/side-by-side toggle. Untracked files (no index
      entry to patch) and oversized or out-of-grammar diffs fall through to the existing
      render paths. */
   const wtSrc = "wt" in ctx && ctx.wt !== "untracked" ? ctx.wt : null
   const parsed = useMemo(
+    () => (wtSrc && !showImage && text !== null && lineCount <= MAX_LINES ? parseUnifiedDiff(text) : null),
+    [wtSrc, showImage, text, lineCount]
+  )
+
+  /* diff2html's parse is memoized apart from its HTML render: the unified↔side-by-side and
+     theme toggles only change render options (`outputFormat`, `colorScheme`, and `matching`
+     is applied by the renderers too), so they re-run `d2hHtml` on the already-parsed files
+     instead of re-parsing the whole diff text. */
+  const d2hFiles = useMemo(
     () =>
-      wtSrc && !showImage && text !== null && text.split("\n").length <= MAX_LINES ? parseUnifiedDiff(text) : null,
-    [wtSrc, showImage, text]
+      !showImage && text !== null && !parsed && text.trim() && lineCount <= MAX_LINES ? d2hParse(text) : null,
+    [showImage, text, parsed, lineCount]
   )
 
   useEffect(() => {
@@ -237,20 +262,27 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
       return
     }
     el.className = DIFF_BODY
-    if (text.split("\n").length > MAX_LINES) {
-      renderRaw(el, text)
+    if (!d2hFiles) {
+      renderRaw(el, text) // over MAX_LINES: plain, uncolored fallback
       return
     }
     /* diff2html escapes the content; shiki tokens are re-injected via textContent */
-    el.innerHTML = d2hHtml(text, {
+    el.innerHTML = d2hHtml(d2hFiles, {
       outputFormat: view === "sbs" ? OutputFormatType.SIDE_BY_SIDE : OutputFormatType.LINE_BY_LINE,
       drawFileList: false,
       matching: "lines",
       colorScheme: dark ? ColorSchemeType.DARK : ColorSchemeType.LIGHT,
     })
-    shikiPass(el).catch(() => {})
-    return syncSides(el)
-  }, [text, view, dark, showImage, parsed])
+    /* Aborted on cleanup so a superseded pass (file switch, view/theme toggle) stops
+       tokenizing between slices instead of finishing against detached DOM. */
+    const abort = new AbortController()
+    shikiPass(el, abort.signal).catch(() => {})
+    const offSync = syncSides(el)
+    return () => {
+      abort.abort()
+      offSync?.()
+    }
+  }, [text, view, dark, showImage, parsed, d2hFiles])
 
   return (
     <div ref={root} tabIndex={-1} className="flex min-h-0 flex-1 flex-col px-4.5 py-4 outline-none">

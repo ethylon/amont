@@ -20,9 +20,17 @@ export function useDiffQuery(
   oldPath: string | null,
   enabled = true
 ) {
+  /* A commit↔commit diff is content-addressed — the key carries both hashes, and what git
+     returns for them can never change — so it never goes stale and is worth keeping around
+     (finding 4's DetailPanel remount used to refetch it on every commit click). Worktree
+     diffs are the opposite: the file on disk / in the index moves under us, so they keep
+     the default staleTime (0) and rely on the explicit invalidations. */
+  const immutable = !("wt" in ctx)
   return useQuery({
     enabled,
     queryKey: queryKeys.diff(id, ctx, path, oldPath),
     queryFn: ({ signal }) => diffText(api, signal, ctx, path, oldPath),
+    staleTime: immutable ? Infinity : 0,
+    gcTime: immutable ? 30 * 60_000 : undefined,
   })
 }

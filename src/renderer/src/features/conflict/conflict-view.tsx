@@ -55,6 +55,14 @@ const SIDE_TINT: Record<PickSide, string> = { ours: "bg-info/8", theirs: "bg-suc
 const PICKED_TINT: Record<PickSide, string> = { ours: "bg-info/20", theirs: "bg-success/20" }
 
 const MONO = "font-mono text-xs leading-normal [tab-size:4]"
+/* Off-screen rows skip layout and paint entirely (`content-visibility: auto`); the intrinsic
+   size keeps scrollbars honest before a row's real size is remembered — 18px is one
+   text-xs/leading-normal mono line (same policy as wt-diff-body's diff rows). */
+const CV_ROW = "[content-visibility:auto] [contain-intrinsic-size:auto_18px]"
+
+/* How long the output editor waits after the last keystroke before re-tokenizing its whole
+   buffer (same order of magnitude as commit-search's query debounce). */
+const TOKENIZE_DEBOUNCE = 200
 
 /** A run of context lines (same text both sides), highlighted with its pane's tokens. */
 function PaneCell({
@@ -71,7 +79,7 @@ function PaneCell({
   return (
     <div className={cn("min-w-0 overflow-x-auto px-2 py-px whitespace-pre", MONO, className)}>
       {lines.map((l, i) => (
-        <div key={i} className="min-w-max">
+        <div key={i} className={cn("min-w-max", CV_ROW)}>
           <CodeLine text={l} tokens={tokens?.[start + i]} />
         </div>
       ))}
@@ -81,8 +89,10 @@ function PaneCell({
 
 /** Editable output with syntax highlighting: a transparent-text textarea over a highlighted,
     scroll-synced <pre>. The placeholder line is styled apart (it isn't code); every other line
-    is tokenized by shiki. Re-tokenizes on each keystroke — conflict files are small, so this
-    stays cheap; the previous tokens paint until the new ones arrive (no flash). */
+    is tokenized by shiki. The tokenize input is debounced ~200ms so a burst of keystrokes pays
+    one whole-buffer tokenization, not one per key — the textarea itself stays controlled on the
+    live value, and the previous tokens keep painting until the new ones arrive (useShikiTokens
+    never clears, so there is no flash — at worst a token line lags a beat behind its text). */
 function OutputEditor({
   value,
   onChange,
@@ -98,7 +108,12 @@ function OutputEditor({
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null)
   const preRef = useRef<HTMLPreElement>(null)
-  const tokens = useShikiTokens(value, path, dark)
+  const [tokenSource, setTokenSource] = useState(value)
+  useEffect(() => {
+    const t = window.setTimeout(() => setTokenSource(value), TOKENIZE_DEBOUNCE)
+    return () => clearTimeout(t)
+  }, [value])
+  const tokens = useShikiTokens(tokenSource, path, dark)
   const lines = value.split("\n")
 
   const syncScroll = () => {
@@ -120,11 +135,11 @@ function OutputEditor({
       >
         {lines.map((l, i) =>
           l.trim() === CONFLICT_PLACEHOLDER ? (
-            <div key={i} className="min-w-max text-warning italic">
+            <div key={i} className={cn("min-w-max text-warning italic", CV_ROW)}>
               {l}
             </div>
           ) : (
-            <div key={i} className="min-w-max">
+            <div key={i} className={cn("min-w-max", CV_ROW)}>
               <CodeLine text={l} tokens={tokens?.[i]} />
             </div>
           )
@@ -213,7 +228,7 @@ function ChunkSide({
           const picked = isPicked(picks, block.index, ref)
           const pos = pickPosition(picks, block.index, ref)
           return (
-            <div key={line} className={cn("flex min-w-max items-start", picked && PICKED_TINT[side])}>
+            <div key={line} className={cn("flex min-w-max items-start", CV_ROW, picked && PICKED_TINT[side])}>
               {lineButton(ref, picked)}
               {/* the 1-based click-order position: what makes "output order = click order" legible */}
               <span className="w-4 shrink-0 text-right text-[0.625rem] leading-normal text-muted-foreground tabular-nums">

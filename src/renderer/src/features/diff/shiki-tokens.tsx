@@ -35,20 +35,22 @@ export function useShikiTokens(code: string, path: string, dark: boolean): Token
       setTokens(null)
       return
     }
-    let live = true
+    /* An AbortController rather than a bare "ignore the result" flag: tokenize() checks the
+       signal between its ~200-line slices, so a superseded run stops doing the work, not just
+       stops publishing it (audit §23 — fast file switching used to keep tokenizing for DOM
+       that was already gone). */
+    const abort = new AbortController()
     void (async () => {
       try {
-        const { codeToTokens, getHighlighter } = await import("@/features/diff/shiki-highlighter")
-        const highlighter = await getHighlighter()
-        const res = codeToTokens(highlighter, code, { lang, theme: dark ? "github-dark" : "github-light" })
-        if (live) setTokens(res.tokens)
+        const { tokenize } = await import("@/features/diff/shiki-highlighter")
+        const res = await tokenize(code, lang, dark ? "github-dark" : "github-light", abort.signal)
+        /* null = unknown grammar (stay plain) or aborted (a newer run owns the state) */
+        if (res && !abort.signal.aborted) setTokens(res)
       } catch {
-        /* unknown grammar: stay plain */
+        /* grammar/theme load failure: stay plain */
       }
     })()
-    return () => {
-      live = false
-    }
+    return () => abort.abort()
   }, [code, path, dark])
   return tokens
 }
