@@ -1,7 +1,8 @@
 /* The foreground repository's end of the app-menu command channel. Owns the transient UI the
-   Repository menu drives — the init modal, the inline start banner, the stats modal, and the
-   live maintenance job — and executes the fire-and-forget commands (finish/publish) through the
-   repo store. A single hook, consumed by RepoView, so the surfaces stay thin. */
+   Repository menu drives — the init modal, the stats modal, and the live maintenance job — and
+   executes the fire-and-forget commands (finish/publish/start) through the repo store (the
+   inline start banner's state lives there: the sidebar's flow shortcut opens it too). A single
+   hook, consumed by RepoView, so the surfaces stay thin. */
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -10,17 +11,14 @@ import { describeError } from "@/lib/errors"
 import { onProgress, type MaintKind, type RepoApi } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
-import type { BranchFlow } from "@/lib/gitflow"
 import type { RepoCommandEnvelope } from "@/features/repo/repo-commands"
 import { useRepoStoreApi } from "@/features/repo/repo-store"
 import type { MaintState } from "@/features/maintenance/maintenance-status"
 
 export interface RepoMenuTools {
-  startKind: BranchFlow | null
   initOpen: boolean
   statsOpen: boolean
   maint: MaintState | null
-  closeStart(): void
   closeInit(): void
   setStatsOpen(open: boolean): void
   runMaint(op: MaintKind): void
@@ -34,7 +32,6 @@ const DONE_TEXT: Record<MaintKind, () => string> = {
 export function useRepoMenuTools(api: RepoApi, repoId: number, command: RepoCommandEnvelope | null): RepoMenuTools {
   const storeApi = useRepoStoreApi()
   const queryClient = useQueryClient()
-  const [startKind, setStartKind] = useState<BranchFlow | null>(null)
   const [initOpen, setInitOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
   const [maint, setMaint] = useState<MaintState | null>(null)
@@ -82,7 +79,7 @@ export function useRepoMenuTools(api: RepoApi, repoId: number, command: RepoComm
         setInitOpen(true)
         break
       case "flowStart":
-        setStartKind(c.kind)
+        storeApi.getState().openFlowStart(c.kind)
         break
       case "stats":
         setStatsOpen(true)
@@ -99,8 +96,7 @@ export function useRepoMenuTools(api: RepoApi, repoId: number, command: RepoComm
     }
   }, [command, repoId, api, storeApi, runMaint])
 
-  const closeStart = useCallback(() => setStartKind(null), [])
   const closeInit = useCallback(() => setInitOpen(false), [])
 
-  return { startKind, initOpen, statsOpen, maint, closeStart, closeInit, setStatsOpen, runMaint }
+  return { initOpen, statsOpen, maint, closeInit, setStatsOpen, runMaint }
 }
