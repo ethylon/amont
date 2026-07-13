@@ -28,8 +28,9 @@ export interface LoaderOptions {
   api: RepoApi
   pageSize: number
   resident: number
-  /** a new (or refilled) page was just placed — the controller scans it for column
-      widths and triggers its own `refresh()`/`sync()` */
+  /** a NEW page was just placed (refills stay silent: they add no rows and were already
+      scanned on first ingestion) — the controller scans it for column widths and runs its
+      `refresh()`/`sync()` so dims, stats and mounted chunks track the stream */
   onPageLoaded?(commits: Commit[]): void
   /** an `api.log` call failed — surfaced once per failure episode, never silently */
   onError?(err: unknown): void
@@ -125,32 +126,47 @@ export function createLoader(opts: LoaderOptions) {
     return exhausted || S.next > before
   }
 
+  /** Single-flight refetch of one evicted page — deduplicated through `refetching` so a
+      concurrent `ensureRows` over an overlapping range shares the in-flight call. */
+  function refetchPage(pi: number): Promise<boolean> {
+    if (pageCache.has(pi)) return Promise.resolve(true) // came back between the scan and this batch
+    let p = refetching.get(pi)
+    if (!p) {
+      const g = gen
+      p = api.log(pi * pageSize, pageSize).then(
+        (raw) => {
+          refetching.delete(pi)
+          if (g !== gen) return false
+          return !!ingest(pi, raw, false)
+        },
+        (err) => {
+          refetching.delete(pi)
+          if (g === gen) reportError(err)
+          return false
+        }
+      )
+      refetching.set(pi, p)
+    }
+    return p
+  }
+
   /** Reloads evicted pages covering [r0, r1]. Folding and collapsing are deterministic
       per raw page: the page comes back identical, we only refill the texts. */
   async function ensureRows(r0: number, r1: number): Promise<boolean> {
-    let ok = true
-    /* sequential: a `pin` over a spread-out segment must not launch dozens of git processes in parallel */
+    const missing: number[] = []
     for (let pi = pageCache.pageOfRow(r0), last = pageCache.pageOfRow(r1); pi <= last; pi++) {
       pageCache.touch(pi)
-      if (pageCache.has(pi)) continue
-      let p = refetching.get(pi)
-      if (!p) {
-        const g = gen
-        p = api.log(pi * pageSize, pageSize).then(
-          (raw) => {
-            refetching.delete(pi)
-            if (g !== gen) return false
-            return !!ingest(pi, raw, false)
-          },
-          (err) => {
-            refetching.delete(pi)
-            if (g === gen) reportError(err)
-            return false
-          }
-        )
-        refetching.set(pi, p)
-      }
-      ok = (await p) && ok
+      if (!pageCache.has(pi)) missing.push(pi)
+    }
+    let ok = true
+    /* Batched JUMP_BATCH-wide, same bound as `growRound`: a `pin` over a spread-out segment
+       overlaps its IPC round-trips instead of chaining them one page at a time, without
+       launching dozens of git processes in parallel. Unlike growRound's brand-new pages,
+       refills tolerate any completion order — `ingest(…, isNew: false)` revalidates each
+       one against the already-frozen layout, so plain Promise.all per batch is enough. */
+    for (let k = 0; k < missing.length; k += JUMP_BATCH) {
+      const batch = await Promise.all(missing.slice(k, k + JUMP_BATCH).map(refetchPage))
+      ok = batch.every(Boolean) && ok
     }
     return ok
   }

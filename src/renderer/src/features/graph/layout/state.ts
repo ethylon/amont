@@ -25,6 +25,10 @@ export type LayoutState = {
   lanes: (string | null)[]
   meta: number[]
   pending: Map<string, Edge[]>
+  /** bumped by `layoutChunk` whenever `pending` actually mutates — the dangling-edge
+      overlay (cf. ../render/overlay.ts) keys its rebuild on it, so a scroll tick that
+      laid out nothing new doesn't reserialize a group that hasn't changed */
+  pendingGen: number
   next: number
   /** hash id -> row; also covers a capsule's absorbed hash */
   rowOf: Map<HashId, number>
@@ -51,6 +55,11 @@ export type LayoutState = {
   refsOf: Map<number, string>
   /** parsed merge subject, merge rows only; a GitHub PR puts its source branch here */
   mergeOf: Map<number, ParsedMerge>
+  /** memoized `chainTip` per row (cf. ./chains.ts): a row's climb only reads data frozen
+      at its own layout time (refs, fpChildren, lanes of rows above it — git log emits
+      parents after all their children), so an entry stays valid for the whole life of this
+      state. Dies with the state: a rebuild goes through `createState`, never a clear. */
+  tipOf: Map<number, number>
 }
 
 export function createState(): LayoutState {
@@ -59,6 +68,7 @@ export function createState(): LayoutState {
     lanes: [],
     meta: [],
     pending: new Map(),
+    pendingGen: 0,
     next: 0,
     rowOf: new Map(),
     hashOf: [],
@@ -73,6 +83,7 @@ export function createState(): LayoutState {
     mergedBy: new Map(),
     refsOf: new Map(),
     mergeOf: new Map(),
+    tipOf: new Map(),
   }
 }
 

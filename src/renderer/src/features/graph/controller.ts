@@ -94,7 +94,34 @@ export function createGraph(
     onPageLoaded: (commits) => {
       measurer.scanPage(commits)
       if (matchHashes) applyMatchIds()
+      /* Page boundaries drift off chunk boundaries (collapse folds shorten pages), so this
+         page usually grew a chunk that was already mounted as the trailing, partially-filled
+         one: its <g> was serialized against the old node/edge counts and would stay
+         incomplete forever behind the `mountedG.has` gate in sync(). Evict it — the remount
+         goes through the markup cache, which sees the new counts and reserializes. Only the
+         chunk the page STARTS in can be stale: the ones it continues into didn't exist
+         before this page, so they were never mounted. */
+      if (commits.length) {
+        const ci = Math.floor((loader.state.next - commits.length) / CHUNK)
+        const g = mountedG.get(ci)
+        if (g) {
+          g.remove()
+          mountedG.delete(ci)
+        }
+      }
       evictNow()
+      /* refresh() on every ingested page, as the pre-refactor monolith did (regression fix):
+         it is the only place that grows the SVG dims/viewBox and `inner` height (without it
+         everything past page 1 renders clipped and the scrollbar never calibrates), drains
+         the column-measurement queues fed by scanPage above, and advances the stats counter.
+         Cheap — measureCols no-ops on empty queues, emitStats is rAF-coalesced — and it only
+         ever GROWS heights, so the scroll position doesn't move. Per ingested page, never
+         per scroll tick: scrolling alone lands here only when it actually fetched a page. */
+      refresh()
+      /* remounts the just-evicted trailing chunk in the same task — the fetch continuations
+         (sync() chain, growUntil callers) also sync, but only once their whole run is done:
+         without this, a long jump would leave a blank chunk on screen between rounds */
+      sync()
     },
     onError: (err) => cb.onError(describeError(err)),
   })
@@ -475,7 +502,10 @@ export function createGraph(
     void moveActive(target, additive)
   }
 
-  /* no throttle: sync() is a no-op when the visible chunk/bucket range hasn't changed */
+  /* no throttle: when the visible chunk/bucket range hasn't changed, sync() only recomputes
+     the ranges and skips every already-mounted chunk/bucket — and the overlay's dangling
+     group is gated on `S.pendingGen` + height (cf. render/overlay.ts), so a plain scroll
+     tick performs no DOM writes at all */
   board.addEventListener("scroll", onScroll, { passive: true })
   board.addEventListener("mouseleave", onMouseLeave)
   board.addEventListener("keydown", onBoardKeyDown)
