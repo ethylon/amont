@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { branchFlow } from "@/lib/gitflow"
 import { repoApi, worktreeCount, type Repo } from "@/lib/git"
@@ -20,6 +20,7 @@ import { FlowStartBanner } from "@/features/flow/flow-start-banner"
 import { FlowInitDialog } from "@/features/flow/flow-init-dialog"
 import { MaintenanceDialog } from "@/features/maintenance/maintenance-dialog"
 import { MaintenanceStatus } from "@/features/maintenance/maintenance-status"
+import { repoHealth } from "@/features/maintenance/health"
 import { useRepoMenuTools } from "@/features/repo/use-repo-menu-tools"
 import type { RepoCommandEnvelope } from "@/features/repo/repo-commands"
 import { GitConsole } from "@/features/console/git-console"
@@ -85,6 +86,15 @@ function RepoViewContent({ repo, active, command }: Props) {
   /* Repository-menu surfaces (Git Flow init/start, database maintenance), driven by the app menu
      through the command channel (see repo-commands.ts). */
   const tools = useRepoMenuTools(api, repoId, command)
+
+  /* Object-DB healthcheck for the status bar: cheap `count-objects`, kept fresh but not chatty
+     (5-min stale window; a gc invalidates it). `null` until the first read arrives. */
+  const counts = useQuery({
+    queryKey: queryKeys.countObjects(repoId),
+    queryFn: () => api.countObjects(),
+    staleTime: 5 * 60_000,
+  }).data
+  const health = counts ? repoHealth(counts) : null
 
   /* the tree emptied out while we were looking at it: the view no longer has a subject, and an
      in-progress amend no longer has a block to display in */
@@ -258,7 +268,7 @@ function RepoViewContent({ repo, active, command }: Props) {
         flow={workFlow}
         opState={opState}
         stats={stats}
-        maintSlot={<MaintenanceStatus maint={tools.maint} />}
+        maintSlot={<MaintenanceStatus maint={tools.maint} health={health} onCompact={() => tools.runMaint("gc")} />}
         consoleSlot={<GitConsole repoId={repo.id} />}
       />
 
