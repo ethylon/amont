@@ -3,12 +3,26 @@
    branch deletion). The index belongs to the working tree, `objects/` is just
    noise, and `refs/remotes/` belongs to fetch, which already announces its own result.
 
+   Three narrow watches rather than one recursive watch over the whole gitDir: a gc/repack
+   used to flood the main loop with thousands of `objects/` events that were only filtered
+   out here in JS. What we subscribe to now is exactly what WATCHED accepts:
+   - the gitDir root, non-recursive — HEAD and packed-refs live there;
+   - `refs/`, recursive — heads, tags, and `refs/stash` itself;
+   - `logs/refs`, non-recursive — dropping an old stash entry only rewrites the stash reflog
+     (`logs/refs/stash`), never `refs/stash`. Best-effort: a repo without reflogs lacks the
+     directory, and one created later isn't picked up until the watcher restarts — the stash
+     ref still covers push/pop/clear, only drop-of-an-old-entry is missed there.
+   Each watcher prefixes the names it reports with its subdirectory, so the WATCHED filter
+   keeps seeing gitDir-relative paths.
+
    When not in the foreground we hold the event instead of emitting it: rereading a repo
    nobody is watching serves no purpose, and Windows doesn't suspend anything on its own.
+   The held `dirty` flag is flushed by the window's focus handler (cf. window.ts).
 
    Error recovery (hygiene fix): a `watch` that fails (unmounted volume, exhausted
    resources) used to close the watcher for good — the repo stayed silent until the tab was
-   closed. We now retry with backoff, up to a cap on attempts.
+   closed. We now retry with backoff, up to a cap on attempts. One failing watcher tears down
+   the whole set: a partial trio would silently miss refs or HEAD.
 
    Known limitation: in a linked worktree, `--absolute-git-dir` points at `.git/worktrees/<name>` —
    HEAD lives there, but refs don't. Watching `--git-common-dir` too would fix that; deferred until
@@ -16,6 +30,7 @@
    RepoHandle first. */
 
 import { watch, type FSWatcher } from "node:fs"
+import { join } from "node:path"
 
 const WATCH_DEBOUNCE = 300
 const MUTE_MS = 1500
@@ -32,7 +47,11 @@ export interface Watchable {
   running: string | null
   muted: number
   dirty: boolean
-  watcher: FSWatcher | null
+  /** change generation: bumped on every observed .git change (even one held as `dirty`) and
+      by `mute()` after our own mutations — the read-path caches (stash list, ordered hash
+      list, cf. repos.ts / git/queries.ts) hang off it rather than re-probing git each call. */
+  gen: number
+  watchers: FSWatcher[]
   watchRetries: number
   /** pending backoff retry, so closeRepo can cancel it — otherwise a retry scheduled after a
       watch error fires post-close and leaves an orphaned watcher nobody will ever close */
@@ -41,8 +60,10 @@ export interface Watchable {
 }
 
 /* Our own commands wake up the watcher, even though the renderer has already reloaded behind
-   them. We can't tell these events apart from the others: we go quiet for a moment. */
+   them. We can't tell these events apart from the others: we go quiet for a moment. The
+   command did change the repo, though — whatever the read caches held is stale now. */
 export const mute = (r: Watchable): void => {
+  r.gen++
   r.muted = Date.now() + MUTE_MS
 }
 
@@ -50,28 +71,48 @@ export function watchGit(r: Watchable): void {
   let timer: NodeJS.Timeout | undefined
   const fire = () => {
     if (r.running || Date.now() < r.muted) return
+    r.gen++ // a held (dirty) change invalidates the read caches all the same
     if (r.events.isFocused()) r.events.changed()
     else r.dirty = true
   }
-  try {
-    r.watcher = watch(r.gitDir, { recursive: true }, (_type, file) => {
-      if (!file || file.endsWith(".lock") || !WATCHED.test(file)) return
-      clearTimeout(timer)
-      timer = setTimeout(fire, WATCH_DEBOUNCE)
-    })
-    r.watchRetries = 0
-    r.watcher.on("error", () => {
-      r.watcher = null
-      if (r.watchRetries >= RETRY_CAP) return // beyond that: permanent silence, no noise
-      const delay = Math.min(RETRY_BASE_MS * 2 ** r.watchRetries, RETRY_MAX_MS)
-      r.watchRetries++
-      r.retryTimer = setTimeout(() => {
-        r.retryTimer = null
-        watchGit(r)
-      }, delay)
-    })
-  } catch {
+  const onError = () => {
+    if (!r.watchers.length) return // a second watcher of the same set erroring: already torn down
+    for (const w of r.watchers) w.close()
+    r.watchers = []
+    if (r.watchRetries >= RETRY_CAP) return // beyond that: permanent silence, no noise
+    const delay = Math.min(RETRY_BASE_MS * 2 ** r.watchRetries, RETRY_MAX_MS)
+    r.watchRetries++
+    r.retryTimer = setTimeout(() => {
+      r.retryTimer = null
+      watchGit(r)
+    }, delay)
+  }
+  /* the debounce timer is shared: HEAD + a ref moving in the same checkout must still
+     collapse into a single `changed` */
+  const add = (dir: string, recursive: boolean, prefix: string): FSWatcher | null => {
+    try {
+      const w = watch(dir, { recursive }, (_type, file) => {
+        if (!file) return
+        const rel = prefix + file // back to a gitDir-relative path, as WATCHED expects
+        if (rel.endsWith(".lock") || !WATCHED.test(rel)) return
+        clearTimeout(timer)
+        timer = setTimeout(fire, WATCH_DEBOUNCE)
+      })
+      w.on("error", onError)
+      return w
+    } catch {
+      return null
+    }
+  }
+
+  const root = add(r.gitDir, false, "")
+  if (!root) {
     /* no watcher on the first try (directory already gone): the app stays usable, the
        refresh falls back to manual — no retry here, nothing managed to subscribe */
+    return
   }
+  const refs = add(join(r.gitDir, "refs"), true, "refs/")
+  const stashLog = add(join(r.gitDir, "logs", "refs"), false, "logs/refs/")
+  r.watchers = [root, refs, stashLog].filter((w): w is FSWatcher => w !== null)
+  r.watchRetries = 0
 }

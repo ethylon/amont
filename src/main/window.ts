@@ -9,7 +9,7 @@ import { appendFile, stat, truncate } from "node:fs/promises"
 import { app, BrowserWindow, Menu, nativeTheme, shell } from "electron"
 
 import { killCreations } from "./create.ts"
-import { closeAll } from "./repos.ts"
+import { all, closeAll } from "./repos.ts"
 import { captureRendererGone } from "./telemetry.ts"
 
 let mainWindow: BrowserWindow | null = null
@@ -98,6 +98,17 @@ export function createWindow(): void {
     }
   })
   win.once("ready-to-show", () => win.show())
+  /* Changes observed while the window was unfocused are held instead of emitted (watcher.ts
+     `dirty`) — rereading a repo nobody is looking at serves no purpose. Regaining focus is
+     the moment to flush them: without this, a commit made from a terminal while the app was
+     in the background stayed invisible until some manual action. */
+  win.on("focus", () => {
+    for (const r of all()) {
+      if (!r.dirty) continue
+      r.dirty = false
+      r.events.changed()
+    }
+  })
   /* links from commit messages: open in the browser, never in the app's own window */
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url)
