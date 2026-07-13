@@ -257,6 +257,12 @@ export const messages = {
     get unstageLine() {
       return t`Unstage line`
     },
+    get discardHunk() {
+      return t`Discard hunk`
+    },
+    get discardLine() {
+      return t`Discard line`
+    },
     get before() {
       return t`Before`
     },
@@ -431,6 +437,29 @@ export const messages = {
     },
     get unstageAll() {
       return t`Unstage all`
+    },
+    get discard() {
+      return t`Discard changes`
+    },
+    get discardAll() {
+      return t`Discard all`
+    },
+    get discardTitle() {
+      return t`Discard changes?`
+    },
+    discardOne: (path: string) => t`Changes to « ${path} » will be permanently lost.`,
+    discardMany: (n: number) =>
+      plural(n, {
+        one: "Changes to # file will be permanently lost.",
+        other: "Changes to # files will be permanently lost.",
+      }),
+    discardUntracked: (n: number) =>
+      plural(n, { one: "# untracked file will be deleted.", other: "# untracked files will be deleted." }),
+    get discardConfirm() {
+      return t`Discard`
+    },
+    get discardCancel() {
+      return t`Cancel`
     },
     get noStagedFiles() {
       return t`No staged files.`

@@ -58,6 +58,12 @@ msgstr "{n, plural, one {# other branch on this tip} other {# other branches on 
 msgid "{n, plural, one {# result} other {# results}}"
 msgstr "{n, plural, one {# result} other {# results}}"
 
+msgid "{n, plural, one {# untracked file will be deleted.} other {# untracked files will be deleted.}}"
+msgstr "{n, plural, one {# untracked file will be deleted.} other {# untracked files will be deleted.}}"
+
+msgid "{n, plural, one {Changes to # file will be permanently lost.} other {Changes to # files will be permanently lost.}}"
+msgstr "{n, plural, one {Changes to # file will be permanently lost.} other {Changes to # files will be permanently lost.}}"
+
 msgid "{n} d"
 msgstr "{n} d"
 
@@ -156,6 +162,9 @@ msgstr "Cancel"
 
 msgid "Change…"
 msgstr "Change…"
+
+msgid "Changes to « {path} » will be permanently lost."
+msgstr "Changes to « {path} » will be permanently lost."
 
 msgid "Check for updates…"
 msgstr "Check for updates…"
@@ -312,6 +321,24 @@ msgstr "Diff unavailable."
 
 msgid "diff…"
 msgstr "diff…"
+
+msgid "Discard"
+msgstr "Discard"
+
+msgid "Discard all"
+msgstr "Discard all"
+
+msgid "Discard changes"
+msgstr "Discard changes"
+
+msgid "Discard changes?"
+msgstr "Discard changes?"
+
+msgid "Discard hunk"
+msgstr "Discard hunk"
+
+msgid "Discard line"
+msgstr "Discard line"
 
 msgid "Dismiss"
 msgstr "Dismiss"
