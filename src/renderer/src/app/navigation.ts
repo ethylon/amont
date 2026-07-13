@@ -7,23 +7,19 @@
 
 import type { Repo } from "@/lib/git"
 
-export type NavKey = { kind: "home" } | { kind: "create" } | { kind: "repo"; id: number }
+export type NavKey = { kind: "home" } | { kind: "repo"; id: number }
 
 export const HOME: NavKey = { kind: "home" }
-
-/** The creation page, behind the "+" of the tab strip: pinned like home, never closed. */
-export const CREATE: NavKey = { kind: "create" }
 
 export const repoKey = (id: number): NavKey => ({ kind: "repo", id })
 
 export const navKeyEquals = (a: NavKey, b: NavKey): boolean =>
   a.kind === "repo" ? b.kind === "repo" && b.id === a.id : a.kind === b.kind
 
-/** The slide direction follows the position in the tab strip, home at position 0 and the
-    creation page (the "+") after the last tab. A key not yet in it was just opened: it
-    arrives head-on ("open") rather than from the side. */
+/** The slide direction follows the position in the tab strip, home at position 0. A key not yet
+    in it was just opened: it arrives head-on ("open") rather than from the side. */
 export function transitionKind(tabs: Repo[], active: NavKey, target: NavKey): "open" | "next" | "prev" {
-  const order: NavKey[] = [HOME, ...tabs.map((r) => repoKey(r.id)), CREATE]
+  const order: NavKey[] = [HOME, ...tabs.map((r) => repoKey(r.id))]
   const pos = (k: NavKey) => order.findIndex((x) => navKeyEquals(x, k))
   const known = pos(target) >= 0
   if (!known) return "open"

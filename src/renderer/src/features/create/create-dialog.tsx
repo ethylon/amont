@@ -7,23 +7,24 @@ import { host, type Repo } from "@/lib/git"
 import { describeError } from "@/lib/errors"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
-import { Mark } from "@/components/ui/mark"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group"
 import { LABEL_CLS } from "@/components/ui/typography"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { homeKeys } from "@/features/home/keys"
 
 type Props = {
-  active: boolean
+  open: boolean
+  onOpenChange(open: boolean): void
   onOpened(repo: Repo): void
 }
 
 type Kind = "local" | "bare" | "clone"
 
-/** Same shape as the home screen sections: small-caps header, optional action on the right. */
+/** Same shape as the home screen sections: small-caps header, icon, hint line. */
 function Section({
   icon,
   title,
@@ -37,11 +38,11 @@ function Section({
 }) {
   return (
     <section className="min-w-0">
-      <h3 className={cn("mb-1 flex items-center gap-2 px-2.5", LABEL_CLS)}>
+      <h3 className={cn("mb-1 flex items-center gap-2", LABEL_CLS)}>
         <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3" />
         {title}
       </h3>
-      <p className="px-2.5 pb-2 text-xs text-pretty text-muted-foreground">{hint}</p>
+      <p className="pb-2 text-xs text-pretty text-muted-foreground">{hint}</p>
       {children}
     </section>
   )
@@ -53,15 +54,18 @@ function nameFromUrl(url: string): string {
   return (last ?? "").replace(/\.git$/, "")
 }
 
-export function CreateScreen({ active, onOpened }: Props) {
+/** Repository creation, opened from the tab strip's "+" and File ▸ New repository. Clone / local /
+    bare share one destination folder; a clone or local init opens as a tab (which closes the dialog,
+    via `onOpened`), while a bare repo — no working tree — stays put behind a success confirmation. */
+export function CreateDialog({ open, onOpenChange, onOpened }: Props) {
   const queryClient = useQueryClient()
 
   /* same query as the home screen (shared key): the configured root is the default
-     destination, refreshed on every return to this page */
+     destination, refreshed every time the dialog opens */
   const { data: repos } = useQuery({ queryKey: homeKeys.repos, queryFn: () => host.repos() })
   useEffect(() => {
-    if (active) void queryClient.invalidateQueries({ queryKey: homeKeys.repos })
-  }, [active, queryClient])
+    if (open) void queryClient.invalidateQueries({ queryKey: homeKeys.repos })
+  }, [open, queryClient])
 
   const [dir, setDir] = useState<string | null>(null)
   const dest = dir ?? repos?.root ?? null
@@ -139,22 +143,19 @@ export function CreateScreen({ active, onOpened }: Props) {
     )
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-7 px-6 py-10">
-        <div className="flex items-center gap-3 px-2.5">
-          <Mark className="size-7" />
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold tracking-tight">{messages.create.title}</h2>
-            <p className="text-xs text-muted-foreground">{messages.create.intro}</p>
-          </div>
-        </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] flex-col gap-5 overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{messages.create.title}</DialogTitle>
+          <DialogDescription>{messages.create.intro}</DialogDescription>
+        </DialogHeader>
 
         <Section
           icon={FolderLibraryIcon}
           title={messages.create.destination}
           hint={dest ? messages.create.destinationHint : messages.create.noDestination}
         >
-          <div className={cn(rowCls, "px-2.5")}>
+          <div className={rowCls}>
             <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{dest ?? "—"}</p>
             <Button variant="outline" size="xs" onClick={() => void chooseDir()}>
               {messages.home.choose}
@@ -266,7 +267,7 @@ export function CreateScreen({ active, onOpened }: Props) {
             )}
           </form>
         </Section>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
