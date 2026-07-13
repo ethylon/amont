@@ -11,7 +11,7 @@ import {
 
 import type { FileChange, RepoApi } from "@/lib/git"
 import { messages } from "@/lib/messages"
-import { buildPathTree, type PathTree } from "@/lib/path-tree"
+import { buildPathTree, compactPathTree, type PathTree } from "@/lib/path-tree"
 import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -313,7 +313,7 @@ export function FileEntries<T extends FileChange>({
   if (view === "tree")
     return (
       <Tree
-        node={buildPathTree(files, (f) => f.path)}
+        node={compactPathTree(buildPathTree(files, (f) => f.path))}
         api={api}
         activePath={activePath}
         onOpen={onOpen}
