@@ -144,7 +144,9 @@ function Files({
   activePath?: string
   onOpenDiff: Props["onOpenDiff"]
 }) {
-  const { data, isError } = useQuery({ queryKey, queryFn })
+  /* content-addressed (hash + parent in the key): a commit's file list never changes —
+     no refetch on remount (perf audit, finding 5) */
+  const { data, isError } = useQuery({ queryKey, queryFn, staleTime: Infinity })
   if (isError)
     return (
       <div className="mt-4 shrink-0 border-t pt-3">
@@ -157,7 +159,19 @@ function Files({
         <Loading />
       </div>
     )
-  return <FileList files={data} api={api} activePath={activePath} onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)} />
+  /* keyed by the diff span: the panel now updates in place across selection changes (the
+     ErrorBoundary in repo-view is keyed by its reset nonce alone), so the list's per-selection
+     state — collapsed folders, scroll position — resets here, on the smallest component that
+     used to rely on the remount. */
+  return (
+    <FileList
+      key={`${ctx.hash}:${ctx.parent}`}
+      files={data}
+      api={api}
+      activePath={activePath}
+      onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)}
+    />
+  )
 }
 
 function Single({

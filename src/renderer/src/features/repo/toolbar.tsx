@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowDown02Icon,
@@ -9,6 +10,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { OpName, Repo, Status } from "@/lib/git"
+import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"
@@ -34,7 +36,20 @@ type Props = {
   children: React.ReactNode
 }
 
-export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, onRunOp, children }: Props) {
+/* memo (perf audit, finding 4b): a commit click re-renders the tab, but none of the
+   toolbar's props move — with stable callbacks and a memoized `children` element on
+   RepoView's side, the whole bar (and the search field inside it) skips. */
+export const Toolbar = memo(function Toolbar({
+  repo,
+  status,
+  busyOp,
+  sidebarOpen,
+  onToggleSidebar,
+  onRunOp,
+  children,
+}: Props) {
+  /* memo'd component: re-render on a runtime language switch even when no prop moved */
+  useLocale()
   const counts: Record<OpName, number | null> = {
     fetch: null,
     pull: status?.behind ?? null,
@@ -103,4 +118,4 @@ export function Toolbar({ repo, status, busyOp, sidebarOpen, onToggleSidebar, on
       <span className="flex-1" />
     </div>
   )
-}
+})

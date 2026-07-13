@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowRight01Icon,
@@ -10,6 +10,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi } from "@/lib/git"
+import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { buildPathTree, compactPathTree, type PathTree } from "@/lib/path-tree"
 import { ScrollText, scrollTextHover, scrollTextStop } from "@/features/graph/interactions/scroll-text"
@@ -94,6 +95,11 @@ const onFileRowKeyDown = (ev: React.KeyboardEvent<HTMLButtonElement>) => {
   next.click()
 }
 
+/* Offscreen rows skip layout/paint (perf audit, finding 13): a multi-thousand-file commit
+   only pays rendering for the visible window of its 320-px panel. `contain-intrinsic-size`
+   reserves the row's height (~20px: text-xs line + py-0.5) so the scrollbar doesn't dance. */
+const ROW_CV_CLS = "[content-visibility:auto] [contain-intrinsic-size:auto_1.25rem]"
+
 export type FileRowProps = {
   file: FileChange
   active?: boolean
@@ -115,6 +121,7 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
      than with the left rail the flat graph rows carry. */
   const rowCls = cn(
     "group/file flex items-baseline gap-2 rounded-sm pe-1.5 hover:bg-muted/60",
+    ROW_CV_CLS,
     active && "bg-primary/15 hover:bg-primary/20"
   )
   /* The marquee is armed by the whole row, like the graph rows — not just the name span. */
@@ -239,11 +246,27 @@ function TreeFile<T extends FileChange>({
   )
 }
 
-const countFiles = <T,>(d: PathTree<T>): number =>
-  d.items.length + [...d.dirs.values()].reduce((n, c) => n + countFiles(c), 0)
+/* Render-ready tree node (perf audit, findings 4a/23/7): dirs and items pre-sorted, the
+   subtree's file count and flattened file list computed once at construction — the render
+   used to redo the `localeCompare` sorts and the `countFiles`/`collectFiles` recursions on
+   every folder, every render (per keystroke with the commit form in the same component). */
+type ViewTree<T> = {
+  dirs: { label: string; node: ViewTree<T> }[]
+  items: T[]
+  /** total files in the subtree (the folder counter) */
+  count: number
+  /** all files of the subtree, flattened — to stage / unstage a folder in one go */
+  all: T[]
+}
 
-/** All files of a subtree, flattened — to stage / unstage a folder in one go. */
-const collectFiles = <T,>(d: PathTree<T>): T[] => [...d.items, ...[...d.dirs.values()].flatMap((c) => collectFiles(c))]
+function toViewTree<T extends FileChange>(node: PathTree<T>): ViewTree<T> {
+  const dirs = [...node.dirs.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((label) => ({ label, node: toViewTree(node.dirs.get(label)!) }))
+  const items = [...node.items].sort((a, b) => a.path.localeCompare(b.path))
+  const all = [...items, ...dirs.flatMap((d) => d.node.all)]
+  return { dirs, items, count: all.length, all }
+}
 
 function Tree<T extends FileChange>({
   node,
@@ -253,7 +276,7 @@ function Tree<T extends FileChange>({
   action,
   dirAction,
 }: {
-  node: PathTree<T>
+  node: ViewTree<T>
   api: RepoApi
   activePath?: string
   onOpen?(f: T): void
@@ -263,56 +286,31 @@ function Tree<T extends FileChange>({
 }) {
   return (
     <>
-      {[...node.dirs.keys()]
-        .sort((a, b) => a.localeCompare(b))
-        .map((k) => {
-          const d = node.dirs.get(k)!
-          return (
-            <Collapsible key={k} defaultOpen>
-              {/* trigger and folder button side by side: a button doesn't nest inside
-                  another. The row carries the hover; the chevron keeps its state on the trigger. */}
-              <div className="group/dirrow flex items-center rounded-sm pe-1 hover:bg-muted/60">
-                <CollapsibleTrigger className="group/dir flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-xs select-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
-                  <HugeiconsIcon
-                    icon={ArrowRight01Icon}
-                    strokeWidth={2}
-                    className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]/dir:rotate-90 motion-reduce:transition-none"
-                  />
-                  <HugeiconsIcon
-                    icon={Folder01Icon}
-                    strokeWidth={2}
-                    className="size-3.5 shrink-0 text-muted-foreground"
-                  />
-                  <span className="truncate font-medium">{k}</span>
-                  <span className="text-[0.625rem] text-muted-foreground tabular-nums">{countFiles(d)}</span>
-                </CollapsibleTrigger>
-                {dirAction?.(collectFiles(d))}
-              </div>
-              <CollapsibleContent className="ml-2 border-l pl-2">
-                <Tree
-                  node={d}
-                  api={api}
-                  activePath={activePath}
-                  onOpen={onOpen}
-                  action={action}
-                  dirAction={dirAction}
-                />
-              </CollapsibleContent>
-            </Collapsible>
-          )
-        })}
-      {[...node.items]
-        .sort((a, b) => a.path.localeCompare(b.path))
-        .map((f) => (
-          <TreeFile
-            key={f.path}
-            api={api}
-            file={f}
-            active={f.path === activePath}
-            onOpen={onOpen}
-            action={action?.(f)}
-          />
-        ))}
+      {node.dirs.map(({ label, node: d }) => (
+        <Collapsible key={label} defaultOpen>
+          {/* trigger and folder button side by side: a button doesn't nest inside
+              another. The row carries the hover; the chevron keeps its state on the trigger. */}
+          <div className={cn("group/dirrow flex items-center rounded-sm pe-1 hover:bg-muted/60", ROW_CV_CLS)}>
+            <CollapsibleTrigger className="group/dir flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-xs select-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                strokeWidth={2}
+                className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]/dir:rotate-90 motion-reduce:transition-none"
+              />
+              <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium">{label}</span>
+              <span className="text-[0.625rem] text-muted-foreground tabular-nums">{d.count}</span>
+            </CollapsibleTrigger>
+            {dirAction?.(d.all)}
+          </div>
+          <CollapsibleContent className="ml-2 border-l pl-2">
+            <Tree node={d} api={api} activePath={activePath} onOpen={onOpen} action={action} dirAction={dirAction} />
+          </CollapsibleContent>
+        </Collapsible>
+      ))}
+      {node.items.map((f) => (
+        <TreeFile key={f.path} api={api} file={f} active={f.path === activePath} onOpen={onOpen} action={action?.(f)} />
+      ))}
     </>
   )
 }
@@ -328,7 +326,7 @@ export function FileListHeader({ children, actions }: { children: React.ReactNod
 
 /* Bare rendering of files, flat or tree — without header or scroll container, which
    the caller owns. `action` grafts a button per file (stage / unstage). */
-export function FileEntries<T extends FileChange>({
+function FileEntriesInner<T extends FileChange>({
   files,
   view,
   api,
@@ -346,17 +344,17 @@ export function FileEntries<T extends FileChange>({
   /** tree view only: one button per folder, acting on all files of the subtree */
   dirAction?(files: T[]): React.ReactNode
 }) {
-  if (view === "tree")
-    return (
-      <Tree
-        node={compactPathTree(buildPathTree(files, (f) => f.path))}
-        api={api}
-        activePath={activePath}
-        onOpen={onOpen}
-        action={action}
-        dirAction={dirAction}
-      />
-    )
+  /* memo'd component + localized descendants (the row's context menu): re-render on a
+     runtime language switch without waiting for a prop to change */
+  useLocale()
+  /* the built tree only depends on the file set: selection/diff/draft churn upstream no
+     longer re-runs buildPathTree + the recursive sorts (perf audit, finding 4a) */
+  const tree = useMemo(
+    () => (view === "tree" ? toViewTree(compactPathTree(buildPathTree(files, (f) => f.path))) : null),
+    [files, view]
+  )
+  if (tree)
+    return <Tree node={tree} api={api} activePath={activePath} onOpen={onOpen} action={action} dirAction={dirAction} />
   return (
     <>
       {files.map((f) => (
@@ -375,6 +373,11 @@ export function FileEntries<T extends FileChange>({
     </>
   )
 }
+
+/* memo: with stable `files` arrays and callbacks upstream (worktree-panel useMemo/useCallback),
+   a panel re-render whose file set hasn't moved skips the whole list. The cast keeps the
+   generic signature — React.memo would erase `<T>`. */
+export const FileEntries = memo(FileEntriesInner) as typeof FileEntriesInner
 
 export function FileList({
   files,

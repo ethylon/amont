@@ -9,8 +9,7 @@ import { setTheme, useThemeMode } from "@/lib/theme"
 import { setLocale, useLocale } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { ErrorBoundary } from "@/app/error-boundary"
-import { AppMenu, type MenuContext } from "@/app/menu"
-import { useMenuRepo } from "@/app/menu/use-menu-repo"
+import { AppMenu, type AppMenuContext } from "@/app/menu"
 import type { RepoCommand, RepoCommandEnvelope } from "@/features/repo/repo-commands"
 import { CreateDialog } from "@/features/create/create-dialog"
 import { HomeScreen } from "@/features/home/home-screen"
@@ -111,6 +110,12 @@ export default function App({ boot }: Props) {
     },
     [select]
   )
+  /* `openTab` is rebuilt on every tab/active change (it closes over `select`); the memoized
+     RepoViews get this ref-routed wrapper instead, so their `onOpenRepo` prop never churns
+     (perf audit, finding 4d). */
+  const openTabRef = useRef(openTab)
+  openTabRef.current = openTab
+  const openTabStable = useCallback((repo: Repo) => openTabRef.current(repo), [])
 
   const closeTab = useCallback(
     (key: number) => {
@@ -154,23 +159,24 @@ export default function App({ boot }: Props) {
     []
   )
   const activeRepoId = active.kind === "repo" ? active.id : null
-  const menuRepo = useMenuRepo(activeRepoId, sendRepoCommand)
 
   /* The declarative menu bar's single seam into App state (see app/menu/types.ts). Subscribed
      to the theme mode and locale so the View menu's checkmarks stay live and a language switch
-     re-renders the whole tree (the `messages` getters re-read the active locale on the next render). */
+     re-renders the whole tree (the `messages` getters re-read the active locale on the next
+     render — the memoized RepoViews subscribe to the locale themselves). The foreground repo's
+     flow/status queries live in AppMenu, not here: subscribing App to them re-rendered every
+     mounted tab on each git change (perf audit, finding 4d). */
   const themeMode = useThemeMode()
   const locale = useLocale()
   useEffect(() => {
     document.documentElement.lang = locale
   }, [locale])
-  const menuCtx = useMemo<MenuContext>(
+  const menuCtx = useMemo<AppMenuContext>(
     () => ({
       newRepo: () => setCreateOpen(true),
       openRepo: openDialog,
       closeActiveTab: () => active.kind === "repo" && closeTab(active.id),
       hasActiveRepo: active.kind === "repo",
-      activeRepo: menuRepo,
       goHome: () => select(HOME),
       locale,
       setLocale,
@@ -181,7 +187,7 @@ export default function App({ boot }: Props) {
       openExternal: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
       checkForUpdates: () => void host.checkForUpdates(),
     }),
-    [active, closeTab, locale, menuRepo, openDialog, select, themeMode]
+    [active, closeTab, locale, openDialog, select, themeMode]
   )
 
   return (
@@ -192,7 +198,7 @@ export default function App({ boot }: Props) {
         onSelect={(key) => select(fromTabKey(key))}
         onClose={closeTab}
         onNew={() => setCreateOpen(true)}
-        menu={<AppMenu ctx={menuCtx} />}
+        menu={<AppMenu ctx={menuCtx} activeRepoId={activeRepoId} sendRepoCommand={sendRepoCommand} />}
       />
 
       <CreateDialog open={createOpen} onOpenChange={setCreateOpen} onOpened={openCreated} />
@@ -229,7 +235,7 @@ export default function App({ boot }: Props) {
                   label={messages.app.reloadTab}
                   onReset={() => bumpReset(r.id)}
                 >
-                  <RepoView repo={r} active={tabActive} command={repoCommand} onOpenRepo={openTab} />
+                  <RepoView repo={r} active={tabActive} command={repoCommand} onOpenRepo={openTabStable} />
                 </ErrorBoundary>
               </div>
             )

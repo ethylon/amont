@@ -61,7 +61,7 @@ export type MenuDescriptor = {
 }
 
 /** The active repository, as the menus see it: its declarative flow state (read) and the
-    handful of actions a menu item can trigger on it (write). Assembled in App from the same
+    handful of actions a menu item can trigger on it (write). Assembled in AppMenu from the same
     queries RepoView uses, and null whenever the foreground tab isn't a repo. */
 export type MenuRepo = {
   id: number
