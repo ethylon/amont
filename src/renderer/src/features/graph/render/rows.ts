@@ -29,6 +29,7 @@ import {
   type RefChip,
 } from "@/lib/commit-parse"
 import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/lib/gitflow"
+import { getShowPrefixColumn } from "@/lib/customization"
 import { scrollText } from "../interactions/scroll-text.tsx"
 import { BRANCH_BUDGET, BRANCH_MAX, GRID_COLS, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
 import type { LayoutState } from "../layout/state.ts"
@@ -269,10 +270,14 @@ export function rowDiv(
 
   row.appendChild(document.createElement("div")) // spacer: the graph column, under the SVG
 
+  /* Prefix column: on (default), a recognized `feat:`/`[TAG]` prefix is lifted into its own
+     badge column and stripped from the message. Off, the type column stays empty (collapses to
+     0, cf. render/measure.ts) and the prefix reads inline in the subject. */
+  const showPrefix = getShowPrefixColumn()
   const ps = parseSubject(c.s)
   const badge = document.createElement("div")
   badge.className = "flex min-w-0"
-  if (ps.label) {
+  if (showPrefix && ps.label) {
     const b = document.createElement("span")
     b.className = chip(typeColor(ps.type!)) + " " + TYPE_MAX
     const ic = typeIcon(ps.type!)
@@ -326,7 +331,8 @@ export function rowDiv(
     to.title = mg.to || ""
     subj.append(from, arrow, to)
   } else {
-    const s = scrollText(ps.text)
+    /* prefix column off → keep the prefix inline (full `c.s`), else the stripped text */
+    const s = scrollText(showPrefix ? ps.text : c.s)
     /* the italics signal the provisional: this subject isn't a deliberately chosen commit message */
     if (c.stash) s.className += " italic text-muted-foreground"
     s.title = c.s

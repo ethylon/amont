@@ -61,6 +61,14 @@ export function createWindow(): void {
   })
   mainWindow = win
 
+  /* The settings modal enumerates installed fonts via the renderer's `queryLocalFonts()` (Local
+     Font Access API), which Chromium gates behind the `local-fonts` permission. Grant that one and
+     deny everything else: the app needs no camera/mic/geolocation/notifications, so a default-deny
+     handler also shrinks the surface of a compromised renderer (hostile diff content). */
+  const allowed = new Set(["local-fonts"])
+  win.webContents.session.setPermissionRequestHandler((_wc, permission, cb) => cb(allowed.has(permission)))
+  win.webContents.session.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
+
   /* A dead renderer leaves a black, unresponsive window (no more keyboard, F5 doesn't work):
      we log the incident then reload automatically. The log survives the crash —
      it's what we read afterward to understand what happened.
