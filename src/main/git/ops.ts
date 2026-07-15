@@ -68,15 +68,16 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<
   groupTrace(r, auto ? "Auto-fetch" : OP_GROUP[name])
   r.events.op({ op: name, state: "start", auto })
   try {
-    /* only fetch shows a counter; pull reloads the graph, push adds nothing */
-    const before = name === "fetch" ? await refTips(r) : null
+    /* `changed` compares the ref-tip snapshots around the command: it catches every move the
+       renderer must redraw — new commits, but also a push updating the remote-tracking ref or
+       a `--prune` deleting tips, both invisible to a commit count. `added` (fetch only, the
+       walk isn't free) feeds the "N new commits" badge. */
+    const before = await refTips(r)
     await r.git(OPS[name], { timeout: OP_TIMEOUT })
-    let added = 0
-    if (before) {
-      const after = await refTips(r)
-      if (after.join() !== before.join()) added = await countNew(r, before)
-    }
-    r.events.op({ op: name, state: "done", auto, added })
+    const after = await refTips(r)
+    const changed = after.join() !== before.join()
+    const added = changed && name === "fetch" ? await countNew(r, before) : 0
+    r.events.op({ op: name, state: "done", auto, added, changed })
   } catch (e) {
     r.events.op({ op: name, state: "error", auto, ...errorPayload(e) })
   } finally {

@@ -624,25 +624,27 @@ export function useRepoEvents(): void {
           return s.showOp(describePayload(p), "danger")
         }
         invalidateRepo(queryClient, repoId)
-        if (p.op === "pull") {
+        /* Rien n'a bougé (push/pull « up to date », fetch sans nouveauté) : le graph est déjà
+           juste, recharger ne ferait que secouer scroll et sélection pour rien. */
+        if (!p.changed) return
+        /* Une op manuelle est une action explicite : on recharge pour que le graph reflète les
+           refs qui ont bougé — commits récupérés (pull), marqueurs « à pusher » et position du
+           ref distant (push), branches élaguées (fetch --prune) —, le badge « N nouveaux
+           commits » (fetch seul) ne servant plus que d'accusé de réception. Un auto-fetch reste
+           non intrusif — badge cliquable seul, pour qu'un fetch d'arrière-plan n'arrache jamais
+           le scroll ni la sélection à l'utilisateur ; sans nouveau commit (élagage pur), il n'a
+           même pas de badge à montrer et le graph attend le prochain rechargement. */
+        if (!p.auto) {
+          if (p.added > 0) s.showOp(messages.app.newCommits(p.added), "primary")
           await s.resetAndLoad()
         } else if (p.added > 0) {
-          /* Un fetch manuel est une action explicite « montre-moi l'amont » : on recharge pour que
-             les commits récupérés (et les marqueurs de sync) apparaissent, le badge ne servant plus
-             que d'accusé de réception. Un auto-fetch reste non intrusif — badge cliquable seul, pour
-             qu'un fetch d'arrière-plan n'arrache jamais le scroll ni la sélection à l'utilisateur. */
-          if (!p.auto) {
-            s.showOp(messages.app.newCommits(p.added), "primary")
-            await s.resetAndLoad()
-          } else {
-            s.showOp(messages.app.newCommits(p.added), "primary", {
-              label: messages.app.reload,
-              run: () => {
-                s.clearOp()
-                void s.resetAndLoad()
-              },
-            })
-          }
+          s.showOp(messages.app.newCommits(p.added), "primary", {
+            label: messages.app.reload,
+            run: () => {
+              s.clearOp()
+              void s.resetAndLoad()
+            },
+          })
         }
       }),
     [repoId, queryClient, store]
