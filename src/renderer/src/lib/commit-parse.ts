@@ -6,6 +6,7 @@ import {
   Book02Icon,
   Bug01Icon,
   ConstructionIcon,
+  Diamond02Icon,
   Fire02Icon,
   FlashIcon,
   FlaskConicalIcon,
@@ -44,6 +45,7 @@ const CONVENTIONAL: Record<string, string> = {
   hotfix: "hotfix",
   perf: "perf",
   refactor: "refactor",
+  polish: "polish",
   chore: "chore",
   docs: "docs",
   test: "test",
@@ -67,6 +69,7 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   beta: "primary",
   test: "info",
   refactor: "refactor",
+  polish: "polish",
   /* chore/docs/style/ci/build stay neutral: housekeeping, not an intent worth flagging */
 }
 
@@ -82,6 +85,7 @@ const TYPE_ICON: Record<string, IconSvgElement> = {
   hotfix: Fire02Icon,
   perf: FlashIcon,
   refactor: Recycle01Icon,
+  polish: Diamond02Icon,
   chore: Settings01Icon,
   docs: Book02Icon,
   test: TestTube01Icon,
