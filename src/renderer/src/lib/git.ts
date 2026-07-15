@@ -125,8 +125,10 @@ export type RepoApi = {
   flowStart(kind: FlowKind, name: string): Promise<void>
   /** `git flow <kind> publish <name>` */
   flowPublish(kind: FlowKind, name: string): Promise<void>
-  /** merge into HEAD, deletion, pull/push of a given branch, or `git flow <type> finish` */
+  /** merge into HEAD, pull/push of a given branch, or `git flow <type> finish` */
   branch(action: BranchAct, name: string): Promise<void>
+  /** `git branch -d <name>`, plus the `push --delete` of its upstream when `deleteRemote` */
+  branchDelete(name: string, deleteRemote: boolean): Promise<void>
   files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
   /** message body (`%b`), trailers included */
   body(hash: string, requestId?: string): Promise<string>
@@ -197,6 +199,7 @@ export const repoApi = (id: number): RepoApi => ({
   flowStart: (kind, name) => bridge.flowStart(id, kind, name),
   flowPublish: (kind, name) => bridge.flowPublish(id, kind, name),
   branch: (action, name) => bridge.branch(id, action, name),
+  branchDelete: (name, deleteRemote) => bridge.branchDelete(id, name, deleteRemote),
   files: (hash, parent, requestId) => bridge.files(id, hash, parent, requestId),
   body: (hash, requestId) => bridge.body(id, hash, requestId),
   diff: (hash, parent, path, oldPath, requestId) => bridge.diff(id, hash, parent, path, oldPath, requestId),

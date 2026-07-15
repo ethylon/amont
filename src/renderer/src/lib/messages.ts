@@ -338,6 +338,20 @@ export const messages = {
     get deleteBranch() {
       return t`Delete branch`
     },
+    get deleteBranchTitle() {
+      return t`Delete branch?`
+    },
+    deleteBranchBody: (name: string) => t`The branch « ${name} » will be deleted.`,
+    deleteBranchRemote: (upstream: string) => t`Also delete the remote branch « ${upstream} »`,
+    get deleteBranchRemoteGone() {
+      return t`Its remote branch has already been deleted.`
+    },
+    get deleteBranchConfirm() {
+      return t`Delete`
+    },
+    get deleteBranchCancel() {
+      return t`Cancel`
+    },
     get finishFeature() {
       return t`Finish feature`
     },
