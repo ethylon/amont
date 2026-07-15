@@ -18,6 +18,7 @@ import { BRANCH } from "./git/parse.ts"
 import * as queries from "./git/queries.ts"
 import * as repos from "./repos.ts"
 import { scan } from "./scan.ts"
+import { getSettings, onSettingsChange, setSettings } from "./settings.ts"
 import { openable, persisted, saveState } from "./state.ts"
 import { setTelemetryEnabled, telemetryState } from "./telemetry.ts"
 import { checkForUpdates, installUpdate } from "./updater.ts"
@@ -77,6 +78,10 @@ function withCancel<T>(
 
 export function registerIpc(): void {
   repos.setAutofetch((r) => void ops.runOp(r, "fetch", true))
+  /* an autofetch on/off or interval change re-arms the open repos' timers, live (repos.ts).
+     Wired here rather than inside settings.ts, which must not depend on repos.ts (it already
+     reads getSettings() the other way). */
+  onSettingsChange(() => repos.rescheduleAutofetch())
 
   /* --- Application state ---
      Called once at renderer startup (cf. boot() in lib/git.ts). Idempotent: a
@@ -149,6 +154,11 @@ export function registerIpc(): void {
      is the source, and every other handler validates its arguments the same way. */
   handle("telemetry:state", () => Promise.resolve(telemetryState()))
   handle("telemetry:set", (_ev, enabled) => setTelemetryEnabled(enabled === true))
+
+  /* User settings (cf. settings.ts). `set` takes a partial patch and coerces the merged result
+     to a valid shape (settings.ts) — a malformed field from the renderer can never reach git. */
+  handle("settings:get", () => Promise.resolve(getSettings()))
+  handle("settings:set", (_ev, patch) => setSettings(patch && typeof patch === "object" ? patch : {}))
 
   /* Auto-update (cf. updater.ts) : l'invoke déclenche, le retour passe par `update:status`. */
   handle("update:check", () => checkForUpdates())

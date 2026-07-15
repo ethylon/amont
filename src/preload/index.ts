@@ -42,6 +42,8 @@ const bridge: Bridge = {
   scanRoot: invoke("root:scan"),
   telemetryState: invoke("telemetry:state"),
   setTelemetry: invoke("telemetry:set"),
+  getSettings: invoke("settings:get"),
+  setSettings: invoke("settings:set"),
   chooseCreateDir: invoke("create:chooseDir"),
   initRepo: invoke("create:init"),
   initBare: invoke("create:bare"),
