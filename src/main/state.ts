@@ -9,6 +9,8 @@ import { readFile, rename, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { app } from "electron"
 
+import type { Settings } from "../shared/settings.ts"
+
 export interface PersistedState {
   root: string | null
   recents: string[]
@@ -16,6 +18,8 @@ export interface PersistedState {
   active: string | null
   /** Crash-reporting opt-out (cf. telemetry.ts). Undefined = never chosen, treated as on. */
   telemetry?: boolean
+  /** User settings (cf. settings.ts). Undefined = never changed; settings.ts coerces to defaults. */
+  settings?: Settings
 }
 
 export const persisted: PersistedState = { root: null, recents: [], tabs: [], active: null }

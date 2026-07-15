@@ -627,6 +627,31 @@ export const messages = {
   },
 
   settings: {
+    get title() {
+      return t`Settings`
+    },
+    get intro() {
+      return t`Fetch behavior, applied to every repository.`
+    },
+    get autoFetch() {
+      return t`Auto-fetch`
+    },
+    get autoFetchHint() {
+      return t`Fetch from all remotes in the background, on a timer.`
+    },
+    get interval() {
+      return t`Interval`
+    },
+    /** unit suffix beside the interval choices */
+    get minutesUnit() {
+      return t`min`
+    },
+    get prune() {
+      return t`Prune on fetch`
+    },
+    get pruneHint() {
+      return t`Drop remote-tracking branches that no longer exist on the remote.`
+    },
     get crashReports() {
       return t`Send anonymous crash reports`
     },
