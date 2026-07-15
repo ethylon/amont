@@ -102,6 +102,9 @@ export type InvokeChannels = {
   /** `git flow <kind> publish <name>`. */
   "flow:publish": (id: number, kind: FlowKind, name: string) => Promise<void>
   "repo:branch": (id: number, action: BranchAct, name: string) => Promise<void>
+  /** `git branch -d <name>`, then — when `deleteRemote` — `git push <remote> --delete` of its
+      upstream. Split from `repo:branch`: the renderer confirms it and passes the remote choice. */
+  "repo:branchDelete": (id: number, name: string, deleteRemote: boolean) => Promise<void>
   "repo:log": (id: number, skip: number, count: number, requestId?: string) => Promise<Commit[]>
   "repo:refs": (id: number) => Promise<GitRef[]>
   "repo:files": (id: number, hash: string, parent: string | null, requestId?: string) => Promise<FileChange[]>
@@ -217,6 +220,7 @@ export type Bridge = {
   flowStart: InvokeChannels["flow:start"]
   flowPublish: InvokeChannels["flow:publish"]
   branch: InvokeChannels["repo:branch"]
+  branchDelete: InvokeChannels["repo:branchDelete"]
   files: InvokeChannels["repo:files"]
   body: InvokeChannels["repo:body"]
   headMessage: InvokeChannels["repo:headMessage"]

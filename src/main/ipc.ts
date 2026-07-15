@@ -224,6 +224,9 @@ export function registerIpc(): void {
   handle("flow:publish", (_ev, id, kind, name) => flow.flowPublish(repos.use(id), kind, name))
 
   handle("repo:branch", (_ev, id, action, name) => ops.branchAction(repos.use(id), action, name))
+  handle("repo:branchDelete", (_ev, id, name, deleteRemote) =>
+    ops.deleteBranch(repos.use(id), name, deleteRemote === true)
+  )
 
   handle("repo:log", (_ev, id, skip, count, requestId) => {
     const r = repos.use(id)
