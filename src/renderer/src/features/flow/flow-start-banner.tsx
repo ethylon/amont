@@ -73,7 +73,7 @@ export function FlowStartBanner({ kind, prefix, onDone }: Props) {
       />
       {error && <span className="min-w-0 flex-1 truncate text-destructive">{error}</span>}
       <span className="flex-1" />
-      <Button size="sm" onClick={() => void submit()} disabled={!value.trim() || busy}>
+      <Button size="sm" color={m.btn} onClick={() => void submit()} disabled={!value.trim() || busy}>
         {busy ? messages.gitflow.starting : messages.gitflow.start}
       </Button>
       <Button variant="ghost" size="icon-sm" onClick={onDone} aria-label={messages.gitflow.cancelStart}>
