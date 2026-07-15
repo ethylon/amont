@@ -175,7 +175,9 @@ export type FlowInfo = {
   unpushed: boolean
 }
 
-export type BranchAct = "merge" | "delete" | "pull" | "push" | "finish"
+/** Deletion is not here: it needs its own argument (delete the remote too) and its own
+    confirmation, so it travels on `repo:branchDelete` rather than this generic passthrough. */
+export type BranchAct = "merge" | "pull" | "push" | "finish"
 
 /** The four git-flow work types (feature/bugfix/release/hotfix). */
 export type FlowKind = keyof FlowPrefixes

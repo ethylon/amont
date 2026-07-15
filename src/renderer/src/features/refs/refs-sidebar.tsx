@@ -16,6 +16,7 @@ import { useWorktreesQuery } from "@/features/worktrees/worktrees-queries"
 import { matchWorktree, WorktreesSection } from "@/features/worktrees/worktrees-section"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { buildTree, refKey, Tree, useResettableOpen, type Ctx } from "@/features/refs/refs-tree"
+import { DeleteBranchDialog } from "@/features/refs/delete-branch-dialog"
 import { paintFocusRuns } from "@/features/refs/refs-focus-paint"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { RefGroup } from "@/components/ui/ref-group"
@@ -81,8 +82,13 @@ export const RefsSidebar = memo(function RefsSidebar() {
   const focusedKeys = useRepoStore((s) => s.selection.focusedKeys)
   const onCheckout = useRepoStore((s) => s.checkout)
   const onBranch = useRepoStore((s) => s.runBranch)
+  const runDeleteBranch = useRepoStore((s) => s.deleteBranch)
   const onFocusRef = useRepoStore((s) => s.focusRef)
   const onAddWorktree = useRepoStore((s) => s.addWorktree)
+
+  /* pending branch deletion, held until the confirmation dialog resolves it (mirrors the
+     discard dialog's local-state pattern) */
+  const [deleteTarget, setDeleteTarget] = useState<GitRef | null>(null)
 
   const { data: flow = null } = useFlowQuery(api, repoId)
   /* no `stale` flag to copy over: `placeholderData: keepPreviousData` (see lib/queries.ts)
@@ -133,6 +139,7 @@ export const RefsSidebar = memo(function RefsSidebar() {
       flow,
       onCheckout,
       onBranch,
+      onDeleteBranch: setDeleteTarget,
       focusedKeys,
       onFocusRef,
       worktreeBranches,
@@ -172,58 +179,68 @@ export const RefsSidebar = memo(function RefsSidebar() {
   }
 
   return (
-    /* collapsed = zero width, not unmounted: the content keeps its width and gets clipped,
-       otherwise the fields and labels would squeeze together during the animation. */
-    <nav
-      ref={navRef}
-      data-amont-keep-focus
-      aria-label={messages.refs.branches}
-      inert={!open}
-      className={cn(
-        /* min-w-0: without it, the flex item's automatic minimum locks onto the content (236px) */
-        "flex min-w-0 shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none",
-        open ? "w-59 border-r" : "w-0"
-      )}
-    >
-      <div className="flex w-59 flex-1 flex-col overflow-hidden">
-        <div className="flex border-b p-2.5">
-          <InputGroup>
-            <InputGroupAddon>
-              <HugeiconsIcon icon={Search01Icon} strokeWidth={2} />
-            </InputGroupAddon>
-            <InputGroupInput
-              type="search"
-              placeholder={messages.refs.filterBranches}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              onKeyDown={(e) => e.key === "Escape" && filter && (e.stopPropagation(), setFilter(""))}
-            />
-          </InputGroup>
-        </div>
+    <>
+      {/* collapsed = zero width, not unmounted: the content keeps its width and gets clipped,
+          otherwise the fields and labels would squeeze together during the animation. */}
+      <nav
+        ref={navRef}
+        data-amont-keep-focus
+        aria-label={messages.refs.branches}
+        inert={!open}
+        className={cn(
+          /* min-w-0: without it, the flex item's automatic minimum locks onto the content (236px) */
+          "flex min-w-0 shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none",
+          open ? "w-59 border-r" : "w-0"
+        )}
+      >
+        <div className="flex w-59 flex-1 flex-col overflow-hidden">
+          <div className="flex border-b p-2.5">
+            <InputGroup>
+              <InputGroupAddon>
+                <HugeiconsIcon icon={Search01Icon} strokeWidth={2} />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="search"
+                placeholder={messages.refs.filterBranches}
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && filter && (e.stopPropagation(), setFilter(""))}
+              />
+            </InputGroup>
+          </div>
 
-        <div className="flex flex-1 flex-col gap-1.5 overflow-auto px-2 pt-2 pb-4">
-          {/* the promoted gitflow move — a shortcut, not a ref: it steps aside while filtering */}
-          {!q && <FlowShortcut />}
-          {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
-          {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
-          {groups &&
-            q &&
-            !groups.head &&
-            !groups.remote &&
-            !groups.tag &&
-            !stashes.some((s) => matchStash(s, q)) &&
-            !worktrees.some((w) => !w.main && matchWorktree(w, q)) && (
-              <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
-            )}
-          {/* local branches, remotes, worktrees, tags, stashes — worktrees sit with the
+          <div className="flex flex-1 flex-col gap-1.5 overflow-auto px-2 pt-2 pb-4">
+            {/* the promoted gitflow move — a shortcut, not a ref: it steps aside while filtering */}
+            {!q && <FlowShortcut />}
+            {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
+            {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
+            {groups &&
+              q &&
+              !groups.head &&
+              !groups.remote &&
+              !groups.tag &&
+              !stashes.some((s) => matchStash(s, q)) &&
+              !worktrees.some((w) => !w.main && matchWorktree(w, q)) && (
+                <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
+              )}
+            {/* local branches, remotes, worktrees, tags, stashes — worktrees sit with the
               branch groups (they anchor checkouts), tags and stashes close the list */}
-          {group("head")}
-          {group("remote")}
-          <WorktreesSection filter={q} />
-          {group("tag")}
-          <StashSection filter={q} />
+            {group("head")}
+            {group("remote")}
+            <WorktreesSection filter={q} />
+            {group("tag")}
+            <StashSection filter={q} />
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      {deleteTarget && (
+        <DeleteBranchDialog
+          branch={deleteTarget}
+          onConfirm={(deleteRemote) => void runDeleteBranch(deleteTarget.name, deleteRemote)}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
+    </>
   )
 })
