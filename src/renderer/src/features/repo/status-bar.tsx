@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { GitBranchIcon } from "@hugeicons/core-free-icons"
 
 import type { Stats } from "@/features/graph/controller"
+import type { OpName } from "@/lib/git"
 import type { BranchFlow } from "@/lib/gitflow"
 import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
@@ -11,6 +12,13 @@ import { FLOW_META } from "@/features/flow/flow-context"
 import { GitConsole, type FeedEntry } from "@/features/console/git-console"
 import { MAINT_RUNNING, type MaintState } from "@/features/maintenance/maintenance-status"
 import type { RepoHealth } from "@/features/maintenance/health"
+
+/** Live footer label of a running network op, the counterpart of MAINT_RUNNING for fetch/pull/push. */
+const OP_RUNNING: Record<OpName, () => string> = {
+  fetch: () => messages.ops.fetching,
+  pull: () => messages.ops.pulling,
+  push: () => messages.ops.pushing,
+}
 
 export type OpState = {
   text: string
@@ -24,6 +32,8 @@ type Props = {
   /** work type of the current branch, `null` outside a flow (master, detached HEAD…) */
   flow: BranchFlow | null
   opState: OpState | null
+  /** live `NN%` of the running network op (fetch/pull/push), streamed from git's `--progress` */
+  opProgress: { op: OpName; percent: number } | null
   stats: Stats | null
   /** live database-maintenance progress (Verify/Compact), cf. features/maintenance */
   maint: MaintState | null
@@ -34,11 +44,14 @@ type Props = {
 
 const nf = new Intl.NumberFormat()
 
-/* A single feed occupant at a time, by priority: a running maintenance op, then operation
-   feedback (errors, "new commits" + Reload — auto-cleared by the store), then a settled
-   maintenance result, then the health hint. `null` hands the feed back to the console line. */
-function feedEntry({ opState, maint, health, onCompact }: Props): FeedEntry | null {
+/* A single feed occupant at a time, by priority: a running maintenance op, then a running
+   network op (its live `--progress` percentage), then operation feedback (errors, "new commits" +
+   Reload — auto-cleared by the store), then a settled maintenance result, then the health hint.
+   `null` hands the feed back to the console line. */
+function feedEntry({ opState, opProgress, maint, health, onCompact }: Props): FeedEntry | null {
   if (maint?.running) return { tone: "busy", verb: maint.op, text: MAINT_RUNNING[maint.op](), percent: maint.percent }
+  if (opProgress)
+    return { tone: "busy", verb: opProgress.op, text: OP_RUNNING[opProgress.op](), percent: opProgress.percent }
   if (opState) return { tone: opState.color, text: opState.text, action: opState.action }
   if (maint?.result) return { tone: maint.result.ok ? "success" : "danger", verb: maint.op, text: maint.result.text }
   if (health?.needsCompaction)

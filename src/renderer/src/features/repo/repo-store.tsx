@@ -27,6 +27,7 @@ import { describeError, describePayload } from "@/lib/errors"
 import {
   onChanged,
   onOp,
+  onProgress,
   type BranchAct,
   type FileChange,
   type GitRef,
@@ -83,6 +84,9 @@ export interface RepoStoreState {
   ops: {
     busyOp: OpName | null
     opState: OpState | null
+    /** live `NN%` of the running network op (fetch/pull/push), streamed from git's `--progress`;
+        `null` between commands or before git emits its first percentage. Footer feed, cf. status-bar. */
+    opProgress: { op: OpName; percent: number } | null
   }
   graph: {
     stats: Stats | null
@@ -119,6 +123,8 @@ export interface RepoStoreState {
   abortMerge(): Promise<void>
 
   setBusyOp(op: OpName | null): void
+  /** live footer percentage of a running network op; `null` clears it (op settled or reset) */
+  setOpProgress(progress: { op: OpName; percent: number } | null): void
   showOp(text: string, color: OpState["color"], action?: OpState["action"]): void
   clearOp(): void
   setStats(stats: Stats): void
@@ -194,7 +200,7 @@ export function createRepoStore(
       diffMode: prefs.diffView.get() || "unified",
       flowStartKind: null,
     },
-    ops: { busyOp: null, opState: null },
+    ops: { busyOp: null, opState: null, opProgress: null },
     graph: { stats: null },
 
     selectRow(row, additive) {
@@ -425,6 +431,9 @@ export function createRepoStore(
     setBusyOp(op) {
       set((s) => ({ ops: { ...s.ops, busyOp: op } }))
     },
+    setOpProgress(progress) {
+      set((s) => ({ ops: { ...s.ops, opProgress: progress } }))
+    },
     /* the badge clears itself; only an action ("Reload") keeps it in place */
     showOp(text, color, action) {
       clearTimeout(okTimer)
@@ -447,7 +456,11 @@ export function createRepoStore(
     },
 
     async runGitAction(action, opts) {
+      /* a branch pull/push/delete streams `--progress` into the footer (via onProgress); clear any
+         leftover before, and once the action settles, so the live percentage never outlives it */
+      get().setOpProgress(null)
       const err = await action().then(() => null, describeError)
+      get().setOpProgress(null)
       if (!err) opts?.onSuccess?.()
       invalidateRepo(queryClient, repoId)
       await get().resetAndLoad()
@@ -618,6 +631,9 @@ export function useRepoEvents(): void {
         if (p.id !== repoId) return
         const s = store.getState()
         s.setBusyOp(p.state === "start" ? p.op : null)
+        /* start: drop a stale percentage until git emits the new op's first one; end: the run is
+           over, so the live footer percentage goes with it (settled state takes the feed) */
+        s.setOpProgress(null)
         if (p.state === "start") return
         if (p.state === "error") {
           await queryClient.invalidateQueries({ queryKey: queryKeys.status(repoId) })
@@ -648,5 +664,18 @@ export function useRepoEvents(): void {
         }
       }),
     [repoId, queryClient, store]
+  )
+
+  /* Live `--progress` percentage of the running network op → footer feed, mirroring how the
+     maintenance modal consumes fsck/gc (cf. use-repo-menu-tools). The maintenance ops (fsck/gc)
+     travel on the same channel but are handled there; here we only pick up fetch/pull/push. */
+  useEffect(
+    () =>
+      onProgress((p) => {
+        if (p.id !== repoId) return
+        if (p.op === "fetch" || p.op === "pull" || p.op === "push")
+          store.getState().setOpProgress({ op: p.op, percent: p.percent })
+      }),
+    [repoId, store]
   )
 }
