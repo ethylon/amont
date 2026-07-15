@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { LABEL_CLS } from "@/components/ui/typography"
 import { homeKeys } from "@/features/home/keys"
+import { useCrashReports } from "@/features/settings/use-crash-reports"
 
 type Props = {
   active: boolean
@@ -64,19 +65,12 @@ function Section({
    (cf. main/telemetry.ts) — so it's invisible in dev and in builds from source. This is the
    app's only settings surface, hence its home on the home screen. */
 function TelemetryToggle({ className }: { className?: string }) {
-  const [state, setState] = useState<{ available: boolean; enabled: boolean } | null>(null)
-  useEffect(() => {
-    void host.telemetryState().then(setState)
-  }, [])
-  const toggle = useCallback((enabled: boolean) => {
-    setState((s) => (s ? { ...s, enabled } : s))
-    void host.setTelemetry(enabled)
-  }, [])
+  const { state, setEnabled } = useCrashReports()
 
   if (!state?.available) return null
   return (
     <label className={cn("flex cursor-pointer items-start gap-2.5 text-xs", className)}>
-      <Checkbox checked={state.enabled} onCheckedChange={toggle} className="mt-0.5" />
+      <Checkbox checked={state.enabled} onCheckedChange={setEnabled} className="mt-0.5" />
       <span className="min-w-0">
         <span className="block font-medium">{messages.settings.crashReports}</span>
         <span className="block text-[0.625rem] text-muted-foreground">{messages.settings.crashReportsHint}</span>

@@ -1,10 +1,15 @@
 import { cn } from "@/lib/utils"
+import { useShowGitCommands } from "@/lib/customization"
 
 /* UI experiment: the git command a control triggers, shown as muted mono subtext.
    The subtext tracks the action's colour: muted by default, but a destructive menu item
    tints it (destructive/70) to match its red caption — the same muted-red hierarchy the
-   destructive buttons/modals get via `className="text-destructive/70"`. */
+   destructive buttons/modals get via `className="text-destructive/70"`.
+
+   Hidden entirely when the user turns off "show git commands" (Settings ▸ Customization): the
+   host control keeps its label, only this subtext drops. */
 export function GitCmd({ cmd, className }: { cmd: string; className?: string }) {
+  if (!useShowGitCommands()) return null
   return (
     <span
       className={cn(
