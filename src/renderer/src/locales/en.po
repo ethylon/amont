@@ -97,8 +97,14 @@ msgstr "A repository without a working tree, ready to be used as a remote."
 msgid "Abort merge"
 msgstr "Abort merge"
 
+msgid "Add extension"
+msgstr "Add extension"
+
 msgid "Add line to the output"
 msgstr "Add line to the output"
+
+msgid "Add prefix"
+msgstr "Add prefix"
 
 msgid "Added"
 msgstr "Added"
@@ -298,6 +304,9 @@ msgstr "Create worktree…"
 msgid "creating…"
 msgstr "creating…"
 
+msgid "Custom prefixes"
+msgstr "Custom prefixes"
+
 msgid "Customization"
 msgstr "Customization"
 
@@ -354,6 +363,9 @@ msgstr "Detect feat:, fix:, chore:… and lift it out of the message into its ow
 
 msgid "Development branch"
 msgstr "Development branch"
+
+msgid "Diff"
+msgstr "Diff"
 
 msgid "Diff unavailable."
 msgstr "Diff unavailable."
@@ -414,6 +426,9 @@ msgstr "Error: {msg}"
 
 msgid "expected tag"
 msgstr "expected tag"
+
+msgid "Extension"
+msgstr "Extension"
 
 msgid "Feature"
 msgstr "Feature"
@@ -499,6 +514,9 @@ msgstr "Git console"
 msgid "Git Flow"
 msgstr "Git Flow"
 
+msgid "Give your own commit prefixes a badge color. Matches both [PREFIX] and prefix: in the subject."
+msgstr "Give your own commit prefixes a badge color. Matches both [PREFIX] and prefix: in the subject."
+
 #~ msgid "Hand-edited — undo the edits to re-enable the pickers."
 #~ msgstr "Hand-edited — undo the edits to re-enable the pickers."
 
@@ -582,6 +600,9 @@ msgstr "Loose objects"
 
 msgid "Loose size"
 msgstr "Loose size"
+
+msgid "Map a file extension to a language so its diffs are syntax-highlighted. Common types are built in; add your own below."
+msgstr "Map a file extension to a language so its diffs are syntax-highlighted. Common types are built in; add your own below."
 
 msgid "Mark as resolved"
 msgstr "Mark as resolved"
@@ -706,6 +727,9 @@ msgstr "parents"
 msgid "Polish"
 msgstr "Polish"
 
+msgid "prefix"
+msgstr "prefix"
+
 msgid "Preview unavailable."
 msgstr "Preview unavailable."
 
@@ -780,6 +804,9 @@ msgstr "Remote repository (bare)"
 
 msgid "Remotes"
 msgstr "Remotes"
+
+msgid "Remove"
+msgstr "Remove"
 
 msgid "Remove line from the output"
 msgstr "Remove line from the output"

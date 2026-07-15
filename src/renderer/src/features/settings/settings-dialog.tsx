@@ -3,33 +3,46 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   ArrowDown01Icon,
+  ArrowRight01Icon,
   CloudDownloadIcon,
+  Delete02Icon,
   PaintBoardIcon,
+  PlusSignIcon,
   RefreshIcon,
   SlidersHorizontalIcon,
+  SourceCodeIcon,
 } from "@hugeicons/core-free-icons"
 
 import { host, SETTINGS, type Settings } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
 import { cn } from "@/lib/utils"
-import { setTheme, useThemeMode, isDark } from "@/lib/theme"
+import { setTheme, useThemeMode, useTheme } from "@/lib/theme"
 import { setLocale, useLocale } from "@/lib/i18n"
 import {
   colorHex,
   COLOR_ROLES,
   listFonts,
+  neutralPrefixHexes,
   resetColor,
   resetCustomization,
+  resetLangAliases,
   setColor,
   setCustomization,
+  setLangAliases,
+  setPrefixRules,
   useCustomization,
   type ColorRole,
+  type LangAlias,
+  type PrefixRule,
   type ThemeKey,
 } from "@/lib/customization"
+import { SHIKI_LANGS } from "@/features/diff/shiki-langs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { IconButton } from "@/components/ui/icon-button"
+import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   DropdownMenu,
@@ -57,11 +70,12 @@ import { useCrashReports } from "./use-crash-reports"
      value and choice still comes from the SETTINGS registry, written through host.setSettings, which
      persists it and re-arms the open repos' autofetch timers live. */
 
-type Section = "customization" | "colors" | "fetch"
+type Section = "customization" | "colors" | "diff" | "fetch"
 
 const SECTIONS: { id: Section; icon: IconSvgElement; label: () => string }[] = [
   { id: "customization", icon: SlidersHorizontalIcon, label: () => messages.settings.sectionCustomization },
   { id: "colors", icon: PaintBoardIcon, label: () => messages.settings.sectionColors },
+  { id: "diff", icon: SourceCodeIcon, label: () => messages.settings.sectionDiff },
   { id: "fetch", icon: CloudDownloadIcon, label: () => messages.settings.sectionFetch },
 ]
 
@@ -99,6 +113,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <div className="min-w-0 flex-1">
             {section === "customization" && <CustomizationSection />}
             {section === "colors" && <ColorsSection />}
+            {section === "diff" && <DiffSection />}
             {section === "fetch" && <FetchSection />}
           </div>
         </div>
@@ -307,68 +322,226 @@ const roleLabel = (role: ColorRole): string =>
   })[role]
 
 function ColorsSection() {
-  const [tk, setTk] = useState<ThemeKey>(isDark() ? "dark" : "light")
-  /* re-render on any color change so the swatches and hex labels stay in sync */
-  useCustomization()
+  const dark = useTheme() // re-render on theme flip so the preview badge tracks the active theme
+  useCustomization() // and on any color change so the swatches stay in sync
+  const active: ThemeKey = dark ? "dark" : "light"
 
   return (
     <div className="grid gap-3">
-      <p className="text-[0.625rem] text-muted-foreground">{messages.colors.intro}</p>
-
-      <div className="flex items-center justify-between">
-        <ToggleGroup
-          spacing={0}
-          variant="outline"
-          size="sm"
-          value={[tk]}
-          onValueChange={(v) => v[0] && setTk(v[0] as ThemeKey)}
-        >
-          <ToggleGroupItem value="light">{messages.menu.themeLight}</ToggleGroupItem>
-          <ToggleGroupItem value="dark">{messages.menu.themeDark}</ToggleGroupItem>
-        </ToggleGroup>
-        <ResetButton onClick={() => resetColor(tk)} />
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[0.625rem] text-muted-foreground">{messages.colors.intro}</p>
+        <ResetButton
+          onClick={() => {
+            resetColor("light")
+            resetColor("dark")
+          }}
+        />
       </div>
 
       <div className="grid gap-2">
+        {/* column headers over the two swatch columns */}
+        <div className="flex items-center gap-2.5 text-[0.625rem] text-muted-foreground">
+          <span className="w-20 shrink-0" />
+          <span className="w-9 shrink-0 text-center">{messages.menu.themeLight}</span>
+          <span className="w-9 shrink-0 text-center">{messages.menu.themeDark}</span>
+        </div>
         {COLOR_ROLES.map((role) => (
-          <ColorRow key={role} theme={tk} role={role} />
+          <ColorRow key={role} role={role} active={active} />
         ))}
       </div>
+
+      <hr className="border-border/60" />
+      <PrefixRulesEditor />
     </div>
   )
 }
 
-function ColorRow({ theme, role }: { theme: ThemeKey; role: ColorRole }) {
-  const hex = colorHex(theme, role)
+/** A native color input styled as a compact swatch. */
+function Swatch({ value, onChange, label }: { value: string; onChange: (hex: string) => void; label: string }) {
+  return (
+    <input
+      type="color"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label={label}
+      className="h-6 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+    />
+  )
+}
+
+/** One work-type role: a live preview chip (in the active theme) plus a light and a dark swatch. */
+function ColorRow({ role, active }: { role: ColorRole; active: ThemeKey }) {
   const label = roleLabel(role)
   return (
     <div className="flex items-center gap-2.5">
-      {/* `lane` derives both hue and text from `--badge-color`; driving it with the edited hex makes
-          the chip preview the theme being edited, even when it isn't the one on screen. */}
+      {/* `lane` derives both hue and text from `--badge-color`; driving it with the active theme's
+          hex previews how the badge reads on screen right now. */}
       <Badge
         color="lane"
         shape="squared"
         className="w-20 justify-center"
-        style={{ "--badge-color": hex } as CSSProperties}
+        style={{ "--badge-color": colorHex(active, role) } as CSSProperties}
       >
         {label}
       </Badge>
-      <input
-        type="color"
-        value={hex}
-        onChange={(e) => setColor(theme, role, e.target.value)}
-        aria-label={label}
-        className="h-6 w-9 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+      <Swatch
+        value={colorHex("light", role)}
+        onChange={(hex) => setColor("light", role, hex)}
+        label={`${label} — ${messages.menu.themeLight}`}
       />
-      <span className="font-mono text-[0.625rem] tabular-nums text-muted-foreground">{hex}</span>
+      <Swatch
+        value={colorHex("dark", role)}
+        onChange={(hex) => setColor("dark", role, hex)}
+        label={`${label} — ${messages.menu.themeDark}`}
+      />
       <button
         type="button"
-        onClick={() => resetColor(theme, role)}
+        onClick={() => {
+          resetColor("light", role)
+          resetColor("dark", role)
+        }}
         className="ms-auto cursor-pointer text-[0.625rem] text-muted-foreground hover:text-foreground"
       >
         {messages.colors.reset}
       </button>
     </div>
+  )
+}
+
+/* --- Colors ▸ Custom prefixes ---
+   User-defined `PREFIX:` / `[PREFIX]` rules, each with its own light/dark badge color (starting from
+   the neutral gray a `chore` uses). Written straight to the store on every edit, like the rest of
+   the modal; a blank row is kept while editing and ignored by the matcher (lib/commit-parse) until a
+   prefix is typed. */
+function PrefixRulesEditor() {
+  const { prefixRules } = useCustomization()
+  const setAt = (i: number, rule: PrefixRule) => setPrefixRules(prefixRules.map((r, k) => (k === i ? rule : r)))
+  const removeAt = (i: number) => setPrefixRules(prefixRules.filter((_, k) => k !== i))
+  const setHex = (i: number, theme: ThemeKey, hex: string) =>
+    setAt(i, { ...prefixRules[i], colors: { ...prefixRules[i].colors, [theme]: hex } })
+
+  return (
+    <div className="grid gap-2">
+      <div>
+        <p className="text-xs font-medium">{messages.colors.customPrefixes}</p>
+        <p className="text-[0.625rem] text-muted-foreground">{messages.colors.customPrefixesHint}</p>
+      </div>
+
+      {prefixRules.map((rule, i) => {
+        const name = rule.prefix || messages.colors.prefixPlaceholder
+        return (
+          <div key={i} className="flex items-center gap-2.5">
+            <Input
+              value={rule.prefix}
+              onChange={(e) => setAt(i, { ...rule, prefix: e.target.value })}
+              placeholder={messages.colors.prefixPlaceholder}
+              className="flex-1 font-mono text-xs"
+            />
+            <Swatch
+              value={rule.colors.light}
+              onChange={(hex) => setHex(i, "light", hex)}
+              label={`${name} — ${messages.menu.themeLight}`}
+            />
+            <Swatch
+              value={rule.colors.dark}
+              onChange={(hex) => setHex(i, "dark", hex)}
+              label={`${name} — ${messages.menu.themeDark}`}
+            />
+            <IconButton label={messages.settings.remove} icon={Delete02Icon} onClick={() => removeAt(i)} />
+          </div>
+        )
+      })}
+
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setPrefixRules([...prefixRules, { prefix: "", colors: neutralPrefixHexes() }])}
+        className="justify-self-start"
+      >
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+        {messages.colors.addPrefix}
+      </Button>
+    </div>
+  )
+}
+
+/* --- Diff (syntax highlighting) ---
+   The extension → shiki-grammar map that used to be hardcoded in the diff views (diff-view.tsx /
+   shiki-tokens.tsx). Same write-through store model; a blank extension is ignored by the highlighter
+   until filled, and "Reset to defaults" restores the built-in mappings (`.csproj` → xml, …). */
+function DiffSection() {
+  const { langAliases } = useCustomization()
+  const setAt = (i: number, alias: LangAlias) => setLangAliases(langAliases.map((a, k) => (k === i ? alias : a)))
+  const removeAt = (i: number) => setLangAliases(langAliases.filter((_, k) => k !== i))
+
+  return (
+    <div className="grid gap-3">
+      <p className="text-[0.625rem] text-muted-foreground">{messages.settings.langAliasesIntro}</p>
+
+      {langAliases.length > 0 && (
+        <div className="grid gap-2">
+          <div className="flex items-center gap-2 text-[0.625rem] text-muted-foreground">
+            <span className="flex-1">{messages.settings.extensionLabel}</span>
+            <span className="w-32">{messages.settings.languageLabel}</span>
+            <span className="w-7 shrink-0" />
+          </div>
+          {langAliases.map((alias, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-1">
+                <span className="font-mono text-xs text-muted-foreground">.</span>
+                <Input
+                  value={alias.ext}
+                  onChange={(e) => setAt(i, { ...alias, ext: e.target.value })}
+                  placeholder="csproj"
+                  className="font-mono text-xs"
+                />
+              </div>
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                strokeWidth={2}
+                className="size-3.5 shrink-0 text-muted-foreground"
+              />
+              <LangSelect value={alias.lang} onChange={(lang) => setAt(i, { ...alias, lang })} />
+              <IconButton label={messages.settings.remove} icon={Delete02Icon} onClick={() => removeAt(i)} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <Button variant="outline" size="sm" onClick={() => setLangAliases([...langAliases, { ext: "", lang: "xml" }])}>
+          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+          {messages.settings.addExtension}
+        </Button>
+        <ResetButton onClick={resetLangAliases} />
+      </div>
+    </div>
+  )
+}
+
+/** Language picker over the grammars shiki ships in this app (shiki-langs.ts). */
+function LangSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="w-32 justify-between font-normal" />}>
+        <span className="truncate font-mono text-xs">{value}</span>
+        <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3 shrink-0 opacity-60" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="max-h-72 w-40">
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(v) => {
+            if (typeof v === "string" && v) onChange(v)
+          }}
+        >
+          {SHIKI_LANGS.map((lang) => (
+            <DropdownMenuRadioItem key={lang} value={lang} className="font-mono text-xs">
+              {lang}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

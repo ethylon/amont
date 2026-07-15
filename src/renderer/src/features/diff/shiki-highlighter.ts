@@ -32,11 +32,14 @@ import {
 } from "shiki/core"
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
 
-/* Canonical shiki language ids for the file types this app is realistically asked to diff,
-   each mapped to its lazy grammar loader. Add a language here (and, if needed, an entry to
-   LANG_ALIASES in diff-view.tsx) the day a diff needs one that's missing; an unrecognized
-   language already falls back to plain text (cf. diff-view.tsx's shikiPass). */
-const langLoaders: Record<string, () => Promise<{ default: LanguageRegistration[] }>> = {
+import type { ShikiLang } from "./shiki-langs"
+
+/* Canonical shiki language ids for the file types this app is realistically asked to diff, each
+   mapped to its lazy grammar loader. Add a language here the day a diff needs one that's missing; an
+   unrecognized language already falls back to plain text (cf. diff-view.tsx's shikiPass). The
+   `satisfies` clause ties this table to shiki-langs.ts's SHIKI_LANGS (the list the settings UI
+   offers): every advertised id must have a loader here, and vice versa — they can't drift. */
+const langLoaders = {
   typescript: () => import("shiki/langs/typescript.mjs"),
   tsx: () => import("shiki/langs/tsx.mjs"),
   javascript: () => import("shiki/langs/javascript.mjs"),
@@ -77,7 +80,7 @@ const langLoaders: Record<string, () => Promise<{ default: LanguageRegistration[
   lua: () => import("shiki/langs/lua.mjs"),
   r: () => import("shiki/langs/r.mjs"),
   dart: () => import("shiki/langs/dart.mjs"),
-}
+} satisfies Record<ShikiLang, () => Promise<{ default: LanguageRegistration[] }>>
 
 /* Shiki resolves short aliases (js, ts, py, rb, sh, yml, md, cs, kt…) from the `aliases`
    field INSIDE each grammar's registration — which only exists once that grammar is loaded.
@@ -136,11 +139,11 @@ const langLoads = new Map<string, Promise<void>>()
     highlighter, fetching it on first use. Returns null for a language this app doesn't ship —
     the caller renders plain, exactly like the old eager-load fallback. */
 async function ensureLang(highlighter: HighlighterCore, lang: string): Promise<string | null> {
-  const id = langLoaders[lang] ? lang : SHIKI_ALIASES[lang]
+  const id = lang in langLoaders ? (lang as ShikiLang) : SHIKI_ALIASES[lang]
   if (!id) return null
   let load = langLoads.get(id)
   if (!load) {
-    load = highlighter.loadLanguage(langLoaders[id]())
+    load = highlighter.loadLanguage(langLoaders[id as ShikiLang]())
     load.catch(() => langLoads.delete(id))
     langLoads.set(id, load)
   }
