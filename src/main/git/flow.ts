@@ -41,9 +41,16 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
   if (!parent || !heads.has(parent) || parent === branch) return null
 
   const tagged = kind === "release" || kind === "hotfix"
+  /* "produced by the branch" = commits reachable from it but from no integration trunk. Measuring
+     against the flow's canonical trunk alone (`develop` for a bugfix) over-counts when that trunk
+     is stale and the branch was actually cut from another: a `develop` sitting 60 commits behind
+     `master` would make a two-commit fix branched off `master` report 62. Excluding every trunk
+     keeps the count and the start date on the branch's own work. */
+  const trunks = [master, develop].filter((t): t is string => !!t && t !== branch)
+  const ownWork = [branch, ...trunks.map((t) => `^${t}`)]
   /* describe returns the nearest tag, semver or not — the bump logic guards against that with a regex */
   const [commits, lastTag] = await Promise.all([
-    r.git(["rev-list", "--count", `${parent}..${branch}`]).then((o) => parseInt(o, 10)),
+    r.git(["rev-list", "--count", ...ownWork]).then((o) => parseInt(o, 10)),
     tagged
       ? r.git(["describe", "--tags", "--abbrev=0", branch]).then(
           (o) => o.trim(),
@@ -52,7 +59,7 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
       : Promise.resolve(null),
   ])
   const startedAt = commits
-    ? parseInt((await r.git(["log", "--format=%ct", "--reverse", `${parent}..${branch}`])).split("\n", 1)[0], 10)
+    ? parseInt((await r.git(["log", "--format=%ct", "--reverse", ...ownWork])).split("\n", 1)[0], 10)
     : null
 
   /* "unpushed": the branch has no remote-tracking counterpart yet — `@{upstream}` resolves only
