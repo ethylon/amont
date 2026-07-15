@@ -23,6 +23,12 @@ import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-stri
    opening overlay. */
 const CreateDialog = lazy(() => import("@/features/create/create-dialog").then((m) => ({ default: m.CreateDialog })))
 
+/* App-wide settings (customization, colors, fetch): opened from File ▸ Settings, so it lives here
+   rather than per-tab. Code-split behind its open state — pure user-action UI. */
+const SettingsDialog = lazy(() =>
+  import("@/features/settings/settings-dialog").then((m) => ({ default: m.SettingsDialog }))
+)
+
 const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
 /** The tab content slides; the rest of the chrome switches instantly (see `.amont-tabview`). */
@@ -163,6 +169,9 @@ export default function App({ boot }: Props) {
     [openTab]
   )
 
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const openSettings = useCallback(() => setSettingsOpen(true), [])
+
   /* Menu → active repo: a menu item can't reach into a RepoView (different subtree), so it
      dispatches a nonce-stamped command that the foreground RepoView executes through its store. */
   const cmdSeq = useRef(0)
@@ -189,6 +198,7 @@ export default function App({ boot }: Props) {
       newRepo: openCreate,
       openRepo: openDialog,
       closeActiveTab: () => active.kind === "repo" && closeTab(active.id),
+      openSettings,
       hasActiveRepo: active.kind === "repo",
       goHome: () => select(HOME),
       locale,
@@ -200,7 +210,7 @@ export default function App({ boot }: Props) {
       openExternal: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
       checkForUpdates: () => void host.checkForUpdates(),
     }),
-    [active, closeTab, locale, openCreate, openDialog, select, themeMode]
+    [active, closeTab, locale, openCreate, openDialog, openSettings, select, themeMode]
   )
 
   return (
@@ -217,6 +227,12 @@ export default function App({ boot }: Props) {
       {createMounted && (
         <Suspense fallback={null}>
           <CreateDialog open={createOpen} onOpenChange={setCreateOpen} onOpened={openCreated} />
+        </Suspense>
+      )}
+
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsDialog onClose={() => setSettingsOpen(false)} />
         </Suspense>
       )}
 
