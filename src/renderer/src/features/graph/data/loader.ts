@@ -265,11 +265,12 @@ export function createLoader(opts: LoaderOptions) {
       TOTAL = total
       stashOf = new Map(stashes.map((s) => [s.h, s.name]))
       plumbing = new Set(stashes.flatMap((s) => s.p.slice(1)))
-      /* the current worktree is this very tab (its HEAD already carries the working-tree dot)
-         and a prunable one has no folder to open: neither gets a chip */
+      /* Only linked worktrees get an open button: the main tree is "this repo", not a place to
+         jump to; the current worktree is this very tab (its HEAD already carries the working-tree
+         dot); a prunable one has no folder left to open. */
       wtOf = new Map()
       for (const w of worktrees) {
-        if (w.current || w.prunable || !w.head) continue
+        if (w.main || w.current || w.prunable || !w.head) continue
         const list = wtOf.get(w.head)
         list ? list.push(w) : wtOf.set(w.head, [w])
       }
