@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/logo.png" alt="Amont" width="88" />
+![Amont](docs/logo.png)
 
 # Amont
 
@@ -18,10 +18,7 @@ resolve conflicts in it. Fast, keyboard-first, built for Windows.
 **[⬇ Download the latest release](https://github.com/ethylon/amont/releases/latest)** ·
 [Highlights](#highlights) · [Tour](#the-tour) · [Install](#install) · [Development](#development)
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/graph-dark.png" />
-  <img alt="Amont's main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit's message and file tree." src="docs/graph-light.png" />
-</picture>
+![Amont's main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit's message and file tree.](docs/graph-light.png)
 
 <sub>Every screenshot in this README is Amont browsing <strong>Amont's own repository</strong> —
 the very history that produced the app you're looking at. It's turtles all the way down.</sub>
@@ -51,10 +48,7 @@ ahead/behind divergence are folded into one timeline; commit subjects carry type
 (`feat`, `fix`, `style`, …) so the shape of the work reads at a glance. Selecting a commit
 opens its full message, co-authors and changed files in the detail panel.
 
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/graph-light.png" />
-  <img alt="The commit graph and detail panel in the dark theme." src="docs/graph-dark.png" />
-</picture>
+![The commit graph and detail panel in the dark theme.](docs/graph-dark.png)
 
 ### Diffs that read like code
 
@@ -62,10 +56,14 @@ Unified or side-by-side, one file or the whole commit — the two panes scroll t
 Shiki highlights everything with the same grammars VS Code uses. Binary images render in a
 proper viewer.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/diff-dark.png" />
-  <img alt="A side-by-side, syntax-highlighted diff of a TypeScript file, with the commit's detail panel on the right." src="docs/diff-light.png" />
-</picture>
+![A side-by-side, syntax-highlighted diff of a TypeScript file, with the commit's detail panel on the right.](docs/diff-light.png)
+
+<details>
+<summary>🌙 Same view, dark theme</summary>
+
+![The same side-by-side diff in the dark theme.](docs/diff-dark.png)
+
+</details>
 
 ### Stage exactly what you mean
 
@@ -73,10 +71,14 @@ The `Uncommitted changes` row at the top of the graph opens the staging panel: s
 unstage files, folders, hunks or single lines from a live split diff, review everything,
 then commit or amend — with the exact git command shown on the button before you run it.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/worktree-dark.png" />
-  <img alt="The staging panel: staged and unstaged file trees, a live side-by-side diff with per-hunk stage/discard actions, and the commit message box." src="docs/worktree-light.png" />
-</picture>
+![The staging panel: staged and unstaged file trees, a live side-by-side diff with per-hunk stage/discard actions, and the commit message box.](docs/worktree-light.png)
+
+<details>
+<summary>🌙 Same view, dark theme</summary>
+
+![The same staging panel in the dark theme.](docs/worktree-dark.png)
+
+</details>
 
 <sub>Inception checkpoint: the diff being staged up there is <em>this README rewrite</em>,
 mid-flight, next to its freshly reshot screenshots.</sub>
@@ -94,10 +96,14 @@ lines — landing in the merged output **in the order you click them**, no force
 A-before-B. The output is a normal, highlighted editor: picks and hand edits coexist.
 `Mark as resolved` writes the file and stages it once no conflict markers remain.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/conflict-dark.png" />
-  <img alt="The conflict resolution view: the 'ours' (A) and 'theirs' (B) versions of a file in two aligned, syntax-highlighted panes with per-side and per-line pickers, above an editable merged output." src="docs/conflict-light.png" />
-</picture>
+![The conflict resolution view: the 'ours' (A) and 'theirs' (B) versions of a file in two aligned, syntax-highlighted panes with per-side and per-line pickers, above an editable merged output.](docs/conflict-light.png)
+
+<details>
+<summary>🌙 Same view, dark theme</summary>
+
+![The same conflict resolution view in the dark theme.](docs/conflict-dark.png)
+
+</details>
 
 ### About these screenshots
 
