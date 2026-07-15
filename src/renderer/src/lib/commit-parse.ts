@@ -73,7 +73,43 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   /* chore/docs/style/ci/build stay neutral: housekeeping, not an intent worth flagging */
 }
 
-export const typeColor = (type: string): BadgeColor => TYPE_COLOR[type] ?? "neutral"
+/* User-defined prefixes (Settings ▸ Colors, cf. lib/customization.ts). Kept in a module registry the
+   customization store pushes into on every change, rather than threaded through every call site:
+   parseSubject/typeColor are pure hot-path functions read all over the imperative render, so an
+   injected table is far less invasive than a parameter on each of them. Built-ins always win — a
+   custom prefix only fills in a `PREFIX:`/`[PREFIX]` the tables above don't recognize.
+
+   Their color is per-theme hex (not a preset hue), so it can't ride a named BadgeColor: the badge
+   uses the generic `lane` color driven by a CSS var (prefixColorVar), which lib/customization writes
+   for the active theme — theme-aware and live-updatable without rebuilding the graph. */
+
+/** Fold a prefix or subject tag to its match key: lowercase, letters+digits only — so `[HOT-FIX]`,
+    `hotfix`, and `Hotfix` all collapse to the same key, mirroring the built-in TYPE_OF folding. */
+export const foldPrefix = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, "")
+
+/** The CSS custom property carrying a custom prefix's badge color. lib/customization's
+    applyCustomization writes it for the active theme; the badge reads it as `--badge-color`. The key
+    is folded to `[a-z0-9]*`, so the property name is always a safe identifier. */
+export const prefixColorVar = (prefix: string): string => `--amont-prefix-${foldPrefix(prefix)}`
+
+let customPrefixes = new Set<string>()
+
+/** Replace the set of user-defined prefixes (any casing/punctuation; folded and de-duped here). */
+export function setCustomPrefixes(prefixes: readonly string[]): void {
+  customPrefixes = new Set(prefixes.map(foldPrefix).filter(Boolean))
+}
+
+/** Whether a parsed type is a user-defined prefix (vs a built-in or the neutral "other"). */
+export const isCustomType = (type: string): boolean => customPrefixes.has(type)
+
+/** The custom type a subject tag resolves to (its folded key), or null when no prefix matches. */
+const customType = (raw: string): string | null => {
+  const key = foldPrefix(raw)
+  return key && customPrefixes.has(key) ? key : null
+}
+
+export const typeColor = (type: string): BadgeColor =>
+  TYPE_COLOR[type] ?? (customPrefixes.has(type) ? "lane" : "neutral")
 
 /* One glyph per intent, same table shape as TYPE_COLOR. Read before the label does — and for
    the neutral housekeeping types (chore/docs/style/ci/build) the icon is the only cue they carry.
@@ -111,11 +147,15 @@ export function parseSubject(s: string): ParsedSubject {
   let m = /^\s*\[([^\]]+)\]\s*(.*)/.exec(s)
   if (m) {
     const type = TYPE_OF[m[1].toUpperCase().replace(/[^A-Z]/g, "")]
-    return { type: type || "other", label: type || m[1].toLowerCase(), text: m[2] || s }
+    if (type) return { type, label: type, text: m[2] || s }
+    /* An unknown `[TAG]` still gets a badge (type "other"); a user rule, if one matches, gives it
+       a real type and color instead of the neutral "other" fallback. */
+    const custom = customType(m[1])
+    return { type: custom || "other", label: custom || m[1].toLowerCase(), text: m[2] || s }
   }
   m = /^([A-Za-z]+)(?:\(([^)]*)\))?!?:\s+(.*)/.exec(s)
   if (m) {
-    const type = CONVENTIONAL[m[1].toLowerCase()]
+    const type = CONVENTIONAL[m[1].toLowerCase()] || customType(m[1])
     if (type) return { type, label: m[2] ? `${type} · ${m[2]}` : type, text: m[3] }
   }
   return { type: null, label: null, text: s }
