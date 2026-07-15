@@ -433,6 +433,9 @@ msgstr "Flat view"
 msgid "Français"
 msgstr "Français"
 
+msgid "from"
+msgstr "from"
+
 msgid "Garbage files"
 msgstr "Garbage files"
 
@@ -768,6 +771,9 @@ msgstr "Start feature…"
 
 msgid "Start hotfix…"
 msgstr "Start hotfix…"
+
+msgid "Start point for the {kind} branch"
+msgstr "Start point for the {kind} branch"
 
 msgid "Start…"
 msgstr "Start…"
