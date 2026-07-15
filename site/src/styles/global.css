@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+/* Manual theme toggle: `.dark` on <html> wins, set before first paint by an inline script. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "Cascadia Code", monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+::selection {
+  background: color-mix(in oklch, var(--color-violet-500) 30%, transparent);
+}
+
+/* Reveal-on-scroll: elements tagged data-reveal start hidden and slide in when
+   an IntersectionObserver marks them. No-JS and reduced-motion users see everything. */
+@media (prefers-reduced-motion: no-preference) {
+  html.js [data-reveal] {
+    opacity: 0;
+    transform: translateY(1rem);
+    transition:
+      opacity 0.7s ease,
+      transform 0.7s ease;
+  }
+  html.js [data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
