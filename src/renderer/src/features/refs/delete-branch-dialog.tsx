@@ -1,7 +1,8 @@
-/* Confirmation before deleting a branch. Git's `-d` still guards unmerged commits, but the
-   destructive click earns a modal — and the option to take the remote branch down with it.
-   The remote checkbox only appears when the branch tracks one (`upstream`); it's disabled once
-   that remote counterpart is gone (`gone`), there being nothing left to delete. */
+/* Confirmation before deleting a branch. The destructive click earns a modal, and since the user
+   has confirmed, the delete is forced (`-D`) — no dead end on an unmerged branch — with the option
+   to take the remote branch down with it. The remote checkbox only appears when the branch tracks
+   one (`upstream`); it's disabled once that remote counterpart is gone (`gone`), there being nothing
+   left to delete. */
 
 import { useId, useState } from "react"
 
@@ -37,8 +38,8 @@ export function DeleteBranchDialog({
   const [remote, ...rest] = branch.upstream.split("/")
   const cmd =
     deleteRemote && canDeleteRemote
-      ? `git branch -d ${branch.name} && git push ${remote} --delete ${rest.join("/")}`
-      : `git branch -d ${branch.name}`
+      ? `git branch -D ${branch.name} && git push ${remote} --delete ${rest.join("/")}`
+      : `git branch -D ${branch.name}`
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
