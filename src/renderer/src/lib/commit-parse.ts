@@ -1,6 +1,26 @@
 /* Parsing of commit messages and `%D` refs (AUDIT.md §7, phase 5 — formerly
    lib/commit-message.ts, split into three concerns: this module, markdown.ts and gitflow.ts). */
 
+import {
+  ArrowTurnBackwardIcon,
+  Book02Icon,
+  Bug01Icon,
+  ConstructionIcon,
+  Fire02Icon,
+  FlashIcon,
+  FlaskConicalIcon,
+  Infinity01Icon,
+  Package01Icon,
+  PaintBrush02Icon,
+  PuzzleIcon,
+  Recycle01Icon,
+  RocketIcon,
+  Settings01Icon,
+  SparklesIcon,
+  TestTube01Icon,
+} from "@hugeicons/core-free-icons"
+import type { IconSvgElement } from "@hugeicons/react"
+
 import type { BadgeColor } from "@/components/ui/badge"
 
 /* Type badges from a `[TAG] subject` prefix. Explicit alias table rather than a config file —
@@ -51,6 +71,31 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
 }
 
 export const typeColor = (type: string): BadgeColor => TYPE_COLOR[type] ?? "neutral"
+
+/* One glyph per intent, same table shape as TYPE_COLOR. Read before the label does — and for
+   the neutral housekeeping types (chore/docs/style/ci/build) the icon is the only cue they carry.
+   An unknown `[TAG]` (type "other") stays iconless: no glyph fits a name we don't know. */
+const TYPE_ICON: Record<string, IconSvgElement> = {
+  feat: SparklesIcon,
+  feature: SparklesIcon,
+  bugfix: Bug01Icon,
+  hotfix: Fire02Icon,
+  perf: FlashIcon,
+  refactor: Recycle01Icon,
+  chore: Settings01Icon,
+  docs: Book02Icon,
+  test: TestTube01Icon,
+  style: PaintBrush02Icon,
+  ci: Infinity01Icon,
+  build: Package01Icon,
+  release: RocketIcon,
+  revert: ArrowTurnBackwardIcon,
+  wip: ConstructionIcon,
+  beta: FlaskConicalIcon,
+  plugin: PuzzleIcon,
+}
+
+export const typeIcon = (type: string): IconSvgElement | undefined => TYPE_ICON[type]
 
 /* Automatic backups from a third-party tool: present in the history, never an intent.
    They stay readable, but stop competing for attention with the rest of the column. */
