@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useState } from 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { branchFlow } from "@/lib/gitflow"
-import { repoApi, worktreeCount, type OpName, type Repo } from "@/lib/git"
+import { host, repoApi, worktreeCount, type OpName, type Repo } from "@/lib/git"
 import { useLocale, type Locale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
@@ -37,6 +37,9 @@ const FlowInitDialog = lazy(() =>
 )
 const MaintenanceDialog = lazy(() =>
   import("@/features/maintenance/maintenance-dialog").then((m) => ({ default: m.MaintenanceDialog }))
+)
+const SettingsDialog = lazy(() =>
+  import("@/features/settings/settings-dialog").then((m) => ({ default: m.SettingsDialog }))
 )
 
 /* GraphColumn belongs to features/graph — memoized here, at the import site (perf audit,
@@ -162,6 +165,16 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
      key in detail-panel.tsx. */
   const [detailNonce, setDetailNonce] = useState(0)
 
+  /* app-wide settings modal (fetch behavior), opened from the toolbar's fetch button-group */
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const openSettings = useCallback(() => setSettingsOpen(true), [])
+
+  /* the same shared settings query the modal writes (queries.ts): the toolbar's fetch-command
+     label reflects the live `--prune` choice. Undefined before load → the registry default (on). */
+  const prune =
+    useQuery({ queryKey: queryKeys.settings(), queryFn: () => host.getSettings(), staleTime: Infinity }).data?.prune ??
+    true
+
   /* stable callbacks/elements for the memoized children below — an inline closure or JSX
      literal would change identity every render and void their memos */
   const onRunOp = useCallback((op: OpName) => void api.op(op), [api])
@@ -233,6 +246,8 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
         onRunOp={onRunOp}
+        onOpenSettings={openSettings}
+        prune={prune}
       >
         {commitSearch}
       </Toolbar>
@@ -340,6 +355,11 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
             onRunMaint={tools.runMaint}
             onClose={() => tools.setStatsOpen(false)}
           />
+        </Suspense>
+      )}
+      {active && settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsDialog onClose={() => setSettingsOpen(false)} />
         </Suspense>
       )}
     </>
