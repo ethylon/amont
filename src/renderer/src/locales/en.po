@@ -106,6 +106,9 @@ msgstr "Additional references"
 msgid "After"
 msgstr "After"
 
+msgid "Also delete the remote branch « {upstream} »"
+msgstr "Also delete the remote branch « {upstream} »"
+
 msgid "Also search diff content"
 msgstr "Also search diff content"
 
@@ -298,8 +301,14 @@ msgstr "Database verified"
 msgid "date"
 msgstr "date"
 
+msgid "Delete"
+msgstr "Delete"
+
 msgid "Delete branch"
 msgstr "Delete branch"
+
+msgid "Delete branch?"
+msgstr "Delete branch?"
 
 msgid "Deleted"
 msgstr "Deleted"
@@ -474,6 +483,9 @@ msgstr "Initialize Git Flow…"
 
 msgid "initializing…"
 msgstr "initializing…"
+
+msgid "Its remote branch has already been deleted."
+msgstr "Its remote branch has already been deleted."
 
 msgid "Language"
 msgstr "Language"
@@ -795,6 +807,9 @@ msgstr "Take B in every conflict"
 
 msgid "Text diff"
 msgstr "Text diff"
+
+msgid "The branch « {name} » will be deleted."
+msgstr "The branch « {name} » will be deleted."
 
 msgid "theirs — incoming"
 msgstr "theirs — incoming"

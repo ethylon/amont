@@ -89,7 +89,6 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<
    No event: the renderer triggered the action, so it's the one that reloads and displays the error. */
 const BRANCH_GROUP: Record<BranchAct, string> = {
   merge: "Merge",
-  delete: "Delete",
   pull: "Pull",
   push: "Push",
   finish: "Flow finish",
@@ -109,10 +108,6 @@ async function upstreamOf(r: RepoHandle, name: string): Promise<{ remote: string
 
 const BRANCH_OPS: Record<BranchAct, (r: RepoHandle, name: string) => Promise<void>> = {
   merge: (r, name) => r.git(["merge", name], { timeout: OP_TIMEOUT }).then(() => {}),
-
-  /* `-d`, never `-D`: git's refusal on an unmerged branch is the only safeguard
-     we have — the menu doesn't ask for confirmation. The remote, though, stays untouched. */
-  delete: (r, name) => r.git(["branch", "-d", name]).then(() => {}),
 
   /* We don't fetch into a checked-out branch: on HEAD, it's a pull. Elsewhere, the explicit
      refspec is fast-forward-only, and git takes the opportunity to update `refs/remotes/…` too. */
@@ -144,6 +139,27 @@ export async function branchAction(r: RepoHandle, action: BranchAct, name: strin
     groupTrace(r, `${BRANCH_GROUP[action]} ${name}`)
     try {
       await BRANCH_OPS[action](r, name)
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/* --- Branch deletion ---
+   `-d`, never `-D`: the modal confirms the intent, but git's refusal on an unmerged branch
+   stays the safeguard against dropping commits — a confirmed click shouldn't silently lose work.
+   The remote side is opt-in (`deleteRemote`): its upstream config is read first (the local delete
+   removes `branch.<name>.*`), and the `push --delete` runs only after the local delete succeeds,
+   so a rejected local delete never reaches the remote. */
+export async function deleteBranch(r: RepoHandle, name: string, deleteRemote: boolean): Promise<void> {
+  if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
+  await withLock(r, "delete", async () => {
+    groupTrace(r, `Delete ${name}`)
+    try {
+      const upstream = deleteRemote ? await upstreamOf(r, name) : null
+      await r.git(["branch", "-d", name])
+      if (upstream)
+        await r.git(["push", "--progress", upstream.remote, "--delete", upstream.merge], { timeout: OP_TIMEOUT })
     } finally {
       mute(r)
     }
