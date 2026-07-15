@@ -1,5 +1,5 @@
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
-import { Bug01Icon, Fire02Icon, GitBranchIcon, GitMergeIcon, RocketIcon } from "@hugeicons/core-free-icons"
+import { Bug01Icon, Fire02Icon, GitMergeIcon, RocketIcon, SparklesIcon } from "@hugeicons/core-free-icons"
 
 import type { FlowInfo } from "@/lib/git"
 import type { BranchFlow } from "@/lib/gitflow"
@@ -8,10 +8,11 @@ import { cn } from "@/lib/utils"
 import type { ButtonColor } from "@/components/ui/button"
 
 /* Colors and hues of all flow indicators (statusbar, cockpit, card): same hues
-   as the sidebar badges, same release/hotfix icons as the graph's merge chips.
+   as the sidebar badges, same icons as the commit-type badges (feat's sparkle,
+   the graph's merge-chip release/hotfix glyphs).
    `btn` = same hue for the flow-start button, so it follows the banner tint. */
 export const FLOW_META: Record<BranchFlow, { icon: IconSvgElement; text: string; bg: string; btn: ButtonColor }> = {
-  feature: { icon: GitBranchIcon, text: "text-success", bg: "bg-success/10", btn: "success" },
+  feature: { icon: SparklesIcon, text: "text-success", bg: "bg-success/10", btn: "success" },
   bugfix: { icon: Bug01Icon, text: "text-warning", bg: "bg-warning/10", btn: "warning" },
   release: { icon: RocketIcon, text: "text-release", bg: "bg-release/10", btn: "release" },
   hotfix: { icon: Fire02Icon, text: "text-destructive", bg: "bg-destructive/10", btn: "destructive" },
