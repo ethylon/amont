@@ -34,6 +34,13 @@ export const isOpName = (name: string): name is OpName => Object.hasOwn(OPS, nam
    (status, log pages) stay without a header, which visually sets them apart. */
 const groupTrace = (r: RepoHandle, text: string): void => r.events.trace({ kind: "group", text, ts: Date.now() })
 
+/* `--progress` streams `NN%` on stderr: forward it to the renderer footer (same channel fsck uses).
+   The op name tags the event so the footer can label the running action (Fetching/Pulling/Pushing). */
+const reportProgress =
+  (r: RepoHandle, op: OpName) =>
+  (percent: number): void =>
+    r.events.progress({ op, percent })
+
 /* Tips of all refs, deduplicated and sorted: two equal snapshots = nothing moved.
    Much cheaper than the full `rev-list --all --count` we used to pay for twice per fetch.
    Exported: git/queries.ts keys its ordered-hash-list cache on the same snapshot. */
@@ -73,7 +80,9 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<
        a `--prune` deleting tips, both invisible to a commit count. `added` (fetch only, the
        walk isn't free) feeds the "N new commits" badge. */
     const before = await refTips(r)
-    await r.git(OPS[name], { timeout: OP_TIMEOUT })
+    /* stream `NN%` to the footer, like fsck (Verify) — but never for a background auto-fetch,
+       which stays non-intrusive (a badge on completion, no live feed occupant). */
+    await r.git(OPS[name], { timeout: OP_TIMEOUT, onProgress: auto ? undefined : reportProgress(r, name) })
     const after = await refTips(r)
     const changed = after.join() !== before.join()
     const added = changed && name === "fetch" ? await countNew(r, before) : 0
@@ -119,7 +128,7 @@ const BRANCH_OPS: Record<BranchAct, (r: RepoHandle, name: string) => Promise<voi
       name === current
         ? ["pull", "--ff-only", "--progress"]
         : ["fetch", remote, `${merge}:refs/heads/${name}`, "--progress"],
-      { timeout: OP_TIMEOUT }
+      { timeout: OP_TIMEOUT, onProgress: reportProgress(r, "pull") }
     )
   },
 
@@ -127,7 +136,10 @@ const BRANCH_OPS: Record<BranchAct, (r: RepoHandle, name: string) => Promise<voi
      of the same name, even though the upstream carries a different one. */
   async push(r, name) {
     const { remote, merge } = await upstreamOf(r, name)
-    await r.git(["push", remote, `refs/heads/${name}:${merge}`, "--progress"], { timeout: OP_TIMEOUT })
+    await r.git(["push", remote, `refs/heads/${name}:${merge}`, "--progress"], {
+      timeout: OP_TIMEOUT,
+      onProgress: reportProgress(r, "push"),
+    })
   },
 
   finish: (r, name) => finishFlow(r, name),
@@ -160,7 +172,10 @@ export async function deleteBranch(r: RepoHandle, name: string, deleteRemote: bo
       const upstream = deleteRemote ? await upstreamOf(r, name) : null
       await r.git(["branch", "-D", name])
       if (upstream)
-        await r.git(["push", "--progress", upstream.remote, "--delete", upstream.merge], { timeout: OP_TIMEOUT })
+        await r.git(["push", "--progress", upstream.remote, "--delete", upstream.merge], {
+          timeout: OP_TIMEOUT,
+          onProgress: reportProgress(r, "push"),
+        })
     } finally {
       mute(r)
     }

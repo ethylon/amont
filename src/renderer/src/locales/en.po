@@ -397,6 +397,9 @@ msgstr "Feature prefix"
 msgid "Fetch"
 msgstr "Fetch"
 
+msgid "Fetching…"
+msgstr "Fetching…"
+
 msgid "File"
 msgstr "File"
 
@@ -679,11 +682,17 @@ msgstr "Publish release {name}"
 msgid "Pull"
 msgstr "Pull"
 
+msgid "Pulling…"
+msgstr "Pulling…"
+
 msgid "Push"
 msgstr "Push"
 
 msgid "Push to « {upstream} »"
 msgstr "Push to « {upstream} »"
+
+msgid "Pushing…"
+msgstr "Pushing…"
 
 msgid "Ready"
 msgstr "Ready"

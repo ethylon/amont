@@ -209,6 +209,20 @@ export const messages = {
     },
   },
 
+  /* footer feed while a network op runs — the live `--progress` occupant (fetch/pull/push),
+     the counterpart of maintenance's "Verifying database…" (cf. features/repo/status-bar) */
+  ops: {
+    get fetching() {
+      return t`Fetching…`
+    },
+    get pulling() {
+      return t`Pulling…`
+    },
+    get pushing() {
+      return t`Pushing…`
+    },
+  },
+
   console: {
     get ready() {
       return t`Ready`

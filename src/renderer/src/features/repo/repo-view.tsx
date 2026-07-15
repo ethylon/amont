@@ -148,6 +148,7 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const closeConflict = useRepoStore((s) => s.closeConflict)
   const opState = useRepoStore((s) => s.ops.opState)
   const busyOp = useRepoStore((s) => s.ops.busyOp)
+  const opProgress = useRepoStore((s) => s.ops.opProgress)
   const stats = useRepoStore((s) => s.graph.stats)
   const graphRef = useRepoStore((s) => s.graphRef)
   const toggleSidebar = useRepoStore((s) => s.toggleSidebar)
@@ -316,6 +317,7 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         branch={status?.branch ?? null}
         flow={workFlow}
         opState={opState}
+        opProgress={opProgress}
         stats={stats}
         maint={tools.maint}
         health={health}
