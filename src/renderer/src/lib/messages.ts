@@ -431,6 +431,9 @@ export const messages = {
     get unstageFolder() {
       return t`Unstage folder`
     },
+    get discardFolder() {
+      return t`Discard folder`
+    },
     get uncommittedChanges() {
       return t`Uncommitted changes`
     },
