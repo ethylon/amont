@@ -97,8 +97,9 @@ export type InvokeChannels = {
   "repo:flowInfo": (id: number, branch: string, kind: keyof FlowPrefixes) => Promise<FlowInfo | null>
   /** Write the `gitflow.*` config from the form then `git flow init -d`; resolves the prefixes. */
   "flow:init": (id: number, cfg: FlowInitConfig) => Promise<FlowPrefixes | null>
-  /** `git flow <kind> start <name|version>`. */
-  "flow:start": (id: number, kind: FlowKind, name: string) => Promise<void>
+  /** `git flow <kind> start <name|version> [<base>]` — `base` is the start point to branch off
+      (a local branch); omitted, git-flow uses its own default trunk (develop, master for hotfix). */
+  "flow:start": (id: number, kind: FlowKind, name: string, base?: string) => Promise<void>
   /** `git flow <kind> publish <name>`. */
   "flow:publish": (id: number, kind: FlowKind, name: string) => Promise<void>
   "repo:branch": (id: number, action: BranchAct, name: string) => Promise<void>

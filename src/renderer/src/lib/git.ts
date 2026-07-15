@@ -121,8 +121,8 @@ export type RepoApi = {
   flowInfo(branch: string, kind: keyof FlowPrefixes): Promise<FlowInfo | null>
   /** write the `gitflow.*` config from the form then `git flow init -d`; resolves the prefixes */
   flowInit(cfg: FlowInitConfig): Promise<FlowPrefixes | null>
-  /** `git flow <kind> start <name|version>` */
-  flowStart(kind: FlowKind, name: string): Promise<void>
+  /** `git flow <kind> start <name|version> [<base>]` — `base`: start point, default trunk when omitted */
+  flowStart(kind: FlowKind, name: string, base?: string): Promise<void>
   /** `git flow <kind> publish <name>` */
   flowPublish(kind: FlowKind, name: string): Promise<void>
   /** merge into HEAD, pull/push of a given branch, or `git flow <type> finish` */
@@ -196,7 +196,7 @@ export const repoApi = (id: number): RepoApi => ({
   flow: () => bridge.flow(id),
   flowInfo: (branch, kind) => bridge.flowInfo(id, branch, kind),
   flowInit: (cfg) => bridge.flowInit(id, cfg),
-  flowStart: (kind, name) => bridge.flowStart(id, kind, name),
+  flowStart: (kind, name, base) => bridge.flowStart(id, kind, name, base),
   flowPublish: (kind, name) => bridge.flowPublish(id, kind, name),
   branch: (action, name) => bridge.branch(id, action, name),
   branchDelete: (name, deleteRemote) => bridge.branchDelete(id, name, deleteRemote),
