@@ -42,8 +42,8 @@ import {
 } from "@/components/ui/dialog"
 import { useCrashReports } from "./use-crash-reports"
 
-/* App-wide settings, opened from the toolbar's fetch button-group (the cog). A left nav splits it
-   into three sections that each write straight to their own store — no Save button, only Close:
+/* App-wide settings, opened from File ▸ Settings. A left nav splits it into three sections that
+   each write straight to their own store — no Save button, only Close:
 
    - Customization / Colors are renderer prefs (localStorage, cf. lib/customization.ts) plus the
      theme and language runtime switches (lib/theme.ts, lib/i18n.ts) and the crash-reports opt-out.

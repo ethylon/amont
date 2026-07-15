@@ -38,9 +38,6 @@ const FlowInitDialog = lazy(() =>
 const MaintenanceDialog = lazy(() =>
   import("@/features/maintenance/maintenance-dialog").then((m) => ({ default: m.MaintenanceDialog }))
 )
-const SettingsDialog = lazy(() =>
-  import("@/features/settings/settings-dialog").then((m) => ({ default: m.SettingsDialog }))
-)
 
 /* GraphColumn belongs to features/graph — memoized here, at the import site (perf audit,
    finding 4b). It takes no props and subscribes to the store itself, so the memo cuts every
@@ -165,12 +162,8 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
      key in detail-panel.tsx. */
   const [detailNonce, setDetailNonce] = useState(0)
 
-  /* app-wide settings modal (fetch behavior), opened from the toolbar's fetch button-group */
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const openSettings = useCallback(() => setSettingsOpen(true), [])
-
-  /* the same shared settings query the modal writes (queries.ts): the toolbar's fetch-command
-     label reflects the live `--prune` choice. Undefined before load → the registry default (on). */
+  /* the same shared settings query the settings modal writes (queries.ts): the toolbar's
+     fetch-command label reflects the live `--prune` choice. Undefined before load → default (on). */
   const prune =
     useQuery({ queryKey: queryKeys.settings(), queryFn: () => host.getSettings(), staleTime: Infinity }).data?.prune ??
     true
@@ -246,7 +239,6 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
         onRunOp={onRunOp}
-        onOpenSettings={openSettings}
         prune={prune}
       >
         {commitSearch}
@@ -355,11 +347,6 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
             onRunMaint={tools.runMaint}
             onClose={() => tools.setStatsOpen(false)}
           />
-        </Suspense>
-      )}
-      {active && settingsOpen && (
-        <Suspense fallback={null}>
-          <SettingsDialog onClose={() => setSettingsOpen(false)} />
         </Suspense>
       )}
     </>

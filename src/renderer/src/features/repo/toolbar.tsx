@@ -7,7 +7,6 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   Refresh01Icon,
-  Settings01Icon,
 } from "@hugeicons/core-free-icons"
 
 import type { OpName, Repo, Status } from "@/lib/git"
@@ -17,7 +16,6 @@ import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
-import { ButtonGroup } from "@/components/ui/button-group"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -38,8 +36,6 @@ type Props = {
   sidebarOpen: boolean
   onToggleSidebar(): void
   onRunOp(op: OpName): void
-  /** opens the settings modal (fetch behavior) — the cog half of the fetch button-group */
-  onOpenSettings(): void
   /** the `prune` setting: appends `--prune` to the shown fetch command when on */
   prune: boolean
   /** the search bar: it needs the graph, which the toolbar doesn't know about */
@@ -56,7 +52,6 @@ export const Toolbar = memo(function Toolbar({
   sidebarOpen,
   onToggleSidebar,
   onRunOp,
-  onOpenSettings,
   prune,
   children,
 }: Props) {
@@ -127,21 +122,8 @@ export const Toolbar = memo(function Toolbar({
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
-        {/* Fetch and its settings (cog) as one button-group: the primitive handles the joining
-            (radius, borders, positioning) — the cog opens the settings modal. */}
-        <ButtonGroup>
-          {opButton(fetchOp, fetchCmd)}
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={messages.settings.title}
-            className="h-auto"
-            onClick={onOpenSettings}
-          >
-            <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
-          </Button>
-        </ButtonGroup>
-
+        {/* `--prune` is a live setting, so fetch's shown command is built from it (see fetchCmd). */}
+        {opButton(fetchOp, fetchCmd)}
         {restOps.map((op) => opButton(op))}
       </div>
 
