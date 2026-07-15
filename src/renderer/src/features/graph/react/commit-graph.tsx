@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 
 import type { RepoApi } from "@/lib/git"
+import { messages } from "@/lib/messages"
 import { createGraph, type GraphCallbacks, type GraphHandle } from "../controller.ts"
 
 type Props = {
@@ -59,7 +60,7 @@ export function CommitGraph({ api, callbacks, onReady }: Props) {
     <div
       ref={board}
       role="listbox"
-      aria-label="Commits"
+      aria-label={messages.graph.commits}
       aria-multiselectable="true"
       className="relative overflow-auto select-none"
     >

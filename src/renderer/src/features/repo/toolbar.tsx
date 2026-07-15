@@ -19,10 +19,13 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 
+/* labels are thunks, not values: reading messages.* at module scope would run `t` during
+   import, before setupI18n() has activated a locale (cf. refs-menu.tsx). Pull/Push reuse the
+   refs catalogue entries — same action, same string. */
 const OPS = [
-  { op: "fetch", label: "Fetch", icon: Refresh01Icon, cmd: "git fetch --all --prune" },
-  { op: "pull", label: "Pull", icon: ArrowDown02Icon, cmd: "git pull --ff-only" },
-  { op: "push", label: "Push", icon: ArrowUp02Icon, cmd: "git push" },
+  { op: "fetch", label: () => messages.repo.fetch, icon: Refresh01Icon, cmd: "git fetch --all --prune" },
+  { op: "pull", label: () => messages.refs.pull, icon: ArrowDown02Icon, cmd: "git pull --ff-only" },
+  { op: "push", label: () => messages.refs.push, icon: ArrowUp02Icon, cmd: "git push" },
 ] as const
 
 type Props = {
@@ -97,7 +100,7 @@ export const Toolbar = memo(function Toolbar({
               )}
               <span className="flex flex-col items-start">
                 <span className="flex items-center gap-1">
-                  {label}
+                  {label()}
                   {!!n && (
                     <Badge color="primary" shape="squared" className="tabular-nums">
                       {n}
