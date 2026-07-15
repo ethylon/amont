@@ -27,6 +27,12 @@ export const messages = {
     get home() {
       return t`Home`
     },
+    get close() {
+      return t`Close`
+    },
+    get loading() {
+      return t`Loading`
+    },
     closeTab: (name: string) => t`Close ${name}`,
     get newTab() {
       return t`New tab`
@@ -135,6 +141,9 @@ export const messages = {
     get clickCommitForDetail() {
       return t`Click a commit for its detail.`
     },
+    get fetch() {
+      return t`Fetch`
+    },
     get hideSidebar() {
       return t`Hide sidebar`
     },
@@ -156,6 +165,9 @@ export const messages = {
   detail: {
     get loadingFiles() {
       return t`loading files…`
+    },
+    get stash() {
+      return t`stash`
     },
     branchHeading: (n: number) => t`Branch · ${plural(n, { one: "# commit", other: "# commits" })}`,
     commitsSelected: (n: number) => plural(n, { one: "# commit selected", other: "# commits selected" }),
@@ -200,6 +212,10 @@ export const messages = {
   console: {
     get ready() {
       return t`Ready`
+    },
+    /** fallback command name in the screen-reader failure announcement */
+    get aCommand() {
+      return t`a command`
     },
     get gitConsole() {
       return t`Git console`
@@ -490,6 +506,9 @@ export const messages = {
     get commitMessage() {
       return t`Commit message`
     },
+    get description() {
+      return t`Description`
+    },
     get amend() {
       return t`Amend`
     },
@@ -568,6 +587,10 @@ export const messages = {
   },
 
   graph: {
+    /** accessible name of the commit-graph listbox */
+    get commits() {
+      return t`Commits`
+    },
     get extraRefs() {
       return t`Additional references`
     },

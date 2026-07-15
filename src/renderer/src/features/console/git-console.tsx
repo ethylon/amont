@@ -134,7 +134,7 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
   for (let i = lines.length - 1; i >= 0 && lastFailure === null; i--) {
     const l = lines[i]
     if (l.kind !== "exit" || l.ok) continue
-    lastFailure = "commande"
+    lastFailure = messages.console.aCommand
     for (let j = i - 1; j >= 0; j--) {
       const p = lines[j]
       if (p.kind === "cmd") {
