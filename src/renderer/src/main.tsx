@@ -8,6 +8,7 @@ import { boot } from "@/lib/git"
 import { queryClient } from "@/lib/query-client"
 import { installShortcuts } from "@/app/shortcuts"
 import { applyTheme } from "@/lib/theme"
+import { applyCustomization } from "@/lib/customization"
 import { setupI18n } from "@/lib/i18n"
 import { initTelemetry, installTelemetryBuffer } from "@/lib/telemetry"
 
@@ -21,6 +22,9 @@ installTelemetryBuffer()
    and paint the theme so there's no light flash on startup */
 setupI18n()
 applyTheme()
+/* font + color overrides on <html>, right after the theme so custom fonts/hues paint with the
+   first frame (no flash back from the Geist default) — cf. lib/customization.ts */
+applyCustomization()
 /* a single document listener for the whole shortcut registry (cf. app/shortcuts.ts) */
 installShortcuts()
 
