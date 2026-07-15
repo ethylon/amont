@@ -1,0 +1,272 @@
+---
+import Base from "../layouts/Base.astro"
+import Nav from "./Nav.astro"
+import Shot from "./Shot.astro"
+import MetroBg from "./MetroBg.astro"
+import { dict, REPO_URL, DOWNLOAD_URL, type Locale } from "../i18n/ui"
+import pkg from "../../../package.json"
+
+import graphLight from "../../../docs/graph-light.png"
+import graphDark from "../../../docs/graph-dark.png"
+import diffLight from "../../../docs/diff-light.png"
+import diffDark from "../../../docs/diff-dark.png"
+import worktreeLight from "../../../docs/worktree-light.png"
+import worktreeDark from "../../../docs/worktree-dark.png"
+import conflictLight from "../../../docs/conflict-light.png"
+import conflictDark from "../../../docs/conflict-dark.png"
+
+interface Props {
+  locale: Locale
+}
+
+const { locale } = Astro.props
+const t = dict[locale]
+
+const shots = {
+  graph: { light: graphLight, dark: graphDark },
+  diff: { light: diffLight, dark: diffDark },
+  worktree: { light: worktreeLight, dark: worktreeDark },
+  conflict: { light: conflictLight, dark: conflictDark },
+} as const
+---
+
+<Base locale={locale}>
+  <Nav locale={locale} />
+
+  <main>
+    <!-- Hero -->
+    <section class="relative overflow-hidden">
+      <MetroBg />
+      <div
+        class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[36rem] bg-gradient-to-b from-violet-500/10 via-transparent to-transparent"
+      >
+      </div>
+
+      <div class="mx-auto max-w-6xl px-4 pt-20 pb-10 text-center sm:px-6 sm:pt-28">
+        <p
+          class="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white/60 px-3.5 py-1.5 text-xs font-medium text-zinc-600 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400"
+        >
+          <span class="inline-block size-1.5 rounded-full bg-violet-500"></span>
+          <span class="font-mono">v{pkg.version}</span>
+          <span aria-hidden="true">·</span>
+          {t.hero.badge}
+        </p>
+
+        <h1
+          class="mx-auto max-w-4xl bg-gradient-to-b from-zinc-950 to-zinc-600 bg-clip-text text-5xl font-semibold tracking-tighter text-balance text-transparent sm:text-6xl lg:text-7xl dark:from-white dark:to-zinc-400"
+        >
+          {t.hero.title}
+        </h1>
+
+        <p class="mx-auto mt-6 max-w-2xl text-lg text-pretty text-zinc-600 dark:text-zinc-400">
+          {t.hero.lede}
+        </p>
+
+        <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href={DOWNLOAD_URL}
+            rel="noopener"
+            class="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-5 py-3 font-medium text-white shadow-lg shadow-violet-600/25 transition-colors hover:bg-violet-500"
+          >
+            <svg
+              class="size-4.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 5v14"></path>
+              <path d="M19 12l-7 7-7-7"></path>
+            </svg>
+            {t.hero.ctaDownload}
+          </a>
+          <a
+            href={REPO_URL}
+            rel="noopener"
+            class="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-5 py-3 font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
+          >
+            {t.hero.ctaGithub}
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="mx-auto max-w-6xl px-4 pb-16 sm:px-6" data-reveal>
+        <div class="relative">
+          <div
+            class="absolute -inset-x-8 -top-10 bottom-0 -z-10 rounded-[3rem] bg-violet-500/10 blur-3xl dark:bg-violet-500/15"
+            aria-hidden="true"
+          >
+          </div>
+          <Shot light={shots.graph.light} dark={shots.graph.dark} alt={t.hero.graphAlt} eager />
+        </div>
+        <p class="mt-5 text-center text-sm text-zinc-500 dark:text-zinc-500">
+          {t.hero.caption}
+        </p>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="border-t border-zinc-200 bg-zinc-50/60 dark:border-zinc-800/80 dark:bg-zinc-900/20">
+      <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+        <div class="max-w-3xl" data-reveal>
+          <h2 class="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{t.features.heading}</h2>
+          <p class="mt-4 text-lg text-zinc-600 dark:text-zinc-400">{t.features.sub}</p>
+        </div>
+
+        <div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {
+            t.features.items.map((feature) => (
+              <article
+                class="rounded-2xl border border-zinc-200 bg-white p-6 transition-colors hover:border-violet-300 dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-violet-500/40"
+                data-reveal
+              >
+                <div
+                  class="mb-4 grid size-10 place-items-center rounded-lg border border-zinc-200 bg-zinc-50 text-xl dark:border-zinc-700/60 dark:bg-zinc-800/80"
+                  aria-hidden="true"
+                >
+                  {feature.emoji}
+                </div>
+                <h3 class="font-semibold tracking-tight">{feature.title}</h3>
+                <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{feature.body}</p>
+              </article>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Tour -->
+    <section id="tour" class="border-t border-zinc-200 dark:border-zinc-800/80">
+      <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+        <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl" data-reveal>{t.tour.heading}</h2>
+
+        <div class="mt-14 space-y-24">
+          {
+            t.tour.stops.map((stop, index) => (
+              <div class="grid items-center gap-8 lg:grid-cols-5 lg:gap-12" data-reveal>
+                <div class:list={["lg:col-span-2", index % 2 === 1 && "lg:order-last"]}>
+                  <p class="font-mono text-sm text-violet-600 dark:text-violet-400">
+                    {String(index + 1).padStart(2, "0")}
+                  </p>
+                  <h3 class="mt-2 text-2xl font-semibold tracking-tight text-balance">{stop.title}</h3>
+                  <p class="mt-4 leading-relaxed text-zinc-600 dark:text-zinc-400">{stop.body}</p>
+                </div>
+                <div class="lg:col-span-3">
+                  <Shot
+                    light={shots[stop.shot].light}
+                    dark={shots[stop.shot].dark}
+                    alt={stop.alt}
+                    invert={stop.shot === "graph"}
+                    sizes="(min-width: 1024px) 640px, 92vw"
+                  />
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Open source & honesty -->
+    <section class="border-t border-zinc-200 bg-zinc-50/60 dark:border-zinc-800/80 dark:bg-zinc-900/20">
+      <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6" data-reveal>
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">{t.open.heading}</h2>
+          <a
+            href={REPO_URL}
+            rel="noopener"
+            class="font-medium text-violet-600 transition-colors hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+          >
+            {t.open.cta} <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <div class="mt-10 grid gap-4 sm:grid-cols-3">
+          {
+            t.open.items.map((item) => (
+              <div class="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <svg
+                  class="mb-3 size-5 text-violet-600 dark:text-violet-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                <h3 class="font-semibold tracking-tight">{item.title}</h3>
+                <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{item.body}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- Download -->
+    <section id="download" class="border-t border-zinc-200 dark:border-zinc-800/80">
+      <div class="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 sm:py-28" data-reveal>
+        <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">{t.download.heading}</h2>
+        <p class="mt-4 text-lg text-pretty text-zinc-600 dark:text-zinc-400">{t.download.body}</p>
+
+        <a
+          href={DOWNLOAD_URL}
+          rel="noopener"
+          class="mt-8 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-6 py-3.5 text-lg font-medium text-white shadow-lg shadow-violet-600/25 transition-colors hover:bg-violet-500"
+        >
+          <svg
+            class="size-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 5v14"></path>
+            <path d="M19 12l-7 7-7-7"></path>
+          </svg>
+          {t.download.cta}
+        </a>
+
+        <p class="mt-4 text-sm text-zinc-500">{t.download.platform}</p>
+
+        <div
+          class="mt-10 rounded-xl border border-zinc-200 bg-zinc-50 p-5 text-left text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400"
+        >
+          <p class="font-medium text-zinc-900 dark:text-zinc-200">{t.download.smartscreenTitle}</p>
+          <p class="mt-1.5 leading-relaxed">{t.download.smartscreen}</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-zinc-200 dark:border-zinc-800/80">
+    <div
+      class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-10 text-sm text-zinc-500 sm:px-6"
+    >
+      <p>{t.footer.license}</p>
+      <p class="italic">{t.footer.tagline}</p>
+      <div class="flex items-center gap-5">
+        <a href={REPO_URL} rel="noopener" class="transition-colors hover:text-zinc-950 dark:hover:text-white">
+          GitHub <span aria-hidden="true">↗</span>
+        </a>
+        <a
+          href={locale === "en" ? "/fr/" : "/"}
+          class="transition-colors hover:text-zinc-950 dark:hover:text-white"
+          lang={locale === "en" ? "fr" : "en"}
+        >
+          {locale === "en" ? "Français" : "English"}
+        </a>
+      </div>
+    </div>
+  </footer>
+</Base>
