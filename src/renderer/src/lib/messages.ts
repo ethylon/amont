@@ -801,6 +801,11 @@ export const messages = {
       return t`version`
     },
     startLabel: (kind: string) => t`Start a ${kind} branch`,
+    /* the start point of the new branch, chosen in the inline banner */
+    get from() {
+      return t`from`
+    },
+    baseLabel: (kind: string) => t`Start point for the ${kind} branch`,
     get cancelStart() {
       return t`Cancel`
     },
