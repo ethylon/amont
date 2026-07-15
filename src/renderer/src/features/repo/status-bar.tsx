@@ -82,7 +82,7 @@ export const StatusBar = memo(function StatusBar(props: Props) {
       <GitConsole repoId={repoId} entry={entry} />
 
       {stats && (
-        <span className="shrink-0 whitespace-nowrap tabular-nums">
+        <span className="ms-auto shrink-0 whitespace-nowrap tabular-nums">
           <b className="font-medium text-foreground">{nf.format(stats.loaded)}</b> / {nf.format(stats.total)} commits
         </span>
       )}
