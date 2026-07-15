@@ -108,13 +108,24 @@ function flowSuffix(prefixes: FlowPrefixes | null, kind: FlowKind, x: string): {
   return { prefix, name }
 }
 
-/** `git flow <kind> start <name|version>` — branch off the trunk. No tag or editor at start
-    (that only happens at finish), so nothing can hang here. */
-export async function flowStart(r: RepoHandle, kind: FlowKind, x: string): Promise<void> {
+/* Optional start point of a `flow start`: same `-`/option-injection guard as the name (fix B2),
+   and the full ref name is validated with the shared BRANCH filter. Empty or absent means "let
+   git-flow pick its own default trunk" — no positional base is appended. */
+function flowStartBase(x: string | undefined): string | null {
+  const base = typeof x === "string" ? x.trim() : ""
+  if (!base) return null
+  if (base.startsWith("-") || !BRANCH.test(base)) throw new AppError("BAD_ARG", base)
+  return base
+}
+
+/** `git flow <kind> start <name|version> [<base>]` — branch off `base` (default trunk when
+    omitted). No tag or editor at start (that only happens at finish), so nothing can hang here. */
+export async function flowStart(r: RepoHandle, kind: FlowKind, x: string, base?: string): Promise<void> {
   if (!FLOW_TYPES.includes(kind)) throw new AppError("BAD_ARG", "kind")
   const { name } = flowSuffix(await flowPrefixes(r), kind, x)
+  const from = flowStartBase(base)
   await withLock(r, `flow ${kind} start`, () =>
-    r.git(["flow", kind, "start", name], { timeout: OP_TIMEOUT }).then(() => {})
+    r.git(["flow", kind, "start", name, ...(from ? [from] : [])], { timeout: OP_TIMEOUT }).then(() => {})
   )
 }
 
