@@ -320,16 +320,32 @@ export function WorktreePanel() {
     ),
     [askDiscard, wtButton]
   )
-  const stageDir = useCallback(
-    (files: WtFile[]) =>
-      wtButton(
-        messages.worktree.stageFolder,
-        PlusSignIcon,
-        STAGE,
-        true,
-        files.map((f) => f.path)
-      ),
-    [wtButton]
+  /* Folder row of the unindexed block mirrors the per-file actions: discard first, stage
+     second, both scoped to the subtree's files. The trigger's `flex-1` pushes the pair right,
+     so neither carries `ms-auto` (unlike ACTION_CLS on the file row). */
+  const unindexedDirActions = useCallback(
+    (files: WtFile[]) => (
+      <>
+        <IconButton
+          label={messages.worktree.discardFolder}
+          icon={ArrowTurnBackwardIcon}
+          size="icon-xs"
+          className={cn(DIR_ACTION_CLS, "text-destructive hover:text-destructive")}
+          onClick={(ev) => {
+            ev.stopPropagation()
+            askDiscard(files)
+          }}
+        />
+        {wtButton(
+          messages.worktree.stageFolder,
+          PlusSignIcon,
+          STAGE,
+          true,
+          files.map((f) => f.path)
+        )}
+      </>
+    ),
+    [askDiscard, wtButton]
   )
   const unstageDir = useCallback(
     (files: WtFile[]) =>
@@ -453,7 +469,7 @@ export function WorktreePanel() {
           activePath={activePath}
           onOpen={openDiff}
           action={unindexedActions}
-          dirAction={stageDir}
+          dirAction={unindexedDirActions}
           menu={unindexedMenu}
           empty={messages.worktree.noChangesToStage}
           className={cn("pb-3", hasConflicts && "border-t pt-3")}
