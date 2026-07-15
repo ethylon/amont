@@ -1,11 +1,14 @@
 import { cn } from "@/lib/utils"
 
-/* UI experiment: the git command a control triggers, shown as muted mono subtext. */
+/* UI experiment: the git command a control triggers, shown as muted mono subtext.
+   The subtext tracks the action's colour: muted by default, but a destructive menu item
+   tints it (destructive/70) to match its red caption — the same muted-red hierarchy the
+   destructive buttons/modals get via `className="text-destructive/70"`. */
 export function GitCmd({ cmd, className }: { cmd: string; className?: string }) {
   return (
     <span
       className={cn(
-        "block max-w-full truncate font-mono text-[0.625rem] leading-tight font-normal text-muted-foreground [[data-slot=context-menu-item][data-variant=destructive]_&]:text-muted-foreground! [[data-slot=dropdown-menu-item][data-variant=destructive]_&]:text-muted-foreground!",
+        "block max-w-full truncate font-mono text-[0.625rem] leading-tight font-normal text-muted-foreground [[data-slot=context-menu-item][data-variant=destructive]_&]:text-destructive/70! [[data-slot=dropdown-menu-item][data-variant=destructive]_&]:text-destructive/70!",
         className
       )}
     >
