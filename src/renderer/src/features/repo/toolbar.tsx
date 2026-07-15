@@ -7,6 +7,7 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   Refresh01Icon,
+  Settings01Icon,
 } from "@hugeicons/core-free-icons"
 
 import type { OpName, Repo, Status } from "@/lib/git"
@@ -16,14 +17,16 @@ import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 
 /* labels are thunks, not values: reading messages.* at module scope would run `t` during
    import, before setupI18n() has activated a locale (cf. refs-menu.tsx). Pull/Push reuse the
-   refs catalogue entries — same action, same string. */
+   refs catalogue entries — same action, same string. Fetch's `cmd` is the base; `--prune` is
+   appended live from the setting (see the component), so the shown command stays truthful. */
 const OPS = [
-  { op: "fetch", label: () => messages.repo.fetch, icon: Refresh01Icon, cmd: "git fetch --all --prune" },
+  { op: "fetch", label: () => messages.repo.fetch, icon: Refresh01Icon, cmd: "git fetch --all" },
   { op: "pull", label: () => messages.refs.pull, icon: ArrowDown02Icon, cmd: "git pull --ff-only" },
   { op: "push", label: () => messages.refs.push, icon: ArrowUp02Icon, cmd: "git push" },
 ] as const
@@ -35,6 +38,10 @@ type Props = {
   sidebarOpen: boolean
   onToggleSidebar(): void
   onRunOp(op: OpName): void
+  /** opens the settings modal (fetch behavior) — the cog half of the fetch button-group */
+  onOpenSettings(): void
+  /** the `prune` setting: appends `--prune` to the shown fetch command when on */
+  prune: boolean
   /** the search bar: it needs the graph, which the toolbar doesn't know about */
   children: React.ReactNode
 }
@@ -49,6 +56,8 @@ export const Toolbar = memo(function Toolbar({
   sidebarOpen,
   onToggleSidebar,
   onRunOp,
+  onOpenSettings,
+  prune,
   children,
 }: Props) {
   /* memo'd component: re-render on a runtime language switch even when no prop moved */
@@ -58,6 +67,43 @@ export const Toolbar = memo(function Toolbar({
     pull: status?.behind ?? null,
     push: status?.ahead ?? null,
   }
+
+  /* one op button (fetch/pull/push); `cmdOverride` lets fetch show its live, prune-aware command. */
+  const opButton = ({ op, label, icon, cmd }: (typeof OPS)[number], cmdOverride?: string) => {
+    const n = counts[op]
+    return (
+      <Button
+        key={op}
+        variant="ghost"
+        size="sm"
+        className="h-auto gap-2 py-0.5"
+        disabled={n === 0 || busyOp !== null}
+        aria-busy={busyOp === op}
+        onClick={() => onRunOp(op)}
+      >
+        {busyOp === op ? (
+          <Spinner data-icon="inline-start" className="size-3" />
+        ) : (
+          <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />
+        )}
+        <span className="flex flex-col items-start">
+          <span className="flex items-center gap-1">
+            {label()}
+            {!!n && (
+              <Badge color="primary" shape="squared" className="tabular-nums">
+                {n}
+              </Badge>
+            )}
+          </span>
+          <GitCmd cmd={cmdOverride ?? cmd} />
+        </span>
+      </Button>
+    )
+  }
+
+  const [fetchOp, ...restOps] = OPS
+  /* `--prune` is a live setting, appended to fetch's shown command so it never lies */
+  const fetchCmd = `${fetchOp.cmd}${prune ? " --prune" : ""}`
 
   return (
     <div className="flex h-11.5 shrink-0 items-center gap-2 overflow-x-auto border-b pr-3.5">
@@ -81,37 +127,22 @@ export const Toolbar = memo(function Toolbar({
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
-        {OPS.map(({ op, label, icon, cmd }) => {
-          const n = counts[op]
-          return (
-            <Button
-              key={op}
-              variant="ghost"
-              size="sm"
-              className="h-auto gap-2 py-0.5"
-              disabled={n === 0 || busyOp !== null}
-              aria-busy={busyOp === op}
-              onClick={() => onRunOp(op)}
-            >
-              {busyOp === op ? (
-                <Spinner data-icon="inline-start" className="size-3" />
-              ) : (
-                <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />
-              )}
-              <span className="flex flex-col items-start">
-                <span className="flex items-center gap-1">
-                  {label()}
-                  {!!n && (
-                    <Badge color="primary" shape="squared" className="tabular-nums">
-                      {n}
-                    </Badge>
-                  )}
-                </span>
-                <GitCmd cmd={cmd} />
-              </span>
-            </Button>
-          )
-        })}
+        {/* Fetch and its settings (cog) as one button-group: the primitive handles the joining
+            (radius, borders, positioning) — the cog opens the settings modal. */}
+        <ButtonGroup>
+          {opButton(fetchOp, fetchCmd)}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={messages.settings.title}
+            className="h-auto"
+            onClick={onOpenSettings}
+          >
+            <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
+          </Button>
+        </ButtonGroup>
+
+        {restOps.map((op) => opButton(op))}
       </div>
 
       <Separator orientation="vertical" className="mx-1 my-2" />

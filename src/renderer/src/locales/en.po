@@ -136,6 +136,9 @@ msgstr "Apply and drop"
 msgid "author"
 msgstr "author"
 
+msgid "Auto-fetch"
+msgstr "Auto-fetch"
+
 msgid "B · {label}"
 msgstr "B · {label}"
 
@@ -373,6 +376,9 @@ msgstr "Downloading Amont {version}…"
 msgid "Drop"
 msgstr "Drop"
 
+msgid "Drop remote-tracking branches that no longer exist on the remote."
+msgstr "Drop remote-tracking branches that no longer exist on the remote."
+
 msgid "Empty diff."
 msgstr "Empty diff."
 
@@ -396,6 +402,12 @@ msgstr "Feature prefix"
 
 msgid "Fetch"
 msgstr "Fetch"
+
+msgid "Fetch behavior, applied to every repository."
+msgstr "Fetch behavior, applied to every repository."
+
+msgid "Fetch from all remotes in the background, on a timer."
+msgstr "Fetch from all remotes in the background, on a timer."
 
 msgid "Fetching…"
 msgstr "Fetching…"
@@ -505,6 +517,9 @@ msgstr "Initialize Git Flow…"
 msgid "initializing…"
 msgstr "initializing…"
 
+msgid "Interval"
+msgstr "Interval"
+
 msgid "Its remote branch has already been deleted."
 msgstr "Its remote branch has already been deleted."
 
@@ -555,6 +570,9 @@ msgstr "Merged output — editable"
 
 msgid "Merging {theirs} (B) into {ours} (A)"
 msgstr "Merging {theirs} (B) into {ours} (A)"
+
+msgid "min"
+msgstr "min"
 
 msgid "More actions"
 msgstr "More actions"
@@ -661,6 +679,9 @@ msgstr "Production branch"
 msgid "Prunable objects"
 msgstr "Prunable objects"
 
+msgid "Prune on fetch"
+msgstr "Prune on fetch"
+
 msgid "Prune worktrees"
 msgstr "Prune worktrees"
 
@@ -753,6 +774,9 @@ msgstr "scanning for repositories…"
 
 msgid "Send anonymous crash reports"
 msgstr "Send anonymous crash reports"
+
+msgid "Settings"
+msgstr "Settings"
 
 msgid "Show sidebar"
 msgstr "Show sidebar"

@@ -136,6 +136,9 @@ msgstr "Appliquer et supprimer"
 msgid "author"
 msgstr "auteur"
 
+msgid "Auto-fetch"
+msgstr "Fetch automatique"
+
 msgid "B · {label}"
 msgstr "B · {label}"
 
@@ -373,6 +376,9 @@ msgstr "Téléchargement d'Amont {version}…"
 msgid "Drop"
 msgstr "Supprimer"
 
+msgid "Drop remote-tracking branches that no longer exist on the remote."
+msgstr "Supprime les branches de suivi qui n'existent plus sur le distant."
+
 msgid "Empty diff."
 msgstr "Diff vide."
 
@@ -396,6 +402,12 @@ msgstr "Préfixe feature"
 
 msgid "Fetch"
 msgstr "Fetch"
+
+msgid "Fetch behavior, applied to every repository."
+msgstr "Comportement du fetch, appliqué à tous les dépôts."
+
+msgid "Fetch from all remotes in the background, on a timer."
+msgstr "Récupère depuis tous les distants en arrière-plan, à intervalle régulier."
 
 msgid "Fetching…"
 msgstr "Récupération…"
@@ -505,6 +517,9 @@ msgstr "Initialiser Git Flow…"
 msgid "initializing…"
 msgstr "initialisation…"
 
+msgid "Interval"
+msgstr "Intervalle"
+
 msgid "Its remote branch has already been deleted."
 msgstr "Sa branche distante a déjà été supprimée."
 
@@ -555,6 +570,9 @@ msgstr "Résultat du merge — éditable"
 
 msgid "Merging {theirs} (B) into {ours} (A)"
 msgstr "Merge de {theirs} (B) dans {ours} (A)"
+
+msgid "min"
+msgstr "min"
 
 msgid "More actions"
 msgstr "Plus d'actions"
@@ -661,6 +679,9 @@ msgstr "Branche de production"
 msgid "Prunable objects"
 msgstr "Objets élaguables"
 
+msgid "Prune on fetch"
+msgstr "Nettoyer au fetch (prune)"
+
 msgid "Prune worktrees"
 msgstr "Nettoyer les worktrees (prune)"
 
@@ -753,6 +774,9 @@ msgstr "recherche de dépôts…"
 
 msgid "Send anonymous crash reports"
 msgstr "Envoyer des rapports de plantage anonymes"
+
+msgid "Settings"
+msgstr "Réglages"
 
 msgid "Show sidebar"
 msgstr "Afficher la barre latérale"

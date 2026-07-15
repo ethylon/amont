@@ -13,6 +13,7 @@ import { writeFile } from "node:fs/promises"
 import { AppError, decodeError } from "../../shared/errors.ts"
 import type { BranchAct, OpEvent, OpName, StashAct, WorktreeAct } from "../../shared/types.ts"
 import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
+import { getSettings } from "../settings.ts"
 import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { finishFlow } from "./flow.ts"
@@ -21,13 +22,19 @@ import { ALL_REFS, BRANCH } from "./parse.ts"
 /* --- Network ---
    --progress: without a TTY git stays silent about its progress; we force it so the console streams it. */
 const OPS: Record<OpName, string[]> = {
-  fetch: ["fetch", "--all", "--prune", "--progress"],
+  fetch: ["fetch", "--all", "--progress"],
   pull: ["pull", "--ff-only", "--progress"],
   push: ["push", "--progress"],
 }
 const OP_GROUP: Record<OpName, string> = { fetch: "Fetch", pull: "Pull", push: "Push" }
 
 export const isOpName = (name: string): name is OpName => Object.hasOwn(OPS, name)
+
+/* `--prune` on fetch is a user setting (settings.ts): drop remote-tracking refs whose upstream
+   branch is gone. Read live at call time so a change in the settings modal takes effect on the
+   very next fetch, no restart. The other ops carry no settings-driven flag. */
+const opArgs = (name: OpName): string[] =>
+  name === "fetch" && getSettings().prune ? ["fetch", "--all", "--prune", "--progress"] : OPS[name]
 
 /* Operation header: brackets the stream at the level of the user action (a push, a pull,
    auto-fetch, a checkout…), whereas `r.git()` only sees isolated commands. Background reads
@@ -82,7 +89,7 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<
     const before = await refTips(r)
     /* stream `NN%` to the footer, like fsck (Verify) — but never for a background auto-fetch,
        which stays non-intrusive (a badge on completion, no live feed occupant). */
-    await r.git(OPS[name], { timeout: OP_TIMEOUT, onProgress: auto ? undefined : reportProgress(r, name) })
+    await r.git(opArgs(name), { timeout: OP_TIMEOUT, onProgress: auto ? undefined : reportProgress(r, name) })
     const after = await refTips(r)
     const changed = after.join() !== before.join()
     const added = changed && name === "fetch" ? await countNew(r, before) : 0

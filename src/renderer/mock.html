@@ -416,6 +416,9 @@
         { name: "v4.2.0", kind: "tag", head: false, ahead: 0, behind: 0, tip: sha("3c4d5e6f") },
       ]
 
+      /* mirrors the SETTINGS registry defaults (shared/settings.ts) */
+      const MOCK_SETTINGS = { autoFetch: true, autoFetchIntervalMin: 5, prune: true }
+
       window.amont = {
         state: async () => ({ root: "/mock", recents: RECENTS, tabs: [REPO], active: REPO.id }),
         repos: async () => ({ root: "/mock", recents: RECENTS }),
@@ -428,6 +431,11 @@
         /* no DSN in the harness: the home-screen toggle stays hidden, like a build from source */
         telemetryState: async () => ({ available: false, enabled: true }),
         setTelemetry: async () => {},
+        /* settings modal (fetch behavior): a mutable in-memory copy so the toggles round-trip */
+        getSettings: async () => ({ ...MOCK_SETTINGS }),
+        setSettings: async (patch) => {
+          Object.assign(MOCK_SETTINGS, patch)
+        },
         /* creation page: each call mints a fresh repo under /mock — every repo api below
            ignores the id, so a created/cloned tab renders the same dataset as mock-repo */
         chooseCreateDir: async () => "/mock/projects",

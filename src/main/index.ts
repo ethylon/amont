@@ -5,6 +5,7 @@ import { app } from "electron"
 
 import { registerIpc } from "./ipc.ts"
 import { hardenSession } from "./security.ts"
+import { loadSettings } from "./settings.ts"
 import { loadState } from "./state.ts"
 import { applyTelemetryOptOut, initTelemetry } from "./telemetry.ts"
 import { initUpdater } from "./updater.ts"
@@ -39,6 +40,9 @@ if (!gotLock) {
       /* after loadState (reads the opt-out flag), before createWindow so a failure while
          building the window is still reported */
       applyTelemetryOptOut()
+      /* also before createWindow: the renderer's app:state opens the restored tabs, and each
+         repo arms its autofetch timer from these settings (repos.ts) */
+      loadSettings()
       hardenSession()
       createWindow()
       /* after createWindow: the updater pushes its events to the main window */
