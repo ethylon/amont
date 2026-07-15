@@ -5,21 +5,15 @@
 
 import { useEffect, useState } from "react"
 
-/* Same aliases as diff-view's: in-house extensions -> shiki grammar; MSBuild files are XML. */
-const LANG_ALIASES: Record<string, string> = {
-  jet: "sql",
-  csproj: "xml",
-  props: "xml",
-  targets: "xml",
-  slnx: "xml",
-  svg: "xml",
-}
+import { getLangAliases, useLangAliasSig } from "@/lib/customization"
 
+/* Extension → shiki grammar now comes from the user-editable map (Settings ▸ Diff, seeded with the
+   in-house extensions that used to be hardcoded here — `.csproj` → xml, `.jet` → sql). */
 export function langOf(path: string): string {
   const name = path.slice(path.lastIndexOf("/") + 1)
   const dot = name.lastIndexOf(".")
   const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : ""
-  return LANG_ALIASES[ext] || ext
+  return getLangAliases()[ext] || ext
 }
 
 export type TokenLine = { content: string; color?: string }[]
@@ -29,6 +23,9 @@ export type TokenLine = { content: string; color?: string }[]
     new highlight is computing, so consumers don't flash the code back to plain. */
 export function useShikiTokens(code: string, path: string, dark: boolean): TokenLine[] | null {
   const [tokens, setTokens] = useState<TokenLine[] | null>(null)
+  /* Re-highlight when the extension→grammar map changes (a stable signature, so unrelated
+     customization edits don't retrigger the tokenizer). */
+  const langSig = useLangAliasSig()
   useEffect(() => {
     const lang = langOf(path)
     if (!lang || lang === "txt") {
@@ -51,7 +48,7 @@ export function useShikiTokens(code: string, path: string, dark: boolean): Token
       }
     })()
     return () => abort.abort()
-  }, [code, path, dark])
+  }, [code, path, dark, langSig])
   return tokens
 }
 

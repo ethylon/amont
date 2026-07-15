@@ -3,9 +3,19 @@
    commit-message.test.ts (AUDIT.md §7, phase 5): this file only covers commit-parse.ts,
    see markdown.test.ts for parseMarkdown. */
 import assert from "node:assert/strict"
-import { describe, it } from "vitest"
+import { afterEach, describe, it } from "vitest"
 
-import { mergeSource, parseBody, parseMerge, parseRefs, parseSubject } from "./commit-parse.ts"
+import {
+  isCustomType,
+  mergeSource,
+  parseBody,
+  parseMerge,
+  parseRefs,
+  parseSubject,
+  prefixColorVar,
+  setCustomPrefixes,
+  typeColor,
+} from "./commit-parse.ts"
 
 /** "master*" = remote merged into the local branch */
 const fmt = (raw: string) => parseRefs(raw).map((r) => r.name + (r.remotes.length ? "*" : ""))
@@ -165,5 +175,59 @@ describe("parseSubject", () => {
 
   it('leaves any random "truc: machin" as plain text', () => {
     assert.deepEqual(parseSubject("truc: machin"), { type: null, label: null, text: "truc: machin" })
+  })
+})
+
+describe("custom prefix rules", () => {
+  afterEach(() => setCustomPrefixes([])) // the registry is module state — leave it clean for others
+
+  it("turns an unknown [TAG] into a typed 'lane' badge instead of the neutral 'other'", () => {
+    setCustomPrefixes(["epic"])
+    assert.deepEqual(parseSubject("[EPIC] big thing"), { type: "epic", label: "epic", text: "big thing" })
+    assert.equal(typeColor("epic"), "lane") // color itself comes from a per-theme CSS var
+    assert.equal(isCustomType("epic"), true)
+  })
+
+  it("gives an unknown conventional prefix a badge, keeping its scope", () => {
+    setCustomPrefixes(["spike"])
+    assert.deepEqual(parseSubject("spike: try it"), { type: "spike", label: "spike", text: "try it" })
+    assert.deepEqual(parseSubject("spike(api): try it"), { type: "spike", label: "spike · api", text: "try it" })
+    assert.equal(typeColor("spike"), "lane")
+  })
+
+  it("matches a prefix regardless of case/punctuation, in either the [TAG] or the prefix: form", () => {
+    setCustomPrefixes(["Epic"])
+    assert.equal(parseSubject("[epic] a").type, "epic")
+    assert.equal(parseSubject("[EPIC] b").type, "epic")
+    assert.equal(parseSubject("epic: c").type, "epic")
+  })
+
+  it("never overrides a built-in type (built-ins win)", () => {
+    setCustomPrefixes(["feat"])
+    assert.deepEqual(parseSubject("feat: x"), { type: "feat", label: "feat", text: "x" })
+    assert.equal(typeColor("feat"), "success") // built-in color, not the generic lane
+  })
+
+  it("leaves a non-matching prefix as plain text", () => {
+    setCustomPrefixes(["epic"])
+    assert.deepEqual(parseSubject("note: nothing"), { type: null, label: null, text: "note: nothing" })
+  })
+
+  it("folds and de-dupes prefixes, dropping blanks", () => {
+    setCustomPrefixes(["  ", "Epic", "[epic]"]) // blank ignored; both fold to "epic"
+    assert.equal(isCustomType("epic"), true)
+    assert.equal(parseSubject("[EPIC] x").type, "epic")
+  })
+
+  it("falls back to the neutral 'other' badge once its rule is cleared", () => {
+    setCustomPrefixes([])
+    assert.deepEqual(parseSubject("[EPIC] x"), { type: "other", label: "epic", text: "x" })
+    assert.equal(isCustomType("epic"), false)
+    assert.equal(typeColor("other"), "neutral")
+  })
+
+  it("builds a safe CSS custom-property name from any prefix", () => {
+    assert.equal(prefixColorVar("Epic-1"), "--amont-prefix-epic1")
+    assert.equal(prefixColorVar("[HOT FIX]"), "--amont-prefix-hotfix")
   })
 })
