@@ -1,8 +1,9 @@
-/* Linked-worktrees sidebar section (component + query + actions colocated, same shape as
-   features/stash). One row per LINKED entry of `git worktree list` — the main worktree is the
-   repository itself, not a worktree to manage, so it stays out. A click jumps to its HEAD in
-   the graph, a double-click opens it as a tab, the menu carries open/reveal/remove (or prune
-   for a stale entry). */
+/* Worktrees sidebar section (component + query + actions colocated, same shape as
+   features/stash). One row per entry of `git worktree list`, the main worktree included — but
+   only once at least one linked worktree exists, since a lone main is the repo itself and has
+   nothing to manage. A click jumps to its HEAD in the graph, a double-click opens it as a tab,
+   the menu carries open/reveal/remove (or prune for a stale entry; the main row can neither be
+   opened when current nor removed). */
 
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowUpRight01Icon, CleanIcon, Delete02Icon, FolderOpenIcon, Tree02Icon } from "@hugeicons/core-free-icons"
@@ -64,7 +65,11 @@ function WorktreeRow({
             )}
           />
           {w.current && <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />}
-          <span className="truncate text-muted-foreground">{w.branch ?? messages.worktrees.detached}</span>
+          {/* the branch column is noise when it duplicates the folder name (the common case:
+              `git worktree add` names the folder after the branch) — keep it only when it adds info */}
+          {w.branch !== name && (
+            <span className="truncate text-muted-foreground">{w.branch ?? messages.worktrees.detached}</span>
+          )}
         </button>
       </ContextMenuTrigger>
       <ContextMenuContent className="max-w-72">
@@ -95,8 +100,8 @@ function WorktreeRow({
   )
 }
 
-/** Sidebar worktrees section: renders `null` when the repo has no linked worktree (the main
-    one is the repository, not a worktree) or when nothing matches the filter. */
+/** Sidebar worktrees section: renders `null` when the repo has no linked worktree (a lone main
+    is the repository, not something to manage) or when nothing matches the filter. */
 export function WorktreesSection({ filter }: { filter: string }) {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
@@ -105,7 +110,10 @@ export function WorktreesSection({ filter }: { filter: string }) {
   const onAct = useRepoStore((s) => s.runWorktree)
   const { data: worktrees = [] } = useWorktreesQuery(api, repoId)
 
-  const matches = worktrees.filter((w) => !w.main && matchWorktree(w, filter))
+  // the main worktree earns a row only once there is at least one linked worktree to sit beside —
+  // a repo with no linked worktree has nothing to manage here, so the section stays hidden
+  const hasLinked = worktrees.some((w) => !w.main)
+  const matches = hasLinked ? worktrees.filter((w) => matchWorktree(w, filter)) : []
   const { open, onOpenChange } = useResettableOpen(true, !!filter)
 
   if (!matches.length) return null
