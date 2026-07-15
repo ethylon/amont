@@ -9,6 +9,7 @@ import { ArrowRight01Icon, GitBranchIcon, GitMergeIcon } from "@hugeicons/core-f
 
 import type { BranchAct, FlowPrefixes, GitRef } from "@/lib/git"
 import { useLocale } from "@/lib/i18n"
+import { messages } from "@/lib/messages"
 import { typeColor } from "@/lib/commit-parse"
 import { PINNED, pinRank } from "@/lib/gitflow"
 import { buildPathTree, type PathTree } from "@/lib/path-tree"
@@ -216,7 +217,7 @@ const RefRow = memo(function RefRow({
       <ContextMenuContent>
         <ContextMenuItem onClick={() => ctx.onCheckout(target)}>
           <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} />
-          <MenuItemWithCmd label="Checkout" cmd={`git checkout ${target}`} />
+          <MenuItemWithCmd label={messages.refs.checkout} cmd={`git checkout ${target}`} />
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
