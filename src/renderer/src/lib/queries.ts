@@ -21,6 +21,9 @@ import type { DiffCtx } from "@/features/diff/diff-view"
 import type { FlowPrefixes, RepoApi } from "@/lib/git"
 
 export const queryKeys = {
+  /** app-wide settings (shared/settings.ts) — not per-repo, so no id; shared by the settings
+      modal and the toolbar's fetch-command label so a prune change updates both live */
+  settings: () => ["settings"] as const,
   status: (id: number) => ["status", id] as const,
   refs: (id: number) => ["refs", id] as const,
   worktree: (id: number) => ["worktree", id] as const,

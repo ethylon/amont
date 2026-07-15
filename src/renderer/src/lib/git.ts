@@ -39,6 +39,11 @@ export type {
   WtSource,
 } from "../../../shared/types.ts"
 
+export type { Settings } from "../../../shared/settings.ts"
+/* the settings registry is a plain-data value (no node/electron deps): safe to bundle renderer-side,
+   so the settings modal reads its defaults/options from the same source the main process does */
+export { SETTINGS } from "../../../shared/settings.ts"
+
 import type { Bridge } from "../../../shared/ipc-contract.ts"
 import type {
   BlobData,
@@ -85,6 +90,8 @@ export const host = {
   scanRoot: bridge.scanRoot,
   telemetryState: bridge.telemetryState,
   setTelemetry: bridge.setTelemetry,
+  getSettings: bridge.getSettings,
+  setSettings: bridge.setSettings,
   chooseCreateDir: bridge.chooseCreateDir,
   initRepo: bridge.initRepo,
   initBare: bridge.initBare,
