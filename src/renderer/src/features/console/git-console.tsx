@@ -149,7 +149,7 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
   const text = entry?.text ?? last?.text ?? messages.console.ready
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
+    <div className="flex min-w-0 items-center gap-1">
       <span aria-live="polite" className="sr-only">
         {lastFailure ? messages.console.commandFailed(lastFailure) : ""}
       </span>
@@ -158,7 +158,7 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
         <PopoverTrigger
           aria-busy={busy}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-popup-open:bg-muted data-popup-open:text-foreground"
+            "flex min-w-0 max-w-[40ch] items-center gap-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[0.625rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-popup-open:bg-muted data-popup-open:text-foreground"
           )}
         >
           <span className={cn("size-1.5 shrink-0 rounded-full", DOT[tone])} />
