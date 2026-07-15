@@ -13,9 +13,11 @@ import { resolve, sep } from "node:path"
 import type { ChildProcess } from "node:child_process"
 
 import { AppError } from "../shared/errors.ts"
+import { autoFetchIntervalMs } from "../shared/settings.ts"
 import type { DistributiveOmit, OpEvent, ProgressEvent, Repo, Stash, TraceLine } from "../shared/types.ts"
 import { createGitRunner, killAll, type GitRunner } from "./git/exec.ts"
 import { basename } from "./util.ts"
+import { getSettings } from "./settings.ts"
 import { remember } from "./state.ts"
 import { watchGit, type Watchable } from "./watcher.ts"
 
@@ -32,7 +34,7 @@ export interface RepoHooks {
 
 /* Open repos, main side only. */
 export interface RepoHandle extends Watchable {
-  /** autofetch interval; `null` = none (never the case after opening, cf. createRepo) */
+  /** autofetch timer; `null` when auto-fetch is off or its interval isn't armed (cf. scheduleAutofetch) */
   timer: NodeJS.Timeout | null
   id: number
   path: string
@@ -112,7 +114,20 @@ export function setAutofetch(fn: AutofetchFn): void {
   autofetch = fn
 }
 
-const AUTOFETCH_MS = 5 * 60_000
+/** (Re)arm a repo's autofetch timer from the current settings (settings.ts): off clears it,
+    on (re)starts it at the configured interval. Idempotent — always clears the old timer first. */
+function scheduleAutofetch(r: RepoHandle): void {
+  if (r.timer) clearInterval(r.timer)
+  r.timer = null
+  const settings = getSettings()
+  if (settings.autoFetch) r.timer = setInterval(() => autofetch?.(r), autoFetchIntervalMs(settings))
+}
+
+/** Re-arm every open repo after an autofetch setting changed (on/off or interval). Called by
+    ipc.ts through onSettingsChange — a live change takes effect without reopening a tab. */
+export function rescheduleAutofetch(): void {
+  for (const r of repos.values()) scheduleAutofetch(r)
+}
 
 /* --- Lifecycle --- */
 
@@ -175,7 +190,7 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     diffNoIndex: runner.diffNoIndex,
     gitBuffer: runner.gitBuffer,
   }
-  r.timer = setInterval(() => autofetch?.(r), AUTOFETCH_MS)
+  scheduleAutofetch(r)
   watchGit(r)
   repos.set(r.id, r)
   remember(path)

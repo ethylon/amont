@@ -10,6 +10,7 @@
    structured error (`shared/errors.ts`) instead of a pre-formatted French string — same
    payload, message reconstructed on the renderer side. */
 
+import type { Settings } from "./settings"
 import type {
   BlobData,
   BlobRef,
@@ -60,6 +61,11 @@ export type InvokeChannels = {
      the home screen only shows the opt-out toggle then. */
   "telemetry:state": () => Promise<{ available: boolean; enabled: boolean }>
   "telemetry:set": (enabled: boolean) => Promise<void>
+
+  /* User settings (cf. shared/settings.ts). `get` reads the live values; `set` applies a partial
+     patch, coerced main-side. Auto-fetch changes re-arm the open repos' timers immediately. */
+  "settings:get": () => Promise<Settings>
+  "settings:set": (patch: Partial<Settings>) => Promise<void>
 
   /* Creation page (the "+" in the tab strip). The renderer never supplies an arbitrary
      destination: `create:chooseDir` shows the system picker and main remembers the choice —
@@ -197,6 +203,8 @@ export type Bridge = {
   scanRoot: InvokeChannels["root:scan"]
   telemetryState: InvokeChannels["telemetry:state"]
   setTelemetry: InvokeChannels["telemetry:set"]
+  getSettings: InvokeChannels["settings:get"]
+  setSettings: InvokeChannels["settings:set"]
   chooseCreateDir: InvokeChannels["create:chooseDir"]
   initRepo: InvokeChannels["create:init"]
   initBare: InvokeChannels["create:bare"]
