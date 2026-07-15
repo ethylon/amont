@@ -90,7 +90,7 @@ export function StashSection({ filter }: { filter: string }) {
   if (!matches.length) return null
 
   return (
-    <RefGroup title="Stash" count={matches.length} open={open} onOpenChange={onOpenChange}>
+    <RefGroup title={messages.worktree.stash} count={matches.length} open={open} onOpenChange={onOpenChange}>
       <ul role="list" className="mt-0.5 flex flex-col">
         {matches.map((s) => (
           <StashRow key={s.name + s.h} s={s} onFocus={onFocusStash} onStash={onStash} />
