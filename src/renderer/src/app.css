@@ -470,6 +470,48 @@
       transition: opacity 200ms ease-out;
     }
   }
+
+  /* Rolling subtext (RollingText): the leaving line slides up and out, the entering one rises
+     from below. Same deceleration curve as the tabs. Both lines share one grid cell, clipped to
+     a single line by the container's overflow — only the transform moves. */
+  @keyframes amont-roll-in {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+  @keyframes amont-roll-out {
+    to {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+  }
+  .amont-roll-in {
+    animation: amont-roll-in 220ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+  .amont-roll-out {
+    animation: amont-roll-out 220ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* keep the cross-fade, drop the vertical travel */
+    .amont-roll-in {
+      animation-name: amont-roll-fade-in;
+    }
+    .amont-roll-out {
+      animation-name: amont-roll-fade-out;
+    }
+  }
+  @keyframes amont-roll-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes amont-roll-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
 }
 
 /* 2px rail of the release/hotfix pattern. Outside @layer, otherwise ROW_CLASS's

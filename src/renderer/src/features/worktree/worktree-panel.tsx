@@ -1,4 +1,4 @@
-import { memo, useCallback, useId, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useId, useMemo, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   ArchiveArrowDownIcon,
@@ -8,7 +8,8 @@ import {
   PlusSignIcon,
 } from "@hugeicons/core-free-icons"
 
-import type { FileChange, RepoApi, Worktree, WtSource } from "@/lib/git"
+import type { FileChange, RepoApi, TraceLine, Worktree, WtSource } from "@/lib/git"
+import { onTrace } from "@/lib/git"
 import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { useMergeStateQuery } from "@/features/conflict/conflict-queries"
@@ -28,6 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
+import { RollingText } from "@/components/ui/rolling-text"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldError, FieldGroup } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -140,6 +143,26 @@ const NO_ACTION = () => null
     this safeguard stays on RepoView's side, which already owns the query. */
 const EMPTY_WT: Worktree = { staged: [], unstaged: [], untracked: [], conflicts: [] }
 
+/* CSI escape sequences (colors, cursor moves): hook runners like lint-staged wrap their
+   output in them, git relays it verbatim, and the raw codes would surface in the button. */
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[ -/]*[@-~]`, "g")
+/* Listr/lint-staged tag a task as it settles; those closing markers keep the current step
+   on screen rather than flickering it away before the next one starts. */
+const DONE_MARKER = /^(COMPLETED|FAILED|SKIPPED|DONE|SUCCESS)\b/i
+
+/** The step label the commit button shows while a command runs, or null to hold the previous
+    one. Strips ANSI, drops completion markers, and unwraps a leading `[STARTED] <title>`. */
+function commitStep(line: TraceLine): string | null {
+  if (line.kind !== "out") return null
+  const text = line.text.replace(ANSI, "").trim()
+  if (!text) return null
+  const tagged = /^\[([A-Za-z]+)\]\s*(.*)$/.exec(text)
+  if (!tagged) return text
+  const [, tag, rest] = tagged
+  if (DONE_MARKER.test(tag)) return null
+  return rest.trim() || null
+}
+
 /* The commit form is the only part of the panel that reads `commitDraft`: isolating it
    keeps each keystroke's re-render confined to these few fields instead of rebuilding the
    three file blocks above (per-keystroke jank with a large dirty tree). memo: the parent
@@ -162,11 +185,27 @@ const CommitForm = memo(function CommitForm({ staged, hasConflicts }: { staged: 
   const canAmend = !!status?.head
 
   const [committing, setCommitting] = useState(false)
+  /* live step under the button: the last line git streamed while the commit runs (hook output,
+     lint-staged tasks), fed to the rolling subtext. Reset when the commit is not in flight. */
+  const [step, setStep] = useState<string | null>(null)
   const amendId = useId()
+
+  useEffect(() => {
+    if (!committing) {
+      setStep(null)
+      return
+    }
+    return onTrace((line) => {
+      if (line.id !== repoId) return
+      const next = commitStep(line)
+      if (next !== null) setStep((prev) => (prev === next ? prev : next))
+    })
+  }, [committing, repoId])
 
   const ready = subject.trim().length > 0 && !hasConflicts && (amend ? canAmend : staged > 0)
   const verb = amend ? messages.worktree.amend : messages.worktree.commit
   const caption = messages.worktree.commitCaption(verb, staged)
+  const command = amend ? 'git commit --amend -m "…"' : 'git commit -m "…"'
 
   return (
     <FieldGroup className="mt-4 shrink-0 border-t pt-3">
@@ -189,7 +228,9 @@ const CommitForm = memo(function CommitForm({ staged, hasConflicts }: { staged: 
         />
         <div className="flex items-center gap-3">
           <Button
-            className="h-auto flex-1 flex-col gap-0 py-1"
+            /* busy ≠ greyed out: keep the progress legible, the disabled state still blocks
+               clicks (pointer-events-none) — the dim is reserved for the not-ready button */
+            className="h-auto flex-1 flex-col gap-0 py-1 aria-busy:opacity-100!"
             disabled={!ready || committing}
             aria-busy={committing}
             onClick={async () => {
@@ -203,10 +244,13 @@ const CommitForm = memo(function CommitForm({ staged, hasConflicts }: { staged: 
               }
             }}
           >
-            {caption}
-            <GitCmd
-              cmd={amend ? 'git commit --amend -m "…"' : 'git commit -m "…"'}
-              className="text-primary-foreground/70"
+            <span className="flex max-w-full items-center gap-1.5">
+              {committing && <Spinner className="size-3" />}
+              <span className="truncate">{caption}</span>
+            </span>
+            <RollingText
+              text={committing && step ? step : command}
+              className="font-mono text-[0.625rem] leading-tight text-primary-foreground/70"
             />
           </Button>
           <div className={cn("flex shrink-0 items-center gap-1.5", !canAmend && "pointer-events-none opacity-50")}>
