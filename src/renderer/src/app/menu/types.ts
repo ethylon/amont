@@ -100,6 +100,8 @@ export type MenuContext = {
   openRepo(): void
   /** Close the active repository tab; a no-op when home/create is in front. */
   closeActiveTab(): void
+  /** Open the app-wide settings modal (customization, colors, fetch). */
+  openSettings(): void
   /** True when a repository tab is in the foreground (drives "Close tab" enablement). */
   hasActiveRepo: boolean
   /** The foreground repository's flow state and actions, or `null` off a repo tab (drives the
