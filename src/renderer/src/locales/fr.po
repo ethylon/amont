@@ -343,6 +343,9 @@ msgstr "Abandonner les modifications"
 msgid "Discard changes?"
 msgstr "Abandonner les modifications ?"
 
+msgid "Discard folder"
+msgstr "Abandonner le dossier"
+
 msgid "Discard hunk"
 msgstr "Abandonner le bloc"
 
