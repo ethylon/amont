@@ -787,6 +787,9 @@ export const messages = {
     get closeTab() {
       return t`Close tab`
     },
+    get settings() {
+      return t`Settings…`
+    },
     get goHome() {
       return t`Home`
     },

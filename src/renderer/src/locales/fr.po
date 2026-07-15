@@ -826,6 +826,9 @@ msgstr "Envoyer des rapports de plantage anonymes"
 msgid "Settings"
 msgstr "Réglages"
 
+msgid "Settings…"
+msgstr "Réglages…"
+
 msgid "Show git commands in the interface"
 msgstr "Afficher les commandes git dans l'interface"
 

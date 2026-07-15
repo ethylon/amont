@@ -231,17 +231,17 @@ export function colorHex(theme: ThemeKey, role: ColorRole): string {
   return current.colors[theme][role] ?? defaultColorHexes()[theme][role]
 }
 
-/** Resolve any CSS color string (oklch, rgb, named…) to `#rrggbb` via a throwaway element. */
+/** Resolve any CSS color string (oklch, rgb, named…) to `#rrggbb`. Rasterise on a canvas: the 2D
+    context resolves every CSS color down to sRGB bytes. `getComputedStyle().color` can't stand in —
+    Chromium leaves an oklch color in `oklch(…)` form there, and the tokens are authored in oklch. */
 function toHex(color: string): string {
-  const probe = document.createElement("span")
-  probe.style.color = color
-  probe.style.display = "none"
-  document.body.appendChild(probe)
-  const rgb = getComputedStyle(probe).color
-  probe.remove()
-  const parts = rgb.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [0, 0, 0]
-  const h = (n: number) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, "0")
-  return `#${h(parts[0])}${h(parts[1])}${h(parts[2])}`
+  const ctx = document.createElement("canvas").getContext("2d")
+  if (!ctx) return "#000000"
+  ctx.fillStyle = color
+  ctx.fillRect(0, 0, 1, 1)
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data
+  const h = (n: number) => n.toString(16).padStart(2, "0")
+  return `#${h(r)}${h(g)}${h(b)}`
 }
 
 /* --- System fonts (Local Font Access API) --- */

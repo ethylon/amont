@@ -826,6 +826,9 @@ msgstr "Send anonymous crash reports"
 msgid "Settings"
 msgstr "Settings"
 
+msgid "Settings…"
+msgstr "Settings…"
+
 msgid "Show git commands in the interface"
 msgstr "Show git commands in the interface"
 

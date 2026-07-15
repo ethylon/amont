@@ -1,7 +1,13 @@
 import { useCallback, useState, type CSSProperties } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
-import { ArrowDown01Icon, CloudDownloadIcon, PaintBoardIcon, RefreshIcon, SlidersHorizontalIcon } from "@hugeicons/core-free-icons"
+import {
+  ArrowDown01Icon,
+  CloudDownloadIcon,
+  PaintBoardIcon,
+  RefreshIcon,
+  SlidersHorizontalIcon,
+} from "@hugeicons/core-free-icons"
 
 import { host, SETTINGS, type Settings } from "@/lib/git"
 import { messages } from "@/lib/messages"
@@ -42,8 +48,8 @@ import {
 } from "@/components/ui/dialog"
 import { useCrashReports } from "./use-crash-reports"
 
-/* App-wide settings, opened from the toolbar's fetch button-group (the cog). A left nav splits it
-   into three sections that each write straight to their own store — no Save button, only Close:
+/* App-wide settings, opened from File ▸ Settings. A left nav splits it into three sections that
+   each write straight to their own store — no Save button, only Close:
 
    - Customization / Colors are renderer prefs (localStorage, cf. lib/customization.ts) plus the
      theme and language runtime switches (lib/theme.ts, lib/i18n.ts) and the crash-reports opt-out.
@@ -195,7 +201,11 @@ function CustomizationSection() {
       </div>
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-medium">{messages.customization.fontMono}</span>
-        <FontSelect value={custom.fontMono} monoOnly={custom.monoOnly} onChange={(v) => setCustomization({ fontMono: v })} />
+        <FontSelect
+          value={custom.fontMono}
+          monoOnly={custom.monoOnly}
+          onChange={(v) => setCustomization({ fontMono: v })}
+        />
       </div>
       <CheckRow
         checked={custom.monoOnly}
@@ -255,9 +265,7 @@ function FontSelect({
 
   return (
     <DropdownMenu onOpenChange={(open) => open && loadFonts()}>
-      <DropdownMenuTrigger
-        render={<Button variant="outline" size="sm" className="w-52 justify-between font-normal" />}
-      >
+      <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="w-52 justify-between font-normal" />}>
         <span className="truncate" style={{ fontFamily: value ? `"${value}"` : undefined }}>
           {value ?? messages.customization.fontDefault}
         </span>
@@ -276,9 +284,7 @@ function FontSelect({
           ))}
         </DropdownMenuRadioGroup>
         {fonts !== null && fonts.length === 0 && (
-          <p className="px-2 py-1.5 text-[0.625rem] text-muted-foreground">
-            {messages.customization.fontsUnavailable}
-          </p>
+          <p className="px-2 py-1.5 text-[0.625rem] text-muted-foreground">{messages.customization.fontsUnavailable}</p>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
