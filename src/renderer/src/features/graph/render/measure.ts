@@ -120,7 +120,7 @@ export function createMeasurer(inner: HTMLDivElement) {
 
   /** Clears every measured maximum and its source. The maxima are monotone *within* a repo
       (a column never jumps around on scroll or pagination), but they must not survive a
-      rebuild: after a checkout or `branch -d`, a column should give back the width a since-gone
+      rebuild: after a checkout or `branch -D`, a column should give back the width a since-gone
       decoration was holding rather than keep the historical maximum forever. */
   function reset() {
     seenType.clear()
