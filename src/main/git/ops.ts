@@ -146,8 +146,8 @@ export async function branchAction(r: RepoHandle, action: BranchAct, name: strin
 }
 
 /* --- Branch deletion ---
-   `-d`, never `-D`: the modal confirms the intent, but git's refusal on an unmerged branch
-   stays the safeguard against dropping commits — a confirmed click shouldn't silently lose work.
+   `-D`, not `-d`: the modal already confirms the intent, so git's refusal on an unmerged branch
+   would only be a dead end for the user — the confirmed click carries out the delete regardless.
    The remote side is opt-in (`deleteRemote`): its upstream config is read first (the local delete
    removes `branch.<name>.*`), and the `push --delete` runs only after the local delete succeeds,
    so a rejected local delete never reaches the remote. */
@@ -157,7 +157,7 @@ export async function deleteBranch(r: RepoHandle, name: string, deleteRemote: bo
     groupTrace(r, `Delete ${name}`)
     try {
       const upstream = deleteRemote ? await upstreamOf(r, name) : null
-      await r.git(["branch", "-d", name])
+      await r.git(["branch", "-D", name])
       if (upstream)
         await r.git(["push", "--progress", upstream.remote, "--delete", upstream.merge], { timeout: OP_TIMEOUT })
     } finally {
