@@ -212,8 +212,13 @@ export type CountObjects = {
 /** Long-running database maintenance: `git fsck --full` (verify) / `git gc` (compact). */
 export type MaintKind = "fsck" | "gc"
 
-/** Live progress of a maintenance run, streamed from git's stderr (`NN%`). */
-export type ProgressEvent = { id: number; op: MaintKind; percent: number }
+/** Operations that stream a determinate `NN%` from git's stderr (`--progress`): the two
+    maintenance jobs and the three network ops (fetch/pull/push). `gc` never reports one. */
+export type ProgressOp = MaintKind | OpName
+
+/** Live progress of a `--progress` run, streamed from git's stderr (`NN%`). Consumed by the
+    maintenance modal (fsck/gc) and the footer feed (fetch/pull/push), cf. features/repo. */
+export type ProgressEvent = { id: number; op: ProgressOp; percent: number }
 
 /* L'auto-update (main/updater.ts). `origin` distingue le check silencieux du démarrage du
    check manuel (Help ▸ Check for updates) : le renderer n'affiche les états intermédiaires
