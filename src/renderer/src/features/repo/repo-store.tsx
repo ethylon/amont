@@ -133,7 +133,7 @@ export interface RepoStoreState {
   doCommit(): Promise<void>
   runStash(action: StashAct, name?: string): Promise<void>
   runBranch(action: BranchAct, name: string): Promise<void>
-  /** `git branch -d`, plus the remote branch when `deleteRemote` — reloads and badges like the rest */
+  /** `git branch -D`, plus the remote branch when `deleteRemote` — reloads and badges like the rest */
   deleteBranch(name: string, deleteRemote: boolean): Promise<void>
   checkout(name: string): Promise<void>
   runWt(act: WtAct, paths: string[]): Promise<void>
