@@ -240,7 +240,7 @@ function Single({
       <dl className="mt-3.5 grid shrink-0 grid-cols-[76px_1fr] gap-x-3 gap-y-2">
         {c.stash && (
           <>
-            <Dt>stash</Dt>
+            <Dt>{messages.detail.stash}</Dt>
             <dd className="font-mono text-xs">{c.stash.name}</dd>
           </>
         )}

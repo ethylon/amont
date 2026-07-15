@@ -88,6 +88,9 @@ msgstr "✗ échec"
 msgid "A · {label}"
 msgstr "A · {label}"
 
+msgid "a command"
+msgstr "une commande"
+
 msgid "A repository without a working tree, ready to be used as a remote."
 msgstr "Un dépôt sans copie de travail, prêt à servir de dépôt distant."
 
@@ -241,6 +244,9 @@ msgstr "Message de commit"
 msgid "commits"
 msgstr "commits"
 
+msgid "Commits"
+msgstr "Commits"
+
 msgid "Compact"
 msgstr "Compacter"
 
@@ -316,6 +322,9 @@ msgstr "Supprimé"
 msgid "deleted on this side"
 msgstr "supprimé de ce côté"
 
+msgid "Description"
+msgstr "Description"
+
 msgid "Destination folder"
 msgstr "Dossier de destination"
 
@@ -384,6 +393,9 @@ msgstr "Feature"
 
 msgid "Feature prefix"
 msgstr "Préfixe feature"
+
+msgid "Fetch"
+msgstr "Fetch"
 
 msgid "File"
 msgstr "Fichier"
@@ -504,6 +516,9 @@ msgstr "Clair"
 
 msgid "Light theme"
 msgstr "Thème clair"
+
+msgid "Loading"
+msgstr "Chargement"
 
 msgid "loading files…"
 msgstr "chargement des fichiers…"
@@ -780,6 +795,9 @@ msgstr "Démarrer…"
 
 msgid "starting…"
 msgstr "démarrage…"
+
+msgid "stash"
+msgstr "stash"
 
 msgid "Stash"
 msgstr "Stash"
