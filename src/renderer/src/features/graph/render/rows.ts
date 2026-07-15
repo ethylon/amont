@@ -24,6 +24,7 @@ import {
   parseSubject,
   refColor,
   typeColor,
+  typeIcon,
   type ParsedMerge,
   type RefChip,
 } from "@/lib/commit-parse"
@@ -274,6 +275,12 @@ export function rowDiv(
   if (ps.label) {
     const b = document.createElement("span")
     b.className = chip(typeColor(ps.type!)) + " " + TYPE_MAX
+    const ic = typeIcon(ps.type!)
+    if (ic) {
+      const g = iconEl(ic, "shrink-0")
+      g.dataset.icon = "inline-start" // triggers the badge's leading-icon padding (cf. badge.tsx)
+      b.appendChild(g)
+    }
     b.appendChild(scrollText(ps.label))
     badge.appendChild(b)
   }
