@@ -133,6 +133,8 @@ export interface RepoStoreState {
   doCommit(): Promise<void>
   runStash(action: StashAct, name?: string): Promise<void>
   runBranch(action: BranchAct, name: string): Promise<void>
+  /** `git branch -d`, plus the remote branch when `deleteRemote` — reloads and badges like the rest */
+  deleteBranch(name: string, deleteRemote: boolean): Promise<void>
   checkout(name: string): Promise<void>
   runWt(act: WtAct, paths: string[]): Promise<void>
   /** whole-file discard: tracked paths restored from the index, untracked deleted */
@@ -485,6 +487,10 @@ export function createRepoStore(
 
     runBranch(action, name) {
       return get().runGitAction(() => api.branch(action, name))
+    },
+
+    deleteBranch(name, deleteRemote) {
+      return get().runGitAction(() => api.branchDelete(name, deleteRemote))
     },
 
     checkout(name) {

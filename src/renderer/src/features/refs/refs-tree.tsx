@@ -29,6 +29,8 @@ export type Ctx = RowProps & {
   current: string | null
   flow: FlowPrefixes | null
   onBranch(action: BranchAct, name: string): void
+  /** opens the delete-branch confirmation for `r` (local delete + optional remote) */
+  onDeleteBranch(r: GitRef): void
   /** focused refs, `kind:name` — the clicked identities, or branches derived from commits */
   focusedKeys: Set<string>
   /** focuses the ref in the graph: scroll to the tip and select the whole branch.
