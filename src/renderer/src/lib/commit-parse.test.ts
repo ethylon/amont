@@ -160,6 +160,7 @@ describe("parseSubject", () => {
     assert.deepEqual(parseSubject("[Machin] chose"), { type: "other", label: "machin", text: "chose" })
     assert.deepEqual(parseSubject("feat(graph): lanes"), { type: "feat", label: "feat · graph", text: "lanes" })
     assert.deepEqual(parseSubject("fix: débordement"), { type: "bugfix", label: "bugfix", text: "débordement" })
+    assert.deepEqual(parseSubject("polish(ui): nettoyage"), { type: "polish", label: "polish · ui", text: "nettoyage" })
   })
 
   it('leaves any random "truc: machin" as plain text', () => {
