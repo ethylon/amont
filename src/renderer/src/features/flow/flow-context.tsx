@@ -5,14 +5,16 @@ import type { FlowInfo } from "@/lib/git"
 import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
+import type { ButtonColor } from "@/components/ui/button"
 
 /* Colors and hues of all flow indicators (statusbar, cockpit, card): same hues
-   as the sidebar badges, same release/hotfix icons as the graph's merge chips. */
-export const FLOW_META: Record<BranchFlow, { icon: IconSvgElement; text: string; bg: string }> = {
-  feature: { icon: GitBranchIcon, text: "text-success", bg: "bg-success/10" },
-  bugfix: { icon: Bug01Icon, text: "text-warning", bg: "bg-warning/10" },
-  release: { icon: RocketIcon, text: "text-release", bg: "bg-release/10" },
-  hotfix: { icon: Fire02Icon, text: "text-destructive", bg: "bg-destructive/10" },
+   as the sidebar badges, same release/hotfix icons as the graph's merge chips.
+   `btn` = same hue for the flow-start button, so it follows the banner tint. */
+export const FLOW_META: Record<BranchFlow, { icon: IconSvgElement; text: string; bg: string; btn: ButtonColor }> = {
+  feature: { icon: GitBranchIcon, text: "text-success", bg: "bg-success/10", btn: "success" },
+  bugfix: { icon: Bug01Icon, text: "text-warning", bg: "bg-warning/10", btn: "warning" },
+  release: { icon: RocketIcon, text: "text-release", bg: "bg-release/10", btn: "release" },
+  hotfix: { icon: Fire02Icon, text: "text-destructive", bg: "bg-destructive/10", btn: "destructive" },
 }
 
 /** "35 min", "4 h", "2 d" — the coarse scale is enough to situate a cycle. */
