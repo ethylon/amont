@@ -483,7 +483,7 @@ export function WorktreePanel() {
           >
             <span className="flex flex-col items-start">
               <span>{messages.conflict.abortMerge}</span>
-              <GitCmd cmd="git merge --abort" />
+              <GitCmd cmd="git merge --abort" className="text-destructive/70" />
             </span>
           </Button>
         </div>
