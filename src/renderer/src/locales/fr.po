@@ -221,7 +221,7 @@ msgid "Close {name}"
 msgstr "Fermer {name}"
 
 msgid "Close tab"
-msgstr "Fermer l’onglet"
+msgstr "Fermer l'onglet"
 
 msgid "co-authors"
 msgstr "co-auteurs"
@@ -752,7 +752,7 @@ msgid "Stage folder"
 msgstr "Indexer le dossier"
 
 msgid "Stage hunk"
-msgstr "Indexer le hunk"
+msgstr "Indexer le bloc"
 
 msgid "Stage line"
 msgstr "Indexer la ligne"
@@ -863,7 +863,7 @@ msgid "Unstage folder"
 msgstr "Désindexer le dossier"
 
 msgid "Unstage hunk"
-msgstr "Désindexer le hunk"
+msgstr "Désindexer le bloc"
 
 msgid "Unstage line"
 msgstr "Désindexer la ligne"
@@ -893,7 +893,7 @@ msgid "version"
 msgstr "version"
 
 msgid "Version tag prefix"
-msgstr "Préfixe d'étiquette de version"
+msgstr "Préfixe de tag de version"
 
 msgid "View"
 msgstr "Affichage"
