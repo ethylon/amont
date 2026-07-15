@@ -343,6 +343,9 @@ msgstr "Discard changes"
 msgid "Discard changes?"
 msgstr "Discard changes?"
 
+msgid "Discard folder"
+msgstr "Discard folder"
+
 msgid "Discard hunk"
 msgstr "Discard hunk"
 
