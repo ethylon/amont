@@ -269,7 +269,16 @@ export type OpName = "fetch" | "pull" | "push"
    without the JSON detour that `shared/errors.ts` requires on the invoke side. */
 export type OpEvent = { id: number } & (
   | { op: OpName; state: "start"; auto: boolean }
-  | { op: OpName; state: "done"; auto: boolean; added: number }
+  | {
+      op: OpName
+      state: "done"
+      auto: boolean
+      /** commits brought in by a fetch — feeds the "N new commits" badge (0 for pull/push) */
+      added: number
+      /** any ref tip moved (push updates the remote-tracking ref, `--prune` removes tips
+          without adding a commit): the renderer's cue to reload the graph */
+      changed: boolean
+    }
   | ({ op: OpName; state: "error"; auto: boolean } & ErrorPayload)
 )
 
