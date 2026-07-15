@@ -621,14 +621,22 @@ export function useRepoEvents(): void {
         if (p.op === "pull") {
           await s.resetAndLoad()
         } else if (p.added > 0) {
-          /* the graph isn't reloaded automatically: that would lose the scroll and the selection */
-          s.showOp(messages.app.newCommits(p.added), "primary", {
-            label: messages.app.reload,
-            run: () => {
-              s.clearOp()
-              void s.resetAndLoad()
-            },
-          })
+          /* Un fetch manuel est une action explicite « montre-moi l'amont » : on recharge pour que
+             les commits récupérés (et les marqueurs de sync) apparaissent, le badge ne servant plus
+             que d'accusé de réception. Un auto-fetch reste non intrusif — badge cliquable seul, pour
+             qu'un fetch d'arrière-plan n'arrache jamais le scroll ni la sélection à l'utilisateur. */
+          if (!p.auto) {
+            s.showOp(messages.app.newCommits(p.added), "primary")
+            await s.resetAndLoad()
+          } else {
+            s.showOp(messages.app.newCommits(p.added), "primary", {
+              label: messages.app.reload,
+              run: () => {
+                s.clearOp()
+                void s.resetAndLoad()
+              },
+            })
+          }
         }
       }),
     [repoId, queryClient, store]
