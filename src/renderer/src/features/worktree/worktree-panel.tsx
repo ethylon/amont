@@ -220,8 +220,8 @@ const CommitForm = memo(function CommitForm({ staged, hasConflicts }: { staged: 
         />
         <Textarea
           name="description"
-          aria-label="Description"
-          placeholder="Description"
+          aria-label={messages.worktree.description}
+          placeholder={messages.worktree.description}
           value={description}
           onChange={(e) => onDescriptionChange(e.target.value)}
           className="min-h-16 resize-y text-xs"

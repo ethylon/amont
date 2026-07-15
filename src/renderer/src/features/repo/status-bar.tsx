@@ -83,7 +83,8 @@ export const StatusBar = memo(function StatusBar(props: Props) {
 
       {stats && (
         <span className="ms-auto shrink-0 whitespace-nowrap tabular-nums">
-          <b className="font-medium text-foreground">{nf.format(stats.loaded)}</b> / {nf.format(stats.total)} commits
+          <b className="font-medium text-foreground">{nf.format(stats.loaded)}</b> / {nf.format(stats.total)}{" "}
+          {messages.flow.commits}
         </span>
       )}
     </footer>
