@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    {
+      "source": "/download",
+      "destination": "https://github.com/ethylon/amont/releases/latest",
+      "permanent": false
+    }
+  ]
+}

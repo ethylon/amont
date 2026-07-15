@@ -1,0 +1,77 @@
+---
+import { getImage } from "astro:assets"
+import "../styles/global.css"
+import { dict, type Locale } from "../i18n/ui"
+import graphLight from "../../../docs/graph-light.png"
+
+interface Props {
+  locale: Locale
+}
+
+const { locale } = Astro.props
+const t = dict[locale]
+
+const og = await getImage({ src: graphLight, width: 1200, format: "jpg" })
+const ogUrl = new URL(og.src, Astro.site)
+const canonical = new URL(locale === "en" ? "/" : "/fr/", Astro.site)
+const alternates: { hreflang: string; href: URL }[] = [
+  { hreflang: "en", href: new URL("/", Astro.site) },
+  { hreflang: "fr", href: new URL("/fr/", Astro.site) },
+  { hreflang: "x-default", href: new URL("/", Astro.site) },
+]
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{t.meta.title}</title>
+    <meta name="description" content={t.meta.description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="canonical" href={canonical} />
+    {alternates.map((a) => <link rel="alternate" hreflang={a.hreflang} href={a.href} />)}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Amont" />
+    <meta property="og:title" content={t.meta.title} />
+    <meta property="og:description" content={t.meta.description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:locale" content={locale === "en" ? "en_US" : "fr_FR"} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={t.meta.title} />
+    <meta name="twitter:description" content={t.meta.description} />
+    <meta name="twitter:image" content={ogUrl} />
+    <script is:inline>
+      // Before first paint: mark JS as available (gates the reveal animations) and
+      // resolve the theme — stored choice first, OS preference otherwise.
+      document.documentElement.classList.add("js")
+      const stored = localStorage.getItem("theme")
+      const dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches
+      document.documentElement.classList.toggle("dark", dark)
+    </script>
+  </head>
+  <body class="bg-white font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+    <slot />
+    <script>
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible")
+              io.unobserve(entry.target)
+            }
+          }
+        },
+        { threshold: 0.15, rootMargin: "0px 0px -40px 0px" }
+      )
+      document.querySelectorAll("[data-reveal]").forEach((el) => io.observe(el))
+    </script>
+  </body>
+</html>
