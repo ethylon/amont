@@ -220,7 +220,7 @@ export function registerIpc(): void {
     if (!cfg || typeof cfg !== "object") throw new AppError("BAD_ARG", "cfg")
     return flow.flowInit(repos.use(id), cfg)
   })
-  handle("flow:start", (_ev, id, kind, name) => flow.flowStart(repos.use(id), kind, name))
+  handle("flow:start", (_ev, id, kind, name, base) => flow.flowStart(repos.use(id), kind, name, base))
   handle("flow:publish", (_ev, id, kind, name) => flow.flowPublish(repos.use(id), kind, name))
 
   handle("repo:branch", (_ev, id, action, name) => ops.branchAction(repos.use(id), action, name))
