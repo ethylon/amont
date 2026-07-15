@@ -40,6 +40,7 @@
   --color-release: var(--release);
   --color-info: var(--info);
   --color-refactor: var(--refactor);
+  --color-polish: var(--polish);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -91,6 +92,8 @@
   /* info: blue (test); refactor: cyan — the chroma keeps them apart from the primary teal (hue 223) */
   --info: oklch(0.52 0.13 250);
   --refactor: oklch(0.52 0.1 195);
+  /* polish: rose — a finishing-touch hue, far enough from the red destructive (hue 27) not to read as an alert */
+  --polish: oklch(0.55 0.16 350);
 
   /* Local/remote sync (layout/sync.ts): amber = to push, blue = to pull. Aliases of the
      semantic tokens — the var() chain follows the theme, no duplicate in .dark. */
@@ -150,6 +153,7 @@
   --release: oklch(0.72 0.19 300);
   --info: oklch(0.74 0.14 250);
   --refactor: oklch(0.76 0.12 195);
+  --polish: oklch(0.75 0.16 350);
 
   --lane-0: oklch(0.7 0.14 250);
   --lane-1: oklch(0.7 0.16 358);
