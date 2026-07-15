@@ -127,6 +127,9 @@ msgstr "Amont {version} est prêt à être installé."
 msgid "Amont is up to date."
 msgstr "Amont est à jour."
 
+msgid "Appearance, colors, and fetch behavior."
+msgstr "Apparence, couleurs et comportement du fetch."
+
 msgid "Apply"
 msgstr "Appliquer"
 
@@ -141,6 +144,9 @@ msgstr "Fetch automatique"
 
 msgid "B · {label}"
 msgstr "B · {label}"
+
+msgid "Badge colors by work type. Light and dark are set separately."
+msgstr "Couleurs des badges par type de travail. Les thèmes clair et sombre se règlent séparément."
 
 msgid "base"
 msgstr "base"
@@ -232,6 +238,9 @@ msgstr "Fermer l'onglet"
 msgid "co-authors"
 msgstr "co-auteurs"
 
+msgid "Colors"
+msgstr "Couleurs"
+
 msgid "Command failed: {cmd}"
 msgstr "Échec de la commande : {cmd}"
 
@@ -289,6 +298,9 @@ msgstr "Créer un worktree…"
 msgid "creating…"
 msgstr "création…"
 
+msgid "Customization"
+msgstr "Personnalisation"
+
 msgid "Dark"
 msgstr "Sombre"
 
@@ -309,6 +321,9 @@ msgstr "Base vérifiée"
 
 msgid "date"
 msgstr "date"
+
+msgid "Default"
+msgstr "Par défaut"
 
 msgid "Delete"
 msgstr "Supprimer"
@@ -333,6 +348,9 @@ msgstr "Dossier de destination"
 
 msgid "detached HEAD"
 msgstr "HEAD détachée"
+
+msgid "Detect feat:, fix:, chore:… and lift it out of the message into its own column."
+msgstr "Détecte feat:, fix:, chore:… et l'extrait du message dans sa propre colonne."
 
 msgid "Development branch"
 msgstr "Branche de développement"
@@ -366,6 +384,9 @@ msgstr "Abandonner la ligne"
 
 msgid "Dismiss"
 msgstr "Fermer"
+
+msgid "Display the underlying git command beneath the actions that run it."
+msgstr "Affiche la commande git correspondante sous les actions qui l'exécutent."
 
 msgid "Documentation"
 msgstr "Documentation"
@@ -403,8 +424,8 @@ msgstr "Préfixe feature"
 msgid "Fetch"
 msgstr "Fetch"
 
-msgid "Fetch behavior, applied to every repository."
-msgstr "Comportement du fetch, appliqué à tous les dépôts."
+#~ msgid "Fetch behavior, applied to every repository."
+#~ msgstr "Comportement du fetch, appliqué à tous les dépôts."
 
 msgid "Fetch from all remotes in the background, on a timer."
 msgstr "Récupère depuis tous les distants en arrière-plan, à intervalle régulier."
@@ -457,6 +478,9 @@ msgstr "cibles de finalisation"
 msgid "Flat view"
 msgstr "Vue à plat"
 
+msgid "Font list unavailable in this environment."
+msgstr "Liste des polices indisponible dans cet environnement."
+
 msgid "Français"
 msgstr "Français"
 
@@ -502,6 +526,9 @@ msgstr "https://… ou git@…"
 msgid "Image preview"
 msgstr "Aperçu de l'image"
 
+msgid "Info"
+msgstr "Info"
+
 msgid "Initialize"
 msgstr "Initialiser"
 
@@ -516,6 +543,9 @@ msgstr "Initialiser Git Flow…"
 
 msgid "initializing…"
 msgstr "initialisation…"
+
+msgid "Interface font"
+msgstr "Police de l'interface"
 
 msgid "Interval"
 msgstr "Intervalle"
@@ -574,6 +604,9 @@ msgstr "Merge de {theirs} (B) dans {ours} (A)"
 msgid "min"
 msgstr "min"
 
+msgid "Monospace font"
+msgstr "Police à chasse fixe"
+
 msgid "More actions"
 msgstr "Plus d'actions"
 
@@ -631,6 +664,9 @@ msgstr "aucun"
 msgid "Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes."
 msgstr "Objets stockés dans la base de ce dépôt. Vérifier contrôle l'intégrité ; compacter recompresse et élague."
 
+msgid "Only show monospace fonts"
+msgstr "N'afficher que les polices à chasse fixe"
+
 msgid "Open a repository in a new tab."
 msgstr "Ouvrir un dépôt dans un nouvel onglet."
 
@@ -666,6 +702,9 @@ msgstr "parent"
 
 msgid "parents"
 msgstr "parents"
+
+msgid "Polish"
+msgstr "Peaufinage"
 
 msgid "Preview unavailable."
 msgstr "Aperçu indisponible."
@@ -721,6 +760,9 @@ msgstr "Prêt"
 msgid "Recent"
 msgstr "Récents"
 
+msgid "Refactor"
+msgstr "Refactorisation"
+
 msgid "Release"
 msgstr "Release"
 
@@ -754,6 +796,12 @@ msgstr "Dépôt"
 msgid "Repository created: {path}"
 msgstr "Dépôt créé : {path}"
 
+msgid "Reset"
+msgstr "Réinitialiser"
+
+msgid "Reset to defaults"
+msgstr "Réinitialiser aux valeurs par défaut"
+
 msgid "Reset to selection"
 msgstr "Réinitialiser sur la sélection"
 
@@ -777,6 +825,12 @@ msgstr "Envoyer des rapports de plantage anonymes"
 
 msgid "Settings"
 msgstr "Réglages"
+
+msgid "Show git commands in the interface"
+msgstr "Afficher les commandes git dans l'interface"
+
+msgid "Show prefix as a separate column"
+msgstr "Afficher le préfixe dans une colonne séparée"
 
 msgid "Show sidebar"
 msgstr "Afficher la barre latérale"

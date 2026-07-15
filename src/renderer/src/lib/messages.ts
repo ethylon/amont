@@ -631,7 +631,20 @@ export const messages = {
       return t`Settings`
     },
     get intro() {
-      return t`Fetch behavior, applied to every repository.`
+      return t`Appearance, colors, and fetch behavior.`
+    },
+    /* left-nav sections */
+    get sectionCustomization() {
+      return t`Customization`
+    },
+    get sectionColors() {
+      return t`Colors`
+    },
+    get sectionFetch() {
+      return t`Fetch`
+    },
+    get resetDefaults() {
+      return t`Reset to defaults`
     },
     get autoFetch() {
       return t`Auto-fetch`
@@ -657,6 +670,71 @@ export const messages = {
     },
     get crashReportsHint() {
       return t`Helps fix crashes. No repository contents, diffs, or credentials are ever sent.`
+    },
+  },
+
+  /* Settings ▸ Customization (renderer prefs — cf. lib/customization.ts, lib/theme.ts, lib/i18n.ts) */
+  customization: {
+    get fontUi() {
+      return t`Interface font`
+    },
+    get fontMono() {
+      return t`Monospace font`
+    },
+    /** the "use the bundled default" option in the font pickers */
+    get fontDefault() {
+      return t`Default`
+    },
+    /** shown in place of the picker when font enumeration isn't available (e.g. the mock harness) */
+    get fontsUnavailable() {
+      return t`Font list unavailable in this environment.`
+    },
+    get monoOnly() {
+      return t`Only show monospace fonts`
+    },
+    get showPrefixColumn() {
+      return t`Show prefix as a separate column`
+    },
+    get showPrefixColumnHint() {
+      return t`Detect feat:, fix:, chore:… and lift it out of the message into its own column.`
+    },
+    get showGitCommands() {
+      return t`Show git commands in the interface`
+    },
+    get showGitCommandsHint() {
+      return t`Display the underlying git command beneath the actions that run it.`
+    },
+  },
+
+  /* Settings ▸ Colors — per-theme badge hues (cf. lib/customization.ts COLOR_ROLES) */
+  colors: {
+    get intro() {
+      return t`Badge colors by work type. Light and dark are set separately.`
+    },
+    /** per-row reset control label */
+    get reset() {
+      return t`Reset`
+    },
+    get feature() {
+      return t`Feature`
+    },
+    get bugfix() {
+      return t`Bugfix`
+    },
+    get hotfix() {
+      return t`Hotfix`
+    },
+    get release() {
+      return t`Release`
+    },
+    get info() {
+      return t`Info`
+    },
+    get refactor() {
+      return t`Refactor`
+    },
+    get polish() {
+      return t`Polish`
     },
   },
 
