@@ -52,10 +52,11 @@ export function ghostChip(name: string, color: string, maxw = BRANCH_MAX) {
   return el
 }
 
-/* Linked-worktree chip: a real button — clicking it opens the worktree as a new tab
-   (cf. controller.ts `.amont-wt-open` delegation) instead of selecting the row. Outline like
-   the stash chip but solid, folder icon up front: a place on disk, not a suspended state.
-   `tabIndex=-1`: the same action stays keyboard-reachable through the sidebar's menu. */
+/* Open-worktree button (subject column, revealed on row hover via `.amont-wtopen`, cf. app.css):
+   a real button — clicking it opens the worktree as a new tab (cf. controller.ts `.amont-wt-open`
+   delegation) instead of selecting the row. Outline, folder icon up front: a place on disk. Only
+   built for commits that are a linked worktree's HEAD (the main tree is filtered out at ingestion,
+   cf. data/loader.ts). `tabIndex=-1`: the same action stays keyboard-reachable through the sidebar. */
 export function wtChip(name: string, path: string, maxw = BRANCH_MAX) {
   const el = document.createElement("button")
   el.type = "button"
@@ -263,7 +264,6 @@ export function rowDiv(
   } else {
     refGroup(refs, BRANCH_BUDGET, BRANCH_MAX, branch, flow, active)
   }
-  if (c.wt) for (const w of c.wt) branch.appendChild(wtChip(worktreeName(w), w.path))
   row.appendChild(branch)
 
   row.appendChild(document.createElement("div")) // spacer: the graph column, under the SVG
@@ -324,6 +324,18 @@ export function rowDiv(
     if (c.stash) s.className += " italic text-muted-foreground"
     s.title = c.s
     subj.appendChild(s)
+  }
+  /* Open-worktree action at the end of the message column: hidden until the row is hovered or
+     holds the keyboard cursor (`.amont-wtopen`, cf. app.css). `c.wt` only ever carries linked
+     worktrees (the main tree is filtered out at ingestion, cf. data/loader.ts), so the button
+     appears solely on commits that a separate worktree has checked out. */
+  if (c.wt?.length) {
+    const wtWrap = document.createElement("span")
+    /* no `flex` utility: `.amont-wtopen` owns `display` (none ↔ flex), and a utility-layer
+       `flex` would outrank the component-layer hide and pin it visible. */
+    wtWrap.className = "amont-wtopen ms-auto shrink-0 items-center gap-1.5 ps-2"
+    for (const w of c.wt) wtWrap.appendChild(wtChip(worktreeName(w), w.path))
+    subj.appendChild(wtWrap)
   }
   row.appendChild(subj)
 
