@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { CloudIcon } from "@hugeicons/core-free-icons"
 
 import type { Commit, FileChange, RepoApi } from "@/lib/git"
-import { parseBody, parseRefs, parseSubject, refColor, typeColor, type RefChip } from "@/lib/commit-parse"
+import { parseBody, parseRefs, parseSubject, refColor, typeColor, typeIcon, type RefChip } from "@/lib/commit-parse"
 import { parseMarkdown, type MdToken } from "@/lib/markdown"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
@@ -40,8 +40,10 @@ const Hint = ({ children }: { children: React.ReactNode }) => (
 function TypeChip({ commit }: { commit: Commit }) {
   const ps = parseSubject(commit.s)
   if (!ps.label) return null
+  const icon = typeIcon(ps.type!)
   return (
     <Badge color={typeColor(ps.type!)} shape="squared" className="me-1.5">
+      {icon && <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />}
       {ps.label}
     </Badge>
   )
