@@ -87,11 +87,11 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
       )}
 
       <ContextMenuSeparator />
-      {/* git refuses `-d` on the checked-out branch, but an item that can only fail has no place here.
+      {/* git refuses `-D` on the checked-out branch, but an item that can only fail has no place here.
           The click opens a confirmation (with the "delete remote too" option) rather than deleting outright. */}
       <ContextMenuItem variant="destructive" disabled={r.head} onClick={() => ctx.onDeleteBranch(r)}>
         <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-        <MenuItemWithCmd label={messages.refs.deleteBranch} cmd={`git branch -d ${r.name}`} />
+        <MenuItemWithCmd label={messages.refs.deleteBranch} cmd={`git branch -D ${r.name}`} />
       </ContextMenuItem>
     </ContextMenuContent>
   )
