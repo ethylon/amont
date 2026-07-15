@@ -1,14 +1,17 @@
-/* Orphaned-pack cleanup, the second stage of "Compact database" (cf. maintenance.ts): `git gc`
-   never deletes a `.pack` that lost its `.idx` (leftover of an interrupted fetch/clone/gc), so
-   `count-objects` keeps reporting it as `garbage` and the "compacting recommended" hint never
-   goes away. This module recovers what it can (`git index-pack` rebuilds the index, a final gc
-   then absorbs or prunes the objects) and deletes what it can't (truncated/corrupt pack).
+/* Pack-directory garbage cleanup, the second stage of "Compact database" (cf. maintenance.ts):
+   `git gc` leaves behind everything `count-objects` reports as `garbage` — a `.pack` that lost
+   its `.idx` (interrupted fetch/clone/gc), companion files stranded by a vanished pack, and
+   recent `tmp_*` transfer temporaries (prune only expires them after `gc.pruneExpire`, two
+   weeks) — so the "compacting recommended" hint would come right back after a compact. This
+   module recovers what it can (`git index-pack` rebuilds a missing index, a final gc then
+   absorbs or prunes the objects) and deletes what git will never clean up on its own. Files it
+   doesn't recognize are left alone, like git does: the caller traces any remaining garbage.
 
    No Electron import and no repos.ts import (whose chain pulls `electron`): the sweep takes its
    dependencies as plain values, so packs.test.ts can exercise it under Node against a real
    temporary repository. */
 
-import { readdir, rm } from "node:fs/promises"
+import { readdir, rm, stat } from "node:fs/promises"
 import { join } from "node:path"
 
 import type { RunOpts } from "./exec.ts"
@@ -29,6 +32,31 @@ export function orphanedPacks(files: string[]): string[] {
     .sort()
 }
 
+const COMPANIONS = [".idx", ".rev", ".mtimes", ".bitmap", ".promisor", ".keep"]
+
+/** The companion files (`pack-*.idx`, `.rev`, `.mtimes`, `.bitmap`, `.promisor`, `.keep`) whose
+    `.pack` is gone — stranded by a deleted or never-completed pack, and reported as garbage by
+    `count-objects` forever after. `multi-pack-index*` never matches: it has no `.pack` stem by
+    design. Sorted, for a deterministic sweep order. */
+export function orphanedCompanions(files: string[]): string[] {
+  const names = new Set(files)
+  return files
+    .filter((f) => f.startsWith("pack-") && COMPANIONS.some((ext) => f.endsWith(ext)))
+    .filter((f) => !names.has(f.slice(0, f.lastIndexOf(".")) + ".pack"))
+    .sort()
+}
+
+/** The `tmp_*` working files of a transfer (`tmp_pack_*`, `tmp_idx_*`, …), left behind when a
+    fetch/clone/repack dies. Age-gated at the sweep: a live transfer touches its temporary
+    continuously, so only a stale one is a leftover. Sorted. */
+export function transferTemporaries(files: string[]): string[] {
+  return files.filter((f) => f.startsWith("tmp_")).sort()
+}
+
+/** A `tmp_*` untouched for this long belongs to a dead transfer: even a stalled-but-alive fetch
+    writes (and touches) its temporary far more often than hourly. */
+export const TMP_GRACE_MS = 60 * 60_000
+
 export interface PackSweep {
   /** `<gitDir>/objects/pack` — absent (fresh repo without any pack) is a quiet no-op. */
   packDir: string
@@ -39,11 +67,12 @@ export interface PackSweep {
   log: (text: string) => void
 }
 
-/** Recover or delete every orphaned pack: `git index-pack` rebuilds the missing `.idx` when the
-    pack is intact (its objects become readable again — the caller runs a final gc to absorb or
-    prune them); a pack index-pack rejects is unrecoverable and is deleted. Returns the number
+/** Recover or delete every orphaned pack — `git index-pack` rebuilds the missing `.idx` when
+    the pack is intact (its objects become readable again — the caller runs a final gc to absorb
+    or prune them); a pack index-pack rejects is unrecoverable and is deleted — then delete the
+    stranded companions and the stale transfer temporaries gc never cleans. Returns the number
     of packs recovered, i.e. whether that final gc has anything to do. */
-export async function sweepOrphanedPacks(s: PackSweep): Promise<number> {
+export async function sweepPackGarbage(s: PackSweep): Promise<number> {
   let files: string[]
   try {
     files = await readdir(s.packDir)
@@ -59,6 +88,28 @@ export async function sweepOrphanedPacks(s: PackSweep): Promise<number> {
     } catch {
       await rm(join(s.packDir, pack), { force: true })
       s.log(`orphaned pack deleted (unrecoverable): ${pack}`)
+    }
+  }
+  /* re-list: a deleted orphan strands its companions, a recovered one regained its .idx */
+  try {
+    files = await readdir(s.packDir)
+  } catch {
+    return recovered
+  }
+  for (const f of orphanedCompanions(files)) {
+    await rm(join(s.packDir, f), { force: true })
+    s.log(`stranded pack file deleted: ${f}`)
+  }
+  for (const f of transferTemporaries(files)) {
+    try {
+      if (Date.now() - (await stat(join(s.packDir, f))).mtimeMs < TMP_GRACE_MS) {
+        s.log(`transfer temporary kept (may be live): ${f}`)
+        continue
+      }
+      await rm(join(s.packDir, f), { force: true })
+      s.log(`stale transfer temporary deleted: ${f}`)
+    } catch {
+      /* vanished between readdir and stat: its owner is alive, leave it be */
     }
   }
   return recovered
