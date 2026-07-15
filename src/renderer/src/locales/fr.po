@@ -97,8 +97,14 @@ msgstr "Un dépôt sans copie de travail, prêt à servir de dépôt distant."
 msgid "Abort merge"
 msgstr "Interrompre le merge"
 
+msgid "Add extension"
+msgstr "Ajouter une extension"
+
 msgid "Add line to the output"
 msgstr "Ajouter la ligne au résultat"
+
+msgid "Add prefix"
+msgstr "Ajouter un préfixe"
 
 msgid "Added"
 msgstr "Ajouté"
@@ -298,6 +304,9 @@ msgstr "Créer un worktree…"
 msgid "creating…"
 msgstr "création…"
 
+msgid "Custom prefixes"
+msgstr "Préfixes personnalisés"
+
 msgid "Customization"
 msgstr "Personnalisation"
 
@@ -354,6 +363,9 @@ msgstr "Détecte feat:, fix:, chore:… et l'extrait du message dans sa propre c
 
 msgid "Development branch"
 msgstr "Branche de développement"
+
+msgid "Diff"
+msgstr "Diff"
 
 msgid "Diff unavailable."
 msgstr "Diff indisponible."
@@ -414,6 +426,9 @@ msgstr "Erreur : {msg}"
 
 msgid "expected tag"
 msgstr "tag attendu"
+
+msgid "Extension"
+msgstr "Extension"
 
 msgid "Feature"
 msgstr "Feature"
@@ -499,6 +514,9 @@ msgstr "Console Git"
 msgid "Git Flow"
 msgstr "Git Flow"
 
+msgid "Give your own commit prefixes a badge color. Matches both [PREFIX] and prefix: in the subject."
+msgstr "Donnez une couleur de badge à vos propres préfixes de commit. Correspond à [PRÉFIXE] comme à préfixe : dans le sujet."
+
 #~ msgid "Hand-edited — undo the edits to re-enable the pickers."
 #~ msgstr "Édité à la main — annulez les modifications pour réactiver les sélecteurs."
 
@@ -582,6 +600,9 @@ msgstr "Objets libres"
 
 msgid "Loose size"
 msgstr "Taille libre"
+
+msgid "Map a file extension to a language so its diffs are syntax-highlighted. Common types are built in; add your own below."
+msgstr "Associez une extension de fichier à un langage pour colorer la syntaxe de ses diffs. Les types courants sont intégrés ; ajoutez les vôtres ci-dessous."
 
 msgid "Mark as resolved"
 msgstr "Marquer comme résolu"
@@ -706,6 +727,9 @@ msgstr "parents"
 msgid "Polish"
 msgstr "Peaufinage"
 
+msgid "prefix"
+msgstr "préfixe"
+
 msgid "Preview unavailable."
 msgstr "Aperçu indisponible."
 
@@ -780,6 +804,9 @@ msgstr "Dépôt distant (bare)"
 
 msgid "Remotes"
 msgstr "Distants"
+
+msgid "Remove"
+msgstr "Supprimer"
 
 msgid "Remove line from the output"
 msgstr "Retirer la ligne du résultat"
