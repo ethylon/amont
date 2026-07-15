@@ -19,9 +19,11 @@ import { iconEl } from "./icon-el.ts"
 import { badgeSeparator, badgeVariants, type BadgeColor } from "@/components/ui/badge"
 import {
   BACKUP_WIP,
+  isCustomType,
   parseMerge,
   parseRefs,
   parseSubject,
+  prefixColorVar,
   refColor,
   typeColor,
   typeIcon,
@@ -280,6 +282,9 @@ export function rowDiv(
   if (showPrefix && ps.label) {
     const b = document.createElement("span")
     b.className = chip(typeColor(ps.type!)) + " " + TYPE_MAX
+    /* A custom prefix rides the `lane` hue (chip above) driven by its own CSS var — set here so the
+       badge follows theme flips and live color edits without the graph having to rebuild. */
+    if (isCustomType(ps.type!)) b.style.setProperty("--badge-color", `var(${prefixColorVar(ps.type!)})`)
     const ic = typeIcon(ps.type!)
     if (ic) {
       const g = iconEl(ic, "shrink-0")

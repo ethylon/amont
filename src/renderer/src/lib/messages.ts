@@ -671,6 +671,28 @@ export const messages = {
     get crashReportsHint() {
       return t`Helps fix crashes. No repository contents, diffs, or credentials are ever sent.`
     },
+    get sectionDiff() {
+      return t`Diff`
+    },
+    /** intro of the Diff section: the extension → language table for syntax highlighting */
+    get langAliasesIntro() {
+      return t`Map a file extension to a language so its diffs are syntax-highlighted. Common types are built in; add your own below.`
+    },
+    /** column header over the extension inputs */
+    get extensionLabel() {
+      return t`Extension`
+    },
+    /** column header over the language pickers */
+    get languageLabel() {
+      return t`Language`
+    },
+    get addExtension() {
+      return t`Add extension`
+    },
+    /** aria-label of a row's delete button (extension mapping, custom prefix) */
+    get remove() {
+      return t`Remove`
+    },
   },
 
   /* Settings ▸ Customization (renderer prefs — cf. lib/customization.ts, lib/theme.ts, lib/i18n.ts) */
@@ -735,6 +757,20 @@ export const messages = {
     },
     get polish() {
       return t`Polish`
+    },
+    /** custom prefix → color rules, below the fixed work-type roles */
+    get customPrefixes() {
+      return t`Custom prefixes`
+    },
+    get customPrefixesHint() {
+      return t`Give your own commit prefixes a badge color. Matches both [PREFIX] and prefix: in the subject.`
+    },
+    get addPrefix() {
+      return t`Add prefix`
+    },
+    /** placeholder in a custom-prefix text input */
+    get prefixPlaceholder() {
+      return t`prefix`
     },
   },
 

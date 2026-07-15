@@ -18,6 +18,7 @@ import { useDiffQuery } from "@/features/diff/diff-queries"
 import { WtDiffBody } from "@/features/diff/wt-diff-body"
 import { imageExt, isTextImage } from "@/features/diff/image-diff-queries"
 import { ImageDiffView } from "@/features/diff/image-diff-view"
+import { getLangAliases, useLangAliasSig } from "@/lib/customization"
 import { messages } from "@/lib/messages"
 import { isDark, useTheme } from "@/lib/theme"
 import { AsyncHint } from "@/components/ui/async-hint"
@@ -39,16 +40,6 @@ export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" |
 const DIFF_BODY =
   "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 
-/* in-house extensions -> shiki grammar; MSBuild project/props files are XML */
-const LANG_ALIASES: Record<string, string> = {
-  jet: "sql",
-  csproj: "xml",
-  props: "xml",
-  targets: "xml",
-  slnx: "xml",
-  svg: "xml",
-}
-
 /* Shiki coloring on top of the diff2html render.
    <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.
    The highlighter (shiki/core + the JS regex engine, cf. shiki-highlighter.ts) is loaded
@@ -60,7 +51,7 @@ const LANG_ALIASES: Record<string, string> = {
 async function shikiPass(body: HTMLElement, signal: AbortSignal) {
   let lang = body.querySelector(".d2h-file-wrapper")?.getAttribute("data-lang")
   if (!lang || lang === "txt") return
-  lang = LANG_ALIASES[lang] || lang
+  lang = getLangAliases()[lang] || lang
   const ctns = [...body.querySelectorAll<HTMLElement>(".d2h-code-line-ctn")]
   if (!ctns.length) return
 
@@ -205,6 +196,9 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
   /* the diff is painted outside the `.dark` class (diff2html + shiki receive the theme hardcoded):
      an explicit re-render on every toggle, otherwise it stays frozen on the theme it opened with */
   const dark = useTheme()
+  /* re-run the highlight effect when the extension→grammar map changes (shikiPass reads the live
+     map); a stable signature keeps unrelated customization edits from re-highlighting the diff */
+  const langSig = useLangAliasSig()
 
   /* The diff overlays the graph: we bring focus to it on open (Escape and close
      reachable from the keyboard) and return it to the previous element on close.
@@ -288,7 +282,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
       abort.abort()
       offSync?.()
     }
-  }, [diff, view, dark, showImage, parsed, d2hFiles])
+  }, [diff, view, dark, showImage, parsed, d2hFiles, langSig])
 
   return (
     <div ref={root} tabIndex={-1} className="flex min-h-0 flex-1 flex-col px-4.5 py-4 outline-none">
