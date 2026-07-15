@@ -1,0 +1,36 @@
+# Build check for the amont.dev site (site/). Deploys are Vercel's job; this only proves
+# the static build still passes when the site, the screenshots it imports from docs/, or
+# the root package.json (whose version the hero badge displays) change.
+name: site
+
+on:
+  push:
+    branches: [master]
+    paths: ["site/**", "docs/**", "package.json"]
+  pull_request:
+    paths: ["site/**", "docs/**", "package.json"]
+
+concurrency:
+  group: site-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
