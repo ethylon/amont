@@ -289,6 +289,16 @@
     color: var(--sync-ahead);
   }
 
+  /* Open-worktree action (render/rows.ts): kept out of flow so it never shortens the commit
+     message, revealed only when the row is hovered or carries the keyboard cursor. */
+  .amont-wtopen {
+    display: none;
+  }
+  .amont-row:hover .amont-wtopen,
+  .amont-row:focus-within .amont-wtopen {
+    display: flex;
+  }
+
   @keyframes amont-flash {
     0%,
     40% {
