@@ -85,7 +85,7 @@ export function DeleteBranchDialog({
             }}
           >
             {messages.refs.deleteBranchConfirm}
-            <GitCmd cmd={cmd} />
+            <GitCmd cmd={cmd} className="text-destructive/70" />
           </Button>
         </DialogFooter>
       </DialogContent>
