@@ -127,7 +127,7 @@ export type RepoApi = {
   flowPublish(kind: FlowKind, name: string): Promise<void>
   /** merge into HEAD, pull/push of a given branch, or `git flow <type> finish` */
   branch(action: BranchAct, name: string): Promise<void>
-  /** `git branch -d <name>`, plus the `push --delete` of its upstream when `deleteRemote` */
+  /** `git branch -D <name>`, plus the `push --delete` of its upstream when `deleteRemote` */
   branchDelete(name: string, deleteRemote: boolean): Promise<void>
   files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
   /** message body (`%b`), trailers included */
