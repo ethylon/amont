@@ -11,9 +11,14 @@
        `bg-slate-800` fails the build. */
   --color-*: initial;
 
+  /* `--amont-font-ui`/`--amont-font-mono` are runtime override hooks (set inline on <html> by
+     lib/customization.ts, empty by default so the fallback — the bundled Geist — wins). They sit
+     *inside* the token value on purpose: with `@theme inline` the utilities inline this value, so
+     the emitted `.font-sans`/`.font-mono` rules carry the var() and a runtime override reaches them.
+     Overriding `--font-sans` directly would not — inline copies the literal, not a reference. */
   --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
-  --font-mono: "Geist Mono Variable", Consolas, ui-monospace, monospace;
+  --font-sans: var(--amont-font-ui, "Geist Variable"), sans-serif;
+  --font-mono: var(--amont-font-mono, "Geist Mono Variable"), Consolas, ui-monospace, monospace;
 
   --color-ring: var(--ring);
   --color-input: var(--input);

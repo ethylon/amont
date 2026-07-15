@@ -2,7 +2,16 @@ import { useEffect, useRef } from "react"
 
 import type { RepoApi } from "@/lib/git"
 import { messages } from "@/lib/messages"
+import { getCustomization, onCustomizationChange } from "@/lib/customization"
 import { createGraph, type GraphCallbacks, type GraphHandle } from "../controller.ts"
+
+/* Structural customization: the prefix column and the fonts change row layout / column widths, so
+   a change here needs a full graph rebuild to re-measure. Colors are pure CSS vars and repaint on
+   their own, so they're deliberately absent from this signature. */
+const structuralSig = () => {
+  const c = getCustomization()
+  return `${c.showPrefixColumn}|${c.fontUi ?? ""}|${c.fontMono ?? ""}`
+}
 
 type Props = {
   api: RepoApi
@@ -37,7 +46,17 @@ export function CommitGraph({ api, callbacks, onReady }: Props) {
       onWorktreeOpen: (path) => cb.current.onWorktreeOpen(path),
     })
     ready.current(graph)
+    /* Rebuild on a structural customization change (prefix column / fonts) — same channel a
+       checkout uses. `reset()` clears the measurer, so column widths give back space too. */
+    let sig = structuralSig()
+    const offCustomization = onCustomizationChange(() => {
+      const next = structuralSig()
+      if (next === sig) return
+      sig = next
+      void graph.reset()
+    })
     return () => {
+      offCustomization()
       graph.destroy()
       ready.current(null)
     }

@@ -6,6 +6,7 @@
 
 import type { Commit } from "../../../../../shared/types.ts"
 import { parseRefs, parseSubject, type RefChip } from "@/lib/commit-parse"
+import { getShowPrefixColumn } from "@/lib/customization"
 import { badgeVariants } from "@/components/ui/badge"
 import { BRANCH_BUDGET, BRANCH_MAX, GAP, TYPE_MAX } from "../constants.ts"
 import { refGroup } from "./rows.ts"
@@ -48,8 +49,11 @@ export function createMeasurer(inner: HTMLDivElement) {
 
   /** Feeds the measurement queues with what the page brings that's new (types, cells). */
   function scanPage(commits: Commit[]) {
+    /* Prefix column off → don't feed the type queue, so `--amont-type` stays 0 and the column
+       collapses. Re-evaluated on every rebuild: a toggle drives a graph reset (cf. controller). */
+    const showPrefix = getShowPrefixColumn()
     for (const c of commits) {
-      const label = parseSubject(c.s).label
+      const label = showPrefix ? parseSubject(c.s).label : null
       if (label && !seenType.has(label)) {
         seenType.add(label)
         queueTypes.push(label)

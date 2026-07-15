@@ -127,6 +127,9 @@ msgstr "Amont {version} is ready to install."
 msgid "Amont is up to date."
 msgstr "Amont is up to date."
 
+msgid "Appearance, colors, and fetch behavior."
+msgstr "Appearance, colors, and fetch behavior."
+
 msgid "Apply"
 msgstr "Apply"
 
@@ -141,6 +144,9 @@ msgstr "Auto-fetch"
 
 msgid "B · {label}"
 msgstr "B · {label}"
+
+msgid "Badge colors by work type. Light and dark are set separately."
+msgstr "Badge colors by work type. Light and dark are set separately."
 
 msgid "base"
 msgstr "base"
@@ -232,6 +238,9 @@ msgstr "Close tab"
 msgid "co-authors"
 msgstr "co-authors"
 
+msgid "Colors"
+msgstr "Colors"
+
 msgid "Command failed: {cmd}"
 msgstr "Command failed: {cmd}"
 
@@ -289,6 +298,9 @@ msgstr "Create worktree…"
 msgid "creating…"
 msgstr "creating…"
 
+msgid "Customization"
+msgstr "Customization"
+
 msgid "Dark"
 msgstr "Dark"
 
@@ -309,6 +321,9 @@ msgstr "Database verified"
 
 msgid "date"
 msgstr "date"
+
+msgid "Default"
+msgstr "Default"
 
 msgid "Delete"
 msgstr "Delete"
@@ -333,6 +348,9 @@ msgstr "Destination folder"
 
 msgid "detached HEAD"
 msgstr "detached HEAD"
+
+msgid "Detect feat:, fix:, chore:… and lift it out of the message into its own column."
+msgstr "Detect feat:, fix:, chore:… and lift it out of the message into its own column."
 
 msgid "Development branch"
 msgstr "Development branch"
@@ -366,6 +384,9 @@ msgstr "Discard line"
 
 msgid "Dismiss"
 msgstr "Dismiss"
+
+msgid "Display the underlying git command beneath the actions that run it."
+msgstr "Display the underlying git command beneath the actions that run it."
 
 msgid "Documentation"
 msgstr "Documentation"
@@ -403,8 +424,8 @@ msgstr "Feature prefix"
 msgid "Fetch"
 msgstr "Fetch"
 
-msgid "Fetch behavior, applied to every repository."
-msgstr "Fetch behavior, applied to every repository."
+#~ msgid "Fetch behavior, applied to every repository."
+#~ msgstr "Fetch behavior, applied to every repository."
 
 msgid "Fetch from all remotes in the background, on a timer."
 msgstr "Fetch from all remotes in the background, on a timer."
@@ -457,6 +478,9 @@ msgstr "finish targets"
 msgid "Flat view"
 msgstr "Flat view"
 
+msgid "Font list unavailable in this environment."
+msgstr "Font list unavailable in this environment."
+
 msgid "Français"
 msgstr "Français"
 
@@ -502,6 +526,9 @@ msgstr "https://… or git@…"
 msgid "Image preview"
 msgstr "Image preview"
 
+msgid "Info"
+msgstr "Info"
+
 msgid "Initialize"
 msgstr "Initialize"
 
@@ -516,6 +543,9 @@ msgstr "Initialize Git Flow…"
 
 msgid "initializing…"
 msgstr "initializing…"
+
+msgid "Interface font"
+msgstr "Interface font"
 
 msgid "Interval"
 msgstr "Interval"
@@ -574,6 +604,9 @@ msgstr "Merging {theirs} (B) into {ours} (A)"
 msgid "min"
 msgstr "min"
 
+msgid "Monospace font"
+msgstr "Monospace font"
+
 msgid "More actions"
 msgstr "More actions"
 
@@ -631,6 +664,9 @@ msgstr "none"
 msgid "Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes."
 msgstr "Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes."
 
+msgid "Only show monospace fonts"
+msgstr "Only show monospace fonts"
+
 msgid "Open a repository in a new tab."
 msgstr "Open a repository in a new tab."
 
@@ -666,6 +702,9 @@ msgstr "parent"
 
 msgid "parents"
 msgstr "parents"
+
+msgid "Polish"
+msgstr "Polish"
 
 msgid "Preview unavailable."
 msgstr "Preview unavailable."
@@ -721,6 +760,9 @@ msgstr "Ready"
 msgid "Recent"
 msgstr "Recent"
 
+msgid "Refactor"
+msgstr "Refactor"
+
 msgid "Release"
 msgstr "Release"
 
@@ -754,6 +796,12 @@ msgstr "Repository"
 msgid "Repository created: {path}"
 msgstr "Repository created: {path}"
 
+msgid "Reset"
+msgstr "Reset"
+
+msgid "Reset to defaults"
+msgstr "Reset to defaults"
+
 msgid "Reset to selection"
 msgstr "Reset to selection"
 
@@ -777,6 +825,12 @@ msgstr "Send anonymous crash reports"
 
 msgid "Settings"
 msgstr "Settings"
+
+msgid "Show git commands in the interface"
+msgstr "Show git commands in the interface"
+
+msgid "Show prefix as a separate column"
+msgstr "Show prefix as a separate column"
 
 msgid "Show sidebar"
 msgstr "Show sidebar"
