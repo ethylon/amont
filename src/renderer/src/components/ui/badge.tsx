@@ -24,6 +24,7 @@ const badgeVariants = cva(
         danger: "[--badge-color:var(--destructive)] [--badge-fg:var(--destructive)]",
         info: "[--badge-color:var(--info)] [--badge-fg:var(--info)]",
         refactor: "[--badge-color:var(--refactor)] [--badge-fg:var(--refactor)]",
+        polish: "[--badge-color:var(--polish)] [--badge-fg:var(--polish)]",
         /* The only axis where the hue has no name: the carrier — or any of its
            ancestors, --badge-color inherits — sets it. Graph lanes are legible enough
            in both themes to also serve as the text color. */
