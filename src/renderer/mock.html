@@ -50,17 +50,26 @@
           r: "",
           s: "untracked files on develop: a1b2c3d4 Merge…",
         },
-        /* Diverged develop: two local commits (ahead, to push) and two remote-only ones under
+        /* Diverged develop: three local commits (ahead, to push) and two remote-only ones under
        origin/develop (behind, to pull) fork from a1b2c3d4 — exercises the sync styling
        (layout/sync.ts): amber hollow nodes above the frontier marker, blue dashed ones below. */
         {
           h: sha("dd01aa11"),
-          p: [sha("dd02bb22")],
+          p: [sha("dd015555")],
           d: "2026-07-09",
           a: "Grace Hopper",
           e: ME,
           r: "HEAD -> refs/heads/develop",
           s: "feat(ui): sync-state styling on the graph",
+        },
+        {
+          h: sha("dd015555"),
+          p: [sha("dd02bb22")],
+          d: "2026-07-09",
+          a: "Grace Hopper",
+          e: ME,
+          r: "",
+          s: "polish(ui): nettoyage des composants du graphe",
         },
         {
           h: sha("dd02bb22"),
