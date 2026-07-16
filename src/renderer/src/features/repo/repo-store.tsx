@@ -87,6 +87,11 @@ export interface RepoStoreState {
     /** live `NN%` of the running network op (fetch/pull/push), streamed from git's `--progress`;
         `null` between commands or before git emits its first percentage. Footer feed, cf. status-bar. */
     opProgress: { op: OpName; percent: number } | null
+    /** a gitflow operation (start/finish/publish/init) is running its git commands — the flow
+        banners swap the kind icon for a spinner and roll the traced commands (cf. FlowBanner).
+        Scoped to the commands themselves, not the invalidation/reload that follows: the ticker
+        must never churn through the reload's read commands. */
+    flowBusy: boolean
   }
   graph: {
     stats: Stats | null
@@ -125,6 +130,8 @@ export interface RepoStoreState {
   setBusyOp(op: OpName | null): void
   /** live footer percentage of a running network op; `null` clears it (op settled or reset) */
   setOpProgress(progress: { op: OpName; percent: number } | null): void
+  /** raises/clears `ops.flowBusy` around a gitflow command (cf. runFlow/runBranch/runFlowPublish) */
+  setFlowBusy(v: boolean): void
   showOp(text: string, color: OpState["color"], action?: OpState["action"]): void
   clearOp(): void
   setStats(stats: Stats): void
@@ -139,6 +146,8 @@ export interface RepoStoreState {
   doCommit(): Promise<void>
   runStash(action: StashAct, name?: string): Promise<void>
   runBranch(action: BranchAct, name: string): Promise<void>
+  /** `git flow <kind> publish` through `runGitAction`, flagging `ops.flowBusy` like finish/start */
+  runFlowPublish(kind: BranchFlow, name: string): Promise<void>
   /** `git branch -D`, plus the remote branch when `deleteRemote` — reloads and badges like the rest */
   deleteBranch(name: string, deleteRemote: boolean): Promise<void>
   checkout(name: string): Promise<void>
@@ -200,7 +209,7 @@ export function createRepoStore(
       diffMode: prefs.diffView.get() || "unified",
       flowStartKind: null,
     },
-    ops: { busyOp: null, opState: null, opProgress: null },
+    ops: { busyOp: null, opState: null, opProgress: null, flowBusy: false },
     graph: { stats: null },
 
     selectRow(row, additive) {
@@ -434,6 +443,9 @@ export function createRepoStore(
     setOpProgress(progress) {
       set((s) => ({ ops: { ...s.ops, opProgress: progress } }))
     },
+    setFlowBusy(v) {
+      set((s) => ({ ops: { ...s.ops, flowBusy: v } }))
+    },
     /* the badge clears itself; only an action ("Reload") keeps it in place */
     showOp(text, color, action) {
       clearTimeout(okTimer)
@@ -468,7 +480,9 @@ export function createRepoStore(
     },
 
     async runFlow(action) {
+      get().setFlowBusy(true)
       const err = await action().then(() => null, describeError)
+      get().setFlowBusy(false)
       invalidateRepo(queryClient, repoId)
       await get().resetAndLoad()
       return err
@@ -499,7 +513,28 @@ export function createRepoStore(
     },
 
     runBranch(action, name) {
-      return get().runGitAction(() => api.branch(action, name))
+      /* a finish is a gitflow operation: flag it so the flow banner animates while
+         `git flow … finish` runs (merge + tag + back-merge can take a while) */
+      if (action !== "finish") return get().runGitAction(() => api.branch(action, name))
+      return get().runGitAction(async () => {
+        get().setFlowBusy(true)
+        try {
+          await api.branch("finish", name)
+        } finally {
+          get().setFlowBusy(false)
+        }
+      })
+    },
+
+    runFlowPublish(kind, name) {
+      return get().runGitAction(async () => {
+        get().setFlowBusy(true)
+        try {
+          await api.flowPublish(kind, name)
+        } finally {
+          get().setFlowBusy(false)
+        }
+      })
     },
 
     deleteBranch(name, deleteRemote) {

@@ -54,7 +54,7 @@ export function FlowShortcut() {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
   const onBranch = useRepoStore((s) => s.runBranch)
-  const runGitAction = useRepoStore((s) => s.runGitAction)
+  const runFlowPublish = useRepoStore((s) => s.runFlowPublish)
   const openFlowStart = useRepoStore((s) => s.openFlowStart)
 
   const { data: flow = null } = useFlowQuery(api, repoId)
@@ -81,7 +81,7 @@ export function FlowShortcut() {
             icon={ArrowUp02Icon}
             tint={FLOW_META[kind].text}
             label={PUBLISH_NAMED[kind](name)}
-            onClick={() => void runGitAction(() => api.flowPublish(kind, name))}
+            onClick={() => void runFlowPublish(kind, name)}
           />
         )}
       </ul>
