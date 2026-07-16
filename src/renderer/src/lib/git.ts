@@ -15,6 +15,7 @@ export type {
   CountObjects,
   DiffText,
   FileChange,
+  FlowFinishOpts,
   FlowInfo,
   FlowInitConfig,
   FlowKind,
@@ -55,6 +56,7 @@ import type {
   CountObjects,
   DiffText,
   FileChange,
+  FlowFinishOpts,
   FlowInfo,
   FlowInitConfig,
   FlowKind,
@@ -132,6 +134,9 @@ export type RepoApi = {
   flowStart(kind: FlowKind, name: string, base?: string): Promise<void>
   /** `git flow <kind> publish <name>` */
   flowPublish(kind: FlowKind, name: string): Promise<void>
+  /** feature/bugfix finish with the banner's options — merge `--no-ff` or rebase + fast-forward,
+      branch deleted or kept. Full branch name, like `branch` */
+  flowFinish(name: string, opts: FlowFinishOpts): Promise<void>
   /** merge into HEAD, pull/push of a given branch, or `git flow <type> finish` */
   branch(action: BranchAct, name: string): Promise<void>
   /** `git branch -D <name>`, plus the `push --delete` of its upstream when `deleteRemote` */
@@ -205,6 +210,7 @@ export const repoApi = (id: number): RepoApi => ({
   flowInit: (cfg) => bridge.flowInit(id, cfg),
   flowStart: (kind, name, base) => bridge.flowStart(id, kind, name, base),
   flowPublish: (kind, name) => bridge.flowPublish(id, kind, name),
+  flowFinish: (name, opts) => bridge.flowFinish(id, name, opts),
   branch: (action, name) => bridge.branch(id, action, name),
   branchDelete: (name, deleteRemote) => bridge.branchDelete(id, name, deleteRemote),
   files: (hash, parent, requestId) => bridge.files(id, hash, parent, requestId),

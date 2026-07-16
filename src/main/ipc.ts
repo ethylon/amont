@@ -237,6 +237,12 @@ export function registerIpc(): void {
   })
   handle("flow:start", (_ev, id, kind, name, base) => flow.flowStart(repos.use(id), kind, name, base))
   handle("flow:publish", (_ev, id, kind, name) => flow.flowPublish(repos.use(id), kind, name))
+  handle("flow:finish", (_ev, id, name, opts) =>
+    flow.finishFeature(repos.use(id), name, {
+      rebase: opts?.rebase === true,
+      deleteBranch: opts?.deleteBranch === true,
+    })
+  )
 
   handle("repo:branch", (_ev, id, action, name) => ops.branchAction(repos.use(id), action, name))
   handle("repo:branchDelete", (_ev, id, name, deleteRemote) =>

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "amont-mock",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["mock"],
+      "port": 5199
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "site", "dev", "--port", "4399"],
+      "port": 4399
+    }
+  ]
+}

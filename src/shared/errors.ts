@@ -29,6 +29,7 @@ export type ErrorCode =
   | "STASH_POP_CONFLICT"
   | "NOT_FLOW_BRANCH"
   | "NO_UPSTREAM"
+  | "DIVERGED"
   | "TIMEOUT"
   | "ABORTED"
   | "OUTPUT_LIMIT"

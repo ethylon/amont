@@ -991,6 +991,21 @@ export const messages = {
     get cancelStart() {
       return t`Cancel`
     },
+    /* inline finish banner (feature/bugfix): merge --no-ff by default, or rebase + fast-forward;
+       branch deleted or kept */
+    get finish() {
+      return t`Finish`
+    },
+    get finishing() {
+      return t`finishing…`
+    },
+    rebaseOn: (base: string) => t`Rebase on ${base}`,
+    get deleteBranch() {
+      return t`Delete branch`
+    },
+    get cancelFinish() {
+      return t`Cancel`
+    },
   },
 
   maintenance: {

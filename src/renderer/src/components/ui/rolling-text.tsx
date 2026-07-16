@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -40,5 +40,51 @@ export function RollingText({ text, className }: { text: string; className?: str
         {cur}
       </span>
     </span>
+  )
+}
+
+/** Content variant of the ticker: same roll, swapping whole rows of markup when `swapKey`
+    changes (the flow banner rolling between its info row and the finish confirmation). The
+    outgoing row is a snapshot of what the previous key last rendered; a key that keeps
+    re-rendering only refreshes in place, without rolling. */
+export function RollingSwap({
+  swapKey,
+  className,
+  children,
+}: {
+  swapKey: string
+  className?: string
+  children: ReactNode
+}) {
+  const [{ prev, seq }, setState] = useState({ prev: null as ReactNode, seq: 0 })
+  const shown = useRef({ key: swapKey, node: children })
+
+  useEffect(() => {
+    if (swapKey === shown.current.key) {
+      shown.current.node = children
+      return
+    }
+    const from = shown.current.node
+    shown.current = { key: swapKey, node: children }
+    setState((s) => ({ prev: from, seq: s.seq + 1 }))
+  }, [swapKey, children])
+
+  useEffect(() => {
+    if (prev === null) return
+    const t = window.setTimeout(() => setState((s) => (s.seq === seq ? { ...s, prev: null } : s)), ROLL_MS)
+    return () => window.clearTimeout(t)
+  }, [prev, seq])
+
+  return (
+    <div className={cn("grid grid-cols-1 overflow-hidden", className)}>
+      {prev !== null && (
+        <div key={`p-${seq}`} className="amont-roll-out col-start-1 row-start-1 min-w-0">
+          {prev}
+        </div>
+      )}
+      <div key={`c-${seq}`} className={cn("col-start-1 row-start-1 min-w-0", prev !== null && "amont-roll-in")}>
+        {children}
+      </div>
+    </div>
   )
 }

@@ -67,6 +67,7 @@ const bridge: Bridge = {
   flowInit: invoke("flow:init"),
   flowStart: invoke("flow:start"),
   flowPublish: invoke("flow:publish"),
+  flowFinish: invoke("flow:finish"),
   branch: invoke("repo:branch"),
   branchDelete: invoke("repo:branchDelete"),
   files: invoke("repo:files"),
