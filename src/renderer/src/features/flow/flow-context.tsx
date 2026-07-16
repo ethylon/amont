@@ -4,8 +4,12 @@ import { Bug01Icon, Fire02Icon, GitMergeIcon, RocketIcon, SparklesIcon } from "@
 import type { FlowInfo } from "@/lib/git"
 import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
+import { traceCommand, useTraceStep } from "@/lib/use-trace-step"
 import { cn } from "@/lib/utils"
+import { useRepoStore } from "@/features/repo/repo-store"
 import type { ButtonColor } from "@/components/ui/button"
+import { RollingText } from "@/components/ui/rolling-text"
+import { Spinner } from "@/components/ui/spinner"
 
 /* Colors and hues of all flow indicators (statusbar, cockpit, card): same hues
    as the sidebar badges, same icons as the commit-type badges (feat's sparkle,
@@ -30,9 +34,14 @@ const count = (info: FlowInfo) => messages.flow.commitCount(info.commits)
 
 /* Cockpit: banner under the toolbar as soon as a flow branch is checked out — hidden on
    trunks (master, develop) and detached HEAD. On the right, where the work will land once
-   finished (finish merge, tag set). */
+   finished (finish merge, tag set). While a gitflow operation runs (finish, publish — they can
+   be long: merge + tag + back-merge, network), the kind icon gives way to a spinner and the
+   traced git commands roll where the count sits (same ticker as the commit button). */
 export function FlowBanner({ kind, branch, info }: { kind: BranchFlow; branch: string; info: FlowInfo }) {
   const m = FLOW_META[kind]
+  const repoId = useRepoStore((s) => s.repoId)
+  const busy = useRepoStore((s) => s.ops.flowBusy)
+  const cmd = useTraceStep(repoId, busy, traceCommand)
   return (
     <div
       className={cn(
@@ -43,11 +52,22 @@ export function FlowBanner({ kind, branch, info }: { kind: BranchFlow; branch: s
       )}
     >
       <span className="flex items-center gap-1.5 font-medium">
-        <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
+        {busy ? (
+          <Spinner className="size-3.5 shrink-0" />
+        ) : (
+          <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
+        )}
         {branch}
       </span>
-      <span className="opacity-80">{count(info)}</span>
-      <span className="flex-1" />
+      {busy ? (
+        /* the count seeds the ticker: the first traced command rolls in over it */
+        <RollingText text={cmd ?? count(info)} className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80" />
+      ) : (
+        <>
+          <span className="opacity-80">{count(info)}</span>
+          <span className="flex-1" />
+        </>
+      )}
       <span className="flex items-center gap-1.5 opacity-80">
         <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} className="size-3.5 shrink-0" />
         {messages.flow.to(info.targets.join(" + "))}

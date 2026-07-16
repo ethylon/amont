@@ -403,6 +403,21 @@
         }
       }
 
+      /* Gitflow ops: replay the command sequence main would trace (`git:trace`), one line per
+         command with a beat in between, so the flow banners' spinner + rolling ticker can be
+         exercised in the harness. */
+      const emitTrace = (line) => onTraceListeners.forEach((cb) => cb({ id: REPO.id, ...line }))
+      const simulateFlowCmds = async (cmds, ms = 900) => {
+        /* one beat before the first line, like the real IPC round-trip: the renderer flags the
+           op and subscribes to the trace before main's first `cmd` event can possibly land */
+        await new Promise((r) => setTimeout(r, 30))
+        for (const text of cmds) {
+          emitTrace({ kind: "cmd", text })
+          await new Promise((r) => setTimeout(r, ms))
+          emitTrace({ kind: "exit", ok: true, ms })
+        }
+      }
+
       const REFS = [
         { name: "develop", kind: "head", head: true, ahead: 2, behind: 2, tip: sha("dd01aa11") },
         { name: "feature/cost-optim", kind: "head", head: false, ahead: 0, behind: 0, tip: sha("5a6b7c8d") },
@@ -535,9 +550,13 @@
           return flowPrefixes
         },
         flowStart: async (_id, kind, name) => {
-          currentBranch = (flowPrefixes[kind] || `${kind}/`) + name
+          const branch = (flowPrefixes[kind] || `${kind}/`) + name
+          await simulateFlowCmds(["git config --get-regexp ^gitflow\\.prefix\\.", `git flow ${kind} start ${name}`])
+          currentBranch = branch
         },
-        flowPublish: async () => {},
+        flowPublish: async (_id, kind, name) => {
+          await simulateFlowCmds(["git config --get-regexp ^gitflow\\.prefix\\.", `git flow ${kind} publish ${name}`])
+        },
         countObjects: async () => counts,
         fsck: async () => {
           await simulateMaint("fsck")
@@ -556,7 +575,20 @@
             sizeGarbage: "0 bytes",
           }
         },
-        branch: async () => {},
+        /* finish walks HEAD back to develop after replaying git-flow's traced commands
+           (merge + tag + back-merge live inside the single `git flow … finish`) */
+        branch: async (_id, action, name) => {
+          if (action !== "finish") return
+          const kind = Object.keys(flowPrefixes).find((k) => flowPrefixes[k] && name.startsWith(flowPrefixes[k]))
+          if (!kind) return
+          const version = name.slice(flowPrefixes[kind].length)
+          const tagged = kind === "release" || kind === "hotfix"
+          await simulateFlowCmds([
+            "git config --get-regexp ^gitflow\\.prefix\\.",
+            `git flow ${kind} finish ${tagged ? `-m ${version} ` : ""}${version}`,
+          ])
+          if (currentBranch === name) currentBranch = "develop"
+        },
         checkout: async () => {},
         worktrees: async () => structuredClone(worktrees),
         worktreeAct: async (_id, action, path) => {
