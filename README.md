@@ -4,65 +4,94 @@
 
 # Amont
 
-### A fast, keyboard-friendly Git client for Windows.
+### Git history you can actually read.
+
+A fast, keyboard-friendly Git client for Windows.
 
 [![Latest release](https://img.shields.io/github/v/release/ethylon/amont?label=release&color=8b5cf6)](https://github.com/ethylon/amont/releases/latest)
 [![CI](https://github.com/ethylon/amont/actions/workflows/ci.yml/badge.svg)](https://github.com/ethylon/amont/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d4)
 
-**[⬇ Download the latest release](https://github.com/ethylon/amont/releases/latest)** ·
+**[Download the latest release](https://github.com/ethylon/amont/releases/latest)** ·
+[Website](https://amont.dev) ·
 [Features](#features) · [Screenshots](#screenshots) · [Install](#install) · [Development](#development)
 
-![Amont's main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit's message and file tree.](docs/graph-light.png)
+![Amont’s main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit’s message and file tree.](docs/graph-light.png)
+
+<sub>Amont browsing a 25,000-commit demo repository.</sub>
 
 </div>
 
-Amont displays a repository's history as a commit graph and lets you work directly from
-it: search commits, read diffs, stage changes, commit, resolve merge conflicts, and manage
-branches, worktrees and remotes. It runs the `git` installed on your machine and shows
-every command it executes.
+Amont lays your repository out as one fast, readable commit graph: branches, merges, tags,
+stashes and ahead/behind status at a glance. Smooth at 100,000+ commits. Work directly from
+it: search commits, read syntax-highlighted diffs, stage down to the line, resolve merge
+conflicts side by side, manage branches, worktrees and remotes. Amont drives the `git`
+installed on your machine and shows every command it runs.
+
+Try the live demo on [amont.dev](https://amont.dev): the real interface, in your browser,
+on a simulated repository.
 
 ## Features
 
-- **Commit graph** — branches, merges, tags, stashes and ahead/behind status in one
-  scrollable view; commit subjects carry type badges (`feat`, `fix`, …). The graph stays
-  fast on very large histories (100,000+ commits).
-- **Commit search** — by message, author or hash prefix; can also search the contents of
-  diffs.
-- **Diffs** — syntax-highlighted, unified or side-by-side, per file or for the whole
-  commit. Images are shown in an image viewer.
-- **Staging** — stage, unstage or discard files, folders, hunks or single lines from an
-  interactive diff. Commit and amend from the same panel.
-- **Merge conflicts** — both versions side by side; take a whole side, one block or
-  single lines, in any order, then edit the merged result freely before marking the file
+Most Git clients treat history as a side panel. Amont is built the other way around: the
+graph is the workspace.
+
+### The graph
+
+- **One timeline.** Branches, merges, tags, stashes and ahead/behind status in a single
+  scrollable view; commit subjects carry type badges (`feat`, `fix`, …).
+- **Fast at scale.** A purpose-built streaming engine keeps scrolling smooth on histories
+  of 100,000+ commits. The screenshots below run on a 25,000-commit history.
+- **Search.** Find commits by message, author or hash prefix, or search through the
+  contents of diffs.
+- **Keyboard first.** The graph, file lists, sidebar, menus and popovers all work without
+  a mouse.
+
+### Work from it
+
+- **Staging.** Stage, unstage or discard files, folders, hunks or single lines from a
+  live diff, then commit or amend from the same panel.
+- **Diffs.** Syntax-highlighted, unified or side-by-side, per file or for the whole
+  commit. Images open in an image viewer.
+- **Merge conflicts.** Both versions side by side: take a whole side, one block or single
+  lines, in any order, then edit the merged result freely before marking the file
   resolved.
-- **Worktrees** — create, open, reveal or remove linked worktrees from the sidebar or the
+- **Worktrees.** Create, open, reveal or remove linked worktrees from the sidebar or the
   graph.
-- **git-flow** — start, publish and finish feature, release and hotfix branches from the
+- **git-flow.** Start, publish and finish feature, release and hotfix branches from the
   UI.
-- **Remote operations** — fetch, pull and push with live progress; optional periodic
-  auto-fetch (with prune) keeps the graph up to date.
-- **Command transparency** — mutation buttons show the exact git command they will run,
-  and a read-only console logs every command the app executes.
-- **Repository maintenance** — a healthcheck runs `fsck` and `gc`, reports object counts,
-  and finds stranded pack files and stale temporary files.
-- **Keyboard support** — the graph, file lists, sidebar, menus and popovers all work
-  without a mouse.
-- **Customization** — light and dark themes, English and French UI (switchable at
-  runtime), custom branch-prefix colors, configurable diff highlighting.
-- **Auto-update** — checks GitHub Releases at startup, downloads in the background, and
+- **Remotes.** Fetch, pull and push with live progress; optional periodic auto-fetch
+  (with prune) keeps the graph current.
+
+### It’s still git. You can watch.
+
+- **The exact command, before you click.** Every mutation button shows the git command it
+  will run, and a read-only console logs every command the app executes.
+- **Your git, your repo.** Amont drives the `git` installed on your machine: no bundled
+  binaries, no hidden state, no account.
+- **Sandboxed UI.** The interface runs in Chromium’s sandbox with a strict CSP; only the
+  main process touches git, the disk and the network.
+- **Free and open.** MIT-licensed. Optional crash reports carry no repository contents
+  and no personal data; see [Privacy](#privacy).
+
+### Everything else
+
+- **Repository healthcheck.** Runs `fsck` and `gc`, reports object counts, and finds
+  stranded pack files and stale temporary files.
+- **Customization.** Light and dark themes, English and French UI switchable at runtime,
+  custom branch-prefix colors, configurable diff highlighting.
+- **Auto-update.** Checks GitHub Releases at startup, downloads in the background, and
   installs on quit or on _Restart now_.
-- **Sandboxed UI** — the interface runs in Chromium's sandbox with a strict CSP; only the
-  main process accesses git, the disk and the network.
 
 ## Screenshots
 
-All screenshots show Amont on this repository's own history.
+All screenshots show Amont on its demo repository: the same simulated 25,000-commit
+history as the live demo on [amont.dev](https://amont.dev).
 
 ### The commit graph
 
-Branch lanes, merge curves, tags, stashes and ahead/behind status in a single timeline —
+Branch lanes, merge curves, tags, stashes and ahead/behind status in a single timeline,
 here a history of about 25,000 commits. Selecting a commit opens its full message,
 co-authors and changed files in the detail panel.
 
@@ -73,7 +102,7 @@ co-authors and changed files in the detail panel.
 Unified or side-by-side, one file or the whole commit, with syntax highlighting
 throughout. The two panes scroll together; images are shown in an image viewer.
 
-![A side-by-side, syntax-highlighted diff of a TypeScript file, with the commit's detail panel on the right.](docs/diff-light.png)
+![A side-by-side, syntax-highlighted diff of a TypeScript file, with the commit’s detail panel on the right.](docs/diff-light.png)
 
 <details>
 <summary>Same view, dark theme</summary>
@@ -88,7 +117,7 @@ The `Uncommitted changes` row at the top of the graph opens the staging panel: s
 unstage files, folders, hunks or single lines from a live diff, then commit or amend. The
 commit button shows the exact git command before you run it.
 
-![The staging panel: staged and unstaged file trees, a live side-by-side diff with per-hunk stage/discard actions, and the commit message box.](docs/worktree-light.png)
+![The staging panel: staged and unstaged file trees, a live diff with per-hunk stage and discard actions, and the commit message box.](docs/worktree-light.png)
 
 <details>
 <summary>Same view, dark theme</summary>
@@ -100,14 +129,14 @@ commit button shows the exact git command before you run it.
 ### Merge conflicts
 
 When a merge, rebase or stash pop leaves conflicts, opening a conflicted file lays both
-versions out in aligned, syntax-highlighted panes — **A** is the branch you're on
-(_ours_), **B** the one being merged in (_theirs_). A checkbox per pane takes a whole
-side, a per-chunk checkbox takes one side of one conflict, and per-line `+`/`−` buttons
-take single lines, in the order you click them. The merged output is a regular editor, so
+versions out in aligned, syntax-highlighted panes: **A** is the branch you’re on (_ours_),
+**B** the one being merged in (_theirs_). A checkbox per pane takes a whole side, a
+per-chunk checkbox takes one side of one conflict, and per-line `+`/`−` buttons take
+single lines, in the order you click them. The merged output is a regular editor, so
 picks and hand edits can be combined; `Mark as resolved` writes the file and stages it
 once no conflict markers remain.
 
-![The conflict resolution view: the 'ours' (A) and 'theirs' (B) versions of a file in two aligned, syntax-highlighted panes with per-side and per-line pickers, above an editable merged output.](docs/conflict-light.png)
+![The conflict resolution view: the ‘ours’ (A) and ‘theirs’ (B) versions of a file in two aligned, syntax-highlighted panes with per-side and per-line pickers, above an editable merged output.](docs/conflict-light.png)
 
 <details>
 <summary>Same view, dark theme</summary>
@@ -141,10 +170,10 @@ address to those services. Authors without an avatar there get a colored monogra
 
 **Crash reporting.** Official release builds report unhandled errors and native crashes
 to Sentry. Reports contain no repository contents, diffs or credentials, and no PII (IP,
-hostname, user identity) — see `src/main/telemetry.ts`. Reporting can be turned off from
-a toggle on the home screen. Builds from source send nothing: the Sentry DSN is injected
-at build time and only CI sets it. Reports are sent by the main process, never the
-sandboxed renderer.
+hostname, user identity); see `src/main/telemetry.ts`. Reporting can be turned off from a
+toggle on the home screen. Builds from source send nothing: the Sentry DSN is injected at
+build time and only CI sets it. Reports are sent by the main process, never the sandboxed
+renderer.
 
 ## Development
 
@@ -152,32 +181,38 @@ Requires Node (see `.nvmrc` / `engines.node` in `package.json`) and [pnpm](https
 
 ```sh
 pnpm install
-pnpm dev      # run the Electron app
-pnpm mock     # browser-only harness: real UI against a simulated git backend
-pnpm test     # vitest
-pnpm build    # electron-vite build (main + preload + renderer)
+pnpm dev          # run the Electron app
+pnpm mock         # browser-only harness: real UI against a simulated git backend
+pnpm test         # vitest
+pnpm build        # electron-vite build (main + preload + renderer)
+pnpm build:embed  # build the browser demo embedded on the website
 pnpm typecheck
 ```
 
 `pnpm mock` runs the renderer in a plain browser tab against a fake `window.amont` bridge
-(see `src/renderer/mock.html`) with a ~25,000-commit synthetic dataset — the fastest
-inner loop for UI work, with instant reload and no git processes. The screenshot harness
-at `/screenshots.html` uses the same setup with a dataset generated from this
-repository's history; the README and site screenshots come from it.
+(see `src/renderer/mock.html`) with a ~25,000-commit synthetic dataset: the fastest inner
+loop for UI work, with instant reload and no git processes. Two sibling harnesses share
+the same setup, both built on the Aurelia Storefront scenario in
+`src/renderer/demo-scenario.mjs`: `/demo.html` is the screenshot harness behind the README
+and site captures (`?merge=1` serves the conflict state; the shot list lives in
+[`site/SCREENSHOTS.md`](site/SCREENSHOTS.md)), and `src/renderer/embed.html`, built with
+`pnpm build:embed`, is the live demo embedded on [amont.dev](https://amont.dev).
+[`site/scripts/demo-repo.mjs`](site/scripts/demo-repo.mjs) generates the same scenario as
+a real git repository, for testing against the actual app.
 
-The graph engine's performance budget and measurements live in
+The graph engine’s performance budget and measurements live in
 [`docs/performance-audit.md`](docs/performance-audit.md).
 
 ### Crash reporting (maintainers)
 
 Error reporting is inert unless a Sentry DSN is provided at build time via the
 `MAIN_VITE_SENTRY_DSN` build-env variable (electron-vite reads it from the build
-environment — no file involved). Builds without it — including builds from source,
-`pnpm dev`, and CI on ordinary commits — send nothing.
+environment, no file involved). Builds without it send nothing; that includes builds from
+source, `pnpm dev`, and CI on ordinary commits.
 
 - **Official releases (CI):** set a `SENTRY_DSN` **repository variable**; the release
   workflow maps it into the build (`.github/workflows/release.yml`). The DSN ends up in
-  the shipped binary, so it's not confidential — a variable, not a secret (a secret works
+  the shipped binary, so it’s not confidential: a variable, not a secret (a secret works
   too, just swap `vars.` for `secrets.`).
 - **Local testing:** prefix the command, e.g. `MAIN_VITE_SENTRY_DSN=<dsn> pnpm dev`.
 
@@ -186,8 +221,8 @@ implementation.
 
 ## Contributing
 
-Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for project
-conventions and the release process, and [SECURITY.md](SECURITY.md) for the app's trust
+Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) for project
+conventions and the release process, and [SECURITY.md](SECURITY.md) for the app’s trust
 boundaries and how to report a vulnerability.
 
 ## License
