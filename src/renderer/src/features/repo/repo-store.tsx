@@ -19,7 +19,7 @@
    repo-view.tsx (checkout, stash, branch — the commit has its own shape, a failure doesn't
    reload there), becomes `runGitAction`. */
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { createStore, useStore, type StoreApi } from "zustand"
 
@@ -190,10 +190,13 @@ export function createRepoStore(
   /* message draft set aside while an amend borrows the last commit's */
   let draftBackup: { subject: string; description: string } | null = null
   /* Coalesced graph reload (refresh audit, §2): an external rebase fires one watcher event
-     per ref move — overlapping resetAndLoad calls share a single trailing rerun (which reads
-     the then-current repo state) instead of stacking a full reset per event. */
-  let reloading: Promise<void> | null = null
-  let queuedReload: Promise<void> | null = null
+     per ref move — at most one rerun queues behind the running reload (it reads the
+     then-current repo state, satisfying every caller that landed mid-flight), and further
+     callers share that queued rerun's promise. A permanent chain rather than a nullable
+     in-flight marker: with a marker, the microtask between "run settled" and "trailing rerun
+     starts" let a caller's continuation slip a concurrent duplicate in. */
+  let reloadChain: Promise<void> = Promise.resolve()
+  let reloadDepth = 0
 
   return createStore<RepoStoreState>((set, get) => ({
     repoId,
@@ -349,14 +352,21 @@ export function createRepoStore(
         return
       }
       /* bounded re-resolution (refresh audit, §6): the selection lived around `prevRows`
-         before the reset — search there (plus slack for commits pulled in on top), not the
-         whole history. Without the cap, amending a selected commit made `rowsOf` page in the
-         entire repo chasing a hash that no longer exists. */
-      const bound = (prevRows.length ? Math.max(...prevRows) : 0) + 2000
+         before the reset — search there (plus generous slack for commits pulled in on top),
+         not the whole history. Without the cap, amending a selected commit made `rowsOf`
+         page in the entire repo chasing a hash that no longer exists. rows are kept sorted
+         ascending, so the last element is the max (a spread over a branch-sized selection
+         would blow the argument limit). */
+      const bound = (prevRows.length ? prevRows[prevRows.length - 1] : 0) + 10_000
       const rows = [...(await g.rowsOf(hashes, bound))].sort((a, b) => a - b)
       await g.pin(rows)
       const resolvedHashes = rows.map((r) => g.commit(r)!.h)
-      set((s) => ({ selection: { ...s.selection, rows, hashes: resolvedHashes } }))
+      /* partial resolution (bound hit, page failure): keep the original hash list — the
+         missing commits may still exist beyond the search bound and the next reload retries;
+         only a complete resolution rewrites it (shedding duplicates the graph folded) */
+      set((s) => ({
+        selection: { ...s.selection, rows, hashes: rows.length === hashes.length ? resolvedHashes : s.selection.hashes },
+      }))
       /* reclaims the keyboard cursor (AUDIT.md §8): without this, the selection restored after a
          pull/checkout/stash would stay displayed while the keyboard cursor — primed on row 0
          by controller.ts `reset()` just before — would point elsewhere. */
@@ -463,34 +473,26 @@ export function createRepoStore(
       set((s) => ({ graph: { ...s.graph, stats } }))
     },
 
-    async resetAndLoad(opts) {
+    resetAndLoad(opts) {
       /* the UI intent of a hard reload applies immediately, even when the graph rerun is
-         coalesced into an already-running one */
+         coalesced into an already-queued one */
       if (!opts?.soft) set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, view: "commits" } }))
-      const run = async () => {
-        await get().graphRef.current?.reset()
-        await get().reresolveSelection()
-        await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
-      }
-      if (reloading) {
-        /* one shared trailing rerun: it starts after the current one (even a failed one) and
-           reads fresh state, so every caller that landed mid-flight is satisfied by it */
-        if (!queuedReload) {
-          const rerun = () => {
-            queuedReload = null
-            reloading = run().finally(() => {
-              reloading = null
-            })
-            return reloading
+      /* running + queued = 2: a third caller is satisfied by the queued rerun, which starts
+         after the current one and reads fresh state */
+      if (reloadDepth >= 2) return reloadChain
+      reloadDepth++
+      reloadChain = reloadChain
+        .catch(() => {}) // a failed run must not poison the runs chained behind it
+        .then(async () => {
+          try {
+            await get().graphRef.current?.reset()
+            await get().reresolveSelection()
+            await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+          } finally {
+            reloadDepth--
           }
-          queuedReload = reloading.then(rerun, rerun)
-        }
-        return queuedReload
-      }
-      reloading = run().finally(() => {
-        reloading = null
-      })
-      return reloading
+        })
+      return reloadChain
     },
 
     async runGitAction(action, opts) {
@@ -578,10 +580,9 @@ export function createRepoStore(
       const open = get().ui.diff
       if (open && "wt" in open.ctx && [...paths, ...untracked].includes(open.file.path))
         set((s) => ({ ui: { ...s.ui, diff: null } }))
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.diffAll(repoId) }),
-      ])
+      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+      /* wt diffs only: the discard touched the tree/index, never a commit↔commit diff */
+      invalidateWtDiffs(queryClient, repoId)
     },
 
     runWorktree(action, path) {
@@ -664,11 +665,20 @@ export function useRepoEvents(active: boolean): void {
   activeRef.current = active
   const pendingChange = useRef(false)
 
+  /* One definition of "an external change must refresh this repo" — shared by the live
+     handler and the deferred flush below, so a background tab replays exactly the reaction
+     a foreground tab would have had. Soft reload: an external change is background-initiated
+     — it must never close the user's diff, eject them from the staging view, or move their
+     scroll. */
+  const externalReload = useCallback(() => {
+    invalidateRepo(queryClient, repoId)
+    invalidateWtDiffs(queryClient, repoId)
+    void store.getState().resetAndLoad({ soft: true })
+  }, [queryClient, repoId, store])
+
   /* Refs moved outside the application: commit, rebase or checkout from a terminal.
      Main only notifies when in the foreground, stays quiet after our own commands, and
-     (emitChanged gate, main/watcher.ts) only when the graph fingerprint actually moved.
-     Soft reload: an external change is background-initiated — it must never close the
-     user's diff, eject them from the staging view, or move their scroll. */
+     (emitChanged gate, main/watcher.ts) only when the graph fingerprint actually moved. */
   useEffect(
     () =>
       onChanged((p) => {
@@ -677,21 +687,17 @@ export function useRepoEvents(active: boolean): void {
           pendingChange.current = true
           return
         }
-        invalidateRepo(queryClient, repoId)
-        invalidateWtDiffs(queryClient, repoId)
-        void store.getState().resetAndLoad({ soft: true })
+        externalReload()
       }),
-    [repoId, queryClient, store]
+    [repoId, externalReload]
   )
 
   /* deferred external change lands when the tab is brought back to the foreground */
   useEffect(() => {
     if (!active || !pendingChange.current) return
     pendingChange.current = false
-    invalidateRepo(queryClient, repoId)
-    invalidateWtDiffs(queryClient, repoId)
-    void store.getState().resetAndLoad({ soft: true })
-  }, [active, repoId, queryClient, store])
+    externalReload()
+  }, [active, externalReload])
 
   /* --- Git operations: the click launches, but all the feedback goes through onOp (main
      process auto-fetch emits without a renderer-side caller). --- */

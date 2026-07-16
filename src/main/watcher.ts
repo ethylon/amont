@@ -51,9 +51,10 @@ export interface Watchable {
       by `mute()` after our own mutations — the read-path caches (stash list, ordered hash
       list, cf. repos.ts / git/queries.ts) hang off it rather than re-probing git each call. */
   gen: number
-  /** last graph fingerprint (HEAD + local/tag tips + stash list) whose `changed` was emitted —
-      the gate `emitChanged` compares against, so a .git write that moves nothing the graph
-      shows (gc rewriting packed-refs, a reflog touch) never reaches the renderer */
+  /** last graph fingerprint the renderer has seen — written by the graph's read path
+      (git/queries.ts orderedHashes) and by `emitChanged` when it notifies. The gate compares
+      against it, so a .git write that moves nothing the UI shows (gc rewriting packed-refs,
+      a reflog touch) never reaches the renderer */
   lastGraphKey: string | null
   watchers: FSWatcher[]
   watchRetries: number
@@ -63,27 +64,22 @@ export interface Watchable {
   events: {
     changed(): void
     isFocused(): boolean
-    /** graph fingerprint provider (cf. git/queries.ts `graphSnapshotKey`, injected via
-        repos.ts): optional so the trio watcher/window/tests never hard-depends on git */
+    /** graph fingerprint provider (cf. git/queries.ts `graphSnapshotKey`, supplied by the
+        ipc.ts hooks): optional so the trio watcher/window/tests never hard-depends on git */
     graphKey?(): Promise<string>
   }
 }
 
 /* Our own commands wake up the watcher, even though the renderer has already reloaded behind
    them. We can't tell these events apart from the others: we go quiet for a moment. The
-   command did change the repo, though — whatever the read caches held is stale now. */
+   command did change the repo, though — whatever the read caches held is stale now.
+   Deliberately NO eager baseline read here: `lastGraphKey` is seeded by the graph's own
+   read path (git/queries.ts orderedHashes), so the baseline is always "what the renderer
+   has actually seen" — an eager post-op read could absorb an external change the renderer
+   was never told about (held `dirty`, mute-window race) and silence its recovery. */
 export const mute = (r: Watchable): void => {
   r.gen++
   r.muted = Date.now() + MUTE_MS
-  /* the post-command state becomes the emission baseline: a filesystem echo of our own
-     mutation escaping the mute window (slow disk, antivirus) then compares equal in
-     `emitChanged` instead of triggering a redundant renderer reload (refresh audit, §7) */
-  void r.events.graphKey?.().then(
-    (key) => {
-      r.lastGraphKey = key
-    },
-    () => {}
-  )
 }
 
 /** Emits `changed` only if the graph fingerprint actually moved (refresh audit, §2): the
@@ -92,6 +88,10 @@ export const mute = (r: Watchable): void => {
     change is the one unacceptable outcome. */
 export async function emitChanged(r: Watchable): Promise<void> {
   const key = await (r.events.graphKey?.() ?? Promise.resolve(null)).catch(() => null)
+  /* a command started (or the mute window reopened) while we were reading: emitting now
+     would race a half-applied repo, and the key just read is unreliable as a baseline —
+     the command's own completion path reloads the renderer and reseeds the baseline */
+  if (r.running || Date.now() < r.muted) return
   if (key !== null) {
     if (key === r.lastGraphKey) return
     r.lastGraphKey = key

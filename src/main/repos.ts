@@ -30,8 +30,8 @@ export interface RepoHooks {
   progress(payload: Omit<ProgressEvent, "id">): void
   changed(): void
   isFocused(): boolean
-  /** graph fingerprint for the `emitChanged` gate (cf. watcher.ts) — absent from the hooks
-      ipc.ts builds (they only know the id); createRepo grafts it from the injected provider */
+  /** graph fingerprint for the `emitChanged` gate (cf. watcher.ts) — ipc.ts supplies it in
+      `makeHooks` like every other hook, resolving the handle by id at call time */
   graphKey?(): Promise<string>
 }
 
@@ -50,6 +50,10 @@ export interface RepoHandle extends Watchable {
   /** cached `git stash list`, valid for one change-generation (cf. watcher.ts `gen`): the log
       read path (git/queries.ts logPage/total) used to re-spawn `stash list` on every page */
   stashCache: { gen: number; list: Promise<Stash[]> } | null
+  /** cached graph fingerprint + stashes for one change-generation (cf. git/queries.ts
+      `graphSnapshot`): the `emitChanged` gate reads it when an event fires and the reload
+      that follows re-reads it per page — same gen, one set of spawns for all of them */
+  snapshotCache: { gen: number; snap: Promise<{ key: string; stashes: Stash[] }> } | null
   /** the graph's ordered hash list (cf. git/queries.ts logPage/total), keyed by the refs+stash
       tips snapshot — same idea as `trunk`. One string of fixed-width `\n`-terminated lines
       (~41 B/commit for sha1), deliberately never split into a per-commit array: a 1M-commit
@@ -115,16 +119,6 @@ type AutofetchFn = (r: RepoHandle) => void
 let autofetch: AutofetchFn | null = null
 export function setAutofetch(fn: AutofetchFn): void {
   autofetch = fn
-}
-
-/* --- Graph fingerprint provider ---
-   Same injection pattern (and same cycle reason) as autofetch: git/queries.ts already imports
-   repos.ts, so the watcher's `emitChanged` gate gets its `graphSnapshotKey` handed in by
-   ipc.ts instead of importing it here. */
-type GraphKeyFn = (r: RepoHandle) => Promise<string>
-let graphKey: GraphKeyFn | null = null
-export function setGraphKey(fn: GraphKeyFn): void {
-  graphKey = fn
 }
 
 /** (Re)arm a repo's autofetch timer from the current settings (settings.ts): off clears it,
@@ -195,6 +189,7 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     retryTimer: null,
     trunk: null,
     stashCache: null,
+    snapshotCache: null,
     logIndex: null,
     goneCache: null,
     children,
@@ -204,9 +199,6 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     diffNoIndex: runner.diffNoIndex,
     gitBuffer: runner.gitBuffer,
   }
-  /* grafted after construction — the provider closure needs `r` itself */
-  const keyOf = graphKey
-  if (keyOf) r.events = { ...events, graphKey: () => keyOf(r) }
   scheduleAutofetch(r)
   watchGit(r)
   repos.set(r.id, r)
