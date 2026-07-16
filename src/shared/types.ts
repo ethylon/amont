@@ -182,6 +182,16 @@ export type BranchAct = "merge" | "pull" | "push" | "finish"
 /** The four git-flow work types (feature/bugfix/release/hotfix). */
 export type FlowKind = keyof FlowPrefixes
 
+/** Options picked in the finish banner (feature/bugfix only — a release/hotfix finish keeps
+    the plain `git flow finish` semantics and travels on `repo:branch`). */
+export type FlowFinishOpts = {
+  /** rebase the branch onto its base and fast-forward — linear history, no merge commit;
+      unchecked, the merge is forced with `--no-ff` */
+  rebase: boolean
+  /** delete the branch (local and remote) once merged; unchecked maps to `git flow finish -k` */
+  deleteBranch: boolean
+}
+
 /** The `gitflow.*` config the initialization form writes before `git flow init -d` (avoiding the
     interactive prompt that would hang without a TTY). Trunk branch names + the five prefixes. */
 export type FlowInitConfig = {

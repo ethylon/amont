@@ -21,4 +21,7 @@ export const prefs = {
   locale: pref<"en" | "fr">("amont.locale"),
   diffView: pref<DiffViewMode>("amont.diffview"),
   fileView: pref<FileView>("amont.fileview"),
+  /** last choices of the flow finish banner; `null` = defaults (merge --no-ff, delete) */
+  flowFinishMode: pref<"merge" | "rebase">("amont.flowfinish.mode"),
+  flowFinishBranch: pref<"delete" | "keep">("amont.flowfinish.branch"),
 }

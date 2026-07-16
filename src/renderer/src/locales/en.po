@@ -490,6 +490,9 @@ msgstr "finish target"
 msgid "finish targets"
 msgstr "finish targets"
 
+msgid "finishing…"
+msgstr "finishing…"
+
 msgid "Flat view"
 msgstr "Flat view"
 
@@ -780,6 +783,9 @@ msgstr "Pushing…"
 
 msgid "Ready"
 msgstr "Ready"
+
+msgid "Rebase on {base}"
+msgstr "Rebase on {base}"
 
 msgid "Recent"
 msgstr "Recent"

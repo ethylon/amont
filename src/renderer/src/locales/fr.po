@@ -490,6 +490,9 @@ msgstr "cible de finalisation"
 msgid "finish targets"
 msgstr "cibles de finalisation"
 
+msgid "finishing…"
+msgstr "finalisation…"
+
 msgid "Flat view"
 msgstr "Vue à plat"
 
@@ -780,6 +783,9 @@ msgstr "Envoi…"
 
 msgid "Ready"
 msgstr "Prêt"
+
+msgid "Rebase on {base}"
+msgstr "Rebaser sur {base}"
 
 msgid "Recent"
 msgstr "Récents"
