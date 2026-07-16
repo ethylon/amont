@@ -1,0 +1,13 @@
+/* No override: plain passthrough of the primitive. The ui/ boundary remains the only import
+   surface (AUDIT.md §7, phase 5) — features never import ui/primitives/* directly
+   anymore, even when this layer has nothing to add. */
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/primitives/select"
