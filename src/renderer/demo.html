@@ -2,15 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Amont — live demo</title>
+    <title>Amont — demo harness</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module">
-      /* Démo embarquée par le site (hero) : le vrai renderer sur un dépôt simulé —
-         le scénario « Aurelia Storefront » de demo-scenario.mjs, sans merge en cours.
-         Le site passe ?theme=&locale= ; on les pose dans les prefs avant que le
-         renderer boote. */
+      /* Harnais de capture (cf. site/SCREENSHOTS.md) : le scénario « Aurelia
+         Storefront » de demo-scenario.mjs dans un onglet navigateur, via `pnpm mock`
+         puis /demo.html. ?merge=1 sert l'état conflit (formatPrice dans src/cart.ts),
+         ?theme=&locale= se posent dans les prefs avant que le renderer boote. */
       const params = new URLSearchParams(location.search)
       const qTheme = params.get("theme")
       if (qTheme === "light" || qTheme === "dark") localStorage.setItem("amont.theme", qTheme)
@@ -18,7 +18,7 @@
       if (qLocale === "en" || qLocale === "fr") localStorage.setItem("amont.locale", qLocale)
 
       const { installDemoBridge } = await import("./demo-scenario.mjs")
-      installDemoBridge()
+      installDemoBridge({ merge: params.has("merge") })
 
       await import("./src/main.tsx")
     </script>
