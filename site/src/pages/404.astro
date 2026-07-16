@@ -1,0 +1,36 @@
+---
+import "../styles/global.css"
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>404 — Amont</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
+    <script is:inline>
+      const stored = localStorage.getItem("theme")
+      const dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches
+      document.documentElement.classList.toggle("dark", dark)
+    </script>
+  </head>
+  <body class="bg-white font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+    <main class="grid min-h-screen place-items-center px-4 text-center">
+      <div>
+        <p class="font-mono text-sm text-violet-600 dark:text-violet-400">404</p>
+        <h1 class="mt-2 text-3xl font-semibold tracking-tight">Page not found · Page introuvable</h1>
+        <p class="mt-6 flex items-center justify-center gap-5 text-zinc-600 dark:text-zinc-400">
+          <a href="/" class="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400">English home</a>
+          <a href="/fr/" lang="fr" class="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400">
+            Accueil français
+          </a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

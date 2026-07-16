@@ -10,7 +10,16 @@ export default defineConfig({
     locales: ["en", "fr"],
     routing: { prefixDefaultLocale: false },
   },
-  integrations: [sitemap()],
+  integrations: [
+    sitemap({
+      // Mirror the on-page hreflang tags in the sitemap so Google gets the
+      // en/fr pairing from both sources.
+      i18n: {
+        defaultLocale: "en",
+        locales: { en: "en", fr: "fr" },
+      },
+    }),
+  ],
   vite: {
     plugins: [tailwindcss()],
     server: {
