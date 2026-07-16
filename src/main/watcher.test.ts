@@ -1,8 +1,9 @@
 /* Tests for the `emitChanged` fingerprint gate (refresh audit, §2/§7): a .git event whose
-   graph snapshot (HEAD + tips + stash) is unchanged must never wake the renderer, while a
+   graph snapshot (HEAD + refs + stash) is unchanged must never wake the renderer, while a
    missing or failing provider must fail open — staying silent on a real change is the one
-   unacceptable outcome. `mute` seeds the baseline with the post-command state, so a slow
-   filesystem echo of our own mutation compares equal instead of double-reloading. */
+   unacceptable outcome. The baseline (`lastGraphKey`) is seeded by the graph's read path
+   (git/queries.ts orderedHashes), NOT eagerly by mute(): an eager post-op read could absorb
+   an external change the renderer never saw and silence its recovery for good. */
 import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
@@ -37,7 +38,7 @@ describe("emitChanged: fingerprint gate in front of git:changed", () => {
   it("emits on first sight of a key, then suppresses while it holds still", async () => {
     const { r, emitted } = fakeWatchable(["A", "A", "A"])
     await emitChanged(r)
-    await emitChanged(r) // gc rewrote packed-refs, tips identical
+    await emitChanged(r) // gc rewrote packed-refs, snapshot identical
     await emitChanged(r)
     assert.equal(emitted(), 1)
   })
@@ -49,6 +50,13 @@ describe("emitChanged: fingerprint gate in front of git:changed", () => {
     await emitChanged(r) // commit from a terminal: HEAD moved
     assert.equal(emitted(), 2)
     assert.equal(r.lastGraphKey, "B")
+  })
+
+  it("suppresses an event whose key the read path already seeded (post-op echo)", async () => {
+    const { r, emitted } = fakeWatchable(["post-op"])
+    r.lastGraphKey = "post-op" // the renderer's own reload read this state (orderedHashes)
+    await emitChanged(r) // late filesystem echo of our own command, past the mute window
+    assert.equal(emitted(), 0)
   })
 
   it("fails open without a provider (never silences a possible real change)", async () => {
@@ -68,24 +76,42 @@ describe("emitChanged: fingerprint gate in front of git:changed", () => {
     await emitChanged(r) // back to a healthy read of the same state: suppressed
     assert.equal(emitted(), 2)
   })
-})
 
-describe("mute: baseline refresh after our own mutations", () => {
-  it("a late filesystem echo of our own command compares equal and stays quiet", async () => {
-    const { r, emitted } = fakeWatchable(["post-op", "post-op"])
-    mute(r)
-    await Promise.resolve() // lets mute's fire-and-forget baseline read land
-    await Promise.resolve()
-    assert.equal(r.lastGraphKey, "post-op")
-    r.muted = 0 // the echo arrives after the mute window
+  it("drops the emission when a command starts during the key read (mid-op race)", async () => {
+    const { r, emitted } = fakeWatchable([])
+    r.events.graphKey = () => {
+      r.running = "checkout" // the user clicked mid-read; the op's own path reloads
+      return Promise.resolve("K")
+    }
+    await emitChanged(r)
+    assert.equal(emitted(), 0)
+    assert.equal(r.lastGraphKey, null) // the mid-op key is unreliable: not baselined
+  })
+
+  it("drops the emission when the mute window reopens during the key read", async () => {
+    const { r, emitted } = fakeWatchable([])
+    r.events.graphKey = () => {
+      mute(r) // an op finished while we were reading
+      return Promise.resolve("K")
+    }
     await emitChanged(r)
     assert.equal(emitted(), 0)
   })
+})
 
-  it("tolerates a handle without provider (tests, degraded repos)", () => {
-    const { r } = fakeWatchable([])
-    delete r.events.graphKey
-    mute(r) // must not throw
+describe("mute: quiets the watcher without touching the baseline", () => {
+  it("bumps gen and never reads or writes the fingerprint", async () => {
+    const { r } = fakeWatchable(["should-not-be-read"])
+    let reads = 0
+    r.events.graphKey = () => {
+      reads++
+      return Promise.resolve("X")
+    }
+    mute(r)
+    await Promise.resolve()
+    await Promise.resolve()
     assert.equal(r.gen, 1)
+    assert.equal(reads, 0) // an eager read here could absorb a change held as `dirty`
+    assert.equal(r.lastGraphKey, null)
   })
 })

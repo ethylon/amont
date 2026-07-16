@@ -50,6 +50,11 @@ const makeHooks = (id: number): repos.RepoHooks => ({
   progress: (payload) => getMainWindow()?.webContents.send("git:progress", { id, ...payload }),
   changed: () => getMainWindow()?.webContents.send("git:changed", { id }),
   isFocused: () => getMainWindow()?.isFocused() ?? false,
+  /* fingerprint for the watcher's emitChanged gate (refresh audit, §2): a .git event whose
+     HEAD/refs/stash snapshot is unchanged never wakes the renderer. async: `use` throws
+     once the repo is closed — the rejection makes the gate fail open, and closed repos
+     have no watchers left to fire anyway. */
+  graphKey: async () => queries.graphSnapshotKey(repos.use(id)),
 })
 
 const openRepoPub = (path: string): Promise<Repo> => repos.openRepo(path, makeHooks)
@@ -78,9 +83,6 @@ function withCancel<T>(
 
 export function registerIpc(): void {
   repos.setAutofetch((r) => void ops.runOp(r, "fetch", true))
-  /* graph fingerprint for the watcher's `emitChanged` gate (refresh audit, §2): a .git event
-     whose HEAD/tips/stash snapshot is unchanged never wakes the renderer */
-  repos.setGraphKey((r) => queries.graphSnapshotKey(r))
   /* an autofetch on/off or interval change re-arms the open repos' timers, live (repos.ts).
      Wired here rather than inside settings.ts, which must not depend on repos.ts (it already
      reads getSettings() the other way). */

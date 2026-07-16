@@ -99,7 +99,7 @@ export function createGraph(
       /* mid-reset pages feed the new layout state only: the DOM on screen still shows the
          previous graph, and everything below (scan, evict, refresh, sync) runs against
          render-side caches that reset() will swap — deferred to the swap block */
-      if (resetting) {
+      if (resetOwner) {
         pendingScan.push(commits)
         return
       }
@@ -149,11 +149,13 @@ export function createGraph(
   }
 
   let destroyed = false // an in-flight reset during destroy() (StrictMode double-mount) must no longer touch the DOM
-  /* Double-buffered reset (refresh audit, §1/§5): while > 0, the previous DOM stays mounted
-     and untouched — sync()/onPageLoaded no-op — until the new state is loaded enough to swap
-     in a single task. A counter, not a boolean: overlapping resets (StrictMode, rapid events)
-     each hold their own guard. */
-  let resetting = 0
+  /* Double-buffered reset (refresh audit, §1/§5): while non-null, the previous DOM stays
+     mounted and DOM-touching paths freeze — sync()/onPageLoaded/refresh() no-op, and
+     interactions (click, keyboard, reveal) are dropped rather than resolving old row indices
+     against the new half-loaded state. An owner token, not a counter: a newer reset takes
+     ownership by overwriting it, and a superseded reset's cleanup (identity-guarded) can
+     neither release the winner's freeze nor leave the freeze stuck after the winner swapped. */
+  let resetOwner: object | null = null
   /* pages ingested while a reset holds the DOM frozen: their column scan is replayed at swap
      time, against the freshly reset measurer */
   let pendingScan: Commit[][] = []
@@ -249,6 +251,9 @@ export function createGraph(
   }
 
   function refresh() {
+    /* mid-reset: sizing the SVG/inner to the new half-loaded state would clip the old rows
+       still painted underneath — the swap block re-runs this once consistent */
+    if (resetOwner) return
     const S = loader.state
     const graphW = PAD * 2 + Math.min(S.lanes.length, MAX_LANES) * LANE
     const h = S.next * ROW
@@ -268,7 +273,7 @@ export function createGraph(
     /* reset in flight: the mounted maps still hold the previous graph's DOM while the loader
        already carries the new state — mounting against it would mix the two. The swap block
        in reset() re-runs sync() once everything is consistent. */
-    if (resetting) return
+    if (resetOwner) return
     /* divergence changed: updateSync already remounted everything (remount → sync), stop here */
     if (updateSync()) return
     const S = loader.state
@@ -361,6 +366,7 @@ export function createGraph(
   /* brings an already-laid-out row to the center of the screen, selects it and makes it flash;
      waits for its page to come back if it was evicted — the selection will read the commit synchronously */
   async function reveal(row: number, token: number) {
+    if (resetOwner) return // mid-reset: scroll/refresh would tear the frozen old DOM — drop the jump
     refresh()
     board.scrollTop = row * ROW - board.clientHeight / 2
     const bi = Math.floor(row / ROW_BUCKET)
@@ -387,6 +393,7 @@ export function createGraph(
      (page then bucket guaranteed before selecting): unmounted rows get mounted along the
      way. `additive` reproduces Shift/Ctrl like ctrl-click (cf. `onClick`). */
   async function moveActive(target: number, additive: boolean) {
+    if (resetOwner) return // mid-reset: the cursor would move against the new state under the old DOM
     const token = loader.token
     target = Math.max(0, target)
     if (target >= loader.state.next && !loader.exhausted) {
@@ -454,6 +461,9 @@ export function createGraph(
     if (ev.key === "Escape") popoverCtl.closeMore()
   }
   const onClick = (ev: MouseEvent) => {
+    /* mid-reset the painted rows belong to the previous layout: their data-i resolved against
+       the new state would select a different commit than the one clicked — drop the click */
+    if (resetOwner) return
     const t = ev.target as HTMLElement
     /* the "+N" is toggleable by click AND by keyboard (AUDIT.md §8): Enter/Space on the button
        trigger this same `click` natively, a real button needs no separate code.
@@ -479,6 +489,7 @@ export function createGraph(
     if (i !== null) cb.onSelect(i, ev.ctrlKey || ev.metaKey)
   }
   const onDblClick = (ev: MouseEvent) => {
+    if (resetOwner) return // same stale data-i hazard as onClick
     const t = ev.target as HTMLElement
     if (t.closest(".amont-more, .amont-more-btn, .amont-wt-open")) return
     const i = rowIndex(ev)
@@ -490,6 +501,7 @@ export function createGraph(
      Ignores anything coming from the "+N" panel or its button: Escape/Enter have their own
      meaning there (cf. interactions/popover.ts), an arrow key navigates nothing there. */
   const onBoardKeyDown = (ev: KeyboardEvent) => {
+    if (resetOwner) return // same stale-row hazard as onClick — arrows resume after the swap
     if ((ev.target as HTMLElement).closest(".amont-more, .amont-more-btn")) return
     const cur = selectionCtl.active ?? 0
     const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey
@@ -561,25 +573,30 @@ export function createGraph(
        the old behavior yanked the viewport to the top and left the graph blank while page 1
        was in flight. */
     async reset() {
-      const prevScroll = board.scrollTop
-      resetting++
+      const me = {}
+      /* takes ownership of the freeze — a superseded reset's cleanup below is identity-guarded,
+         so it can neither release the winner's freeze nor leave it stuck after the swap */
+      resetOwner = me
       /* loader.reset() bumps `gen` synchronously: pages a superseded reset pushed before this
          instant belong to a state that will never mount, and none can be pushed after — the
          held scans start clean for this (now-winning) reset */
       pendingScan = []
-      let swapped = false
       try {
+        const prevScroll = board.scrollTop
         const { stashes } = await loader.reset()
-        if (destroyed) return
+        if (destroyed || resetOwner !== me) return
         const token = loader.token
         await loader.fetchMore()
-        if (token !== loader.token || destroyed) return
-        /* grow the layout (pure state, no DOM yet) until it covers the previous viewport:
-           restoring the scroll must not clamp against a one-page-tall document */
-        const needed = prevScroll + board.clientHeight
+        if (destroyed || resetOwner !== me) return
+        /* Grow the layout (pure state, no DOM yet) until it covers the previous viewport:
+           restoring the scroll must not clamp against a one-page-tall document. Capped at the
+           page-cache residency budget — a viewport parked tens of thousands of rows deep must
+           not turn every background reload into a full-history re-page (refresh audit follow-up);
+           past the cap the restore clamps to what was regrown. */
+        const needed = Math.min(prevScroll + board.clientHeight, RESIDENT * PAGE * ROW)
         if (loader.state.next * ROW < needed && !loader.exhausted) {
           await loader.growUntil(() => loader.state.next * ROW >= needed, token)
-          if (token !== loader.token || destroyed) return
+          if (destroyed || resetOwner !== me) return
         }
 
         /* ---- synchronous swap: render-side caches keyed on the previous layout state are
@@ -599,10 +616,11 @@ export function createGraph(
         pendingScan = []
         if (matchHashes) applyMatchIds()
         selectionCtl.setSelection([])
-        resetting--
-        swapped = true
+        resetOwner = null
         remount()
-        board.scrollTop = Math.min(prevScroll, Math.max(0, loader.state.next * ROW - board.clientHeight))
+        /* clamp the CURRENT position (re-read, not prevScroll): the old DOM stayed live and
+           scrollable during the load, so this preserves any scrolling done meanwhile too */
+        board.scrollTop = Math.min(board.scrollTop, Math.max(0, loader.state.next * ROW - board.clientHeight))
         hoverCtl.clearHover()
         popoverCtl.closeMore()
         evictNow()
@@ -617,7 +635,7 @@ export function createGraph(
           sync()
         }
       } finally {
-        if (!swapped) resetting-- // superseded (token bumped) or destroyed: release the DOM freeze
+        if (resetOwner === me) resetOwner = null // failed/destroyed run: release the freeze it still owns
       }
     },
 

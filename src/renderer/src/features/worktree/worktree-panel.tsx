@@ -18,7 +18,14 @@ import { DiscardDialog, type DiscardRequest } from "@/features/worktree/discard-
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
-import { FileEntries, FileListHeader, FileViewToggle, useFileView, type FileView } from "@/features/repo/file-list"
+import {
+  FileEntries,
+  FileListHeader,
+  FileViewToggle,
+  refocusAfterFileAction,
+  useFileView,
+  type FileView,
+} from "@/features/repo/file-list"
 import { GitCmd, MenuItemWithCmd } from "@/components/ui/git-cmd"
 import {
   DropdownMenu,
@@ -138,29 +145,6 @@ const WtBlock = memo(function WtBlock({
 
 /** conflict rows carry no stage/discard buttons — a stable no-op keeps WtBlock's memo intact */
 const NO_ACTION = () => null
-
-/* Stage/unstage unmounts the very button that was clicked — the file moves to the other
-   block — and DOM focus fell to <body>, killing the arrow-key flow of [data-file-nav]
-   (refresh audit, §3). Once the action settles, focus goes back to the row that took the
-   clicked one's place in the same block (its last row when the removed one was last, like a
-   file manager). Only when focus was actually orphaned: a user already typing elsewhere
-   must not have their focus stolen. */
-function refocusAfter(btn: HTMLElement, done: Promise<void>): void {
-  const scope = btn.closest<HTMLElement>("[data-file-nav]")
-  if (!scope) return
-  const rows = [...scope.querySelectorAll<HTMLButtonElement>("[data-file-row]")]
-  const own = btn.parentElement?.querySelector<HTMLButtonElement>("[data-file-row]")
-  const idx = own ? rows.indexOf(own) : 0
-  void done.then(() =>
-    /* one frame: the worktree refetch resolved inside `done`, React commits the new rows
-       before the browser paints — the query runs by then */
-    requestAnimationFrame(() => {
-      if (!scope.isConnected || document.activeElement !== document.body) return
-      const after = [...scope.querySelectorAll<HTMLButtonElement>("[data-file-row]")]
-      after[Math.min(Math.max(idx, 0), after.length - 1)]?.focus()
-    })
-  )
-}
 
 /** Rendered by the slot layout when `worktree` has changes and the view is "wt" —
     this safeguard stays on RepoView's side, which already owns the query. */
@@ -347,7 +331,7 @@ export function WorktreePanel() {
         className={cls ?? (dirScoped ? DIR_ACTION_CLS : ACTION_CLS)}
         onClick={(ev) => {
           ev.stopPropagation()
-          refocusAfter(ev.currentTarget, onRun(act, paths))
+          refocusAfterFileAction(ev.currentTarget, onRun(act, paths))
         }}
       />
     ),

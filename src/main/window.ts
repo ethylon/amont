@@ -113,7 +113,9 @@ export function createWindow(): void {
      in the background stayed invisible until some manual action. */
   win.on("focus", () => {
     for (const r of all()) {
-      if (!r.dirty) continue
+      /* mid-op (autofetch racing the refocus): don't consume the flag — emitChanged would
+         drop the emission, losing the held change; it stays dirty for the next flush */
+      if (!r.dirty || r.running) continue
       r.dirty = false
       /* through the fingerprint gate, like live watcher events: a `dirty` raised by a write
          that moved nothing the graph shows (gc, reflog) dies here instead of reloading N tabs */

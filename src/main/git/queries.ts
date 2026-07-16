@@ -25,7 +25,6 @@ import type {
   WtSource,
 } from "../../shared/types.ts"
 import { inRepo, type RepoHandle } from "../repos.ts"
-import { refTips } from "./ops.ts"
 import {
   ALL_REFS,
   hashListCount,
@@ -181,27 +180,56 @@ function cachedStashes(r: RepoHandle): Promise<Stash[]> {
    RepoHandle like `trunk`, and every page is a byte-range slice of it fed to
    `git log --no-walk=unsorted --stdin` — page cost no longer depends on where the page sits
    in history. Same traversal, same roots: the order is bit-identical to the old command. */
-/** Fingerprint of everything the graph displays: HEAD + ref tips + stash list. One snapshot,
-    two consumers — `orderedHashes` keys its cached hash list on it, and the watcher's
-    `emitChanged` gate (watcher.ts, injected through repos.ts `setGraphKey`) compares it
-    before waking the renderer: a .git write that leaves this key unchanged (gc rewriting
-    packed-refs, a reflog touch) reloads nothing. */
-async function graphSnapshot(r: RepoHandle): Promise<{ key: string; stashes: Stash[] }> {
-  /* HEAD belongs in the key: `--all` walks it too, and on a detached HEAD (tag checkout,
-     bisect, rebase stop) a new commit moves no branch/tag/stash tip — without HEAD in the
-     snapshot the stale list would be served until some unrelated ref moved. */
-  const [tips, stashes, head] = await Promise.all([
-    refTips(r),
+/** Fingerprint of everything the graph and sidebar display: HEAD (hash AND symbolic name),
+    every ref as `name␀hash`, and the stash list. One snapshot, two consumers —
+    `orderedHashes` keys its cached hash list on it, and the watcher's `emitChanged` gate
+    (watcher.ts, wired through the ipc.ts hooks) compares it before waking the renderer:
+    a .git write that leaves this key unchanged (gc rewriting packed-refs, a reflog touch)
+    reloads nothing.
+
+    Names, not just tips (unlike `refTips`, whose dedup is right for "did history move"):
+    `git branch foo` on an existing tip, a branch rename, or switching HEAD between two
+    branches parked on the same commit changes what the UI shows without moving a single
+    object id — a tips-only key would silence those forever. */
+async function computeSnapshot(r: RepoHandle): Promise<{ key: string; stashes: Stash[] }> {
+  const [refs, stashes, head] = await Promise.all([
+    r.git(["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"]),
     cachedStashes(r),
-    r.git(["rev-parse", "HEAD"]).catch(() => ""), // unborn repo: no HEAD commit yet
+    /* hash + symbolic name in one spawn; detached prints only the hash, unborn repo fails → "" */
+    r.git(["rev-parse", "HEAD", "--symbolic-full-name", "HEAD"]).catch(() => ""),
   ])
-  return { key: [head.trim(), ...tips, ...stashes.map((s) => s.h)].join(" "), stashes }
+  return { key: [head.trim(), refs.trim(), ...stashes.map((s) => s.h)].join("\n"), stashes }
+}
+
+/* Cached for one change-generation, like the stash list: the gate reads it when an event
+   fires, and the reload that follows re-reads it once per page — same gen, same snapshot,
+   one set of spawns. A failed build drops the entry so the next call retries instead of
+   replaying the rejection. */
+function graphSnapshot(r: RepoHandle): Promise<{ key: string; stashes: Stash[] }> {
+  if (r.snapshotCache?.gen !== r.gen) {
+    const fresh: NonNullable<RepoHandle["snapshotCache"]> = {
+      gen: r.gen,
+      snap: computeSnapshot(r).catch((e: unknown) => {
+        if (r.snapshotCache === fresh) r.snapshotCache = null
+        throw e
+      }),
+    }
+    r.snapshotCache = fresh
+  }
+  return r.snapshotCache.snap
 }
 
 export const graphSnapshotKey = (r: RepoHandle): Promise<string> => graphSnapshot(r).then((s) => s.key)
 
 async function orderedHashes(r: RepoHandle): Promise<{ hashes: string; stashes: Stash[] }> {
   const { key, stashes } = await graphSnapshot(r)
+  /* Baseline for the emitChanged gate (watcher.ts): the key of the state the graph just read
+     IS what the renderer displays — a later event carrying an equal key has nothing to tell
+     it. Seeded here, on the read path, rather than eagerly after each mutation: an eager
+     post-op read could absorb an external change the renderer never saw (a held `dirty`
+     while unfocused, a change landing inside the mute window) and silence its recovery
+     for good. A stale late write can only make the baseline OLD, which fails open. */
+  r.lastGraphKey = key
   let entry = r.logIndex
   if (entry?.key !== key) {
     /* no caller signal on the build: the list is shared by every page in flight, and a
