@@ -95,6 +95,34 @@ const onFileRowKeyDown = (ev: React.KeyboardEvent<HTMLButtonElement>) => {
   next.click()
 }
 
+/* Stage/unstage unmounts the very button that was clicked — the file moves to the other
+   block — and DOM focus falls to <body>, killing the arrow-key flow above (refresh audit,
+   §3). Once the action settles, focus goes back to the row that takes the clicked one's
+   place in the same block (the last row when the removed one was last, like a file manager).
+   Lives here because this module owns the [data-file-nav]/[data-file-row] convention.
+   Folder buttons have no sibling row: they aim at the first row below the folder header. */
+export function refocusAfterFileAction(btn: HTMLElement, done: Promise<void>): void {
+  const scope = btn.closest<HTMLElement>("[data-file-nav]")
+  if (!scope) return
+  const rows = [...scope.querySelectorAll<HTMLButtonElement>("[data-file-row]")]
+  const own = btn.parentElement?.querySelector<HTMLButtonElement>("[data-file-row]")
+  const below = own ? -1 : rows.findIndex((row) => btn.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING)
+  const idx = own ? rows.indexOf(own) : below === -1 ? rows.length : below
+  void done.then(() =>
+    /* two frames: `done` resolves when the refetch settles, but React commits the new rows
+       on its own schedule — the second frame lands reliably after that commit */
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        /* restore only orphaned focus (fallen to <body>): a user who already moved on — or a
+           failed action whose button survived and kept focus — must not have focus stolen */
+        if (!scope.isConnected || document.activeElement !== document.body) return
+        const after = [...scope.querySelectorAll<HTMLButtonElement>("[data-file-row]")]
+        after[Math.min(idx, after.length - 1)]?.focus()
+      })
+    )
+  )
+}
+
 /* Offscreen rows skip layout/paint (perf audit, finding 13): a multi-thousand-file commit
    only pays rendering for the visible window of its 320-px panel. `contain-intrinsic-size`
    reserves the row's height (~20px: text-xs line + py-0.5) so the scrollbar doesn't dance. */

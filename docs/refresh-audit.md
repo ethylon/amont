@@ -21,6 +21,25 @@ verified against the code at the referenced lines.
 > no flash, no scroll/selection loss) rather than showing the auto-fetch-style badge; the
 > badge remains for auto-fetch, whose result is optional. Line references below describe
 > the pre-fix code.
+>
+> **Review round** — an adversarial multi-angle review of the first fix pass surfaced and
+> fixed: the fingerprint was name-blind (`refTips` dedups object ids, so `git branch foo`
+> on an existing tip, a rename, or a HEAD switch between same-commit branches was silenced
+> forever) — the key now carries `refname␀hash` pairs plus HEAD's symbolic name, cached
+> per change-generation and shared with `orderedHashes`; the eager post-mutation baseline
+> read in `mute()` could absorb an external change held as `dirty` (or landing inside the
+> mute window) and permanently suppress its recovery — the baseline is now seeded by the
+> graph's own read path, i.e. always "what the renderer actually saw", and `emitChanged`
+> re-checks `running`/`muted` after its read; the frozen old graph stayed interactive
+> during a reset while clicks resolved row indices against the new half-loaded state —
+> interactions now drop mid-reset; the scroll-depth regrowth is capped at the residency
+> budget; the reload coalescer was rebuilt as a permanent chain (a settling-run microtask
+> window let duplicates slip in) and the graph freeze as an owner token (a superseded
+> reset could leave the winner's swap frozen); `Math.max(...rows)` over a branch-sized
+> selection would blow the argument limit (now last-element of the sorted array), and a
+> partial selection re-resolution no longer erases hashes that may live beyond the search
+> bound; the stage/unstage focus restore waits two frames for React's commit and lives in
+> file-list.tsx, which owns the `[data-file-row]` convention.
 
 ## How a change becomes a repaint (the pipeline)
 

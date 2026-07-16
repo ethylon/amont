@@ -50,8 +50,9 @@ const reportProgress =
 
 /* Tips of all refs, deduplicated and sorted: two equal snapshots = nothing moved.
    Much cheaper than the full `rev-list --all --count` we used to pay for twice per fetch.
-   Exported: git/queries.ts keys its ordered-hash-list cache on the same snapshot. */
-export const refTips = (r: RepoHandle): Promise<string[]> =>
+   (The graph fingerprint — git/queries.ts `computeSnapshot` — deliberately does NOT reuse
+   this: its dedup erases name-only changes the UI must repaint.) */
+const refTips = (r: RepoHandle): Promise<string[]> =>
   r
     .git(["for-each-ref", "--format=%(objectname)", "refs/heads", "refs/remotes", "refs/tags"])
     .then((o) => [...new Set(o.split("\n").filter(Boolean))].sort())
