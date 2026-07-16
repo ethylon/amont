@@ -30,6 +30,9 @@ export interface RepoHooks {
   progress(payload: Omit<ProgressEvent, "id">): void
   changed(): void
   isFocused(): boolean
+  /** graph fingerprint for the `emitChanged` gate (cf. watcher.ts) — ipc.ts supplies it in
+      `makeHooks` like every other hook, resolving the handle by id at call time */
+  graphKey?(): Promise<string>
 }
 
 /* Open repos, main side only. */
@@ -47,6 +50,10 @@ export interface RepoHandle extends Watchable {
   /** cached `git stash list`, valid for one change-generation (cf. watcher.ts `gen`): the log
       read path (git/queries.ts logPage/total) used to re-spawn `stash list` on every page */
   stashCache: { gen: number; list: Promise<Stash[]> } | null
+  /** cached graph fingerprint + stashes for one change-generation (cf. git/queries.ts
+      `graphSnapshot`): the `emitChanged` gate reads it when an event fires and the reload
+      that follows re-reads it per page — same gen, one set of spawns for all of them */
+  snapshotCache: { gen: number; snap: Promise<{ key: string; stashes: Stash[] }> } | null
   /** the graph's ordered hash list (cf. git/queries.ts logPage/total), keyed by the refs+stash
       tips snapshot — same idea as `trunk`. One string of fixed-width `\n`-terminated lines
       (~41 B/commit for sha1), deliberately never split into a per-commit array: a 1M-commit
@@ -175,12 +182,14 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     muted: 0,
     dirty: false,
     gen: 0,
+    lastGraphKey: null,
     timer: null,
     watchers: [],
     watchRetries: 0,
     retryTimer: null,
     trunk: null,
     stashCache: null,
+    snapshotCache: null,
     logIndex: null,
     goneCache: null,
     children,

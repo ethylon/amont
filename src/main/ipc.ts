@@ -50,6 +50,11 @@ const makeHooks = (id: number): repos.RepoHooks => ({
   progress: (payload) => getMainWindow()?.webContents.send("git:progress", { id, ...payload }),
   changed: () => getMainWindow()?.webContents.send("git:changed", { id }),
   isFocused: () => getMainWindow()?.isFocused() ?? false,
+  /* fingerprint for the watcher's emitChanged gate (refresh audit, §2): a .git event whose
+     HEAD/refs/stash snapshot is unchanged never wakes the renderer. async: `use` throws
+     once the repo is closed — the rejection makes the gate fail open, and closed repos
+     have no watchers left to fire anyway. */
+  graphKey: async () => queries.graphSnapshotKey(repos.use(id)),
 })
 
 const openRepoPub = (path: string): Promise<Repo> => repos.openRepo(path, makeHooks)
