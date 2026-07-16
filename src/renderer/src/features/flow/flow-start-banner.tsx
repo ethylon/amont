@@ -14,6 +14,9 @@ type Props = {
   kind: BranchFlow
   /** the configured prefix for this type, e.g. "feature/" — shown as the frozen chip */
   prefix: string
+  /** pre-selected start point (the promoted moves pass the trunk HEAD sits on);
+      falls back to `defaultBase` when absent or gone */
+  initialBase?: string
   /** clear the start intent (submitted, or cancelled) */
   onDone: () => void
 }
@@ -31,7 +34,7 @@ function defaultBase(kind: BranchFlow, branches: string[]): string {
 /* The inline start surface (chosen over a modal for start: a quick, single-field, in-context
    action). Lives in the banner strip like FlowBanner; Enter submits, Esc cancels. A failure stays
    inline and keeps the row open so the name can be corrected. */
-export function FlowStartBanner({ kind, prefix, onDone }: Props) {
+export function FlowStartBanner({ kind, prefix, initialBase, onDone }: Props) {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
   const runFlow = useRepoStore((s) => s.runFlow)
@@ -44,11 +47,12 @@ export function FlowStartBanner({ kind, prefix, onDone }: Props) {
 
   const { data: refs = [] } = useRefsQuery(api, repoId)
   const branches = useMemo(() => refs.filter((r) => r.kind === "head").map((r) => r.name), [refs])
-  /* Seed (and re-seed on kind change) with the default trunk once the branches load; a base the
-     user already picked is kept as long as it still exists. */
+  /* Seed (and re-seed on kind change) with the requested base — else the default trunk — once
+     the branches load; a base the user already picked is kept as long as it still exists. */
   useEffect(() => {
-    if (branches.length && !branches.includes(base)) setBase(defaultBase(kind, branches))
-  }, [branches, kind, base])
+    if (branches.length && !branches.includes(base))
+      setBase(initialBase && branches.includes(initialBase) ? initialBase : defaultBase(kind, branches))
+  }, [branches, kind, base, initialBase])
 
   const versioned = kind === "release" || kind === "hotfix"
   const m = FLOW_META[kind]

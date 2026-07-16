@@ -11,7 +11,7 @@ export type MaintOp = "fsck" | "gc"
 
 export type RepoCommand =
   | { type: "flowInit" }
-  | { type: "flowStart"; kind: BranchFlow }
+  | { type: "flowStart"; kind: BranchFlow; base?: string }
   | { type: "flowFinish"; name: string }
   | { type: "flowPublish"; kind: BranchFlow; name: string }
   | { type: "stats" }

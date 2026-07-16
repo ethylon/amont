@@ -48,7 +48,7 @@ export function useMenuRepo(
       workFlow,
       flowInfo,
       initFlow: () => send(activeRepoId, { type: "flowInit" }),
-      startFlow: (kind) => send(activeRepoId, { type: "flowStart", kind }),
+      startFlow: (kind, base) => send(activeRepoId, { type: "flowStart", kind, base }),
       finishFlow: (name) => send(activeRepoId, { type: "flowFinish", name }),
       publishFlow: (kind, name) => send(activeRepoId, { type: "flowPublish", kind, name }),
       openStats: () => send(activeRepoId, { type: "stats" }),

@@ -914,6 +914,9 @@ export const messages = {
     get startHotfix() {
       return t`Start hotfix…`
     },
+    get startRelease() {
+      return t`Start release…`
+    },
     finishFeatureNamed: (name: string) => t`Finish feature ${name}`,
     finishBugfixNamed: (name: string) => t`Finish bugfix ${name}`,
     finishReleaseNamed: (name: string) => t`Finish release ${name}`,
