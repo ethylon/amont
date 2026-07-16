@@ -10,7 +10,7 @@ import {
 import type { IconSvgElement } from "@hugeicons/react"
 
 import { messages } from "@/lib/messages"
-import { promotedFlow, type BranchFlow } from "@/lib/gitflow"
+import { promotedFlow, type BranchFlow, type StartKind } from "@/lib/gitflow"
 import type { MenuDescriptor, MenuNode, MenuRepo } from "@/app/menu/types"
 
 /** The four git-flow work types, in the bar order of the type grid. */
@@ -43,6 +43,11 @@ const PUBLISH_NAMED: Record<BranchFlow, (name: string) => string> = {
   bugfix: messages.menu.publishBugfixNamed,
   release: messages.menu.publishReleaseNamed,
   hotfix: messages.menu.publishHotfixNamed,
+}
+const START_LABEL: Record<StartKind, () => string> = {
+  feature: () => messages.menu.startFeature,
+  release: () => messages.menu.startRelease,
+  hotfix: () => messages.menu.startHotfix,
 }
 
 /** True when HEAD sits on a real git-flow branch of `kind` (prefix configured and matched);
@@ -80,23 +85,14 @@ function promotedItems(repo: MenuRepo): MenuNode[] {
       })
     return items
   }
-  return [
-    promoted.kind === "feature"
-      ? {
-          kind: "action",
-          id: "gitflow.promoted.startFeature",
-          label: messages.menu.startFeature,
-          icon: GitBranchIcon,
-          run: () => repo.startFlow("feature"),
-        }
-      : {
-          kind: "action",
-          id: "gitflow.promoted.startHotfix",
-          label: messages.menu.startHotfix,
-          icon: Fire02Icon,
-          run: () => repo.startFlow("hotfix"),
-        },
-  ]
+  const { kinds, base } = promoted
+  return kinds.map((kind) => ({
+    kind: "action",
+    id: `gitflow.promoted.start.${kind}`,
+    label: START_LABEL[kind](),
+    icon: FLOW_ICON[kind],
+    run: () => repo.startFlow(kind, base),
+  }))
 }
 
 /* One type submenu (Feature/Bugfix/…): Start is always available; Finish/Publish act on HEAD and
