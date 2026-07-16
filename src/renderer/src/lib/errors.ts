@@ -15,6 +15,7 @@ const MESSAGES: Record<ErrorPayload["code"], (detail?: string) => string> = {
   STASH_POP_CONFLICT: (d) => `On ${d}, but the stash conflicts — entry kept`,
   NOT_FLOW_BRANCH: (d) => `${d} is not a git-flow branch`,
   NO_UPSTREAM: (d) => `${d} isn't tracking any remote branch`,
+  DIVERGED: (d) => `${d} and its remote branch have diverged — reconcile them first`,
   TIMEOUT: () => "git isn't responding (timed out)",
   ABORTED: () => "Operation cancelled",
   OUTPUT_LIMIT: () => "git's output exceeds the allowed limit",

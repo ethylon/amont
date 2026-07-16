@@ -30,6 +30,7 @@ import {
   onProgress,
   type BranchAct,
   type FileChange,
+  type FlowPrefixes,
   type GitRef,
   type OpName,
   type Repo,
@@ -81,6 +82,10 @@ export interface RepoStoreState {
         (command channel) and from the sidebar's flow shortcut; `base` pre-selects the start
         point (the promoted moves pass the trunk HEAD sits on) */
     flowStart: { kind: BranchFlow; base?: string } | null
+    /** finish confirmation of a feature/bugfix: every finish entry point routes here instead of
+        running (the flow banner rolls to its options row — merge/rebase, delete); the kind is
+        resolved from the gitflow prefixes at interception. Exclusive with `flowStart`. */
+    flowFinish: { branch: string; kind: BranchFlow } | null
   }
   ops: {
     busyOp: OpName | null
@@ -119,6 +124,8 @@ export interface RepoStoreState {
   showCommits(): void
   openFlowStart(kind: BranchFlow, base?: string): void
   closeFlowStart(): void
+  openFlowFinish(branch: string, kind: BranchFlow): void
+  closeFlowFinish(): void
   openDiff(ctx: DiffCtx, file: FileChange): void
   closeDiff(): void
   setDiffMode(v: DiffViewMode): void
@@ -222,6 +229,7 @@ export function createRepoStore(
       conflict: null,
       diffMode: prefs.diffView.get() || "unified",
       flowStart: null,
+      flowFinish: null,
     },
     ops: { busyOp: null, opState: null, opProgress: null, flowBusy: false },
     graph: { stats: null },
@@ -422,10 +430,16 @@ export function createRepoStore(
       set((s) => ({ ui: { ...s.ui, view: "commits" } }))
     },
     openFlowStart(kind, base) {
-      set((s) => ({ ui: { ...s.ui, flowStart: { kind, base } } }))
+      set((s) => ({ ui: { ...s.ui, flowStart: { kind, base }, flowFinish: null } }))
     },
     closeFlowStart() {
       set((s) => ({ ui: { ...s.ui, flowStart: null } }))
+    },
+    openFlowFinish(branch, kind) {
+      set((s) => ({ ui: { ...s.ui, flowFinish: { branch, kind }, flowStart: null } }))
+    },
+    closeFlowFinish() {
+      set((s) => ({ ui: { ...s.ui, flowFinish: null } }))
     },
     openDiff(ctx, file) {
       set((s) => ({ ui: { ...s.ui, diff: { ctx, file } } }))
@@ -565,9 +579,19 @@ export function createRepoStore(
     },
 
     runBranch(action, name) {
-      /* a finish is a gitflow operation: flag it so the flow banner animates while
-         `git flow … finish` runs (merge + tag + back-merge can take a while) */
       if (action !== "finish") return get().runGitAction(() => api.branch(action, name))
+      /* a feature/bugfix finish never runs straight away: every entry point (menu, sidebar
+         shortcut, refs menu) lands here, and the flow banner rolls to its confirmation row
+         instead — the submit goes through `api.flowFinish` with the chosen options. The kind
+         comes from the flow query's cache: the finish entry points only exist once it's loaded. */
+      const prefixes = queryClient.getQueryData<FlowPrefixes | null>(queryKeys.flow(repoId))
+      const kind = prefixes && (["feature", "bugfix"] as const).find((k) => prefixes[k] && name.startsWith(prefixes[k]))
+      if (kind) {
+        get().openFlowFinish(name, kind)
+        return Promise.resolve()
+      }
+      /* release/hotfix keep the plain `git flow finish`, flagged so the flow banner animates
+         while it runs (merge + tag + back-merge can take a while) */
       return get().runGitAction(async () => {
         get().setFlowBusy(true)
         try {

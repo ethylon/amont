@@ -22,6 +22,7 @@ import type {
   CountObjects,
   FileChange,
   FlowInfo,
+  FlowFinishOpts,
   FlowInitConfig,
   FlowKind,
   ConflictFile,
@@ -108,6 +109,9 @@ export type InvokeChannels = {
   "flow:start": (id: number, kind: FlowKind, name: string, base?: string) => Promise<void>
   /** `git flow <kind> publish <name>`. */
   "flow:publish": (id: number, kind: FlowKind, name: string) => Promise<void>
+  /** Finish of a feature/bugfix with the banner's options: merge `--no-ff` (default) or
+      rebase + fast-forward, and branch deletion or `-k`. Full branch name, like `repo:branch`. */
+  "flow:finish": (id: number, name: string, opts: FlowFinishOpts) => Promise<void>
   "repo:branch": (id: number, action: BranchAct, name: string) => Promise<void>
   /** `git branch -D <name>`, then — when `deleteRemote` — `git push <remote> --delete` of its
       upstream. Split from `repo:branch`: the renderer confirms it and passes the remote choice. */
@@ -228,6 +232,7 @@ export type Bridge = {
   flowInit: InvokeChannels["flow:init"]
   flowStart: InvokeChannels["flow:start"]
   flowPublish: InvokeChannels["flow:publish"]
+  flowFinish: InvokeChannels["flow:finish"]
   branch: InvokeChannels["repo:branch"]
   branchDelete: InvokeChannels["repo:branchDelete"]
   files: InvokeChannels["repo:files"]

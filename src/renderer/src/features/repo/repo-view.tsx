@@ -112,6 +112,18 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const flowInfoQuery = useFlowInfoQuery(api, repoId, status?.branch ?? null, workFlow)
   const flowInfo = flowInfoQuery.data ?? null
 
+  /* Requested finish (ui.flowFinish): its own info query — the refs menu can finish a flow
+     branch that isn't checked out, so the cockpit's query above may be looking elsewhere
+     (same key when it is the current branch: react-query dedupes). A `null` info means the
+     branch lost its flow context (deleted externally, trunk gone): drop the stale intent. */
+  const flowFinish = useRepoStore((s) => s.ui.flowFinish)
+  const closeFlowFinish = useRepoStore((s) => s.closeFlowFinish)
+  const finishInfoQuery = useFlowInfoQuery(api, repoId, flowFinish?.branch ?? null, flowFinish?.kind ?? null)
+  const finishInfo = finishInfoQuery.data ?? null
+  useEffect(() => {
+    if (flowFinish && finishInfoQuery.data === null) closeFlowFinish()
+  }, [flowFinish, finishInfoQuery.data, closeFlowFinish])
+
   /* Repository-menu surfaces (Git Flow init/start, database maintenance), driven by the app menu
      through the command channel (see repo-commands.ts). */
   const tools = useRepoMenuTools(api, repoId, command)
@@ -209,6 +221,10 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
       toggleSidebar()
       return true
     }
+    if (ev.key === "Escape" && flowFinish) {
+      closeFlowFinish()
+      return true
+    }
     if (ev.key === "Escape" && diff) {
       closeDiff()
       return true
@@ -268,9 +284,19 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
             />
           )}
 
-          {workFlow && flowInfo && status?.branch && (
+          {/* finish confirmation takes the strip over the cockpit (same component, the content
+              rolls); otherwise the read-only cockpit of the checked-out flow branch */}
+          {flowFinish && finishInfo ? (
+            <FlowBanner
+              kind={flowFinish.kind}
+              branch={flowFinish.branch}
+              info={finishInfo}
+              finish
+              onFinishDone={closeFlowFinish}
+            />
+          ) : workFlow && flowInfo && status?.branch ? (
             <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />
-          )}
+          ) : null}
 
           {/* amont-tabbody: the block that slides on tab change, toolbar and status bar staying fixed */}
           <div className="amont-tabbody flex min-h-0 flex-1">

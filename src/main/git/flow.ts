@@ -4,8 +4,9 @@
    in git/parse.ts for the pure part, tested in isolation). */
 
 import { AppError } from "../../shared/errors.ts"
-import type { FlowInfo, FlowInitConfig, FlowKind, FlowPrefixes } from "../../shared/types.ts"
+import type { FlowFinishOpts, FlowInfo, FlowInitConfig, FlowKind, FlowPrefixes } from "../../shared/types.ts"
 import { withLock, type RepoHandle } from "../repos.ts"
+import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { BRANCH, computeNextTag, flowInitConfigArgs, flowVersionSuffix, parseFlowPrefixes } from "./parse.ts"
 
@@ -93,16 +94,88 @@ export async function flowInfo(r: RepoHandle, branch: string, kind: keyof FlowPr
    silently drifting from the semantics the user expects from their tool. If the extension isn't
    installed, git's own error message will say so when the user clicks. */
 export async function finishFlow(r: RepoHandle, name: string): Promise<void> {
-  const prefixes = (await flowPrefixes(r)) ?? {}
+  const { type, version } = flowTypeOf(name, (await flowPrefixes(r)) ?? {})
+  /* release and hotfix create an annotated tag: without `-m`, `git tag -a` would prompt for an editor */
+  const tagged = type === "release" || type === "hotfix"
+  await r.git(["flow", type, "finish", ...(tagged ? ["-m", version] : []), version], { timeout: OP_TIMEOUT })
+}
+
+/** Splits a full flow branch name into its configured type and suffix, with the same
+    option-injection guard as the other flow entry points (fix B2). */
+function flowTypeOf(name: string, prefixes: FlowPrefixes): { type: FlowKind; version: string } {
   const type = FLOW_TYPES.find((t) => prefixes[t] && name.startsWith(prefixes[t]))
   if (!type) throw new AppError("NOT_FLOW_BRANCH", name)
   const version = name.slice(prefixes[type]!.length)
   /* BRANCH only forbids `-` at the start of the full name: `feature/-D` would give
      version = '-D', which git-flow would read as an option (forced deletion) — fix B2 */
   if (version.startsWith("-")) throw new AppError("BAD_ARG", name)
-  /* release and hotfix create an annotated tag: without `-m`, `git tag -a` would prompt for an editor */
-  const tagged = type === "release" || type === "hotfix"
-  await r.git(["flow", type, "finish", ...(tagged ? ["-m", version] : []), version], { timeout: OP_TIMEOUT })
+  return { type, version }
+}
+
+/* Finish of a feature/bugfix with the banner's options. The default path stays gitflow-native,
+   with every flag the options promise made explicit — a machine-level `gitflow.feature.finish.*`
+   config would otherwise silently override our defaults (config is applied before parse_args, so
+   explicit CLI flags win). Locked and traced like `branchAction`'s finish. */
+export async function finishFeature(r: RepoHandle, name: string, opts: FlowFinishOpts): Promise<void> {
+  if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
+  const { type, version } = flowTypeOf(name, (await flowPrefixes(r)) ?? {})
+  if (type !== "feature" && type !== "bugfix") throw new AppError("BAD_ARG", name)
+  await withLock(r, `flow ${type} finish`, async () => {
+    r.events.trace({ kind: "group", text: `Finish ${name}`, ts: Date.now() })
+    try {
+      if (opts.rebase) await finishRebase(r, name, opts.deleteBranch)
+      else
+        await r.git(
+          [
+            "flow",
+            type,
+            "finish",
+            "--no-ff",
+            "--norebase",
+            "--nosquash",
+            opts.deleteBranch ? "--nokeep" : "-k",
+            version,
+          ],
+          { timeout: OP_TIMEOUT }
+        )
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/* Rebase + fast-forward: the one finish shape `git flow` cannot produce — without `--no-ff` it
+   still merge-commits any branch more than one commit ahead of its base (checked against
+   git-flow AVH 1.12.x, cmd_finish), so this path is done by hand. It mirrors finish's own
+   guards and cleanup: refuse when the published branch diverged from its remote
+   (require_branches_equal), delete the remote branch along with the local one
+   (helper_finish_cleanup), drop the recorded base (gitflow_config_remove_base_branch). */
+async function finishRebase(r: RepoHandle, name: string, deleteBranch: boolean): Promise<void> {
+  const [branchBase, develop, origin] = await Promise.all([
+    cfgOf(r, `gitflow.branch.${name}.base`),
+    cfgOf(r, "gitflow.branch.develop"),
+    cfgOf(r, "gitflow.origin"),
+  ])
+  const base = branchBase || develop || "develop"
+  const remoteRef = `refs/remotes/${origin || "origin"}/${name}`
+  const [remote, local] = await Promise.all([
+    r.git(["rev-parse", "--verify", "-q", remoteRef]).then(
+      (o) => o.trim(),
+      () => null
+    ),
+    r.git(["rev-parse", "--verify", "-q", `refs/heads/${name}`]).then((o) => o.trim()),
+  ])
+  if (remote && remote !== local) throw new AppError("DIVERGED", name)
+
+  await r.git(["rebase", base, name], { timeout: OP_TIMEOUT })
+  await r.git(["checkout", base])
+  await r.git(["merge", "--ff-only", name], { timeout: OP_TIMEOUT })
+  if (deleteBranch) {
+    /* remote first, like gitflow — the local delete then never warns about an unmerged remote */
+    if (remote) await r.git(["push", origin || "origin", "--delete", name], { timeout: OP_TIMEOUT })
+    await r.git(["branch", "-d", name])
+  }
+  await r.git(["config", "--unset", `gitflow.branch.${name}.base`]).catch(() => {})
 }
 
 /* Same option-injection guard as `finishFlow` (fix B2): the name/version comes straight from a
