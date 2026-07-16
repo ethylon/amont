@@ -204,11 +204,14 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
      reachable from the keyboard) and return it to the previous element on close.
      Layout effect + `contains` guard: switching file remounts the view (keyed on the path
      in graph-column), and focus only goes back if the view still holds it — a click on
-     another row must not yank focus (and the file list scroll) back to the old row. */
+     another row must not yank focus (and the file list scroll) back to the old row.
+     Opened from a file row (click or ArrowUp/Down — cf. file-list.tsx onFileRowKeyDown),
+     the row keeps focus so the arrows keep walking the list, the diff following along;
+     Escape still closes from there (repo-view's document-level shortcut registry). */
   useLayoutEffect(() => {
     const el = root.current
     const prev = document.activeElement as HTMLElement | null
-    el?.focus()
+    if (!prev?.closest("[data-file-row]")) el?.focus()
     return () => {
       if (el?.contains(document.activeElement)) prev?.focus?.()
     }
