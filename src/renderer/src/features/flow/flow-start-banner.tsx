@@ -8,6 +8,7 @@ import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FLOW_META } from "@/features/flow/flow-context"
 
 type Props = {
@@ -97,19 +98,22 @@ export function FlowStartBanner({ kind, prefix, initialBase, onDone }: Props) {
         className="h-6 w-56 min-w-0 rounded-sm border border-border bg-background px-1.5 text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
       />
       <span className="text-muted-foreground">{messages.gitflow.from}</span>
-      <select
-        value={base}
-        onChange={(e) => setBase(e.target.value)}
-        disabled={busy || branches.length === 0}
-        aria-label={messages.gitflow.baseLabel(kind)}
-        className="h-6 max-w-40 min-w-0 rounded-sm border border-border bg-background px-1.5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-      >
-        {branches.map((b) => (
-          <option key={b} value={b}>
-            {b}
-          </option>
-        ))}
-      </select>
+      <Select value={base} onValueChange={(v) => setBase(v ?? "")} disabled={busy || branches.length === 0}>
+        <SelectTrigger
+          size="sm"
+          aria-label={messages.gitflow.baseLabel(kind)}
+          className="max-w-40 min-w-0 text-foreground"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {branches.map((b) => (
+            <SelectItem key={b} value={b}>
+              {b}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {error && <span className="min-w-0 flex-1 truncate text-destructive">{error}</span>}
       <span className="flex-1" />
       <Button size="sm" color={m.btn} onClick={() => void submit()} disabled={!value.trim() || busy}>
