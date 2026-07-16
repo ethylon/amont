@@ -1,14 +1,15 @@
 # Build check for the amont.dev site (site/). Deploys are Vercel's job; this only proves
-# the static build still passes when the site, the screenshots it imports from docs/, or
-# the root package.json (whose version the hero badge displays) change.
+# the static build still passes when the site, the embedded hero demo (renderer sources),
+# the screenshots it imports from docs/, or the root package.json (whose version the hero
+# badge displays) change. Mirrors the Vercel build: embed first, then Astro.
 name: site
 
 on:
   push:
     branches: [master]
-    paths: ["site/**", "docs/**", "package.json"]
+    paths: ["site/**", "src/renderer/**", "docs/**", "package.json"]
   pull_request:
-    paths: ["site/**", "docs/**", "package.json"]
+    paths: ["site/**", "src/renderer/**", "docs/**", "package.json"]
 
 concurrency:
   group: site-${{ github.workflow }}-${{ github.ref }}
@@ -29,7 +30,15 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          cache-dependency-path: site/pnpm-lock.yaml
+          cache-dependency-path: |
+            site/pnpm-lock.yaml
+            pnpm-lock.yaml
+
+      # --ignore-scripts skips the Electron download (postinstall); the embed build
+      # only needs vite and its plugins.
+      - run: pnpm --dir .. install --frozen-lockfile --ignore-scripts
+
+      - run: pnpm --dir .. build:embed
 
       - run: pnpm install --frozen-lockfile
 
