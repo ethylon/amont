@@ -6,7 +6,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import type { ParsedMerge } from "./commit-parse.ts"
-import { branchFlow, mergeColor, mergeFlow, pinRank, tagFlowColor } from "./gitflow.ts"
+import { branchFlow, mergeColor, mergeFlow, pinRank, suggestedFlowVersion, tagFlowColor } from "./gitflow.ts"
 
 const merge = (from: string, to: string | null = null, extra: Partial<ParsedMerge> = {}): ParsedMerge => ({
   from,
@@ -78,6 +78,35 @@ describe("tagFlowColor", () => {
     assert.equal(tagFlowColor("hotfix"), "danger")
     assert.equal(tagFlowColor("release"), "release")
     assert.equal(tagFlowColor(null), "release")
+  })
+})
+
+describe("suggestedFlowVersion", () => {
+  it("bumps the patch for a hotfix", () => {
+    assert.equal(suggestedFlowVersion("hotfix", ["v1.20.0"]), "v1.20.1")
+  })
+
+  it("bumps the minor and resets the patch for a release — never the major", () => {
+    assert.equal(suggestedFlowVersion("release", ["v1.20.3"]), "v1.21.0")
+    assert.equal(suggestedFlowVersion("release", ["v1.99.5"]), "v1.100.0")
+  })
+
+  it("picks the latest tag by numeric semver order, not list or lexical order", () => {
+    assert.equal(suggestedFlowVersion("hotfix", ["v1.20.0", "v1.9.3", "v1.2.10"]), "v1.20.1")
+    assert.equal(suggestedFlowVersion("release", ["v0.9.0", "v0.23.0"]), "v0.24.0")
+  })
+
+  it("preserves the tag's prefix form, with or without the v", () => {
+    assert.equal(suggestedFlowVersion("hotfix", ["1.2.3"]), "1.2.4")
+  })
+
+  it("ignores prereleases and non-semver tags", () => {
+    assert.equal(suggestedFlowVersion("hotfix", ["nightly", "v2.0.0-rc.1", "v1.0.0"]), "v1.0.1")
+  })
+
+  it("returns null when no tag gives a lead", () => {
+    assert.equal(suggestedFlowVersion("release", []), null)
+    assert.equal(suggestedFlowVersion("release", ["latest", "build-42"]), null)
   })
 })
 

@@ -79,7 +79,7 @@ export function useRepoMenuTools(api: RepoApi, repoId: number, command: RepoComm
         setInitOpen(true)
         break
       case "flowStart":
-        storeApi.getState().openFlowStart(c.kind)
+        storeApi.getState().openFlowStart(c.kind, c.base)
         break
       case "stats":
         setStatsOpen(true)
