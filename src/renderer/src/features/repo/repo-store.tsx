@@ -19,7 +19,7 @@
    repo-view.tsx (checkout, stash, branch — the commit has its own shape, a failure doesn't
    reload there), becomes `runGitAction`. */
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { createStore, useStore, type StoreApi } from "zustand"
 
@@ -42,7 +42,7 @@ import {
 import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { prefs } from "@/lib/prefs"
-import { invalidateRepo, queryKeys } from "@/lib/queries"
+import { invalidateRepo, invalidateWtDiffs, queryKeys } from "@/lib/queries"
 import { queryClient } from "@/lib/query-client"
 import type { DiffCtx, DiffViewMode } from "@/features/diff/diff-view"
 import type { GraphHandle, Stats } from "@/features/graph/controller"
@@ -137,8 +137,13 @@ export interface RepoStoreState {
   clearOp(): void
   setStats(stats: Stats): void
 
-  /** closes the diff, returns to the commits view, restarts the graph and re-resolves the selection */
-  resetAndLoad(): Promise<void>
+  /** Restarts the graph (scroll-preserving, cf. controller.ts) and re-resolves the selection.
+      Default (user-initiated context switch — checkout, pull…): also closes the diff and
+      returns to the commits view. `soft` (background-initiated: watcher event, commit from
+      the staging panel) leaves the current view and any open diff alone — a change the user
+      didn't just ask for must never rip their workspace away (refresh audit, §1/§4).
+      Overlapping calls coalesce into one trailing rerun instead of stacking full reloads. */
+  resetAndLoad(opts?: { soft?: boolean }): Promise<void>
   /** git op → status invalidation → resetAndLoad → error badge, in a single place */
   runGitAction(action: () => Promise<void>, opts?: { onSuccess?(): void }): Promise<void>
   /** Like `runGitAction`, but returns the error text (or `null`) instead of flashing a badge —
@@ -194,6 +199,14 @@ export function createRepoStore(
   let okTimer = 0
   /* message draft set aside while an amend borrows the last commit's */
   let draftBackup: { subject: string; description: string } | null = null
+  /* Coalesced graph reload (refresh audit, §2): an external rebase fires one watcher event
+     per ref move — at most one rerun queues behind the running reload (it reads the
+     then-current repo state, satisfying every caller that landed mid-flight), and further
+     callers share that queued rerun's promise. A permanent chain rather than a nullable
+     in-flight marker: with a marker, the microtask between "run settled" and "trailing rerun
+     starts" let a caller's continuation slip a concurrent duplicate in. */
+  let reloadChain: Promise<void> = Promise.resolve()
+  let reloadDepth = 0
 
   return createStore<RepoStoreState>((set, get) => ({
     repoId,
@@ -343,15 +356,31 @@ export function createRepoStore(
 
     async reresolveSelection() {
       const g = get().graphRef.current
-      const { hashes } = get().selection
+      const { hashes, rows: prevRows } = get().selection
       if (!g || !hashes.length) {
         set((s) => ({ selection: { ...s.selection, rows: [] } }))
         return
       }
-      const rows = [...(await g.rowsOf(hashes))].sort((a, b) => a - b)
+      /* bounded re-resolution (refresh audit, §6): the selection lived around `prevRows`
+         before the reset — search there (plus generous slack for commits pulled in on top),
+         not the whole history. Without the cap, amending a selected commit made `rowsOf`
+         page in the entire repo chasing a hash that no longer exists. rows are kept sorted
+         ascending, so the last element is the max (a spread over a branch-sized selection
+         would blow the argument limit). */
+      const bound = (prevRows.length ? prevRows[prevRows.length - 1] : 0) + 10_000
+      const rows = [...(await g.rowsOf(hashes, bound))].sort((a, b) => a - b)
       await g.pin(rows)
       const resolvedHashes = rows.map((r) => g.commit(r)!.h)
-      set((s) => ({ selection: { ...s.selection, rows, hashes: resolvedHashes } }))
+      /* partial resolution (bound hit, page failure): keep the original hash list — the
+         missing commits may still exist beyond the search bound and the next reload retries;
+         only a complete resolution rewrites it (shedding duplicates the graph folded) */
+      set((s) => ({
+        selection: {
+          ...s.selection,
+          rows,
+          hashes: rows.length === hashes.length ? resolvedHashes : s.selection.hashes,
+        },
+      }))
       /* reclaims the keyboard cursor (AUDIT.md §8): without this, the selection restored after a
          pull/checkout/stash would stay displayed while the keyboard cursor — primed on row 0
          by controller.ts `reset()` just before — would point elsewhere. */
@@ -461,11 +490,26 @@ export function createRepoStore(
       set((s) => ({ graph: { ...s.graph, stats } }))
     },
 
-    async resetAndLoad() {
-      set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, view: "commits" } }))
-      await get().graphRef.current?.reset()
-      await get().reresolveSelection()
-      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+    resetAndLoad(opts) {
+      /* the UI intent of a hard reload applies immediately, even when the graph rerun is
+         coalesced into an already-queued one */
+      if (!opts?.soft) set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, view: "commits" } }))
+      /* running + queued = 2: a third caller is satisfied by the queued rerun, which starts
+         after the current one and reads fresh state */
+      if (reloadDepth >= 2) return reloadChain
+      reloadDepth++
+      reloadChain = reloadChain
+        .catch(() => {}) // a failed run must not poison the runs chained behind it
+        .then(async () => {
+          try {
+            await get().graphRef.current?.reset()
+            await get().reresolveSelection()
+            await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+          } finally {
+            reloadDepth--
+          }
+        })
+      return reloadChain
     },
 
     async runGitAction(action, opts) {
@@ -501,8 +545,15 @@ export function createRepoStore(
       }
       set(() => ({ commitDraft: { subject: "", description: "", amend: false } }))
       draftBackup = null
+      /* a staged-source diff shows content that just left the tree — close it; unstaged/
+         untracked files weren't touched by the commit, their diff stays */
+      const open = get().ui.diff
+      if (open && "wt" in open.ctx && open.ctx.wt === "staged") set((s) => ({ ui: { ...s.ui, diff: null } }))
       invalidateRepo(queryClient, repoId)
-      await get().resetAndLoad()
+      invalidateWtDiffs(queryClient, repoId)
+      /* soft: committing from the staging panel must not eject the user from it — with
+         nothing left to commit, RepoView's emptied-tree effect switches views on its own */
+      await get().resetAndLoad({ soft: true })
     },
 
     runStash(action, name) {
@@ -569,10 +620,9 @@ export function createRepoStore(
       const open = get().ui.diff
       if (open && "wt" in open.ctx && [...paths, ...untracked].includes(open.file.path))
         set((s) => ({ ui: { ...s.ui, diff: null } }))
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.diffAll(repoId) }),
-      ])
+      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+      /* wt diffs only: the discard touched the tree/index, never a commit↔commit diff */
+      invalidateWtDiffs(queryClient, repoId)
     },
 
     runWorktree(action, path) {
@@ -597,7 +647,9 @@ export function createRepoStore(
       }
       if (!repo) return // dialog cancelled
       invalidateRepo(queryClient, repoId)
-      await get().resetAndLoad() // the new worktree's chip appears on its branch tip
+      /* soft: the new worktree opens as its own tab — this tab only needs the chip to appear
+         on its branch tip, not a view/diff teardown */
+      await get().resetAndLoad({ soft: true })
       onOpenRepo(repo)
     },
   }))
@@ -641,23 +693,51 @@ export function useRepoStore<T>(selector: (s: RepoStoreState) => T): T {
 
 /** Subscriptions to the repo's git events (`git:changed`, `git:op`) — a single place that
     translates main's push into query invalidations and store actions, rather than
-    living inline in RepoView's layout. */
-export function useRepoEvents(): void {
+    living inline in RepoView's layout. `active` defers external-change reloads of a
+    background tab until it's shown again: a window refocus with N dirty tabs used to pay
+    N full reloads at once for N−1 invisible graphs (refresh audit, §8). */
+export function useRepoEvents(active: boolean): void {
   const store = useRepoStoreApi()
   const repoId = useRepoStore((s) => s.repoId)
   const queryClient = useQueryClient()
 
+  const activeRef = useRef(active)
+  activeRef.current = active
+  const pendingChange = useRef(false)
+
+  /* One definition of "an external change must refresh this repo" — shared by the live
+     handler and the deferred flush below, so a background tab replays exactly the reaction
+     a foreground tab would have had. Soft reload: an external change is background-initiated
+     — it must never close the user's diff, eject them from the staging view, or move their
+     scroll. */
+  const externalReload = useCallback(() => {
+    invalidateRepo(queryClient, repoId)
+    invalidateWtDiffs(queryClient, repoId)
+    void store.getState().resetAndLoad({ soft: true })
+  }, [queryClient, repoId, store])
+
   /* Refs moved outside the application: commit, rebase or checkout from a terminal.
-     Main only notifies when in the foreground and stays quiet after our own commands. */
+     Main only notifies when in the foreground, stays quiet after our own commands, and
+     (emitChanged gate, main/watcher.ts) only when the graph fingerprint actually moved. */
   useEffect(
     () =>
       onChanged((p) => {
         if (p.id !== repoId) return
-        invalidateRepo(queryClient, repoId)
-        void store.getState().resetAndLoad()
+        if (!activeRef.current) {
+          pendingChange.current = true
+          return
+        }
+        externalReload()
       }),
-    [repoId, queryClient, store]
+    [repoId, externalReload]
   )
+
+  /* deferred external change lands when the tab is brought back to the foreground */
+  useEffect(() => {
+    if (!active || !pendingChange.current) return
+    pendingChange.current = false
+    externalReload()
+  }, [active, externalReload])
 
   /* --- Git operations: the click launches, but all the feedback goes through onOp (main
      process auto-fetch emits without a renderer-side caller). --- */

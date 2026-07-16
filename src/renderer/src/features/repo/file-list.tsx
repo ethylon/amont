@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowRight01Icon,
@@ -93,6 +93,34 @@ const onFileRowKeyDown = (ev: React.KeyboardEvent<HTMLButtonElement>) => {
   ev.preventDefault()
   next.focus()
   next.click()
+}
+
+/* Stage/unstage unmounts the very button that was clicked — the file moves to the other
+   block — and DOM focus falls to <body>, killing the arrow-key flow above (refresh audit,
+   §3). Once the action settles, focus goes back to the row that takes the clicked one's
+   place in the same block (the last row when the removed one was last, like a file manager).
+   Lives here because this module owns the [data-file-nav]/[data-file-row] convention.
+   Folder buttons have no sibling row: they aim at the first row below the folder header. */
+export function refocusAfterFileAction(btn: HTMLElement, done: Promise<void>): void {
+  const scope = btn.closest<HTMLElement>("[data-file-nav]")
+  if (!scope) return
+  const rows = [...scope.querySelectorAll<HTMLButtonElement>("[data-file-row]")]
+  const own = btn.parentElement?.querySelector<HTMLButtonElement>("[data-file-row]")
+  const below = own ? -1 : rows.findIndex((row) => btn.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING)
+  const idx = own ? rows.indexOf(own) : below === -1 ? rows.length : below
+  void done.then(() =>
+    /* two frames: `done` resolves when the refetch settles, but React commits the new rows
+       on its own schedule — the second frame lands reliably after that commit */
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        /* restore only orphaned focus (fallen to <body>): a user who already moved on — or a
+           failed action whose button survived and kept focus — must not have focus stolen */
+        if (!scope.isConnected || document.activeElement !== document.body) return
+        const after = [...scope.querySelectorAll<HTMLButtonElement>("[data-file-row]")]
+        after[Math.min(idx, after.length - 1)]?.focus()
+      })
+    )
+  )
 }
 
 /* Offscreen rows skip layout/paint (perf audit, finding 13): a multi-thousand-file commit
@@ -270,6 +298,9 @@ function toViewTree<T extends FileChange>(node: PathTree<T>): ViewTree<T> {
 
 function Tree<T extends FileChange>({
   node,
+  prefix,
+  collapsed,
+  onToggleDir,
   api,
   activePath,
   onOpen,
@@ -277,6 +308,14 @@ function Tree<T extends FileChange>({
   dirAction,
 }: {
   node: ViewTree<T>
+  /** path of `node` ("" at the root, "src/app/" below) — folder identity for `collapsed` */
+  prefix: string
+  /** collapsed folder paths — controlled here rather than `defaultOpen` on the Collapsible:
+      a refetch rebuilds the tree with possibly different compacted labels, and uncontrolled
+      state (living in the keyed-by-label component) used to pop folders back open and remount
+      their subtrees on every stage/unstage (refresh audit, §3) */
+  collapsed: ReadonlySet<string>
+  onToggleDir(path: string, open: boolean): void
   api: RepoApi
   activePath?: string
   onOpen?(f: T): void
@@ -286,28 +325,45 @@ function Tree<T extends FileChange>({
 }) {
   return (
     <>
-      {node.dirs.map(({ label, node: d }) => (
-        <Collapsible key={label} defaultOpen>
-          {/* trigger and folder button side by side: a button doesn't nest inside
-              another. The row carries the hover; the chevron keeps its state on the trigger. */}
-          <div className={cn("group/dirrow flex items-center rounded-sm pe-1 hover:bg-muted/60", ROW_CV_CLS)}>
-            <CollapsibleTrigger className="group/dir flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-xs select-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
-              <HugeiconsIcon
-                icon={ArrowRight01Icon}
-                strokeWidth={2}
-                className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]/dir:rotate-90 motion-reduce:transition-none"
+      {node.dirs.map(({ label, node: d }) => {
+        const path = `${prefix}${label}/`
+        return (
+          <Collapsible key={label} open={!collapsed.has(path)} onOpenChange={(open) => onToggleDir(path, open)}>
+            {/* trigger and folder button side by side: a button doesn't nest inside
+                another. The row carries the hover; the chevron keeps its state on the trigger. */}
+            <div className={cn("group/dirrow flex items-center rounded-sm pe-1 hover:bg-muted/60", ROW_CV_CLS)}>
+              <CollapsibleTrigger className="group/dir flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-xs select-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none">
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  strokeWidth={2}
+                  className="size-3 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]/dir:rotate-90 motion-reduce:transition-none"
+                />
+                <HugeiconsIcon
+                  icon={Folder01Icon}
+                  strokeWidth={2}
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                />
+                <span className="truncate font-medium">{label}</span>
+                <span className="text-[0.625rem] text-muted-foreground tabular-nums">{d.count}</span>
+              </CollapsibleTrigger>
+              {dirAction?.(d.all)}
+            </div>
+            <CollapsibleContent className="ml-2 border-l pl-2">
+              <Tree
+                node={d}
+                prefix={path}
+                collapsed={collapsed}
+                onToggleDir={onToggleDir}
+                api={api}
+                activePath={activePath}
+                onOpen={onOpen}
+                action={action}
+                dirAction={dirAction}
               />
-              <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate font-medium">{label}</span>
-              <span className="text-[0.625rem] text-muted-foreground tabular-nums">{d.count}</span>
-            </CollapsibleTrigger>
-            {dirAction?.(d.all)}
-          </div>
-          <CollapsibleContent className="ml-2 border-l pl-2">
-            <Tree node={d} api={api} activePath={activePath} onOpen={onOpen} action={action} dirAction={dirAction} />
-          </CollapsibleContent>
-        </Collapsible>
-      ))}
+            </CollapsibleContent>
+          </Collapsible>
+        )
+      })}
       {node.items.map((f) => (
         <TreeFile key={f.path} api={api} file={f} active={f.path === activePath} onOpen={onOpen} action={action?.(f)} />
       ))}
@@ -353,8 +409,30 @@ function FileEntriesInner<T extends FileChange>({
     () => (view === "tree" ? toViewTree(compactPathTree(buildPathTree(files, (f) => f.path))) : null),
     [files, view]
   )
+  /* collapsed folders, keyed by full path so the choice survives refetch-driven rebuilds
+     (a folder that disappears and comes back — recompaction — simply defaults to open) */
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+  const onToggleDir = useCallback((path: string, open: boolean) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      open ? next.delete(path) : next.add(path)
+      return next
+    })
+  }, [])
   if (tree)
-    return <Tree node={tree} api={api} activePath={activePath} onOpen={onOpen} action={action} dirAction={dirAction} />
+    return (
+      <Tree
+        node={tree}
+        prefix=""
+        collapsed={collapsed}
+        onToggleDir={onToggleDir}
+        api={api}
+        activePath={activePath}
+        onOpen={onOpen}
+        action={action}
+        dirAction={dirAction}
+      />
+    )
   return (
     <>
       {files.map((f) => (

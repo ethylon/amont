@@ -18,7 +18,14 @@ import { DiscardDialog, type DiscardRequest } from "@/features/worktree/discard-
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
-import { FileEntries, FileListHeader, FileViewToggle, useFileView, type FileView } from "@/features/repo/file-list"
+import {
+  FileEntries,
+  FileListHeader,
+  FileViewToggle,
+  refocusAfterFileAction,
+  useFileView,
+  type FileView,
+} from "@/features/repo/file-list"
 import { GitCmd, MenuItemWithCmd } from "@/components/ui/git-cmd"
 import {
   DropdownMenu,
@@ -313,7 +320,7 @@ export function WorktreePanel() {
         className={cls ?? (dirScoped ? DIR_ACTION_CLS : ACTION_CLS)}
         onClick={(ev) => {
           ev.stopPropagation()
-          void onRun(act, paths)
+          refocusAfterFileAction(ev.currentTarget, onRun(act, paths))
         }}
       />
     ),
