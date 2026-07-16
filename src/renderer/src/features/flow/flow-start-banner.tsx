@@ -4,7 +4,7 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons"
 
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useRefsQuery } from "@/features/refs/refs-queries"
-import type { BranchFlow } from "@/lib/gitflow"
+import { suggestedFlowVersion, type BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -51,6 +51,15 @@ export function FlowStartBanner({ kind, prefix, onDone }: Props) {
   }, [branches, kind, base])
 
   const versioned = kind === "release" || kind === "hotfix"
+  /* Prefill the version from the latest semver tag (patch bump for a hotfix, minor for a
+     release — see suggestedFlowVersion). The banner is remounted per kind (key= in repo-view),
+     and any manual edit freezes the field: the suggestion never overwrites typing. */
+  const tags = useMemo(() => refs.filter((r) => r.kind === "tag").map((r) => r.name), [refs])
+  const suggested = versioned ? suggestedFlowVersion(kind, tags) : null
+  const [touched, setTouched] = useState(false)
+  useEffect(() => {
+    if (!touched && suggested) setValue(suggested)
+  }, [suggested, touched])
   const m = FLOW_META[kind]
 
   async function submit() {
@@ -77,7 +86,10 @@ export function FlowStartBanner({ kind, prefix, onDone }: Props) {
       <input
         ref={inputRef}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          setTouched(true)
+          setValue(e.target.value)
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault()
