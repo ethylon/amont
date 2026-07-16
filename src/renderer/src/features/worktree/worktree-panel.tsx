@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useId, useMemo, useState } from "react"
+import { memo, useCallback, useId, useMemo, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   ArchiveArrowDownIcon,
@@ -9,9 +9,9 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { FileChange, RepoApi, TraceLine, Worktree, WtSource } from "@/lib/git"
-import { onTrace } from "@/lib/git"
 import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
+import { useTraceStep } from "@/lib/use-trace-step"
 import { useMergeStateQuery } from "@/features/conflict/conflict-queries"
 import { useStatusQuery } from "@/features/repo/repo-queries"
 import { DiscardDialog, type DiscardRequest } from "@/features/worktree/discard-dialog"
@@ -186,21 +186,10 @@ const CommitForm = memo(function CommitForm({ staged, hasConflicts }: { staged: 
 
   const [committing, setCommitting] = useState(false)
   /* live step under the button: the last line git streamed while the commit runs (hook output,
-     lint-staged tasks), fed to the rolling subtext. Reset when the commit is not in flight. */
-  const [step, setStep] = useState<string | null>(null)
+     lint-staged tasks), fed to the rolling subtext — the shared ticker hook resets it when the
+     commit is not in flight (the flow banners roll their traced commands through the same hook). */
+  const step = useTraceStep(repoId, committing, commitStep)
   const amendId = useId()
-
-  useEffect(() => {
-    if (!committing) {
-      setStep(null)
-      return
-    }
-    return onTrace((line) => {
-      if (line.id !== repoId) return
-      const next = commitStep(line)
-      if (next !== null) setStep((prev) => (prev === next ? prev : next))
-    })
-  }, [committing, repoId])
 
   const ready = subject.trim().length > 0 && !hasConflicts && (amend ? canAmend : staged > 0)
   const verb = amend ? messages.worktree.amend : messages.worktree.commit

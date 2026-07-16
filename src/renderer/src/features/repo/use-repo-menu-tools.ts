@@ -88,13 +88,13 @@ export function useRepoMenuTools(api: RepoApi, repoId: number, command: RepoComm
         void storeApi.getState().runBranch("finish", c.name)
         break
       case "flowPublish":
-        void storeApi.getState().runGitAction(() => api.flowPublish(c.kind, c.name))
+        void storeApi.getState().runFlowPublish(c.kind, c.name)
         break
       case "maint":
         runMaint(c.op)
         break
     }
-  }, [command, repoId, api, storeApi, runMaint])
+  }, [command, repoId, storeApi, runMaint])
 
   const closeInit = useCallback(() => setInitOpen(false), [])
 
