@@ -13,24 +13,31 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+a,
+button {
+  touch-action: manipulation;
 }
 
 ::selection {
   background: color-mix(in oklch, var(--color-violet-500) 30%, transparent);
 }
 
-/* Reveal-on-scroll: elements tagged data-reveal start hidden and slide in when
-   an IntersectionObserver marks them. No-JS and reduced-motion users see everything. */
+/* Reveal-on-scroll: elements tagged data-reveal slide up into place when an
+   IntersectionObserver marks them. Position-only — content is never hidden:
+   no-JS, reduced-motion and un-fired observers all see everything. */
 @media (prefers-reduced-motion: no-preference) {
   html.js [data-reveal] {
-    opacity: 0;
     transform: translateY(1rem);
-    transition:
-      opacity 0.7s ease,
-      transform 0.7s ease;
+    transition: transform 0.7s ease;
   }
   html.js [data-reveal].is-visible {
-    opacity: 1;
     transform: none;
   }
 }
