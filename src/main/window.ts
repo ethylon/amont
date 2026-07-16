@@ -11,6 +11,7 @@ import { app, BrowserWindow, Menu, nativeTheme, shell } from "electron"
 import { killCreations } from "./create.ts"
 import { all, closeAll } from "./repos.ts"
 import { captureRendererGone } from "./telemetry.ts"
+import { emitChanged } from "./watcher.ts"
 
 let mainWindow: BrowserWindow | null = null
 
@@ -114,7 +115,9 @@ export function createWindow(): void {
     for (const r of all()) {
       if (!r.dirty) continue
       r.dirty = false
-      r.events.changed()
+      /* through the fingerprint gate, like live watcher events: a `dirty` raised by a write
+         that moved nothing the graph shows (gc, reflog) dies here instead of reloading N tabs */
+      void emitChanged(r)
     }
   })
   /* links from commit messages: open in the browser, never in the app's own window */

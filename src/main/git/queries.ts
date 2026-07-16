@@ -181,7 +181,12 @@ function cachedStashes(r: RepoHandle): Promise<Stash[]> {
    RepoHandle like `trunk`, and every page is a byte-range slice of it fed to
    `git log --no-walk=unsorted --stdin` — page cost no longer depends on where the page sits
    in history. Same traversal, same roots: the order is bit-identical to the old command. */
-async function orderedHashes(r: RepoHandle): Promise<{ hashes: string; stashes: Stash[] }> {
+/** Fingerprint of everything the graph displays: HEAD + ref tips + stash list. One snapshot,
+    two consumers — `orderedHashes` keys its cached hash list on it, and the watcher's
+    `emitChanged` gate (watcher.ts, injected through repos.ts `setGraphKey`) compares it
+    before waking the renderer: a .git write that leaves this key unchanged (gc rewriting
+    packed-refs, a reflog touch) reloads nothing. */
+async function graphSnapshot(r: RepoHandle): Promise<{ key: string; stashes: Stash[] }> {
   /* HEAD belongs in the key: `--all` walks it too, and on a detached HEAD (tag checkout,
      bisect, rebase stop) a new commit moves no branch/tag/stash tip — without HEAD in the
      snapshot the stale list would be served until some unrelated ref moved. */
@@ -190,7 +195,13 @@ async function orderedHashes(r: RepoHandle): Promise<{ hashes: string; stashes: 
     cachedStashes(r),
     r.git(["rev-parse", "HEAD"]).catch(() => ""), // unborn repo: no HEAD commit yet
   ])
-  const key = [head.trim(), ...tips, ...stashes.map((s) => s.h)].join(" ")
+  return { key: [head.trim(), ...tips, ...stashes.map((s) => s.h)].join(" "), stashes }
+}
+
+export const graphSnapshotKey = (r: RepoHandle): Promise<string> => graphSnapshot(r).then((s) => s.key)
+
+async function orderedHashes(r: RepoHandle): Promise<{ hashes: string; stashes: Stash[] }> {
+  const { key, stashes } = await graphSnapshot(r)
   let entry = r.logIndex
   if (entry?.key !== key) {
     /* no caller signal on the build: the list is shared by every page in flight, and a

@@ -62,6 +62,24 @@ export function invalidateRepo(client: QueryClient, id: number): void {
   void client.invalidateQueries({ queryKey: queryKeys.searchAll(id) })
 }
 
+/** Working-tree diffs only (`ctx` carries `wt`): refreshed when the tree may have moved under
+    an open diff (external change, commit). Commit↔commit diffs are content-addressed — refetching
+    them would be pure waste, so they are filtered out rather than sweeping `diffAll`. */
+export function invalidateWtDiffs(client: QueryClient, id: number): void {
+  void client.invalidateQueries({
+    predicate: (q) => {
+      const [domain, qid, ctx] = q.queryKey
+      return (
+        (domain === "diff" || domain === "imageDiff") &&
+        qid === id &&
+        typeof ctx === "object" &&
+        ctx !== null &&
+        "wt" in ctx
+      )
+    },
+  })
+}
+
 let seq = 0
 
 /** Generates a `requestId`, provides it to `run`, and cancels it on the main side if `signal`
