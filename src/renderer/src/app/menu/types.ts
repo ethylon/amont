@@ -76,8 +76,8 @@ export type MenuRepo = {
 
   /** Open the Git Flow initialization form (modal). */
   initFlow(): void
-  /** Reveal the inline start banner for the given flow type. */
-  startFlow(kind: BranchFlow): void
+  /** Reveal the inline start banner for the given flow type, optionally pre-selecting the start point. */
+  startFlow(kind: BranchFlow, base?: string): void
   /** `git flow <kind> finish` on the given full branch name. */
   finishFlow(name: string): void
   /** `git flow <kind> publish` of the given branch (suffix, prefix excluded). */

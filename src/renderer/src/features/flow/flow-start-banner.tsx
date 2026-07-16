@@ -8,12 +8,16 @@ import { suggestedFlowVersion, type BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FLOW_META } from "@/features/flow/flow-context"
 
 type Props = {
   kind: BranchFlow
   /** the configured prefix for this type, e.g. "feature/" — shown as the frozen chip */
   prefix: string
+  /** pre-selected start point (the promoted moves pass the trunk HEAD sits on);
+      falls back to `defaultBase` when absent or gone */
+  initialBase?: string
   /** clear the start intent (submitted, or cancelled) */
   onDone: () => void
 }
@@ -31,7 +35,7 @@ function defaultBase(kind: BranchFlow, branches: string[]): string {
 /* The inline start surface (chosen over a modal for start: a quick, single-field, in-context
    action). Lives in the banner strip like FlowBanner; Enter submits, Esc cancels. A failure stays
    inline and keeps the row open so the name can be corrected. */
-export function FlowStartBanner({ kind, prefix, onDone }: Props) {
+export function FlowStartBanner({ kind, prefix, initialBase, onDone }: Props) {
   const api = useRepoStore((s) => s.api)
   const repoId = useRepoStore((s) => s.repoId)
   const runFlow = useRepoStore((s) => s.runFlow)
@@ -44,11 +48,12 @@ export function FlowStartBanner({ kind, prefix, onDone }: Props) {
 
   const { data: refs = [] } = useRefsQuery(api, repoId)
   const branches = useMemo(() => refs.filter((r) => r.kind === "head").map((r) => r.name), [refs])
-  /* Seed (and re-seed on kind change) with the default trunk once the branches load; a base the
-     user already picked is kept as long as it still exists. */
+  /* Seed (and re-seed on kind change) with the requested base — else the default trunk — once
+     the branches load; a base the user already picked is kept as long as it still exists. */
   useEffect(() => {
-    if (branches.length && !branches.includes(base)) setBase(defaultBase(kind, branches))
-  }, [branches, kind, base])
+    if (branches.length && !branches.includes(base))
+      setBase(initialBase && branches.includes(initialBase) ? initialBase : defaultBase(kind, branches))
+  }, [branches, kind, base, initialBase])
 
   const versioned = kind === "release" || kind === "hotfix"
   /* Prefill the version from the latest semver tag (patch bump for a hotfix, minor for a
@@ -105,19 +110,22 @@ export function FlowStartBanner({ kind, prefix, onDone }: Props) {
         className="h-6 w-56 min-w-0 rounded-sm border border-border bg-background px-1.5 text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
       />
       <span className="text-muted-foreground">{messages.gitflow.from}</span>
-      <select
-        value={base}
-        onChange={(e) => setBase(e.target.value)}
-        disabled={busy || branches.length === 0}
-        aria-label={messages.gitflow.baseLabel(kind)}
-        className="h-6 max-w-40 min-w-0 rounded-sm border border-border bg-background px-1.5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-      >
-        {branches.map((b) => (
-          <option key={b} value={b}>
-            {b}
-          </option>
-        ))}
-      </select>
+      <Select value={base} onValueChange={(v) => setBase(v ?? "")} disabled={busy || branches.length === 0}>
+        <SelectTrigger
+          size="sm"
+          aria-label={messages.gitflow.baseLabel(kind)}
+          className="max-w-40 min-w-0 text-foreground"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {branches.map((b) => (
+            <SelectItem key={b} value={b}>
+              {b}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {error && <span className="min-w-0 flex-1 truncate text-destructive">{error}</span>}
       <span className="flex-1" />
       <Button size="sm" color={m.btn} onClick={() => void submit()} disabled={!value.trim() || busy}>

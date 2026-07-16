@@ -5,7 +5,7 @@
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { ArrowUp02Icon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons"
 
-import { promotedFlow, type BranchFlow } from "@/lib/gitflow"
+import { promotedFlow, type BranchFlow, type StartKind } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useStatusQuery } from "@/features/repo/repo-queries"
@@ -23,6 +23,12 @@ const PUBLISH_NAMED: Record<BranchFlow, (name: string) => string> = {
   bugfix: messages.menu.publishBugfixNamed,
   release: messages.menu.publishReleaseNamed,
   hotfix: messages.menu.publishHotfixNamed,
+}
+/* Thunks: a `messages.*` getter read at module scope would run `t` before setupI18n() (cf. menus). */
+const START_LABEL: Record<StartKind, () => string> = {
+  feature: () => messages.menu.startFeature,
+  release: () => messages.menu.startRelease,
+  hotfix: () => messages.menu.startHotfix,
 }
 
 function ShortcutRow({
@@ -88,15 +94,18 @@ export function FlowShortcut() {
     )
   }
 
-  const start = promoted.kind
+  const { kinds, base } = promoted
   return (
     <ul role="list" className="flex flex-col border-b pb-1.5">
-      <ShortcutRow
-        icon={FLOW_META[start].icon}
-        tint={FLOW_META[start].text}
-        label={start === "feature" ? messages.menu.startFeature : messages.menu.startHotfix}
-        onClick={() => openFlowStart(start)}
-      />
+      {kinds.map((start) => (
+        <ShortcutRow
+          key={start}
+          icon={FLOW_META[start].icon}
+          tint={FLOW_META[start].text}
+          label={START_LABEL[start]()}
+          onClick={() => openFlowStart(start, base)}
+        />
+      ))}
     </ul>
   )
 }
