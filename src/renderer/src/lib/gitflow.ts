@@ -46,6 +46,33 @@ export function mergeColor(mg: ParsedMerge): BadgeColor {
 /** Color of a semver tag placed on a row: red if the row is a hotfix, purple otherwise. */
 export const tagFlowColor = (flow: FlowKind | null): BadgeColor => (flow === "hotfix" ? "danger" : "release")
 
+/* --- Suggested start version --- */
+
+/** Strict X.Y.Z only: prereleases ("v2.0.0-rc.1") and free-form tags never seed a suggestion. */
+const SEMVER_TAG = /^(v?)(\d+)\.(\d+)\.(\d+)$/
+
+const semverCmp = (a: [number, number, number], b: [number, number, number]) =>
+  a[0] - b[0] || a[1] - b[1] || a[2] - b[2]
+
+/** Version to suggest when starting a release/hotfix, from the latest semver tag (highest by
+    numeric order — not tag-list order — with its `v` prefix preserved): a hotfix bumps the
+    patch, a release bumps the minor and resets the patch. The major is never bumped.
+    `null` when no tag gives a lead. */
+export function suggestedFlowVersion(kind: FlowKind, tags: string[]): string | null {
+  let latest: { prefix: string; nums: [number, number, number] } | null = null
+  for (const tag of tags) {
+    const m = SEMVER_TAG.exec(tag)
+    if (!m) continue
+    const nums: [number, number, number] = [+m[2], +m[3], +m[4]]
+    if (!latest || semverCmp(nums, latest.nums) > 0) latest = { prefix: m[1], nums }
+  }
+  if (!latest) return null
+  const [major, minor, patch] = latest.nums
+  return kind === "hotfix"
+    ? `${latest.prefix}${major}.${minor}.${patch + 1}`
+    : `${latest.prefix}${major}.${minor + 1}.0`
+}
+
 /* --- Work type of a branch --- */
 
 export type BranchFlow = keyof FlowPrefixes
