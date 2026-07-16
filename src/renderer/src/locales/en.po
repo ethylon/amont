@@ -907,6 +907,9 @@ msgstr "Start hotfix…"
 msgid "Start point for the {kind} branch"
 msgstr "Start point for the {kind} branch"
 
+msgid "Start release…"
+msgstr "Start release…"
+
 msgid "Start…"
 msgstr "Start…"
 

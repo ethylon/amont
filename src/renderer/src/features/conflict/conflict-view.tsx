@@ -311,11 +311,13 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
 
   /* Same focus contract as DiffView: the overlay takes the keyboard on open (Escape lives
      in repo-view's shortcut handler) and hands it back on close — only if it still holds
-     focus, so switching to another file doesn't yank focus and scroll back to the old row. */
+     focus, so switching to another file doesn't yank focus and scroll back to the old row.
+     And same file-row carve-out: opened from a row, the row keeps focus so ArrowUp/Down
+     keeps walking the file list (cf. file-list.tsx onFileRowKeyDown). */
   useLayoutEffect(() => {
     const el = root.current
     const prev = document.activeElement as HTMLElement | null
-    el?.focus()
+    if (!prev?.closest("[data-file-row]")) el?.focus()
     return () => {
       if (el?.contains(document.activeElement)) prev?.focus?.()
     }
