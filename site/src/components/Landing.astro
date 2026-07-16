@@ -4,6 +4,7 @@ import Nav from "./Nav.astro"
 import Shot from "./Shot.astro"
 import GraphBg from "./GraphBg.astro"
 import Starfield from "./Starfield.astro"
+import HeroDemo from "./HeroDemo.astro"
 import CommandLog from "./CommandLog.astro"
 import { dict, REPO_URL, DOWNLOAD_URL, type Locale } from "../i18n/ui"
 import pkg from "../../../package.json"
@@ -94,10 +95,16 @@ const shots = {
       </div>
 
       <div class="mx-auto max-w-6xl px-4 pt-14 sm:px-6 sm:pt-16">
-        <Shot light={graphLight} dark={graphDark} alt={t.hero.graphAlt} eager class="shadow-zinc-950/15" />
-        <p class="mt-5 text-sm text-zinc-500">
-          {t.hero.caption}
-        </p>
+        <HeroDemo
+          light={graphLight}
+          dark={graphDark}
+          alt={t.hero.graphAlt}
+          locale={locale}
+          demoTitle={t.hero.demoTitle}
+          demoHint={t.hero.demoHint}
+          captionImage={t.hero.caption}
+          captionDemo={t.hero.captionDemo}
+        />
       </div>
     </section>
 

@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .astro/
+
+# build de la démo embarquée (pnpm build:embed à la racine)
+public/embed/

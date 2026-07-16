@@ -1,0 +1,129 @@
+---
+import { Image } from "astro:assets"
+import type { ImageMetadata } from "astro"
+
+/* Le shot du hero, qui devient la démo : l'image (LCP + fallback inconditionnel)
+   reste en flux ; le vrai renderer (build /embed) se monte par-dessus à l'idle,
+   desktop seulement, et ne capte la souris qu'après un clic explicite — sinon la
+   molette piégerait le scroll de la page. Thème et langue passent en query params ;
+   un changement de thème du site recharge l'iframe. */
+interface Props {
+  light: ImageMetadata
+  dark: ImageMetadata
+  alt: string
+  locale: string
+  demoTitle: string
+  demoHint: string
+  captionImage: string
+  captionDemo: string
+}
+
+const { light, dark, alt, locale, demoTitle, demoHint, captionImage, captionDemo } = Astro.props
+const widths = [480, 768, 1080, 1600, 2160]
+const sizes = "(min-width: 1152px) 1104px, 96vw"
+---
+
+<figure
+  data-hero-demo
+  data-locale={locale}
+  data-title={demoTitle}
+  class="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 shadow-2xl shadow-zinc-950/15 dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-black/40"
+>
+  <Image
+    src={light}
+    alt={alt}
+    widths={widths}
+    sizes={sizes}
+    loading="eager"
+    fetchpriority="high"
+    class="block w-full dark:hidden"
+  />
+  <Image src={dark} alt={alt} widths={widths} sizes={sizes} loading="lazy" class="hidden w-full dark:block" />
+
+  <div data-demo-frame class="absolute inset-0"></div>
+
+  <button
+    type="button"
+    data-demo-activate
+    hidden
+    class="absolute inset-0 h-full w-full cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-violet-600"
+  >
+    <span class="sr-only">{demoHint}</span>
+    <span
+      data-demo-hint
+      aria-hidden="true"
+      class="absolute right-3 bottom-3 rounded-md bg-zinc-950/80 px-2.5 py-1.5 text-xs font-medium text-zinc-200 backdrop-blur-sm"
+    >
+      {demoHint}
+    </span>
+  </button>
+</figure>
+
+<p data-caption-image class="mt-5 text-sm text-zinc-500">{captionImage}</p>
+<p data-caption-demo hidden class="mt-5 text-sm text-zinc-500">{captionDemo}</p>
+
+<script>
+  const wrap = document.querySelector<HTMLElement>("[data-hero-demo]")
+
+  if (wrap && matchMedia("(min-width: 1024px)").matches) {
+    const frame = wrap.querySelector<HTMLElement>("[data-demo-frame]")!
+    const activate = wrap.querySelector<HTMLButtonElement>("[data-demo-activate]")!
+    let iframe: HTMLIFrameElement | null = null
+
+    const src = () => {
+      const dark = document.documentElement.classList.contains("dark")
+      const locale = wrap.dataset.locale === "fr" ? "fr" : "en"
+      return `/embed/embed.html?theme=${dark ? "dark" : "light"}&locale=${locale}`
+    }
+
+    const deactivate = () => {
+      if (!iframe) return
+      iframe.style.pointerEvents = "none"
+      activate.hidden = false
+    }
+
+    const mount = () => {
+      iframe = document.createElement("iframe")
+      iframe.src = src()
+      iframe.title = wrap.dataset.title ?? ""
+      iframe.tabIndex = -1
+      iframe.className = "absolute inset-0 h-full w-full border-0 opacity-0 transition-opacity duration-700"
+      iframe.style.pointerEvents = "none"
+      iframe.addEventListener("load", () => {
+        /* un battement pour laisser le renderer peindre avant le fondu — timer, pas
+           rAF : un onglet throttlé ne doit pas laisser la démo invisible */
+        setTimeout(() => {
+          iframe!.classList.remove("opacity-0")
+          activate.hidden = false
+          document.querySelector<HTMLElement>("[data-caption-image]")!.hidden = true
+          document.querySelector<HTMLElement>("[data-caption-demo]")!.hidden = false
+        }, 250)
+      })
+      frame.appendChild(iframe)
+    }
+
+    activate.addEventListener("click", () => {
+      if (!iframe) return
+      iframe.style.pointerEvents = "auto"
+      iframe.tabIndex = 0
+      activate.hidden = true
+      iframe.focus()
+    })
+    wrap.addEventListener("mouseleave", deactivate)
+
+    new MutationObserver(() => {
+      if (iframe) iframe.src = src()
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+
+    const start = () => {
+      fetch("/embed/embed.html", { method: "HEAD" })
+        .then((r) => {
+          if (r.ok) mount()
+        })
+        .catch(() => {})
+    }
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 2000))
+    if (document.readyState === "complete") idle(start)
+    else window.addEventListener("load", () => idle(start), { once: true })
+  }
+</script>
