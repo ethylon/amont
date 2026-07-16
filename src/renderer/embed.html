@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Amont — live demo</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      /* Démo embarquée par le site (hero) : le vrai renderer sur un dépôt simulé,
+         même principe que mock.html mais avec le scénario « Aurelia Storefront »
+         (cf. site/scripts/demo-repo.mjs) et sans merge en cours. Le site passe
+         ?theme=&locale= ; on les pose dans les prefs avant que le renderer boote. */
+      const params = new URLSearchParams(location.search)
+      const qTheme = params.get("theme")
+      if (qTheme === "light" || qTheme === "dark") localStorage.setItem("amont.theme", qTheme)
+      const qLocale = params.get("locale")
+      if (qLocale === "en" || qLocale === "fr") localStorage.setItem("amont.locale", qLocale)
+
+      const sha = (s) => s.repeat(Math.ceil(40 / s.length)).slice(0, 40)
+      const diffText = (text) => ({ text, totalLines: text.split("\n").length })
+
+      const SARAH = { a: "Sarah Chen", e: "31840555+sarahchen@users.noreply.github.com" }
+      const MARCO = { a: "Marco Ruiz", e: "18294632+marcoruiz@users.noreply.github.com" }
+      const AMELIE = { a: "Amélie Laurent", e: "27459811+amelielaurent@users.noreply.github.com" }
+      const day = (n, who, extra) => ({ d: `2026-06-${String(n).padStart(2, "0")}`, a: who.a, e: who.e, ...extra })
+
+      /* Historique scénarisé : main ahead 2 / behind 1, un stash, deux merges,
+         deux branches ouvertes, deux tags — le graphe du repo démo. */
+      const C = [
+        {
+          h: sha("aa010101"),
+          p: [sha("ba010101"), sha("aa020202"), sha("aa030303")],
+          r: "",
+          s: "On main: wip: sticky header experiment",
+          ...day(30, SARAH),
+        },
+        { h: sha("aa020202"), p: [sha("ba010101")], r: "", s: "index on main: review model", ...day(30, SARAH) },
+        { h: sha("aa030303"), p: [], r: "", s: "untracked files on main: review model", ...day(30, SARAH) },
+        {
+          h: sha("ba010101"),
+          p: [sha("ba020202")],
+          r: "HEAD -> refs/heads/main",
+          s: "feat: review model and average rating",
+          ...day(30, SARAH),
+        },
+        { h: sha("ba020202"), p: [sha("ca010101")], r: "", s: "style: search bar field", ...day(29, SARAH) },
+        {
+          h: sha("bb010101"),
+          p: [sha("ca010101")],
+          r: "refs/remotes/origin/main, refs/remotes/origin/HEAD",
+          s: "feat: site footer",
+          ...day(29, MARCO),
+        },
+        { h: sha("ca010101"), p: [sha("ca020202")], r: "", s: "chore: move perf notes to the wiki", ...day(28, MARCO) },
+        { h: sha("ca020202"), p: [sha("ca030303")], r: "", s: "perf: notes from profiling session", ...day(28, MARCO) },
+        {
+          h: sha("ca030303"),
+          p: [sha("ca040404")],
+          r: "",
+          s: "style: product card borders and tabular prices",
+          ...day(27, AMELIE),
+        },
+        {
+          h: sha("ca040404"),
+          p: [sha("ca050505")],
+          r: "",
+          s: "refactor: extract ProductCard from ProductList",
+          ...day(27, AMELIE),
+        },
+        { h: sha("ca050505"), p: [sha("da010101")], r: "", s: "feat: product tags and canvas tote", ...day(26, SARAH) },
+        {
+          h: sha("da010101"),
+          p: [sha("ea010101"), sha("db010101")],
+          r: "",
+          s: "merge: price rounding fix",
+          ...day(26, MARCO),
+        },
+        {
+          h: sha("fa010101"),
+          p: [sha("fa020202")],
+          r: "refs/heads/feature/search-filters, refs/remotes/origin/feature/search-filters",
+          s: "feat: price sort for search results",
+          ...day(25, AMELIE),
+        },
+        { h: sha("fa020202"), p: [sha("fa030303")], r: "", s: "feat: search bar component", ...day(25, AMELIE) },
+        {
+          h: sha("fa030303"),
+          p: [sha("ea010101")],
+          r: "",
+          s: "feat: product search with price filter",
+          ...day(24, AMELIE),
+        },
+        {
+          h: sha("db010101"),
+          p: [sha("ha010101")],
+          r: "refs/heads/fix/price-rounding",
+          s: "fix: expose price parts to avoid float drift in display",
+          ...day(24, MARCO),
+        },
+        {
+          h: sha("ea010101"),
+          p: [sha("ga010101")],
+          r: "tag: refs/tags/v1.0.0",
+          s: "chore: release v1.0.0",
+          ...day(23, SARAH),
+        },
+        {
+          h: sha("ga010101"),
+          p: [sha("gb010101"), sha("gc010101")],
+          r: "",
+          s: "merge: checkout flow",
+          ...day(23, SARAH),
+        },
+        {
+          h: sha("gc010101"),
+          p: [sha("gc020202")],
+          r: "refs/heads/feature/checkout-flow",
+          s: "test: checkout transitions",
+          ...day(22, MARCO),
+        },
+        { h: sha("gc020202"), p: [sha("gc030303")], r: "", s: "feat: checkout panel component", ...day(22, SARAH) },
+        { h: sha("gc030303"), p: [sha("gc040404")], r: "", s: "feat: checkout step transitions", ...day(21, SARAH) },
+        { h: sha("gb010101"), p: [sha("ha010101")], r: "", s: "docs: architecture overview", ...day(21, AMELIE) },
+        {
+          h: sha("gc040404"),
+          p: [sha("ia010101")],
+          r: "",
+          s: "feat: checkout state machine skeleton",
+          ...day(20, SARAH),
+        },
+        { h: sha("ha010101"), p: [sha("ia010101")], r: "", s: "feat: site header with cart link", ...day(20, AMELIE) },
+        {
+          h: sha("ia010101"),
+          p: [sha("ia020202")],
+          r: "tag: refs/tags/v0.9.0",
+          s: "test: cart quantity merge",
+          ...day(19, MARCO),
+        },
+        {
+          h: sha("ia020202"),
+          p: [sha("ia030303")],
+          r: "",
+          s: "feat: cart model with quantity merge and total",
+          ...day(19, MARCO),
+        },
+        {
+          h: sha("ia030303"),
+          p: [sha("ia040404")],
+          r: "",
+          s: "feat: base styles and product grid layout",
+          ...day(18, AMELIE),
+        },
+        {
+          h: sha("ia040404"),
+          p: [sha("ia050505")],
+          r: "",
+          s: "feat: product list wired to static catalog",
+          ...day(18, SARAH),
+        },
+        {
+          h: sha("ia050505"),
+          p: [sha("00025000")],
+          r: "",
+          s: "chore: bootstrap vite + preact storefront",
+          ...day(17, SARAH),
+        },
+      ]
+
+      /* Queue synthétique (~25k commits) : la preuve vivante du « 100,000+ commits,
+         no lag » — scroll, saut long, éviction/refetch, dans le hero même. */
+      const TAIL = 25_000
+      const th = (i) => sha(String(TAIL - i).padStart(8, "0"))
+      const TAIL_SUBJECTS = [
+        "fix: price formatting on locale switch",
+        "feat: product page skeleton",
+        "chore: bump dependencies",
+        "refactor: extract cart persistence",
+        "test: checkout edge cases",
+        "style: tighten grid gaps",
+      ]
+      const TAIL_AUTHORS = [SARAH, MARCO, AMELIE]
+      for (let i = 0; i < TAIL; i++) {
+        const who = TAIL_AUTHORS[i % 3]
+        C.push({
+          h: th(i),
+          p: i === TAIL - 1 ? [] : [th(i + 1)],
+          d: "2026-06-16",
+          a: who.a,
+          e: who.e,
+          r: "",
+          s: `${TAIL_SUBJECTS[i % TAIL_SUBJECTS.length]} (#${TAIL - i})`,
+        })
+      }
+
+      const BODIES_SEED = {
+        ea010101:
+          "Aurelia 1.0 — checkout.\n\nFirst public release: product list, cart, checkout flow.\n\nCo-authored-by: Marco Ruiz <18294632+marcoruiz@users.noreply.github.com>\nCo-authored-by: Amélie Laurent <27459811+amelielaurent@users.noreply.github.com>\n",
+        da010101: "Keeps display prices stable across locales by formatting from integer parts.\n",
+      }
+      const BODIES = Object.fromEntries(Object.entries(BODIES_SEED).map(([h, v]) => [sha(h), v]))
+
+      /* Working tree du scénario : cart.ts stagé, styles.css + README modifiés,
+         CartBadge.tsx untracked. Pas de conflit, pas de merge en cours. */
+      let wt = {
+        staged: [{ st: "M", path: "src/cart.ts", old: null }],
+        unstaged: [
+          { st: "M", path: "src/styles.css" },
+          { st: "M", path: "README.md" },
+        ],
+        untracked: [{ st: "?", path: "src/components/CartBadge.tsx" }],
+        conflicts: [],
+      }
+      const drop = (arr, paths) => arr.filter((f) => !paths.includes(f.path))
+
+      const WT_DIFFS = {
+        "src/cart.ts": {
+          header: [
+            "diff --git a/src/cart.ts b/src/cart.ts",
+            "index 5b3a2c1..8f4d9e2 100644",
+            "--- a/src/cart.ts",
+            "+++ b/src/cart.ts",
+          ],
+          unstaged: [],
+          staged: [
+            [
+              "@@ -30,3 +30,11 @@ export function cartTotalCents(): number {",
+              " export function formatPrice(cents: number): string {",
+              "   return `$${(cents / 100).toFixed(2)}`",
+              " }",
+              "+",
+              "+export function cartItemCount(): number {",
+              "+  let count = 0",
+              "+  for (const line of lines.values()) {",
+              "+    count += line.quantity",
+              "+  }",
+              "+  return count",
+              "+}",
+            ],
+          ],
+        },
+        "src/styles.css": {
+          header: [
+            "diff --git a/src/styles.css b/src/styles.css",
+            "index 2d1e4f5..6a7b8c9 100644",
+            "--- a/src/styles.css",
+            "+++ b/src/styles.css",
+          ],
+          unstaged: [
+            [
+              "@@ -24,3 +24,8 @@ body {",
+              " .price {",
+              "   font-variant-numeric: tabular-nums;",
+              " }",
+              "+",
+              "+.cart-link {",
+              "+  font-weight: 600;",
+              "+  color: var(--accent);",
+              "+}",
+            ],
+          ],
+          staged: [],
+        },
+        "README.md": {
+          header: [
+            "diff --git a/README.md b/README.md",
+            "index 9c8b7a6..1f2e3d4 100644",
+            "--- a/README.md",
+            "+++ b/README.md",
+          ],
+          unstaged: [
+            [
+              "@@ -8,3 +8,9 @@ Small demo storefront: product list, cart, checkout.",
+              " pnpm install",
+              " pnpm dev",
+              " ```",
+              "+",
+              "+## Testing",
+              "+",
+              "+```sh",
+              "+pnpm test",
+              "+```",
+            ],
+          ],
+          staged: [],
+        },
+      }
+      const oldStartOf = (hunk) => Number(/^@@ -(\d+)/.exec(hunk[0])[1])
+      const syncWtLists = (path, entry) => {
+        wt.unstaged = drop(wt.unstaged, [path])
+        wt.staged = drop(wt.staged, [path])
+        if (entry.unstaged.length) wt.unstaged.push({ st: "M", path })
+        if (entry.staged.length) wt.staged.push({ st: "M", path, old: null })
+      }
+
+      const REPO = { id: 1, path: "/demo/aurelia-storefront", name: "aurelia-storefront" }
+      const RECENTS = [{ path: "/demo/aurelia-storefront", name: "aurelia-storefront" }]
+      let nextRepoId = 2
+
+      let worktrees = [
+        {
+          path: "/demo/aurelia-storefront",
+          head: sha("ba010101"),
+          branch: "main",
+          main: true,
+          current: true,
+          locked: false,
+          prunable: false,
+        },
+      ]
+
+      const onOpListeners = new Set()
+      const onChangedListeners = new Set()
+      const onTraceListeners = new Set()
+      const onProgressListeners = new Set()
+      const onUpdateListeners = new Set()
+      window.__changed = (payload = { id: REPO.id }) => onChangedListeners.forEach((cb) => cb(payload))
+
+      let flowPrefixes = { feature: "feature/", bugfix: "bugfix/", release: "release/", hotfix: "hotfix/" }
+      let currentBranch = "main"
+      let counts = {
+        count: 42,
+        size: "168.00 KiB",
+        inPack: 25_100,
+        packs: 1,
+        sizePack: "9.80 MiB",
+        prunePackable: 0,
+        garbage: 0,
+        sizeGarbage: "0 bytes",
+      }
+
+      const emitProgress = (op, percent) => onProgressListeners.forEach((cb) => cb({ id: REPO.id, op, percent }))
+      const simulateMaint = async (op) => {
+        for (const pct of [8, 26, 52, 78, 100]) {
+          emitProgress(op, pct)
+          await new Promise((r) => setTimeout(r, 260))
+        }
+      }
+      const emitTrace = (line) => onTraceListeners.forEach((cb) => cb({ id: REPO.id, ...line }))
+      const simulateFlowCmds = async (cmds, ms = 900) => {
+        await new Promise((r) => setTimeout(r, 30))
+        for (const text of cmds) {
+          emitTrace({ kind: "cmd", text })
+          await new Promise((r) => setTimeout(r, ms))
+          emitTrace({ kind: "exit", ok: true, ms })
+        }
+      }
+
+      const REFS = [
+        { name: "main", kind: "head", head: true, ahead: 2, behind: 1, tip: sha("ba010101") },
+        { name: "feature/checkout-flow", kind: "head", head: false, ahead: 0, behind: 0, tip: sha("gc010101") },
+        { name: "feature/search-filters", kind: "head", head: false, ahead: 0, behind: 0, tip: sha("fa010101") },
+        { name: "fix/price-rounding", kind: "head", head: false, ahead: 0, behind: 0, tip: sha("db010101") },
+        { name: "origin/main", kind: "remote", head: false, ahead: 0, behind: 0, tip: sha("bb010101") },
+        {
+          name: "origin/feature/search-filters",
+          kind: "remote",
+          head: false,
+          ahead: 0,
+          behind: 0,
+          tip: sha("fa010101"),
+        },
+        { name: "v0.9.0", kind: "tag", head: false, ahead: 0, behind: 0, tip: sha("ia010101") },
+        { name: "v1.0.0", kind: "tag", head: false, ahead: 0, behind: 0, tip: sha("ea010101") },
+      ]
+
+      const EMBED_SETTINGS = { autoFetch: false, autoFetchIntervalMin: 5, prune: true }
+
+      const COMMIT_FILES = [
+        { st: "M", path: "src/cart.ts", old: null },
+        { st: "A", path: "src/components/ProductCard.tsx", old: null },
+        { st: "M", path: "src/styles.css", old: null },
+      ]
+      const COMMIT_DIFF = [
+        "diff --git a/src/cart.ts b/src/cart.ts",
+        "index 1a2b3c4..5d6e7f8 100644",
+        "--- a/src/cart.ts",
+        "+++ b/src/cart.ts",
+        "@@ -18,8 +18,12 @@ export function addToCart(product: Product, quantity = 1) {",
+        " export function cartTotalCents(): number {",
+        "   let total = 0",
+        "   for (const line of lines.values()) {",
+        "-    total += line.product.priceCents",
+        "+    total += line.product.priceCents * line.quantity",
+        "   }",
+        "   return total",
+        " }",
+        "+",
+        "+export function formatPrice(cents: number): string {",
+        "+  return `$${(cents / 100).toFixed(2)}`",
+        "+}",
+      ].join("\n")
+
+      window.amont = {
+        state: async () => ({ root: "/demo", recents: RECENTS, tabs: [REPO], active: REPO.id }),
+        repos: async () => ({ root: "/demo", recents: RECENTS }),
+        setTabs: async () => {},
+        openDialog: async () => REPO,
+        openPath: async () => REPO,
+        close: async () => {},
+        chooseRoot: async () => "/demo",
+        scanRoot: async () => RECENTS,
+        telemetryState: async () => ({ available: false, enabled: true }),
+        setTelemetry: async () => {},
+        getSettings: async () => ({ ...EMBED_SETTINGS }),
+        setSettings: async (patch) => {
+          Object.assign(EMBED_SETTINGS, patch)
+        },
+        chooseCreateDir: async () => "/demo/projects",
+        initRepo: async (_dir, name) => ({ id: nextRepoId++, path: `/demo/projects/${name}`, name }),
+        initBare: async (_dir, name) => `/demo/projects/${name.endsWith(".git") ? name : name + ".git"}`,
+        cloneRepo: async (_dir, _url, name) => ({ id: nextRepoId++, path: `/demo/projects/${name}`, name }),
+        log: async (_id, skip, count) => C.slice(skip, skip + count),
+        total: async () => C.length - 2,
+        refs: async () => REFS,
+        stashes: async () => [
+          {
+            name: "stash@{0}",
+            h: sha("aa010101"),
+            p: [sha("ba010101"), sha("aa020202"), sha("aa030303")],
+            d: "2026-06-30",
+            a: SARAH.a,
+            e: SARAH.e,
+            s: "On main: wip: sticky header experiment",
+          },
+        ],
+        stash: async () => {},
+        files: async () => COMMIT_FILES,
+        diff: async () => diffText(COMMIT_DIFF),
+        blob: async (_id, path, ref) => {
+          const key = ref.kind === "commit" ? ref.rev : ref.kind
+          const hues = ["#e11d48", "#16a34a", "#2563eb", "#d97706", "#9333ea"]
+          const fill = hues[[...key].reduce((a, c) => a + c.charCodeAt(0), 0) % hues.length]
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="${fill}"/><text x="80" y="56" font-size="13" fill="#fff" text-anchor="middle">${path.split("/").pop()}</text></svg>`
+          return { size: svg.length, bytes: new TextEncoder().encode(svg) }
+        },
+        status: async () => ({ branch: currentBranch, head: sha("ba010101"), ahead: 2, behind: 1 }),
+        body: async (_id, hash) => BODIES[hash] ?? "",
+        op: async () => {},
+        onOp: (cb) => {
+          onOpListeners.add(cb)
+          return () => onOpListeners.delete(cb)
+        },
+        onChanged: (cb) => {
+          onChangedListeners.add(cb)
+          return () => onChangedListeners.delete(cb)
+        },
+        onTrace: (cb) => {
+          onTraceListeners.add(cb)
+          return () => onTraceListeners.delete(cb)
+        },
+        onProgress: (cb) => {
+          onProgressListeners.add(cb)
+          return () => onProgressListeners.delete(cb)
+        },
+        onUpdate: (cb) => {
+          onUpdateListeners.add(cb)
+          return () => onUpdateListeners.delete(cb)
+        },
+        checkForUpdates: async () => onUpdateListeners.forEach((cb) => cb({ origin: "manual", kind: "unavailable" })),
+        installUpdate: async () => {},
+        search: async () => [],
+        flow: async () => flowPrefixes,
+        flowInfo: async (_id, branch, kind) => {
+          const tagged = kind === "release" || kind === "hotfix"
+          return {
+            commits: 3,
+            startedAt: Math.floor(Date.now() / 1000) - 7200,
+            base: tagged ? "v1.0.0" : "main",
+            targets: tagged ? ["main"] : ["main"],
+            nextTag: kind === "release" ? "v1.1.0" : kind === "hotfix" ? "v1.0.1" : null,
+            unpushed: true,
+          }
+        },
+        flowInit: async (_id, cfg) => {
+          flowPrefixes = { feature: cfg.feature, bugfix: cfg.bugfix, release: cfg.release, hotfix: cfg.hotfix }
+          return flowPrefixes
+        },
+        flowStart: async (_id, kind, name) => {
+          const branch = (flowPrefixes[kind] || `${kind}/`) + name
+          await simulateFlowCmds(["git config --get-regexp ^gitflow\\.prefix\\.", `git flow ${kind} start ${name}`])
+          currentBranch = branch
+        },
+        flowPublish: async (_id, kind, name) => {
+          await simulateFlowCmds(["git config --get-regexp ^gitflow\\.prefix\\.", `git flow ${kind} publish ${name}`])
+        },
+        countObjects: async () => counts,
+        fsck: async () => {
+          await simulateMaint("fsck")
+        },
+        gc: async () => {
+          await simulateMaint("gc")
+          counts = { ...counts, count: 0, size: "0 bytes", packs: 1 }
+        },
+        branch: async (_id, action, name) => {
+          if (action !== "finish") return
+          const kind = Object.keys(flowPrefixes).find((k) => flowPrefixes[k] && name.startsWith(flowPrefixes[k]))
+          if (!kind) return
+          const version = name.slice(flowPrefixes[kind].length)
+          const tagged = kind === "release" || kind === "hotfix"
+          await simulateFlowCmds([
+            "git config --get-regexp ^gitflow\\.prefix\\.",
+            `git flow ${kind} finish ${tagged ? `-m ${version} ` : ""}${version}`,
+          ])
+          if (currentBranch === name) currentBranch = "main"
+        },
+        checkout: async () => {},
+        worktrees: async () => structuredClone(worktrees),
+        worktreeAct: async (_id, action, path) => {
+          worktrees =
+            action === "prune" ? worktrees.filter((w) => !w.prunable) : worktrees.filter((w) => w.path !== path)
+        },
+        worktreeAdd: async (_id, branch) => {
+          const name = branch.split("/").pop()
+          const path = `/demo/aurelia-worktrees/${name}`
+          const tip = REFS.find((r) => r.kind === "head" && r.name === branch)?.tip ?? sha("ba010101")
+          worktrees.push({ path, head: tip, branch, main: false, current: false, locked: false, prunable: false })
+          return { id: nextRepoId++, path, name }
+        },
+        worktreeOpen: async (_id, path) => ({ id: nextRepoId++, path, name: path.split("/").pop() }),
+        worktreeReveal: async () => {},
+        worktree: async () => structuredClone(wt),
+        wtdiff: async (_id, p, source) => {
+          const entry = WT_DIFFS[p]
+          if (!entry) return diffText(`diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -1 +1 @@\n-old\n+new\n`)
+          const hunks = entry[source] ?? []
+          return diffText(hunks.length ? [...entry.header, ...hunks.flat(), ""].join("\n") : "")
+        },
+        applyPatch: async (_id, patch, reverse) => {
+          const path = /^diff --git a\/(.+) b\//m.exec(patch)?.[1]
+          const entry = WT_DIFFS[path]
+          if (!entry) return
+          const from = reverse ? "staged" : "unstaged"
+          const to = reverse ? "unstaged" : "staged"
+          const starts = [...patch.matchAll(/^@@ -(\d+)/gm)].map((m) => Number(m[1]))
+          const moved = entry[from].filter((h) => starts.includes(oldStartOf(h)))
+          entry[from] = entry[from].filter((h) => !moved.includes(h))
+          entry[to].push(...moved)
+          entry[to].sort((a, b) => oldStartOf(a) - oldStartOf(b))
+          syncWtLists(path, entry)
+        },
+        discard: async (_id, paths, untracked) => {
+          wt.unstaged = drop(wt.unstaged, paths)
+          wt.untracked = drop(wt.untracked, untracked)
+          for (const p of paths) {
+            const entry = WT_DIFFS[p]
+            if (entry) {
+              entry.unstaged = []
+              syncWtLists(p, entry)
+            }
+          }
+        },
+        discardPatch: async (_id, patch) => {
+          const path = /^diff --git a\/(.+) b\//m.exec(patch)?.[1]
+          const entry = WT_DIFFS[path]
+          if (!entry) return
+          const starts = [...patch.matchAll(/^@@ -(\d+)/gm)].map((m) => Number(m[1]))
+          entry.unstaged = entry.unstaged.filter((h) => !starts.includes(oldStartOf(h)))
+          syncWtLists(path, entry)
+        },
+        stage: async (_id, paths) => {
+          const moved = [...wt.unstaged, ...wt.untracked].filter((f) => paths.includes(f.path))
+          wt.unstaged = drop(wt.unstaged, paths)
+          wt.untracked = drop(wt.untracked, paths)
+          wt.staged.push(...moved.map((f) => ({ st: f.st === "?" ? "A" : f.st, path: f.path, old: null })))
+          for (const p of paths) {
+            const entry = WT_DIFFS[p]
+            if (entry) entry.staged.push(...entry.unstaged.splice(0))
+          }
+        },
+        unstage: async (_id, paths) => {
+          const moved = wt.staged.filter((f) => paths.includes(f.path))
+          wt.staged = drop(wt.staged, paths)
+          wt.unstaged.push(...moved.map((f) => ({ st: "M", path: f.path })))
+          for (const p of paths) {
+            const entry = WT_DIFFS[p]
+            if (entry) entry.unstaged.push(...entry.staged.splice(0))
+          }
+        },
+        commit: async () => {
+          wt.staged = []
+        },
+        mergeState: async () => ({ merging: false, ours: null, theirs: null }),
+        conflict: async () => ({ base: null, ours: null, theirs: null, merged: "" }),
+        resolve: async () => {},
+        mergeAbort: async () => {},
+        fileIcon: async () => null,
+        openFile: async () => "",
+        cancel: async () => {},
+      }
+
+      await import("./src/main.tsx")
+    </script>
+  </body>
+</html>
