@@ -6,9 +6,12 @@ import { useRepoStore } from "@/features/repo/repo-store"
 import { useRefsQuery } from "@/features/refs/refs-queries"
 import { suggestedFlowVersion, type BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
+import { traceCommand, useTraceStep } from "@/lib/use-trace-step"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { RollingText } from "@/components/ui/rolling-text"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import { FLOW_META } from "@/features/flow/flow-context"
 
 type Props = {
@@ -67,6 +70,13 @@ export function FlowStartBanner({ kind, prefix, initialBase, onDone }: Props) {
   }, [suggested, touched])
   const m = FLOW_META[kind]
 
+  /* while the start runs, the kind icon gives way to a spinner and the traced git commands
+     roll in the banner's free space (same ticker as the commit button). `flowBusy` scopes the
+     subscription to the flow commands themselves — `busy` alone would drag the reload's read
+     commands into the ticker (cf. repo-store runFlow). */
+  const flowBusy = useRepoStore((s) => s.ops.flowBusy)
+  const cmd = useTraceStep(repoId, busy && flowBusy, traceCommand)
+
   async function submit() {
     const name = value.trim()
     if (!name || busy) return
@@ -86,7 +96,11 @@ export function FlowStartBanner({ kind, prefix, initialBase, onDone }: Props) {
         m.text
       )}
     >
-      <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
+      {busy ? (
+        <Spinner className="size-3.5 shrink-0" />
+      ) : (
+        <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
+      )}
       <span className="font-medium">{prefix}</span>
       <input
         ref={inputRef}
@@ -127,7 +141,15 @@ export function FlowStartBanner({ kind, prefix, initialBase, onDone }: Props) {
         </SelectContent>
       </Select>
       {error && <span className="min-w-0 flex-1 truncate text-destructive">{error}</span>}
-      <span className="flex-1" />
+      {busy ? (
+        /* the expected command seeds the ticker until the first traced one rolls in */
+        <RollingText
+          text={cmd ?? `git flow ${kind} start ${value.trim()}`}
+          className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
+        />
+      ) : (
+        <span className="flex-1" />
+      )}
       <Button size="sm" color={m.btn} onClick={() => void submit()} disabled={!value.trim() || busy}>
         {busy ? messages.gitflow.starting : messages.gitflow.start}
       </Button>
