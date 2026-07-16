@@ -95,21 +95,23 @@ export function branchFlow(name: string, prefixes: FlowPrefixes | null): BranchF
   return flow || (BRANCH_PREFIX.find(([re]) => re.test(name))?.[1] ?? null)
 }
 
-/* --- Promoted flow move --- */
+/* --- Promoted flow moves --- */
+
+export type StartKind = "feature" | "hotfix" | "release"
 
 export type PromotedFlow =
   /** HEAD sits on a real flow branch (configured prefix matched): finish it. `name` = suffix. */
   | { move: "finish"; kind: BranchFlow; name: string }
-  /** HEAD sits on a trunk: start the natural work type from there. */
-  | { move: "start"; kind: "feature" | "hotfix" }
+  /** HEAD sits on a trunk: start the natural work type — or a release — from that trunk. */
+  | { move: "start"; kinds: StartKind[]; base: string }
 
-/** The obvious next gitflow move from HEAD — shared by the Git Flow menu's promoted section
+/** The obvious next gitflow moves from HEAD — shared by the Git Flow menu's promoted section
     and the sidebar shortcut. Requires a real gitflow (`prefixes` from `git flow init`). */
 export function promotedFlow(branch: string | null, prefixes: FlowPrefixes | null): PromotedFlow | null {
   if (!branch || !prefixes) return null
   const kind = (Object.keys(prefixes) as BranchFlow[]).find((k) => prefixes[k] && branch.startsWith(prefixes[k]))
   if (kind) return { move: "finish", kind, name: branch.slice(prefixes[kind]!.length) }
-  if (branch === "develop") return { move: "start", kind: "feature" }
-  if (branch === "master" || branch === "main") return { move: "start", kind: "hotfix" }
+  if (branch === "develop") return { move: "start", kinds: ["feature", "release"], base: branch }
+  if (branch === "master" || branch === "main") return { move: "start", kinds: ["hotfix", "release"], base: branch }
   return null
 }
