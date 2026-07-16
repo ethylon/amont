@@ -119,7 +119,7 @@ moved.
   (`Collapsible key={label} defaultOpen`, `file-list.tsx:290`; compaction at
   `file-list.tsx:353`). `compactPathTree` merges single-child directories, so staging
   the only file of a subfolder changes the compacted labels of what remains → React
-  reconciles by a *different* key → whole subtrees remount: chevrons pop back open,
+  reconciles by a _different_ key → whole subtrees remount: chevrons pop back open,
   rows flash, and any focus inside dies. A controlled expanded-set keyed by full path,
   persisted per block, would survive refetches.
 - **Window refocus refetches the worktree twice**: `repo-view.tsx:193-198` invalidates
@@ -142,12 +142,12 @@ immediate reset.
 
 ### 5. Graph reset is destructive rather than double-buffered
 
-Even when a reload *is* warranted, DOM is cleared before the new data exists
+Even when a reload _is_ warranted, DOM is cleared before the new data exists
 (`remount()` then `await loader.fetchMore()`, `controller.ts:554-557`). Keeping the old
 chunks/rows mounted until the new first page is laid out, then swapping in a single
 frame — and restoring the captured `scrollTop` (clamped to the new height) — removes
 the blank flash entirely without touching the layout engine. `loader.reset()` already
-resolves total/stashes/worktrees *before* the controller blanks anything, so the swap
+resolves total/stashes/worktrees _before_ the controller blanks anything, so the swap
 point is well defined.
 
 ### 6. `reresolveSelection` can page in the whole history after an amend
@@ -182,7 +182,7 @@ reset simultaneously. Background tabs don't flash, but a multi-tab session pays 
 (`total` + `stashes` + `worktrees` + page-1 `git log`) on each refocus. Flushing only
 the active tab and leaving the others `dirty` until they're shown would keep the same
 correctness at a fraction of the cost. Same class: `fire()` checks window focus but
-not *tab* visibility (`watcher.ts:78`), so a foreground window keeps live-resetting
+not _tab_ visibility (`watcher.ts:78`), so a foreground window keeps live-resetting
 tabs the user isn't looking at.
 
 ## What's already solid (don't churn)
@@ -207,7 +207,7 @@ tabs the user isn't looking at.
    keep the current view (never force `view:"commits"`), keep a still-valid diff open,
    and preserve scroll; optionally badge instead of reload when the user is engaged.
 3. **Double-buffer the graph reset + restore scroll** (finding 5): no blank frame, no
-   scroll-to-top, for *every* remaining legitimate reload — in-app ops included.
+   scroll-to-top, for _every_ remaining legitimate reload — in-app ops included.
 4. **File tree**: controlled collapse state keyed by full path + focus restore to the
    adjacent row after stage/unstage (finding 3); drop one of the two focus-time
    worktree invalidations.

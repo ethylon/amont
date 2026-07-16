@@ -365,7 +365,11 @@ export function createRepoStore(
          missing commits may still exist beyond the search bound and the next reload retries;
          only a complete resolution rewrites it (shedding duplicates the graph folded) */
       set((s) => ({
-        selection: { ...s.selection, rows, hashes: rows.length === hashes.length ? resolvedHashes : s.selection.hashes },
+        selection: {
+          ...s.selection,
+          rows,
+          hashes: rows.length === hashes.length ? resolvedHashes : s.selection.hashes,
+        },
       }))
       /* reclaims the keyboard cursor (AUDIT.md §8): without this, the selection restored after a
          pull/checkout/stash would stay displayed while the keyboard cursor — primed on row 0
