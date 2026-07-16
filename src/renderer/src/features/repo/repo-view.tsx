@@ -186,13 +186,17 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const booted = !!stats && ![statusQuery, flowQuery, worktreeQuery, flowInfoQuery].some((q) => q.isLoading)
   const { skeleton, settled } = useBootReveal(booted)
 
-  /* onChanged/onOp -> invalidations + resetAndLoad/showOp (see repo-store.tsx) */
-  useRepoEvents()
+  /* onChanged/onOp -> invalidations + resetAndLoad/showOp (see repo-store.tsx);
+     `active` defers a background tab's reload until it's shown */
+  useRepoEvents(active)
 
-  /* git doesn't notify anything: the tree may have moved in the editor while we were looking elsewhere */
+  /* git doesn't notify anything: the tree may have moved in the editor while we were looking
+     elsewhere. `cancelRefetch: false` — the focus flush of a dirty repo (main/window.ts) lands
+     at the same instant and already refetches this key; don't cancel-and-restart its read. */
   useEffect(() => {
     if (!active) return
-    const onFocus = () => queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+    const onFocus = () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }, { cancelRefetch: false })
     window.addEventListener("focus", onFocus)
     return () => window.removeEventListener("focus", onFocus)
   }, [active, queryClient, repoId])

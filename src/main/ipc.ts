@@ -78,6 +78,9 @@ function withCancel<T>(
 
 export function registerIpc(): void {
   repos.setAutofetch((r) => void ops.runOp(r, "fetch", true))
+  /* graph fingerprint for the watcher's `emitChanged` gate (refresh audit, §2): a .git event
+     whose HEAD/tips/stash snapshot is unchanged never wakes the renderer */
+  repos.setGraphKey((r) => queries.graphSnapshotKey(r))
   /* an autofetch on/off or interval change re-arms the open repos' timers, live (repos.ts).
      Wired here rather than inside settings.ts, which must not depend on repos.ts (it already
      reads getSettings() the other way). */

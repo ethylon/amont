@@ -51,12 +51,22 @@ export interface Watchable {
       by `mute()` after our own mutations — the read-path caches (stash list, ordered hash
       list, cf. repos.ts / git/queries.ts) hang off it rather than re-probing git each call. */
   gen: number
+  /** last graph fingerprint (HEAD + local/tag tips + stash list) whose `changed` was emitted —
+      the gate `emitChanged` compares against, so a .git write that moves nothing the graph
+      shows (gc rewriting packed-refs, a reflog touch) never reaches the renderer */
+  lastGraphKey: string | null
   watchers: FSWatcher[]
   watchRetries: number
   /** pending backoff retry, so closeRepo can cancel it — otherwise a retry scheduled after a
       watch error fires post-close and leaves an orphaned watcher nobody will ever close */
   retryTimer: NodeJS.Timeout | null
-  events: { changed(): void; isFocused(): boolean }
+  events: {
+    changed(): void
+    isFocused(): boolean
+    /** graph fingerprint provider (cf. git/queries.ts `graphSnapshotKey`, injected via
+        repos.ts): optional so the trio watcher/window/tests never hard-depends on git */
+    graphKey?(): Promise<string>
+  }
 }
 
 /* Our own commands wake up the watcher, even though the renderer has already reloaded behind
@@ -65,6 +75,28 @@ export interface Watchable {
 export const mute = (r: Watchable): void => {
   r.gen++
   r.muted = Date.now() + MUTE_MS
+  /* the post-command state becomes the emission baseline: a filesystem echo of our own
+     mutation escaping the mute window (slow disk, antivirus) then compares equal in
+     `emitChanged` instead of triggering a redundant renderer reload (refresh audit, §7) */
+  void r.events.graphKey?.().then(
+    (key) => {
+      r.lastGraphKey = key
+    },
+    () => {}
+  )
+}
+
+/** Emits `changed` only if the graph fingerprint actually moved (refresh audit, §2): the
+    single funnel for watcher events (below) and the focus flush (window.ts). Without a
+    provider — or when it fails — the gate fails open and emits: staying silent on a real
+    change is the one unacceptable outcome. */
+export async function emitChanged(r: Watchable): Promise<void> {
+  const key = await (r.events.graphKey?.() ?? Promise.resolve(null)).catch(() => null)
+  if (key !== null) {
+    if (key === r.lastGraphKey) return
+    r.lastGraphKey = key
+  }
+  r.events.changed()
 }
 
 export function watchGit(r: Watchable): void {
@@ -75,7 +107,7 @@ export function watchGit(r: Watchable): void {
        unconditionally — only the renderer notification is muted or held */
     r.gen++
     if (r.running || Date.now() < r.muted) return
-    if (r.events.isFocused()) r.events.changed()
+    if (r.events.isFocused()) void emitChanged(r)
     else r.dirty = true
   }
   const onError = () => {
