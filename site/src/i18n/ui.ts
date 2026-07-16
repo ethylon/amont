@@ -21,6 +21,9 @@ export interface Dict {
     ctaDownload: string
     ctaSource: string
     caption: string
+    captionDemo: string
+    demoTitle: string
+    demoHint: string
     graphAlt: string
   }
   graph: {
@@ -63,6 +66,9 @@ export const dict: Record<Locale, Dict> = {
       ctaDownload: "Download for Windows",
       ctaSource: "View the source",
       caption: "A real history: Amont browsing its own repository.",
+      captionDemo: "Live demo: the real interface, in your browser, on a simulated repository.",
+      demoTitle: "Interactive demo: the real Amont interface on a simulated repository",
+      demoHint: "Click to explore",
       graphAlt:
         "Amont’s main window: the commit graph with branch lanes and ref chips, the branches sidebar, and the detail panel showing a commit’s message and file tree.",
     },
@@ -151,6 +157,9 @@ export const dict: Record<Locale, Dict> = {
       ctaDownload: "Télécharger pour Windows",
       ctaSource: "Lire le code source",
       caption: "Un vrai historique : Amont sur son propre dépôt.",
+      captionDemo: "Démo en direct : la vraie interface, dans votre navigateur, sur un dépôt simulé.",
+      demoTitle: "Démo interactive : la vraie interface d'Amont sur un dépôt simulé",
+      demoHint: "Cliquez pour explorer",
       graphAlt:
         "La fenêtre principale d’Amont : le graphe de commits avec ses lignes de branches et ses pastilles de refs, la barre latérale des branches, et le panneau de détail montrant le message et l’arborescence d’un commit.",
     },

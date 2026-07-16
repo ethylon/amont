@@ -23,6 +23,7 @@
     "postinstall": "node scripts/ensure-electron.mjs",
     "dev": "electron-vite dev",
     "mock": "vite --config vite.preview.config.mjs",
+    "build:embed": "vite build --config vite.embed.config.mjs",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json",
