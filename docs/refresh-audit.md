@@ -2,8 +2,25 @@
 
 Audit of every refresh path, prompted by two reported symptoms: **full-screen blinks**
 when the app refreshes, and **losing focus / place in the file tree**. Every finding was
-verified against the code at the referenced lines; nothing here is fixed yet — this
-document is the diagnosis and the recommended order of attack.
+verified against the code at the referenced lines.
+
+> **Fix status** — every finding below is implemented on this branch. §2/§7/§8: a graph
+> fingerprint (HEAD + tips + stash, shared with `orderedHashes`' cache key) now gates
+> `git:changed` main-side (`emitChanged`, watcher.ts), `mute()` seeds it with the
+> post-command state, and background tabs defer their reload until shown. §1/§4: watcher
+> events, `doCommit` and `addWorktree` take a `soft` reload that keeps the view, the open
+> diff and the scroll; working-tree diffs are invalidated in place instead of being closed.
+> §5: `graph.reset()` is double-buffered — the old DOM stays painted until the new state
+> (grown back to the previous scroll depth) swaps in a single task, and the viewport
+> position survives every reload, hard ones included. §3: tree collapse state is
+> controlled and keyed by full path, and stage/unstage restores focus to the row that
+> takes the clicked one's place; the window-focus worktree refetch no longer cancels the
+> flush's in-flight read. §6: `reresolveSelection` bounds its search near the selection's
+> previous rows. §2 (storms): overlapping `resetAndLoad` calls coalesce into one shared
+> trailing rerun. One deliberate choice: external changes reload in place (now invisible —
+> no flash, no scroll/selection loss) rather than showing the auto-fetch-style badge; the
+> badge remains for auto-fetch, whose result is optional. Line references below describe
+> the pre-fix code.
 
 ## How a change becomes a repaint (the pipeline)
 

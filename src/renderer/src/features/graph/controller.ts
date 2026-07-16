@@ -41,6 +41,8 @@ export type GraphCallbacks = {
 }
 
 export type GraphHandle = {
+  /** Reloads the whole graph, double-buffered: the previous render stays painted while the
+      new state loads, and the scroll position survives (clamped to the new height). */
   reset(): Promise<void>
   jumpTo(hash: string): Promise<void>
   /** `active`: row that just acted (click, ctrl-click…) — carries the keyboard cursor (roving
@@ -50,8 +52,10 @@ export type GraphHandle = {
   setMatches(hashes: string[] | null): void
   /** row of the next result after `from` in direction `dir`, `null` if there are no more */
   nextMatch(from: number, dir: 1 | -1): Promise<number | null>
-  /** rows of the given commits, loaded on demand; hashes not found are omitted */
-  rowsOf(hashes: string[]): Promise<number[]>
+  /** rows of the given commits, loaded on demand; hashes not found are omitted.
+      `maxRows` bounds the on-demand loading: without it, a hash that no longer exists
+      (amended/rebased away) makes the search page in the entire history before giving up. */
+  rowsOf(hashes: string[], maxRows?: number): Promise<number[]>
   /** brings back into residence the commit pages covering these rows — call before setting
       an extended selection, whose detail view will read `commit(row)` synchronously */
   pin(rows: number[]): Promise<void>
@@ -92,6 +96,13 @@ export function createGraph(
     pageSize: PAGE,
     resident: RESIDENT,
     onPageLoaded: (commits) => {
+      /* mid-reset pages feed the new layout state only: the DOM on screen still shows the
+         previous graph, and everything below (scan, evict, refresh, sync) runs against
+         render-side caches that reset() will swap — deferred to the swap block */
+      if (resetting) {
+        pendingScan.push(commits)
+        return
+      }
       measurer.scanPage(commits)
       if (matchHashes) applyMatchIds()
       /* Page boundaries drift off chunk boundaries (collapse folds shorten pages), so this
@@ -138,6 +149,14 @@ export function createGraph(
   }
 
   let destroyed = false // an in-flight reset during destroy() (StrictMode double-mount) must no longer touch the DOM
+  /* Double-buffered reset (refresh audit, §1/§5): while > 0, the previous DOM stays mounted
+     and untouched — sync()/onPageLoaded no-op — until the new state is loaded enough to swap
+     in a single task. A counter, not a boolean: overlapping resets (StrictMode, rapid events)
+     each hold their own guard. */
+  let resetting = 0
+  /* pages ingested while a reset holds the DOM frozen: their column scan is replayed at swap
+     time, against the freshly reset measurer */
+  let pendingScan: Commit[][] = []
   const mountedG = new Map<number, SVGGElement>()
   const mountedRows = new Map<number, HTMLDivElement>()
   let statsScheduled = false
@@ -246,6 +265,10 @@ export function createGraph(
 
   function sync() {
     if (destroyed) return // the overlay is no longer in the SVG: insertBefore would fail
+    /* reset in flight: the mounted maps still hold the previous graph's DOM while the loader
+       already carries the new state — mounting against it would mix the two. The swap block
+       in reset() re-runs sync() once everything is consistent. */
+    if (resetting) return
     /* divergence changed: updateSync already remounted everything (remount → sync), stop here */
     if (updateSync()) return
     const S = loader.state
@@ -531,41 +554,70 @@ export function createGraph(
   })
 
   return {
+    /* Double-buffered (refresh audit, §1/§5): the previous DOM stays painted for the whole
+       load — loader reset, first page, growth back to the previous scroll depth — and the
+       teardown + first mount of the new graph happen in one synchronous block, so the browser
+       never paints the intermediate empty state. The scroll position survives (clamped);
+       the old behavior yanked the viewport to the top and left the graph blank while page 1
+       was in flight. */
     async reset() {
-      const { stashes } = await loader.reset()
-      if (destroyed) return
-      const token = loader.token
-      /* Render-side caches keyed on the previous layout state must be dropped now that
-         loader.reset() has installed a fresh one — all in this synchronous block, so the
-         sync() triggered by remount() rebuilds them against the new state. */
-      overlay.reset()
-      markup.reset()
-      measurer.reset()
-      /* sync state: starts over against the fresh LayoutState */
-      syncInfo = null
-      syncSig = ""
-      syncRefsN = -1
-      syncNext = -1
-      placeSyncMarker()
-      stashNames = stashes.map((s) => s.name)
-      measurer.queueStashNames(stashNames)
-      selectionCtl.setSelection([])
-      remount()
-      board.scrollTop = 0
-      hoverCtl.clearHover()
-      popoverCtl.closeMore()
-      await loader.fetchMore()
-      if (token !== loader.token || destroyed) return
-      evictNow()
-      refresh()
-      sync()
-      /* primes the keyboard cursor on the first row if nothing has set it yet (AUDIT.md §8):
-         without this, Tab would never reach the graph before a first click. No-op if a selection
-         restored by `reresolveSelection` (called right after by repo-store.tsx) already did it,
-         and no-op on subsequent resets (pull/checkout/stash) — the cursor already survives those as-is. */
-      if (loader.state.next > 0) {
-        selectionCtl.primeActive(0)
+      const prevScroll = board.scrollTop
+      resetting++
+      /* loader.reset() bumps `gen` synchronously: pages a superseded reset pushed before this
+         instant belong to a state that will never mount, and none can be pushed after — the
+         held scans start clean for this (now-winning) reset */
+      pendingScan = []
+      let swapped = false
+      try {
+        const { stashes } = await loader.reset()
+        if (destroyed) return
+        const token = loader.token
+        await loader.fetchMore()
+        if (token !== loader.token || destroyed) return
+        /* grow the layout (pure state, no DOM yet) until it covers the previous viewport:
+           restoring the scroll must not clamp against a one-page-tall document */
+        const needed = prevScroll + board.clientHeight
+        if (loader.state.next * ROW < needed && !loader.exhausted) {
+          await loader.growUntil(() => loader.state.next * ROW >= needed, token)
+          if (token !== loader.token || destroyed) return
+        }
+
+        /* ---- synchronous swap: render-side caches keyed on the previous layout state are
+           dropped and the new graph mounts, all in this task — no intermediate paint ---- */
+        overlay.reset()
+        markup.reset()
+        measurer.reset()
+        /* sync state: starts over against the fresh LayoutState */
+        syncInfo = null
+        syncSig = ""
+        syncRefsN = -1
+        syncNext = -1
+        placeSyncMarker()
+        stashNames = stashes.map((s) => s.name)
+        measurer.queueStashNames(stashNames)
+        for (const page of pendingScan) measurer.scanPage(page)
+        pendingScan = []
+        if (matchHashes) applyMatchIds()
+        selectionCtl.setSelection([])
+        resetting--
+        swapped = true
+        remount()
+        board.scrollTop = Math.min(prevScroll, Math.max(0, loader.state.next * ROW - board.clientHeight))
+        hoverCtl.clearHover()
+        popoverCtl.closeMore()
+        evictNow()
+        refresh()
         sync()
+        /* primes the keyboard cursor on the first row if nothing has set it yet (AUDIT.md §8):
+           without this, Tab would never reach the graph before a first click. No-op if a selection
+           restored by `reresolveSelection` (called right after by repo-store.tsx) already did it,
+           and no-op on subsequent resets (pull/checkout/stash) — the cursor already survives those as-is. */
+        if (loader.state.next > 0) {
+          selectionCtl.primeActive(0)
+          sync()
+        }
+      } finally {
+        if (!swapped) resetting-- // superseded (token bumped) or destroyed: release the DOM freeze
       }
     },
 
@@ -577,10 +629,13 @@ export function createGraph(
       await reveal(row, token)
     },
 
-    async rowsOf(hashes) {
+    async rowsOf(hashes, maxRows) {
       const token = loader.token
       const allKnown = () => hashes.every((h) => resolveRow(h) !== undefined)
-      if (!allKnown()) await loader.growUntil(allKnown, token)
+      /* capped search: a caller that knows roughly where its hashes lived (reresolveSelection
+         after a reset) must not page the whole history chasing one that an amend/rebase erased */
+      const capped = () => maxRows !== undefined && loader.state.next >= maxRows
+      if (!allKnown()) await loader.growUntil(() => allKnown() || capped(), token)
       const rows: number[] = []
       for (const h of hashes) {
         const r = resolveRow(h)

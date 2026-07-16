@@ -30,6 +30,9 @@ export interface RepoHooks {
   progress(payload: Omit<ProgressEvent, "id">): void
   changed(): void
   isFocused(): boolean
+  /** graph fingerprint for the `emitChanged` gate (cf. watcher.ts) — absent from the hooks
+      ipc.ts builds (they only know the id); createRepo grafts it from the injected provider */
+  graphKey?(): Promise<string>
 }
 
 /* Open repos, main side only. */
@@ -114,6 +117,16 @@ export function setAutofetch(fn: AutofetchFn): void {
   autofetch = fn
 }
 
+/* --- Graph fingerprint provider ---
+   Same injection pattern (and same cycle reason) as autofetch: git/queries.ts already imports
+   repos.ts, so the watcher's `emitChanged` gate gets its `graphSnapshotKey` handed in by
+   ipc.ts instead of importing it here. */
+type GraphKeyFn = (r: RepoHandle) => Promise<string>
+let graphKey: GraphKeyFn | null = null
+export function setGraphKey(fn: GraphKeyFn): void {
+  graphKey = fn
+}
+
 /** (Re)arm a repo's autofetch timer from the current settings (settings.ts): off clears it,
     on (re)starts it at the configured interval. Idempotent — always clears the old timer first. */
 function scheduleAutofetch(r: RepoHandle): void {
@@ -175,6 +188,7 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     muted: 0,
     dirty: false,
     gen: 0,
+    lastGraphKey: null,
     timer: null,
     watchers: [],
     watchRetries: 0,
@@ -190,6 +204,9 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     diffNoIndex: runner.diffNoIndex,
     gitBuffer: runner.gitBuffer,
   }
+  /* grafted after construction — the provider closure needs `r` itself */
+  const keyOf = graphKey
+  if (keyOf) r.events = { ...events, graphKey: () => keyOf(r) }
   scheduleAutofetch(r)
   watchGit(r)
   repos.set(r.id, r)
