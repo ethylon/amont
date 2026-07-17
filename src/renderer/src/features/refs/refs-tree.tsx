@@ -5,7 +5,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
-import { ArrowRight01Icon, GitBranchIcon, GitMergeIcon } from "@hugeicons/core-free-icons"
+import { ArrowRight01Icon, Delete02Icon, GitBranchIcon, GitMergeIcon } from "@hugeicons/core-free-icons"
 
 import type { BranchAct, FlowPrefixes, GitRef } from "@/lib/git"
 import { useLocale } from "@/lib/i18n"
@@ -17,7 +17,13 @@ import type { BadgeColor } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { BranchMenu } from "@/features/refs/refs-menu"
@@ -32,6 +38,10 @@ export type Ctx = RowProps & {
   onBranch(action: BranchAct, name: string): void
   /** opens the delete-branch confirmation for `r` (local delete + optional remote) */
   onDeleteBranch(r: GitRef): void
+  /** opens the delete confirmation for a remote-tracking ref (`git push <remote> --delete`) */
+  onDeleteRemoteBranch(r: GitRef): void
+  /** opens the delete confirmation for a tag (local delete + optional remote) */
+  onDeleteTag(r: GitRef): void
   /** focused refs, `kind:name` — the clicked identities, or branches derived from commits */
   focusedKeys: Set<string>
   /** focuses the ref in the graph: scroll to the tip and select the whole branch.
@@ -210,15 +220,32 @@ const RefRow = memo(function RefRow({
   /* Remote/tag (AUDIT.md §8): no full BranchMenu (merge/pull/push/flow don't make
      sense outside a local branch), but the checkout — today double-click-only for
      remotes, absent for tags — must stay reachable from the keyboard (context menu,
-     also openable via Shift+F10/Menu key on the focused row). */
+     also openable via Shift+F10/Menu key on the focused row). Deletion follows the
+     BranchMenu policy: the destructive click opens a confirmation, never deletes outright. */
+  const [remote, ...rest] = r.name.split("/")
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<li />}>{row}</ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent className="max-w-72">
         <ContextMenuItem onClick={() => ctx.onCheckout(target)}>
           <HugeiconsIcon icon={GitBranchIcon} strokeWidth={2} />
           <MenuItemWithCmd label={messages.refs.checkout} cmd={`git checkout ${target}`} />
         </ContextMenuItem>
+        <ContextMenuSeparator />
+        {r.kind === "remote" ? (
+          <ContextMenuItem variant="destructive" onClick={() => ctx.onDeleteRemoteBranch(r)}>
+            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+            <MenuItemWithCmd
+              label={messages.refs.deleteRemoteBranch}
+              cmd={`git push ${remote} --delete ${rest.join("/")}`}
+            />
+          </ContextMenuItem>
+        ) : (
+          <ContextMenuItem variant="destructive" onClick={() => ctx.onDeleteTag(r)}>
+            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+            <MenuItemWithCmd label={messages.refs.deleteTag} cmd={`git tag -d ${r.name}`} />
+          </ContextMenuItem>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )

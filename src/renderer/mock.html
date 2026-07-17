@@ -69,7 +69,9 @@
           a: "Grace Hopper",
           e: ME,
           r: "",
-          s: "polish(ui): nettoyage des composants du graphe",
+          /* git's own revert subject: exercises the revert design (badge + struck-through
+             original subject, cf. lib/commit-parse.ts / render/rows.ts) */
+          s: 'Revert "polish(ui): nettoyage des composants du graphe"',
         },
         {
           h: sha("dd02bb22"),
@@ -459,7 +461,10 @@
         cloneRepo: async (_dir, _url, name) => ({ id: nextRepoId++, path: `/mock/projects/${name}`, name }),
         log: async (_id, skip, count) => C.slice(skip, skip + count),
         total: async () => C.length - 2, // minus the stash plumbing, same as repo:total
-        refs: async () => REFS,
+        /* fresh copies, like real IPC (structured clone): the context-menu mutations below
+           splice/push REFS in place, and a shared reference would defeat react-query's
+           change detection where the real bridge never could */
+        refs: async () => structuredClone(REFS),
         stashes: async () => [
           {
             name: "stash@{0}",
@@ -683,6 +688,29 @@
         mergeAbort: async () => {
           merging = false
           wt.conflicts = []
+        },
+        /* --- context menus: remote/tag deletions and commit-anchored creations --- */
+        remoteBranchDelete: async (_id, name) => {
+          const i = REFS.findIndex((r) => r.kind === "remote" && r.name === name)
+          if (i >= 0) REFS.splice(i, 1)
+        },
+        tagDelete: async (_id, name) => {
+          const i = REFS.findIndex((r) => r.kind === "tag" && r.name === name)
+          if (i >= 0) REFS.splice(i, 1)
+        },
+        branchCreate: async (_id, name, from, checkout) => {
+          REFS.push({ name, kind: "head", head: false, ahead: 0, behind: 0, tip: from })
+          if (checkout) currentBranch = name
+        },
+        tagCreate: async (_id, name, at) => {
+          REFS.push({ name, kind: "tag", head: false, ahead: 0, behind: 0, tip: at })
+        },
+        reset: async () => {},
+        revert: async () => {},
+        worktreeAddFrom: async (_id, branch, from) => {
+          const path = `/mock/mock-repo-worktrees/${branch.split("/").pop()}`
+          worktrees.push({ path, head: from, branch, main: false, current: false, locked: false, prunable: false })
+          return { id: nextRepoId++, path, name: branch.split("/").pop() }
         },
         fileIcon: async () => null,
         openFile: async () => "",

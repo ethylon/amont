@@ -232,6 +232,10 @@ export const ALL_REFS = ["--exclude=refs/stash", "--all"]
 // eslint-disable-next-line no-control-regex -- \x00-\x20 deliberately rejects control/unprintable bytes, mirroring git's own refname rules
 export const BRANCH = /^(?!-)(?!.*\.\.)(?!.*@\{)[^\x00-\x20\x7f~^:?*[\\]+$/
 
+/** Commit-hash validation: 40 hex for sha1, 64 for sha256 object-format repos (a 7+ prefix
+    is accepted — some callers pass abbreviated revs). */
+export const HASH = /^[0-9a-f]{7,64}$/
+
 /* --- Git failures (fix: preserves the exit code, inspects stdout) ---
    git drowns its errors under `hint:` lines: we only keep fatal:/error:. A conflict
    (merge, or a stash pop replaying a merge) is announced by `CONFLICT (...)` lines — on
