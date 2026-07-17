@@ -94,11 +94,11 @@ _Last updated: 2026-07-16_
   **Words to use:** fast, readable, graph, keyboard, exact command, your git, free, open source, smooth scrolling.
   **Words to avoid:** blazingly, revolutionary, AI-powered, seamless, all-in-one, platform, workspace hub, robust, comprehensive.
   **Glossary:**
-  | Term | Meaning |
-  |------|---------|
-  | Commit graph | The scrollable timeline of commits with branch lanes, merges, tags, stashes |
-  | Command transparency | Buttons show the exact git command; a console logs every command executed |
-  | Line-level staging | Stage/unstage/discard single lines from the diff |
+  | Term                 | Meaning                                                                     |
+  | -------------------- | --------------------------------------------------------------------------- |
+  | Commit graph         | The scrollable timeline of commits with branch lanes, merges, tags, stashes |
+  | Command transparency | Buttons show the exact git command; a console logs every command executed   |
+  | Line-level staging   | Stage/unstage/discard single lines from the diff                            |
 
 ## Brand Voice
 
@@ -115,12 +115,12 @@ _Last updated: 2026-07-16_
 - 3,000-line diffs syntax-highlighted with graceful fallback.
   **Customers:** none citable yet (pre-1.0, no testimonials). Do not invent any.
   **Value themes:**
-  | Theme | Proof |
-  |-------|-------|
-  | Speed at scale | 100k+ commit graph; perf budget documented in docs/performance-audit.md |
-  | Trust / transparency | Exact command on every button; read-only command console; runs your installed git |
-  | Precision | Line-level staging; per-line conflict picks; editable merged output |
-  | Honest distribution | MIT, GitHub Releases, sha512-verified auto-update, SmartScreen caveat stated upfront |
+  | Theme                | Proof                                                                                |
+  | -------------------- | ------------------------------------------------------------------------------------ |
+  | Speed at scale       | 100k+ commit graph; perf budget documented in docs/performance-audit.md              |
+  | Trust / transparency | Exact command on every button; read-only command console; runs your installed git    |
+  | Precision            | Line-level staging; per-line conflict picks; editable merged output                  |
+  | Honest distribution  | MIT, GitHub Releases, sha512-verified auto-update, SmartScreen caveat stated upfront |
 
 ## Goals
 
