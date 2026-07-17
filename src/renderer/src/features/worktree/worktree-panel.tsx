@@ -247,7 +247,10 @@ const CommitForm = memo(function CommitForm({ staged, hasConflicts }: { staged: 
             </span>
             <RollingText
               text={committing && step ? step : command}
-              className="font-mono text-[0.625rem] leading-tight text-primary-foreground/70"
+              className={cn(
+                "font-mono text-[0.625rem] leading-tight text-primary-foreground/70",
+                committing && "shimmer"
+              )}
             />
           </Button>
           <div className={cn("flex shrink-0 items-center gap-1.5", !canAmend && "pointer-events-none opacity-50")}>
