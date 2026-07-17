@@ -9,7 +9,6 @@ import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/ui/mark"
 import { AsyncHint } from "@/components/ui/async-hint"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -153,7 +152,7 @@ export function HomeScreen({ active, onOpened }: Props) {
   }
 
   return (
-    <ScrollArea className="min-h-0 flex-1">
+    <div className="flex-1 overflow-auto">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-7 px-6 py-10">
         <div className="flex items-center gap-3 px-2.5">
           <Mark className="size-7" />
@@ -205,6 +204,6 @@ export function HomeScreen({ active, onOpened }: Props) {
 
         <TelemetryToggle className="mt-auto border-t border-border/60 px-2.5 pt-6" />
       </div>
-    </ScrollArea>
+    </div>
   )
 }

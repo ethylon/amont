@@ -17,7 +17,6 @@ import { ScrollText, scrollTextHover, scrollTextStop } from "@/features/graph/in
 import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LABEL_CLS } from "@/components/ui/typography"
@@ -477,9 +476,9 @@ export function FileList({
         {messages.repo.fileCount(files.length)}
       </FileListHeader>
 
-      <ScrollArea data-file-nav="" className="min-h-0 flex-1">
+      <div data-file-nav="" className="min-h-0 flex-1 overflow-y-auto">
         <FileEntries files={files} view={view} api={api} activePath={activePath} onOpen={onOpen} />
-      </ScrollArea>
+      </div>
     </div>
   )
 }
