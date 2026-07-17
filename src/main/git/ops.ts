@@ -11,13 +11,13 @@
 import { writeFile } from "node:fs/promises"
 
 import { AppError, decodeError } from "../../shared/errors.ts"
-import type { BranchAct, OpEvent, OpName, StashAct, WorktreeAct } from "../../shared/types.ts"
+import type { BranchAct, OpEvent, OpName, ResetMode, StashAct, WorktreeAct } from "../../shared/types.ts"
 import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
 import { getSettings } from "../settings.ts"
 import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { finishFlow } from "./flow.ts"
-import { ALL_REFS, BRANCH } from "./parse.ts"
+import { ALL_REFS, BRANCH, HASH } from "./parse.ts"
 
 /* --- Network ---
    --progress: without a TTY git stays silent about its progress; we force it so the console streams it. */
@@ -193,27 +193,147 @@ export async function deleteBranch(r: RepoHandle, name: string, deleteRemote: bo
 /* --- Checkout ---
    The dirty tree goes to the stash and comes back after the switch. Switch refused: we put
    the tree back where we found it. `pop` in conflict: git keeps the stash entry and lays down
-   its markers — we report it and don't try to recover, the user is already on the right branch. */
+   its markers — we report it and don't try to recover, the user is already on the right branch.
+   The body is shared with `createBranch` (checkout of the branch it just created), which runs
+   it under its own lock — `withLock` doesn't nest, a second acquire would throw BUSY. */
+async function checkoutWithStash(r: RepoHandle, name: string): Promise<void> {
+  const dirty = !!(await r.git(["status", "--porcelain", "-uall"])).trim()
+  if (dirty) await r.git(["stash", "push", "-u", "-m", `amont: ${name}`])
+  try {
+    await r.git(["checkout", name])
+  } catch (e) {
+    /* the recovery pop can itself fail (conflict): the stash entry survives,
+       and it's the checkout failure — the cause — that we surface, not the pop's */
+    if (dirty) await r.git(["stash", "pop"]).catch(() => {})
+    throw e
+  } finally {
+    mute(r) // HEAD moved: the renderer reloads on its own, the watcher has nothing to add
+  }
+  if (dirty)
+    await r.git(["stash", "pop"]).catch(() => {
+      throw new AppError("STASH_POP_CONFLICT", name)
+    })
+}
+
 export async function checkout(r: RepoHandle, name: string): Promise<void> {
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
   await withLock(r, `checkout ${name}`, async () => {
     groupTrace(r, `Checkout ${name}`)
-    const dirty = !!(await r.git(["status", "--porcelain", "-uall"])).trim()
-    if (dirty) await r.git(["stash", "push", "-u", "-m", `amont: ${name}`])
+    await checkoutWithStash(r, name)
+  })
+}
+
+/* --- Commit-anchored actions (graph context menu) ---
+   All take a full SHA the renderer read off the graph. Same policy as the branch actions:
+   no event — the renderer triggered the action, so it reloads and displays the error. */
+
+/** `git branch <name> <from>`, then a stash-guarded checkout of the new branch when asked.
+    The checkout failure surfaces as-is: the branch was created, only the switch failed. */
+export async function createBranch(r: RepoHandle, name: string, from: string, checkout: boolean): Promise<void> {
+  if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
+  if (typeof from !== "string" || !HASH.test(from)) throw new AppError("BAD_ARG", "from")
+  await withLock(r, `branch ${name}`, async () => {
+    groupTrace(r, `Branch ${name}`)
     try {
-      await r.git(["checkout", name])
-    } catch (e) {
-      /* the recovery pop can itself fail (conflict): the stash entry survives,
-         and it's the checkout failure — the cause — that we surface, not the pop's */
-      if (dirty) await r.git(["stash", "pop"]).catch(() => {})
-      throw e
+      await r.git(["branch", name, from])
     } finally {
-      mute(r) // HEAD moved: the renderer reloads on its own, the watcher has nothing to add
+      mute(r)
     }
-    if (dirty)
-      await r.git(["stash", "pop"]).catch(() => {
-        throw new AppError("STASH_POP_CONFLICT", name)
+    if (checkout) await checkoutWithStash(r, name)
+  })
+}
+
+/** Lightweight tag on the given commit. */
+export async function createTag(r: RepoHandle, name: string, at: string): Promise<void> {
+  if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
+  if (typeof at !== "string" || !HASH.test(at)) throw new AppError("BAD_ARG", "at")
+  await withLock(r, `tag ${name}`, async () => {
+    groupTrace(r, `Tag ${name}`)
+    try {
+      await r.git(["tag", name, at])
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+const RESET_MODES: readonly ResetMode[] = ["soft", "mixed", "hard"]
+
+/** `git reset --<mode> <to>` of the current branch. The renderer's modal is the safeguard:
+    by the time this runs, the user has explicitly picked soft/mixed/hard. */
+export async function resetTo(r: RepoHandle, mode: ResetMode, to: string): Promise<void> {
+  if (!RESET_MODES.includes(mode)) throw new AppError("BAD_ARG", "mode")
+  if (typeof to !== "string" || !HASH.test(to)) throw new AppError("BAD_ARG", "to")
+  await withLock(r, `reset ${mode}`, async () => {
+    groupTrace(r, `Reset ${mode}`)
+    try {
+      await r.git(["reset", `--${mode}`, to])
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/** `git revert --no-edit <hash>`. A merge commit needs a mainline: `-m 1` reverts relative to
+    the first parent — the branch the merge landed on, which is what the graph reads as "undo
+    this merge". A conflict surfaces as MERGE_CONFLICT and the sequencer state stays for the
+    conflict view to resolve. */
+export async function revertCommit(r: RepoHandle, hash: string): Promise<void> {
+  if (typeof hash !== "string" || !HASH.test(hash)) throw new AppError("BAD_ARG", "hash")
+  await withLock(r, "revert", async () => {
+    groupTrace(r, `Revert ${hash.slice(0, 8)}`)
+    try {
+      const parents = (await r.git(["rev-list", "--parents", "-n", "1", hash])).trim().split(/\s+/).length - 1
+      await r.git(["revert", "--no-edit", ...(parents > 1 ? ["-m", "1"] : []), hash])
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/* --- Remote-only deletions (context menus of a remote branch / a tag) ---
+   Same confirmation policy as deleteBranch: the renderer's dialog carries the intent, main
+   only validates and runs. */
+
+/** `git push <remote> --delete <branch>` of a remote-tracking ref ("origin/topic"). */
+export async function deleteRemoteBranch(r: RepoHandle, name: string): Promise<void> {
+  if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
+  const slash = name.indexOf("/")
+  if (slash <= 0 || slash === name.length - 1) throw new AppError("BAD_ARG", "name")
+  const remote = name.slice(0, slash)
+  const branch = name.slice(slash + 1)
+  await withLock(r, `delete ${name}`, async () => {
+    groupTrace(r, `Delete ${name}`)
+    try {
+      await r.git(["push", "--progress", remote, "--delete", branch], {
+        timeout: OP_TIMEOUT,
+        onProgress: reportProgress(r, "push"),
       })
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/** `git tag -d <name>`, then its remote counterpart when `remote` is given. The full
+    `refs/tags/` path on the push side: a branch of the same name must never be the one
+    deleted. The push only runs after the local delete succeeds. */
+export async function deleteTag(r: RepoHandle, name: string, remote: string | null): Promise<void> {
+  if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
+  if (remote !== null && (typeof remote !== "string" || !BRANCH.test(remote) || remote.includes("/")))
+    throw new AppError("BAD_ARG", "remote")
+  await withLock(r, `delete tag ${name}`, async () => {
+    groupTrace(r, `Delete tag ${name}`)
+    try {
+      await r.git(["tag", "-d", name])
+      if (remote)
+        await r.git(["push", "--progress", remote, "--delete", `refs/tags/${name}`], {
+          timeout: OP_TIMEOUT,
+          onProgress: reportProgress(r, "push"),
+        })
+    } finally {
+      mute(r)
+    }
   })
 }
 
@@ -342,6 +462,21 @@ export async function worktreeAdd(r: RepoHandle, dir: string, branch: string): P
     groupTrace(r, `Worktree add ${branch}`)
     try {
       await r.git(["worktree", "add", dir, branch], { timeout: OP_TIMEOUT })
+    } finally {
+      mute(r)
+    }
+  })
+}
+
+/** Worktree anchored on a commit: `-b <branch>` creates the new branch at `<from>` inside the
+    added worktree — the graph's "create worktree from this commit" action. */
+export async function worktreeAddFrom(r: RepoHandle, dir: string, branch: string, from: string): Promise<void> {
+  if (typeof branch !== "string" || !BRANCH.test(branch)) throw new AppError("BAD_ARG", "name")
+  if (typeof from !== "string" || !HASH.test(from)) throw new AppError("BAD_ARG", "from")
+  await withLock(r, "worktree add", async () => {
+    groupTrace(r, `Worktree add ${branch}`)
+    try {
+      await r.git(["worktree", "add", "-b", branch, dir, from], { timeout: OP_TIMEOUT })
     } finally {
       mute(r)
     }

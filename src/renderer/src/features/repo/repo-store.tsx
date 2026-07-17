@@ -35,6 +35,7 @@ import {
   type OpName,
   type Repo,
   type RepoApi,
+  type ResetMode,
   type Stash,
   type StashAct,
   type WorktreeAct,
@@ -86,6 +87,10 @@ export interface RepoStoreState {
         running (the flow banner rolls to its options row — merge/rebase, delete); the kind is
         resolved from the gitflow prefixes at interception. Exclusive with `flowStart`. */
     flowFinish: { branch: string; kind: BranchFlow } | null
+    /** inline "create branch at commit" banner (graph context menu) — `from` is the full SHA */
+    branchCreate: { from: string } | null
+    /** inline "create worktree at commit" banner (graph context menu); exclusive with `branchCreate` */
+    worktreeCreate: { from: string } | null
   }
   ops: {
     busyOp: OpName | null
@@ -126,6 +131,10 @@ export interface RepoStoreState {
   closeFlowStart(): void
   openFlowFinish(branch: string, kind: BranchFlow): void
   closeFlowFinish(): void
+  openBranchCreate(from: string): void
+  closeBranchCreate(): void
+  openWorktreeCreate(from: string): void
+  closeWorktreeCreate(): void
   openDiff(ctx: DiffCtx, file: FileChange): void
   closeDiff(): void
   setDiffMode(v: DiffViewMode): void
@@ -163,6 +172,18 @@ export interface RepoStoreState {
   runFlowPublish(kind: BranchFlow, name: string): Promise<void>
   /** `git branch -D`, plus the remote branch when `deleteRemote` — reloads and badges like the rest */
   deleteBranch(name: string, deleteRemote: boolean): Promise<void>
+  /** `git push <remote> --delete` of a remote-tracking ref ("origin/topic"), confirmed upstream */
+  deleteRemoteBranch(name: string): Promise<void>
+  /** `git tag -d`, plus its remote counterpart when `remote` — confirmed upstream like deleteBranch */
+  deleteTag(name: string, remote: string | null): Promise<void>
+  /** `git branch <name> <from>` (+ checkout) through `runFlow`: the banner shows the error inline */
+  createBranch(name: string, from: string, checkout: boolean): Promise<string | null>
+  /** lightweight `git tag <name> <at>` through `runFlow`: the dialog shows the error inline */
+  createTag(name: string, at: string): Promise<string | null>
+  /** `git reset --<mode> <to>` of the current branch — the mode modal confirmed upstream */
+  resetTo(mode: ResetMode, to: string): Promise<void>
+  /** `git revert --no-edit <hash>` — a conflict lands in the usual conflicts view */
+  revertCommit(hash: string): Promise<void>
   checkout(name: string): Promise<void>
   runWt(act: WtAct, paths: string[]): Promise<void>
   /** whole-file discard: tracked paths restored from the index, untracked deleted */
@@ -173,6 +194,9 @@ export interface RepoStoreState {
   openWorktree(path: string): Promise<void>
   /** destination picker + `git worktree add <dir> <branch>`, then opens the new tab */
   addWorktree(branch: string): Promise<void>
+  /** destination picker + `git worktree add -b <branch> <dir> <from>`, then opens the new tab;
+      returns the error text for the banner (`null` on success or cancelled picker) */
+  addWorktreeFrom(branch: string, from: string): Promise<string | null>
 }
 
 /** Ctrl-click: toggles a set of items at once — removes if the first is already in,
@@ -230,6 +254,8 @@ export function createRepoStore(
       diffMode: prefs.diffView.get() || "unified",
       flowStart: null,
       flowFinish: null,
+      branchCreate: null,
+      worktreeCreate: null,
     },
     ops: { busyOp: null, opState: null, opProgress: null, flowBusy: false },
     graph: { stats: null },
@@ -441,6 +467,18 @@ export function createRepoStore(
     closeFlowFinish() {
       set((s) => ({ ui: { ...s.ui, flowFinish: null } }))
     },
+    openBranchCreate(from) {
+      set((s) => ({ ui: { ...s.ui, branchCreate: { from }, worktreeCreate: null } }))
+    },
+    closeBranchCreate() {
+      set((s) => ({ ui: { ...s.ui, branchCreate: null } }))
+    },
+    openWorktreeCreate(from) {
+      set((s) => ({ ui: { ...s.ui, worktreeCreate: { from }, branchCreate: null } }))
+    },
+    closeWorktreeCreate() {
+      set((s) => ({ ui: { ...s.ui, worktreeCreate: null } }))
+    },
     openDiff(ctx, file) {
       set((s) => ({ ui: { ...s.ui, diff: { ctx, file } } }))
     },
@@ -617,6 +655,32 @@ export function createRepoStore(
       return get().runGitAction(() => api.branchDelete(name, deleteRemote))
     },
 
+    deleteRemoteBranch(name) {
+      return get().runGitAction(() => api.remoteBranchDelete(name))
+    },
+
+    deleteTag(name, remote) {
+      return get().runGitAction(() => api.tagDelete(name, remote))
+    },
+
+    /* through runFlow, not runGitAction: the create surfaces (banner, tag dialog) show the
+       error inline and stay open for a correction, like the git-flow start banner */
+    createBranch(name, from, checkout) {
+      return get().runFlow(() => api.branchCreate(name, from, checkout))
+    },
+
+    createTag(name, at) {
+      return get().runFlow(() => api.tagCreate(name, at))
+    },
+
+    resetTo(mode, to) {
+      return get().runGitAction(() => api.reset(mode, to))
+    },
+
+    revertCommit(hash) {
+      return get().runGitAction(() => api.revert(hash))
+    },
+
     checkout(name) {
       return get().runGitAction(() => api.checkout(name))
     },
@@ -675,6 +739,22 @@ export function createRepoStore(
          on its branch tip, not a view/diff teardown */
       await get().resetAndLoad({ soft: true })
       onOpenRepo(repo)
+    },
+
+    /* same flow as addWorktree, but the error goes back to the banner (inline, correctable)
+       instead of the status badge — a cancelled picker counts as done, the banner closes */
+    async addWorktreeFrom(branch, from) {
+      let repo: Repo | null
+      try {
+        repo = await api.worktreeAddFrom(branch, from)
+      } catch (e) {
+        return describeError(e)
+      }
+      if (!repo) return null // dialog cancelled
+      invalidateRepo(queryClient, repoId)
+      await get().resetAndLoad({ soft: true })
+      onOpenRepo(repo)
+      return null
     },
   }))
 }

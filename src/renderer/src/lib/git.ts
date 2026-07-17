@@ -29,6 +29,7 @@ export type {
   ProgressEvent,
   Repo,
   RepoRef,
+  ResetMode,
   Stash,
   StashAct,
   Status,
@@ -64,6 +65,7 @@ import type {
   GitRef,
   MergeState,
   OpName,
+  ResetMode,
   Stash,
   StashAct,
   Repo,
@@ -141,6 +143,18 @@ export type RepoApi = {
   branch(action: BranchAct, name: string): Promise<void>
   /** `git branch -D <name>`, plus the `push --delete` of its upstream when `deleteRemote` */
   branchDelete(name: string, deleteRemote: boolean): Promise<void>
+  /** `git push <remote> --delete <branch>` of a remote-tracking ref ("origin/topic") */
+  remoteBranchDelete(name: string): Promise<void>
+  /** `git tag -d <name>`, plus `git push <remote> --delete refs/tags/<name>` when `remote` */
+  tagDelete(name: string, remote: string | null): Promise<void>
+  /** `git branch <name> <from>` (a commit hash), then a stash-guarded checkout when `checkout` */
+  branchCreate(name: string, from: string, checkout: boolean): Promise<void>
+  /** lightweight tag on the given commit */
+  tagCreate(name: string, at: string): Promise<void>
+  /** `git reset --<mode> <to>` of the current branch */
+  reset(mode: ResetMode, to: string): Promise<void>
+  /** `git revert --no-edit <hash>` (with `-m 1` for a merge commit) */
+  revert(hash: string): Promise<void>
   files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
   /** message body (`%b`), trailers included */
   body(hash: string, requestId?: string): Promise<string>
@@ -177,6 +191,9 @@ export type RepoApi = {
   worktreeAct(action: WorktreeAct, path?: string): Promise<void>
   /** destination picker then `git worktree add`; `null` when the dialog is cancelled */
   worktreeAdd(branch: string): Promise<Repo | null>
+  /** destination picker then `git worktree add -b <branch> <dir> <from>` — worktree anchored
+      on a commit, with a fresh branch created there; `null` when the dialog is cancelled */
+  worktreeAddFrom(branch: string, from: string): Promise<Repo | null>
   /** opens a listed worktree as a repo — the caller surfaces it as a tab */
   worktreeOpen(path: string): Promise<Repo>
   worktreeReveal(path: string): Promise<void>
@@ -213,6 +230,12 @@ export const repoApi = (id: number): RepoApi => ({
   flowFinish: (name, opts) => bridge.flowFinish(id, name, opts),
   branch: (action, name) => bridge.branch(id, action, name),
   branchDelete: (name, deleteRemote) => bridge.branchDelete(id, name, deleteRemote),
+  remoteBranchDelete: (name) => bridge.remoteBranchDelete(id, name),
+  tagDelete: (name, remote) => bridge.tagDelete(id, name, remote),
+  branchCreate: (name, from, checkout) => bridge.branchCreate(id, name, from, checkout),
+  tagCreate: (name, at) => bridge.tagCreate(id, name, at),
+  reset: (mode, to) => bridge.reset(id, mode, to),
+  revert: (hash) => bridge.revert(id, hash),
   files: (hash, parent, requestId) => bridge.files(id, hash, parent, requestId),
   body: (hash, requestId) => bridge.body(id, hash, requestId),
   diff: (hash, parent, path, oldPath, requestId) => bridge.diff(id, hash, parent, path, oldPath, requestId),
@@ -234,6 +257,7 @@ export const repoApi = (id: number): RepoApi => ({
   worktrees: () => bridge.worktrees(id),
   worktreeAct: (action, path) => bridge.worktreeAct(id, action, path),
   worktreeAdd: (branch) => bridge.worktreeAdd(id, branch),
+  worktreeAddFrom: (branch, from) => bridge.worktreeAddFrom(id, branch, from),
   worktreeOpen: (path) => bridge.worktreeOpen(id, path),
   worktreeReveal: (path) => bridge.worktreeReveal(id, path),
   mergeState: () => bridge.mergeState(id),
