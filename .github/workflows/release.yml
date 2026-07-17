@@ -30,18 +30,24 @@ jobs:
 
       - run: pnpm test
 
-      # Pre-create the draft release with auto-generated notes. electron-builder then uploads into
-      # this existing release instead of creating its own — which avoids the concurrent-create race
-      # that silently dropped the installer asset — and --generate-notes runs on `create`, the only
-      # command that supports it (`gh release edit --generate-notes` does not exist).
-      - run: gh release create ${{ github.ref_name }} --draft --title ${{ github.ref_name }} --generate-notes
+      # Releases live on the public `ethylon/amont-releases` repo (the source repo is private, so
+      # its own releases would be invisible to users and unreachable for the in-app updater).
+      # GITHUB_TOKEN is scoped to this repo only: RELEASES_TOKEN is a fine-grained PAT with
+      # `contents: read/write` on ethylon/amont-releases.
+      #
+      # Pre-create the draft release. electron-builder then uploads into this existing release
+      # instead of creating its own — which avoids the concurrent-create race that silently
+      # dropped the installer asset. No --generate-notes: the releases repo has no commit
+      # history to generate them from, so notes are written by hand before/after publishing.
+      # The tag doesn't exist over there; gh creates it on the default branch's HEAD.
+      - run: gh release create ${{ github.ref_name }} --repo ethylon/amont-releases --draft --title ${{ github.ref_name }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
 
       # electron-builder reads `publish` from electron-builder.yml: attaches the installer to the draft
       - run: pnpm release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           # Crash reporting: baked in only for official release builds (cf. main/telemetry.ts).
           # Set the `SENTRY_DSN` repository variable to enable it; unset → empty → telemetry stays
           # inert. A DSN ends up embedded in the shipped binary, so it's a variable, not a secret.
@@ -51,6 +57,6 @@ jobs:
           # secret. Unset → source maps aren't generated or uploaded; the build still succeeds.
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
-      - run: gh release edit ${{ github.ref_name }} --draft=false --latest
+      - run: gh release edit ${{ github.ref_name }} --repo ethylon/amont-releases --draft=false --latest
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
