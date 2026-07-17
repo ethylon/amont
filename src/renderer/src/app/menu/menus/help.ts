@@ -1,7 +1,6 @@
 import {
   Book02Icon,
   BugIcon,
-  Github01Icon,
   InformationCircleIcon,
   SystemUpdate01Icon,
 } from "@hugeicons/core-free-icons"
@@ -9,7 +8,9 @@ import {
 import { messages } from "@/lib/messages"
 import type { MenuDescriptor } from "@/app/menu/types"
 
-const REPO = "https://github.com/ethylon/amont"
+// The source repo is private; the public releases repo hosts the issue tracker.
+const SITE = "https://amont.dev"
+const RELEASES_REPO = "https://github.com/ethylon/amont-releases"
 
 /** Help ▸ documentation, issue reporting, version. */
 export const helpMenu: MenuDescriptor = {
@@ -23,21 +24,14 @@ export const helpMenu: MenuDescriptor = {
       id: "help.docs",
       label: messages.menu.documentation,
       icon: Book02Icon,
-      run: () => ctx.openExternal(`${REPO}#readme`),
-    },
-    {
-      kind: "action",
-      id: "help.repo",
-      label: messages.menu.sourceCode,
-      icon: Github01Icon,
-      run: () => ctx.openExternal(REPO),
+      run: () => ctx.openExternal(SITE),
     },
     {
       kind: "action",
       id: "help.issue",
       label: messages.menu.reportIssue,
       icon: BugIcon,
-      run: () => ctx.openExternal(`${REPO}/issues/new`),
+      run: () => ctx.openExternal(`${RELEASES_REPO}/issues/new`),
     },
     { kind: "separator" },
     {

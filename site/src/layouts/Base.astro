@@ -2,24 +2,31 @@
 import { getImage } from "astro:assets"
 import "../styles/global.css"
 import geistWoff2 from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url"
-import { dict, DOWNLOAD_URL, REPO_URL, type Locale } from "../i18n/ui"
+import { dict, DOWNLOAD_URL, RELEASES_URL, type Locale } from "../i18n/ui"
 import graphLight from "../../../docs/graph-light.png"
 import pkg from "../../../package.json"
 
 interface Props {
   locale: Locale
+  /** Page title/description; the landing's meta is the default. */
+  title?: string
+  description?: string
+  /** Per-locale route of the current page, for canonical + hreflang. */
+  paths?: Record<Locale, string>
 }
 
-const { locale } = Astro.props
+const { locale, paths = { en: "/", fr: "/fr/" } } = Astro.props
 const t = dict[locale]
+const title = Astro.props.title ?? t.meta.title
+const description = Astro.props.description ?? t.meta.description
 
 const og = await getImage({ src: graphLight, width: 1200, height: 630, fit: "cover", format: "jpg" })
 const ogUrl = new URL(og.src, Astro.site)
-const canonical = new URL(locale === "en" ? "/" : "/fr/", Astro.site)
+const canonical = new URL(paths[locale], Astro.site)
 const alternates: { hreflang: string; href: URL }[] = [
-  { hreflang: "en", href: new URL("/", Astro.site) },
-  { hreflang: "fr", href: new URL("/fr/", Astro.site) },
-  { hreflang: "x-default", href: new URL("/", Astro.site) },
+  { hreflang: "en", href: new URL(paths.en, Astro.site) },
+  { hreflang: "fr", href: new URL(paths.fr, Astro.site) },
+  { hreflang: "x-default", href: new URL(paths.en, Astro.site) },
 ]
 
 const jsonLd = {
@@ -38,10 +45,9 @@ const jsonLd = {
       downloadUrl: DOWNLOAD_URL,
       screenshot: ogUrl,
       image: ogUrl,
-      license: `${REPO_URL}/blob/main/LICENSE`,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       author: { "@type": "Person", name: "Mathieu Guey" },
-      sameAs: [REPO_URL],
+      sameAs: [RELEASES_URL],
       inLanguage: ["en", "fr"],
     },
     {
@@ -61,8 +67,8 @@ const jsonLd = {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{t.meta.title}</title>
-    <meta name="description" content={t.meta.description} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
     <link rel="canonical" href={canonical} />
     {alternates.map((a) => <link rel="alternate" hreflang={a.hreflang} href={a.href} />)}
@@ -75,8 +81,8 @@ const jsonLd = {
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Amont" />
-    <meta property="og:title" content={t.meta.title} />
-    <meta property="og:description" content={t.meta.description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogUrl} />
     <meta property="og:image:width" content="1200" />
@@ -85,8 +91,8 @@ const jsonLd = {
     <meta property="og:locale" content={locale === "en" ? "en_US" : "fr_FR"} />
     <meta property="og:locale:alternate" content={locale === "en" ? "fr_FR" : "en_US"} />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={t.meta.title} />
-    <meta name="twitter:description" content={t.meta.description} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogUrl} />
     <meta name="twitter:image:alt" content={t.hero.graphAlt} />
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

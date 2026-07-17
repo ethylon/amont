@@ -1,19 +1,23 @@
 ---
 import { Image } from "astro:assets"
-import { dict, REPO_URL, localePath, type Locale } from "../i18n/ui"
+import { dict, RELEASES_URL, localePath, downloadPath, type Locale } from "../i18n/ui"
 import icon from "../../../resources/icon.png"
 
 interface Props {
   locale: Locale
+  /** Per-locale route of the current page, so the language switch stays on it. */
+  paths?: Record<Locale, string>
 }
 
-const { locale } = Astro.props
+const { locale, paths = { en: "/", fr: "/fr/" } } = Astro.props
 const t = dict[locale]
 
+// Anchors carry the locale root so they also work from the download page.
+const home = localePath(locale)
 const links = [
-  { href: "#graph", label: t.nav.graph },
-  { href: "#tour", label: t.nav.tour },
-  { href: "#download", label: t.nav.download },
+  { href: `${home}#graph`, label: t.nav.graph },
+  { href: `${home}#tour`, label: t.nav.tour },
+  { href: downloadPath(locale), label: t.nav.download },
 ]
 ---
 
@@ -38,7 +42,7 @@ const links = [
 
     <div class="ml-auto flex items-center gap-1 text-sm">
       <a
-        href={REPO_URL}
+        href={RELEASES_URL}
         rel="noopener"
         class="hidden rounded-md px-2.5 py-1.5 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950 sm:block dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-white"
       >
@@ -51,7 +55,7 @@ const links = [
         aria-label="Language"
       >
         <a
-          href="/"
+          href={paths.en}
           aria-current={locale === "en" ? "page" : undefined}
           class:list={[
             "rounded px-1.5 py-1 transition-colors",
@@ -63,7 +67,7 @@ const links = [
           EN
         </a>
         <a
-          href="/fr/"
+          href={paths.fr}
           aria-current={locale === "fr" ? "page" : undefined}
           class:list={[
             "rounded px-1.5 py-1 transition-colors",
