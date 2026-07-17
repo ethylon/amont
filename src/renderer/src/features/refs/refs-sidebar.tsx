@@ -17,6 +17,7 @@ import { matchWorktree, WorktreesSection } from "@/features/worktrees/worktrees-
 import { useRepoStore } from "@/features/repo/repo-store"
 import { buildTree, refKey, Tree, useResettableOpen, type Ctx } from "@/features/refs/refs-tree"
 import { DeleteBranchDialog } from "@/features/refs/delete-branch-dialog"
+import { DeleteRemoteBranchDialog, DeleteTagDialog } from "@/features/refs/delete-remote-dialog"
 import { paintFocusRuns } from "@/features/refs/refs-focus-paint"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { RefGroup } from "@/components/ui/ref-group"
@@ -83,12 +84,16 @@ export const RefsSidebar = memo(function RefsSidebar() {
   const onCheckout = useRepoStore((s) => s.checkout)
   const onBranch = useRepoStore((s) => s.runBranch)
   const runDeleteBranch = useRepoStore((s) => s.deleteBranch)
+  const runDeleteRemoteBranch = useRepoStore((s) => s.deleteRemoteBranch)
+  const runDeleteTag = useRepoStore((s) => s.deleteTag)
   const onFocusRef = useRepoStore((s) => s.focusRef)
   const onAddWorktree = useRepoStore((s) => s.addWorktree)
 
-  /* pending branch deletion, held until the confirmation dialog resolves it (mirrors the
-     discard dialog's local-state pattern) */
+  /* pending deletions (branch / remote branch / tag), held until the confirmation dialog
+     resolves them (mirrors the discard dialog's local-state pattern) */
   const [deleteTarget, setDeleteTarget] = useState<GitRef | null>(null)
+  const [deleteRemoteTarget, setDeleteRemoteTarget] = useState<GitRef | null>(null)
+  const [deleteTagTarget, setDeleteTagTarget] = useState<GitRef | null>(null)
 
   const { data: flow = null } = useFlowQuery(api, repoId)
   /* no `stale` flag to copy over: `placeholderData: keepPreviousData` (see lib/queries.ts)
@@ -140,6 +145,8 @@ export const RefsSidebar = memo(function RefsSidebar() {
       onCheckout,
       onBranch,
       onDeleteBranch: setDeleteTarget,
+      onDeleteRemoteBranch: setDeleteRemoteTarget,
+      onDeleteTag: setDeleteTagTarget,
       focusedKeys,
       onFocusRef,
       worktreeBranches,
@@ -147,6 +154,13 @@ export const RefsSidebar = memo(function RefsSidebar() {
     }),
     [current, flow, onCheckout, onBranch, focusedKeys, onFocusRef, worktreeBranches, onAddWorktreeCb]
   )
+
+  /* preferred remote for a tag's remote-side delete: "origin" when it exists, else the first
+     remote the refs know — `null` (no remote at all) hides the option in the dialog */
+  const tagRemote = useMemo(() => {
+    const remotes = [...new Set((data ?? []).filter((r) => r.kind === "remote").map((r) => r.name.split("/")[0]))]
+    return remotes.includes("origin") ? "origin" : (remotes[0] ?? null)
+  }, [data])
 
   /* Filter + tree build memoized on [data, q] (perf audit, finding 4b): they don't depend
      on the selection, so a commit click repaints the lit rows without re-filtering or
@@ -239,6 +253,21 @@ export const RefsSidebar = memo(function RefsSidebar() {
           branch={deleteTarget}
           onConfirm={(deleteRemote) => void runDeleteBranch(deleteTarget.name, deleteRemote)}
           onClose={() => setDeleteTarget(null)}
+        />
+      )}
+      {deleteRemoteTarget && (
+        <DeleteRemoteBranchDialog
+          branch={deleteRemoteTarget}
+          onConfirm={() => void runDeleteRemoteBranch(deleteRemoteTarget.name)}
+          onClose={() => setDeleteRemoteTarget(null)}
+        />
+      )}
+      {deleteTagTarget && (
+        <DeleteTagDialog
+          tag={deleteTagTarget}
+          remote={tagRemote}
+          onConfirm={(deleteRemote) => void runDeleteTag(deleteTagTarget.name, deleteRemote ? tagRemote : null)}
+          onClose={() => setDeleteTagTarget(null)}
         />
       )}
     </>

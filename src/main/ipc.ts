@@ -248,6 +248,14 @@ export function registerIpc(): void {
   handle("repo:branchDelete", (_ev, id, name, deleteRemote) =>
     ops.deleteBranch(repos.use(id), name, deleteRemote === true)
   )
+  handle("repo:remoteBranchDelete", (_ev, id, name) => ops.deleteRemoteBranch(repos.use(id), name))
+  handle("repo:tagDelete", (_ev, id, name, remote) => ops.deleteTag(repos.use(id), name, remote ?? null))
+  handle("repo:branchCreate", (_ev, id, name, from, checkout) =>
+    ops.createBranch(repos.use(id), name, from, checkout === true)
+  )
+  handle("repo:tagCreate", (_ev, id, name, at) => ops.createTag(repos.use(id), name, at))
+  handle("repo:reset", (_ev, id, mode, to) => ops.resetTo(repos.use(id), mode, to))
+  handle("repo:revert", (_ev, id, hash) => ops.revertCommit(repos.use(id), hash))
 
   handle("repo:log", (_ev, id, skip, count, requestId) => {
     const r = repos.use(id)
@@ -312,6 +320,17 @@ export function registerIpc(): void {
     if (res.canceled || !res.filePaths.length) return null
     const dest = res.filePaths[0]
     await ops.worktreeAdd(r, dest, branch)
+    openable.add(dest)
+    return openRepoPub(dest)
+  })
+
+  handle("repo:worktreeAddFrom", async (_ev, id, branch, from) => {
+    const r = repos.use(id)
+    const win = getMainWindow()
+    const res = await dialog.showOpenDialog(win!, { properties: ["openDirectory", "createDirectory"] })
+    if (res.canceled || !res.filePaths.length) return null
+    const dest = res.filePaths[0]
+    await ops.worktreeAddFrom(r, dest, branch, from)
     openable.add(dest)
     return openRepoPub(dest)
   })
