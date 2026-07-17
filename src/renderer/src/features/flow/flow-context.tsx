@@ -94,7 +94,10 @@ function FlowInfoRow({ kind, branch, info }: { kind: BranchFlow; branch: string;
       </span>
       {busy ? (
         /* the count seeds the ticker: the first traced command rolls in over it */
-        <RollingText text={cmd ?? count(info)} className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80" />
+        <RollingText
+          text={cmd ?? count(info)}
+          className="shimmer min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
+        />
       ) : (
         <>
           <span className="opacity-80">{count(info)}</span>
@@ -178,7 +181,7 @@ function FlowFinishRow({
         /* seed with the branch until the first traced command rolls in */
         <RollingText
           text={cmd ?? (rebase ? `git rebase ${target} ${branch}` : `git flow ${kind} finish --no-ff`)}
-          className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
+          className="shimmer min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
         />
       ) : (
         <span className="flex-1" />
