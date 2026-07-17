@@ -1,0 +1,39 @@
+---
+import { dict, RELEASES_URL, type Locale } from "../i18n/ui"
+
+interface Props {
+  locale: Locale
+  /** Per-locale route of the current page, so the language switch stays on it. */
+  paths?: Record<Locale, string>
+}
+
+const { locale, paths = { en: "/", fr: "/fr/" } } = Astro.props
+const t = dict[locale]
+---
+
+<footer class="relative overflow-hidden border-t border-zinc-200 dark:border-zinc-800/80">
+  <div
+    class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-10 text-sm text-zinc-500 sm:px-6"
+  >
+    <p>{t.footer.license}</p>
+    <div class="flex items-center gap-5">
+      <a href={RELEASES_URL} rel="noopener" class="transition-colors hover:text-zinc-950 dark:hover:text-white">
+        GitHub <span aria-hidden="true">↗</span>
+      </a>
+      <a
+        href={locale === "en" ? paths.fr : paths.en}
+        class="transition-colors hover:text-zinc-950 dark:hover:text-white"
+        lang={locale === "en" ? "fr" : "en"}
+      >
+        {locale === "en" ? "Français" : "English"}
+      </a>
+    </div>
+  </div>
+
+  <p
+    aria-hidden="true"
+    class="pointer-events-none mt-4 translate-y-[24%] text-center text-[clamp(5rem,19vw,17rem)] leading-[0.78] font-semibold tracking-tighter text-zinc-100 select-none dark:text-zinc-900"
+  >
+    Amont
+  </p>
+</footer>
