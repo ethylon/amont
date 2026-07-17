@@ -26,7 +26,6 @@ import { shortHash } from "@/features/graph/ids"
 import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { Avatar } from "@/components/ui/avatar"
 import { AsyncHint } from "@/components/ui/async-hint"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
 import { LABEL_CLS } from "@/components/ui/typography"
 import { FileList } from "@/features/repo/file-list"
@@ -244,13 +243,12 @@ function Single({
       {/* a fifty-line body doesn't push the file list off-screen; keyed on the hash so the
           scroll position resets per commit (the panel updates in place, no remount) */}
       {body?.text && (
-        /* max-h relayed onto the viewport: Root has no definite height here, the stock
-           viewport (size-full) would otherwise resolve against auto and never scroll */
-        <ScrollArea key={c.h} className="mt-2 max-h-32 shrink-0 [&>[data-slot=scroll-area-viewport]]:max-h-32">
-          <div className="space-y-2 text-xs/5 text-muted-foreground [overflow-wrap:anywhere]">
-            <Markdown text={body.text} />
-          </div>
-        </ScrollArea>
+        <div
+          key={c.h}
+          className="mt-2 max-h-32 shrink-0 space-y-2 overflow-y-auto text-xs/5 text-muted-foreground [overflow-wrap:anywhere]"
+        >
+          <Markdown text={body.text} />
+        </div>
       )}
 
       {/* 76px: the track fits "CO-AUTHORS" on one line, letter-spacing included */}
@@ -407,24 +405,22 @@ function Multi({
       {/* the header doesn't push the file list off-screen: beyond that, it scrolls.
           Keyed on a cheap selection fingerprint (not join(",") — selections can be huge) so
           the scroll resets when the selection changes, like the old per-selection remount did */}
-      <ScrollArea
+      <div
         key={`${selection.length}:${selection[0]}:${selection[selection.length - 1]}`}
-        className="mt-3 max-h-40 shrink-0 [&>[data-slot=scroll-area-viewport]]:max-h-40"
+        className="mt-3 flex max-h-40 shrink-0 flex-col gap-0.5 overflow-y-auto"
       >
-        <div className="flex flex-col gap-0.5">
-          {selection.map((i) => {
-            const c = graph.commit(i)!
-            return (
-              <div key={c.h} className="flex min-w-0 items-baseline gap-2 text-xs">
-                <span className="shrink-0 font-mono text-muted-foreground" title={c.h}>
-                  {shortHash(c.h)}
-                </span>
-                <span className="truncate">{parseSubject(c.s).text}</span>
-              </div>
-            )
-          })}
-        </div>
-      </ScrollArea>
+        {selection.map((i) => {
+          const c = graph.commit(i)!
+          return (
+            <div key={c.h} className="flex min-w-0 items-baseline gap-2 text-xs">
+              <span className="shrink-0 font-mono text-muted-foreground" title={c.h}>
+                {shortHash(c.h)}
+              </span>
+              <span className="truncate">{parseSubject(c.s).text}</span>
+            </div>
+          )
+        })}
+      </div>
       <Files
         api={api}
         queryKey={["files", "multi", repoId, selection.map((i) => graph.commit(i)!.h).join(",")]}

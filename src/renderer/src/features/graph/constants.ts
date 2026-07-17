@@ -86,9 +86,6 @@ export const ROW_CLASS =
     decorated commit (dozens of tags) scrolls within the panel instead of overflowing the window. */
 export const MORE_CLASS =
   "amont-more absolute z-20 hidden max-h-[min(50vh,20rem)] w-max max-w-72 flex-col items-start gap-1 overflow-y-auto " +
-  /* imperative DOM (render/rows.ts pipeline): the shadcn ScrollArea can't wrap it — the
-     standard scrollbar properties keep its native bar thin and themed in both engines */
-  "[scrollbar-width:thin] [scrollbar-color:var(--border)_transparent] " +
   "rounded-xl bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-foreground/10"
 
 /* --- Decoupled virtualization windows ---

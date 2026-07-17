@@ -23,7 +23,6 @@ import { messages } from "@/lib/messages"
 import { isDark, useTheme } from "@/lib/theme"
 import { AsyncHint } from "@/components/ui/async-hint"
 import { IconButton } from "@/components/ui/icon-button"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 /** Named `DiffViewMode` (not `DiffView`) to avoid colliding with the identically named
@@ -37,10 +36,9 @@ export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" |
    diff2html/shiki away from anything whose *total* exceeds it — a truncated payload (which by
    construction always carries more than the cap) can never reach them looking complete. */
 
-/* Reapplied on every render — the effects rewrite `className` from top to bottom.
-   The ScrollArea around it owns the scrolling; min-h-full keeps the body's background
-   covering the whole viewport when the diff is shorter. */
-const DIFF_BODY = "amont-diffbody min-h-full rounded-md font-mono text-xs leading-normal [tab-size:4]"
+/* Reapplied on every render — the effects rewrite `className` from top to bottom. */
+const DIFF_BODY =
+  "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
 
 /* Shiki coloring on top of the diff2html render.
    <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.
@@ -342,10 +340,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
       ) : parsed && wtSrc ? (
         <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} view={view} />
       ) : (
-        <ScrollArea className="min-h-0 flex-auto rounded-md">
-          <div ref={body} className={DIFF_BODY} />
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        <div ref={body} className={DIFF_BODY} />
       )}
     </div>
   )
