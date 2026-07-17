@@ -6,7 +6,8 @@ import GraphBg from "./GraphBg.astro"
 import Starfield from "./Starfield.astro"
 import HeroDemo from "./HeroDemo.astro"
 import CommandLog from "./CommandLog.astro"
-import { dict, REPO_URL, DOWNLOAD_URL, type Locale } from "../i18n/ui"
+import Footer from "./Footer.astro"
+import { dict, DOWNLOAD_URL, type Locale } from "../i18n/ui"
 import pkg from "../../../package.json"
 
 import graphLight from "../../../docs/graph-light.png"
@@ -78,18 +79,10 @@ const shots = {
               </svg>
               {t.hero.ctaDownload}
             </a>
-            <a
-              href={REPO_URL}
-              rel="noopener"
-              class="font-medium text-zinc-600 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
-            >
-              {t.hero.ctaSource}
-              <span aria-hidden="true">↗</span>
-            </a>
           </div>
 
           <p class="mt-5 font-mono text-xs text-zinc-500">
-            v{pkg.version} · Windows · MIT
+            v{pkg.version} · Windows · {t.hero.free}
           </p>
         </div>
       </div>
@@ -246,30 +239,5 @@ const shots = {
     </section>
   </main>
 
-  <footer class="relative overflow-hidden border-t border-zinc-200 dark:border-zinc-800/80">
-    <div
-      class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-10 text-sm text-zinc-500 sm:px-6"
-    >
-      <p>{t.footer.license}</p>
-      <div class="flex items-center gap-5">
-        <a href={REPO_URL} rel="noopener" class="transition-colors hover:text-zinc-950 dark:hover:text-white">
-          GitHub <span aria-hidden="true">↗</span>
-        </a>
-        <a
-          href={locale === "en" ? "/fr/" : "/"}
-          class="transition-colors hover:text-zinc-950 dark:hover:text-white"
-          lang={locale === "en" ? "fr" : "en"}
-        >
-          {locale === "en" ? "Français" : "English"}
-        </a>
-      </div>
-    </div>
-
-    <p
-      aria-hidden="true"
-      class="pointer-events-none mt-4 translate-y-[24%] text-center text-[clamp(5rem,19vw,17rem)] leading-[0.78] font-semibold tracking-tighter text-zinc-100 select-none dark:text-zinc-900"
-    >
-      Amont
-    </p>
-  </footer>
+  <Footer locale={locale} />
 </Base>
