@@ -211,8 +211,7 @@ async function finishMerge(r: RepoHandle, branch: string, opts: FinishMergeOpts)
   if (!merged) {
     /* AVH fast-forwards a single-commit branch unless --no-ff: `rev-list -n2` and count */
     const single =
-      !opts.noFF &&
-      (await r.git(["rev-list", "-n2", `${base}..${branch}`])).split("\n").filter(Boolean).length === 1
+      !opts.noFF && (await r.git(["rev-list", "-n2", `${base}..${branch}`])).split("\n").filter(Boolean).length === 1
     await r.git(["merge", single ? "--ff" : "--no-ff", branch], { timeout: OP_TIMEOUT })
   }
   if (opts.deleteBranch) {
