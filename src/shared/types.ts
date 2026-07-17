@@ -179,6 +179,10 @@ export type FlowInfo = {
     confirmation, so it travels on `repo:branchDelete` rather than this generic passthrough. */
 export type BranchAct = "merge" | "pull" | "push" | "finish"
 
+/** `git reset --<mode>` from the graph's commit menu: soft keeps the changes staged,
+    mixed keeps them unstaged, hard discards them. */
+export type ResetMode = "soft" | "mixed" | "hard"
+
 /** The four git-flow work types (feature/bugfix/release/hotfix). */
 export type FlowKind = keyof FlowPrefixes
 

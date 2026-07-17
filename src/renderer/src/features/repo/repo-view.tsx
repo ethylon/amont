@@ -18,6 +18,7 @@ import { DetailPanel } from "@/features/repo/detail-panel"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
 import { FlowStartBanner } from "@/features/flow/flow-start-banner"
+import { BranchCreateBanner, WorktreeCreateBanner } from "@/features/repo/create-banners"
 import { repoHealth } from "@/features/maintenance/health"
 import { useRepoMenuTools } from "@/features/repo/use-repo-menu-tools"
 import type { RepoCommandEnvelope } from "@/features/repo/repo-commands"
@@ -152,6 +153,10 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const sidebarOpen = useRepoStore((s) => s.ui.sidebarOpen)
   const flowStart = useRepoStore((s) => s.ui.flowStart)
   const closeFlowStart = useRepoStore((s) => s.closeFlowStart)
+  const branchCreate = useRepoStore((s) => s.ui.branchCreate)
+  const closeBranchCreate = useRepoStore((s) => s.closeBranchCreate)
+  const worktreeCreate = useRepoStore((s) => s.ui.worktreeCreate)
+  const closeWorktreeCreate = useRepoStore((s) => s.closeWorktreeCreate)
   const view = useRepoStore((s) => s.ui.view)
   const diff = useRepoStore((s) => s.ui.diff)
   const selection = useRepoStore((s) => s.selection.rows)
@@ -282,6 +287,14 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
               initialBase={flowStart.base}
               onDone={closeFlowStart}
             />
+          )}
+
+          {/* create-at-commit banners (graph context menu) — same strip as the flow start */}
+          {branchCreate && (
+            <BranchCreateBanner key={branchCreate.from} from={branchCreate.from} onDone={closeBranchCreate} />
+          )}
+          {worktreeCreate && (
+            <WorktreeCreateBanner key={worktreeCreate.from} from={worktreeCreate.from} onDone={closeWorktreeCreate} />
           )}
 
           {/* finish confirmation takes the strip over the cockpit (same component, the content

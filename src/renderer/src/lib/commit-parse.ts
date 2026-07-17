@@ -141,9 +141,21 @@ export const typeIcon = (type: string): IconSvgElement | undefined => TYPE_ICON[
    They stay readable, but stop competing for attention with the rest of the column. */
 export const BACKUP_WIP = /^\s*\[(?:AUTO-)?BACKUP\]\s*WIP\b/i
 
-export type ParsedSubject = { type: string | null; label: string | null; text: string }
+export type ParsedSubject = {
+  type: string | null
+  label: string | null
+  text: string
+  /** git's own `Revert "…"` subject — the quoted text is the undone commit's subject,
+      which the graph strikes through (cf. render/rows.ts) */
+  revert?: boolean
+}
 
 export function parseSubject(s: string): ParsedSubject {
+  /* `git revert` default message: same badge as a conventional `revert:` prefix (danger hue,
+     turn-back icon), the quoted original subject becomes the displayed text. A nested revert
+     ("Revert "Revert "x""") keeps the inner quotes in the text. */
+  const rv = /^Revert\s+"(.*)"\s*$/.exec(s)
+  if (rv) return { type: "revert", label: "revert", text: rv[1] || s, revert: true }
   let m = /^\s*\[([^\]]+)\]\s*(.*)/.exec(s)
   if (m) {
     const type = TYPE_OF[m[1].toUpperCase().replace(/[^A-Z]/g, "")]

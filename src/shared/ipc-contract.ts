@@ -36,6 +36,7 @@ import type {
   ProgressEvent,
   Repo,
   RepoRef,
+  ResetMode,
   Stash,
   StashAct,
   Status,
@@ -116,6 +117,22 @@ export type InvokeChannels = {
   /** `git branch -D <name>`, then — when `deleteRemote` — `git push <remote> --delete` of its
       upstream. Split from `repo:branch`: the renderer confirms it and passes the remote choice. */
   "repo:branchDelete": (id: number, name: string, deleteRemote: boolean) => Promise<void>
+  /** `git push <remote> --delete <branch>` of a remote-tracking ref ("origin/topic") that has no
+      local counterpart to go through `repo:branchDelete`. The renderer confirms it first. */
+  "repo:remoteBranchDelete": (id: number, name: string) => Promise<void>
+  /** `git tag -d <name>`, then — when `remote` — `git push <remote> --delete refs/tags/<name>`.
+      The renderer confirms it and picks the remote (from its refs list). */
+  "repo:tagDelete": (id: number, name: string, remote: string | null) => Promise<void>
+  /** `git branch <name> <from>` (from = a commit hash), then a stash-guarded checkout of the
+      new branch when `checkout`. */
+  "repo:branchCreate": (id: number, name: string, from: string, checkout: boolean) => Promise<void>
+  /** `git tag <name> <at>` — a lightweight tag on the given commit. */
+  "repo:tagCreate": (id: number, name: string, at: string) => Promise<void>
+  /** `git reset --<mode> <to>` of the current branch. Irreversible for `hard` — the renderer
+      confirms through its mode-picking modal before calling. */
+  "repo:reset": (id: number, mode: ResetMode, to: string) => Promise<void>
+  /** `git revert --no-edit <hash>` (with `-m 1` for a merge commit). */
+  "repo:revert": (id: number, hash: string) => Promise<void>
   "repo:log": (id: number, skip: number, count: number, requestId?: string) => Promise<Commit[]>
   "repo:refs": (id: number) => Promise<GitRef[]>
   "repo:files": (id: number, hash: string, parent: string | null, requestId?: string) => Promise<FileChange[]>
@@ -151,6 +168,9 @@ export type InvokeChannels = {
   /** system picker for the destination folder then `git worktree add <dir> <branch>`;
       `null` when the dialog is cancelled — the created worktree is opened as a tab right away. */
   "repo:worktreeAdd": (id: number, branch: string) => Promise<OpenResult>
+  /** same picker-then-add flow, but from a commit: `git worktree add -b <branch> <dir> <from>`
+      creates the branch at that commit inside the new worktree. */
+  "repo:worktreeAddFrom": (id: number, branch: string, from: string) => Promise<OpenResult>
   /** opens a listed worktree as a new tab (same `Repo` result as `repo:openPath`). */
   "repo:worktreeOpen": (id: number, path: string) => Promise<Repo>
   /** reveals a listed worktree in the system file explorer. */
@@ -235,6 +255,12 @@ export type Bridge = {
   flowFinish: InvokeChannels["flow:finish"]
   branch: InvokeChannels["repo:branch"]
   branchDelete: InvokeChannels["repo:branchDelete"]
+  remoteBranchDelete: InvokeChannels["repo:remoteBranchDelete"]
+  tagDelete: InvokeChannels["repo:tagDelete"]
+  branchCreate: InvokeChannels["repo:branchCreate"]
+  tagCreate: InvokeChannels["repo:tagCreate"]
+  reset: InvokeChannels["repo:reset"]
+  revert: InvokeChannels["repo:revert"]
   files: InvokeChannels["repo:files"]
   body: InvokeChannels["repo:body"]
   headMessage: InvokeChannels["repo:headMessage"]
@@ -256,6 +282,7 @@ export type Bridge = {
   worktrees: InvokeChannels["repo:worktrees"]
   worktreeAct: InvokeChannels["repo:worktreeAct"]
   worktreeAdd: InvokeChannels["repo:worktreeAdd"]
+  worktreeAddFrom: InvokeChannels["repo:worktreeAddFrom"]
   worktreeOpen: InvokeChannels["repo:worktreeOpen"]
   worktreeReveal: InvokeChannels["repo:worktreeReveal"]
   mergeState: InvokeChannels["repo:mergeState"]
