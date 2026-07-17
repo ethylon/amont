@@ -9,6 +9,19 @@
    Dates/numbers still follow the system locale; backend-error text lives in lib/errors.ts. */
 
 import { t, plural } from "@lingui/core/macro"
+import type { ReactNode } from "react"
+
+/* « … » in a catalog string is an emphasis marker, not punctuation to display: the wrapped
+   segment (a branch, tag, path… name interpolated into the sentence) renders in bold and the
+   guillemets themselves are dropped. Keeping the markers in the msgid/msgstr lets translators
+   reorder the sentence while still controlling what gets emphasized. Messages that go through
+   this helper return a ReactNode — they are only ever rendered in JSX (menu labels, dialog
+   bodies), never fed to string-only sinks like aria-label. */
+function emphasize(text: string): ReactNode {
+  const parts = text.split(/«\s*(.*?)\s*»/)
+  if (parts.length === 1) return text
+  return parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part))
+}
 
 export const messages = {
   app: {
@@ -357,22 +370,22 @@ export const messages = {
     get checkout() {
       return t`Checkout`
     },
-    mergeInto: (branch: string) => t`Merge into « ${branch} »`,
+    mergeInto: (branch: string) => emphasize(t`Merge into « ${branch} »`),
     get pull() {
       return t`Pull`
     },
     get push() {
       return t`Push`
     },
-    pushTo: (upstream: string) => t`Push to « ${upstream} »`,
+    pushTo: (upstream: string) => emphasize(t`Push to « ${upstream} »`),
     get deleteBranch() {
       return t`Delete branch`
     },
     get deleteBranchTitle() {
       return t`Delete branch?`
     },
-    deleteBranchBody: (name: string) => t`The branch « ${name} » will be deleted.`,
-    deleteBranchRemote: (upstream: string) => t`Also delete the remote branch « ${upstream} »`,
+    deleteBranchBody: (name: string) => emphasize(t`The branch « ${name} » will be deleted.`),
+    deleteBranchRemote: (upstream: string) => emphasize(t`Also delete the remote branch « ${upstream} »`),
     get deleteBranchRemoteGone() {
       return t`Its remote branch has already been deleted.`
     },
@@ -388,15 +401,15 @@ export const messages = {
     get deleteRemoteBranchTitle() {
       return t`Delete remote branch?`
     },
-    deleteRemoteBranchBody: (name: string) => t`The branch « ${name} » will be deleted on the remote.`,
+    deleteRemoteBranchBody: (name: string) => emphasize(t`The branch « ${name} » will be deleted on the remote.`),
     get deleteTag() {
       return t`Delete tag`
     },
     get deleteTagTitle() {
       return t`Delete tag?`
     },
-    deleteTagBody: (name: string) => t`The tag « ${name} » will be deleted.`,
-    deleteTagRemote: (remote: string) => t`Also delete the tag on « ${remote} »`,
+    deleteTagBody: (name: string) => emphasize(t`The tag « ${name} » will be deleted.`),
+    deleteTagRemote: (remote: string) => emphasize(t`Also delete the tag on « ${remote} »`),
     get finishFeature() {
       return t`Finish feature`
     },
@@ -512,7 +525,7 @@ export const messages = {
     get discardTitle() {
       return t`Discard changes?`
     },
-    discardOne: (path: string) => t`Changes to « ${path} » will be permanently lost.`,
+    discardOne: (path: string) => emphasize(t`Changes to « ${path} » will be permanently lost.`),
     discardMany: (n: number) =>
       plural(n, {
         one: "Changes to # file will be permanently lost.",
@@ -624,7 +637,7 @@ export const messages = {
     get createTagHere() {
       return t`Create tag here…`
     },
-    resetBranchTo: (branch: string, hash: string) => t`Reset « ${branch} » to ${hash}…`,
+    resetBranchTo: (branch: string, hash: string) => emphasize(t`Reset « ${branch} » to ${hash}…`),
     revert: (hash: string) => t`Revert ${hash}`,
 
     /* inline create-branch / create-worktree banners */
@@ -662,7 +675,7 @@ export const messages = {
     get resetTitle() {
       return t`Reset branch?`
     },
-    resetBody: (branch: string, hash: string) => t`« ${branch} » will be moved to ${hash}.`,
+    resetBody: (branch: string, hash: string) => emphasize(t`« ${branch} » will be moved to ${hash}.`),
     get resetSoft() {
       return t`Soft`
     },
