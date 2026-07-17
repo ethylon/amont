@@ -45,6 +45,7 @@ import type { DiffViewMode } from "./diff-view"
 import { CodeLine, useShikiTokens, type TokenLine } from "@/features/diff/shiki-tokens"
 import { Button } from "@/components/ui/button"
 import { IconButton } from "@/components/ui/icon-button"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 /* Same tints as the raw fallback render (diff-view RAW_CLASS): red/green IS the diff
    vocabulary here, unlike the conflict view where neither side is "removed". */
@@ -146,8 +147,8 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
        flipping `disabled` on thousands of IconButtons is exactly the full-tree reconciliation
        this component structure exists to avoid. Keyboard activation slips past pointer-events,
        but `run`'s ref guard makes a second submission a no-op either way. */
-    <div
-      className="min-h-0 flex-auto overflow-y-auto rounded-md border [&[aria-busy=true]_button]:pointer-events-none"
+    <ScrollArea
+      className="min-h-0 flex-auto rounded-md border [&[aria-busy=true]_button]:pointer-events-none"
       aria-busy={busy}
     >
       {parsed.hunks.map((h, hi) => (
@@ -165,7 +166,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
           onDiscard={discard}
         />
       ))}
-    </div>
+    </ScrollArea>
   )
 }
 
@@ -262,7 +263,7 @@ const HunkSection = memo(function HunkSection({
     let oldNo = h.oldStart
     let newNo = h.newStart
     return (
-      <div className="min-w-0 overflow-x-auto">
+      <ScrollArea className="min-w-0">
         {h.lines.map((l, li) => {
           const no = {
             old: l.kind === "add" ? null : oldNo++,
@@ -279,7 +280,8 @@ const HunkSection = memo(function HunkSection({
             </div>
           )
         })}
-      </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     )
   }
 
@@ -336,25 +338,38 @@ const HunkSection = memo(function HunkSection({
    diff-view's syncSides for the diff2html render; rows stay facing each other because every
    line renders at the same height on both sides. */
 function SyncedColumns({ old, neu }: { old: React.ReactNode; neu: React.ReactNode }) {
-  const oldRef = useRef<HTMLDivElement>(null)
-  const newRef = useRef<HTMLDivElement>(null)
+  /* the refs hold the ScrollArea viewports (the elements that actually scroll): the stock
+     shadcn component exposes no viewport ref, hence the data-slot query. Scroll doesn't
+     bubble, but the capture phase still crosses the root — onScrollCapture reaches it. */
+  const oldRef = useRef<HTMLDivElement | null>(null)
+  const newRef = useRef<HTMLDivElement | null>(null)
   const echo = useRef(false)
+  const viewport = (root: HTMLDivElement | null) =>
+    root?.querySelector<HTMLDivElement>('[data-slot="scroll-area-viewport"]') ?? null
+  const attachOld = (el: HTMLDivElement | null) => {
+    oldRef.current = viewport(el)
+  }
+  const attachNew = (el: HTMLDivElement | null) => {
+    newRef.current = viewport(el)
+  }
   const onScroll = (ev: React.UIEvent<HTMLDivElement>) => {
     if (echo.current) return
     echo.current = true
-    const src = ev.currentTarget
+    const src = ev.target as HTMLDivElement
     const other = src === oldRef.current ? newRef.current : oldRef.current
     if (other) other.scrollLeft = src.scrollLeft
     requestAnimationFrame(() => (echo.current = false))
   }
   return (
     <div className="flex">
-      <div ref={oldRef} onScroll={onScroll} className="min-w-0 flex-1 overflow-x-auto border-e">
+      <ScrollArea ref={attachOld} onScrollCapture={onScroll} className="min-w-0 flex-1 border-e">
         {old}
-      </div>
-      <div ref={newRef} onScroll={onScroll} className="min-w-0 flex-1 overflow-x-auto">
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+      <ScrollArea ref={attachNew} onScrollCapture={onScroll} className="min-w-0 flex-1">
         {neu}
-      </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     </div>
   )
 }

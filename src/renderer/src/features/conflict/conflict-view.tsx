@@ -48,6 +48,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 /* A = info (blue), B = success (green) — never the red/green of diffs: neither side is
    "removed", they're two competing additions. */
@@ -77,13 +78,16 @@ function PaneCell({
   className?: string
 }) {
   return (
-    <div className={cn("min-w-0 overflow-x-auto px-2 py-px whitespace-pre", MONO, className)}>
-      {lines.map((l, i) => (
-        <div key={i} className={cn("min-w-max", CV_ROW)}>
-          <CodeLine text={l} tokens={tokens?.[start + i]} />
-        </div>
-      ))}
-    </div>
+    <ScrollArea className={cn("min-w-0", className)}>
+      <div className={cn("px-2 py-px whitespace-pre", MONO)}>
+        {lines.map((l, i) => (
+          <div key={i} className={cn("min-w-max", CV_ROW)}>
+            <CodeLine text={l} tokens={tokens?.[start + i]} />
+          </div>
+        ))}
+      </div>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   )
 }
 
@@ -157,6 +161,9 @@ function OutputEditor({
         wrap="off"
         className={cn(
           "absolute inset-0 resize-none overflow-auto bg-transparent whitespace-pre text-transparent caret-foreground outline-none",
+          /* native textarea, no ScrollArea possible: the standard scrollbar properties
+             keep its bar thin and themed in both engines */
+          "[scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]",
           MONO,
           PAD
         )}
@@ -224,7 +231,7 @@ function ChunkSide({
         {side === "ours" ? messages.conflict.takeA : messages.conflict.takeB}
         {lines.length === 0 && ` · ${messages.conflict.deletedOnThisSide}`}
       </label>
-      <div className="min-w-0 overflow-x-auto">
+      <ScrollArea className="min-w-0">
         {lines.map((l, line) => {
           const ref: LineRef = { side, line }
           const picked = isPicked(picks, block.index, ref)
@@ -242,7 +249,8 @@ function ChunkSide({
             </div>
           )
         })}
-      </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     </div>
   )
 }
@@ -377,7 +385,7 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
         <>
           {/* --- The two sides, aligned segment by segment: each pair of cells shares a grid
               row, so a 2-line A block faces a 5-line B block without manual padding --- */}
-          <div className="min-h-0 flex-[3] overflow-y-auto rounded-md border">
+          <ScrollArea className="min-h-0 flex-[3] rounded-md border">
             <div className="grid grid-cols-2">
               {sideHeader("ours", labels.a, messages.conflict.oursHint, cf.ours === null, "")}
               {sideHeader("theirs", labels.b, messages.conflict.theirsHint, cf.theirs === null, "border-l")}
@@ -413,7 +421,7 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
                 )
               )}
             </div>
-          </div>
+          </ScrollArea>
 
           {/* --- Merged output: the editable, highlighted buffer that "Mark as resolved" writes --- */}
           <div className="mt-3 flex min-h-0 flex-[2] shrink-0 flex-col">

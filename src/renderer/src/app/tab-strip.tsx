@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { Mark } from "@/components/ui/mark"
 import { Button } from "@/components/ui/button"
 import { IconButton } from "@/components/ui/icon-button"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 /** The home screen lives in a pinned tab, never closed. The others carry the repo id. */
 export const HOME = 0
@@ -94,72 +95,75 @@ export function TabStrip({ tabs, active, onSelect, onClose, onNew, menu }: Props
 
       {/* second row: the repository tabs, on their own line (see two-menu bar). The row scrolls;
           the tablist holds the actual tabs and the "+" rides along at its end as a plain action. */}
-      <div className="flex items-center gap-1 overflow-x-auto border-t px-2.5 py-1">
-        <div role="tablist" className="flex shrink-0 items-center gap-1">
-          <div
-            ref={tabRef(HOME)}
-            role="tab"
-            id={tabId(HOME)}
-            aria-controls={panelId(HOME)}
-            tabIndex={active === HOME ? 0 : -1}
-            aria-selected={active === HOME}
-            aria-label={messages.app.home}
-            onClick={() => onSelect(HOME)}
-            onKeyDown={(e) => onTabKey(e, HOME)}
-            className={cn(tabClass, "w-9 justify-center border-transparent text-muted-foreground hover:bg-muted/60")}
-          >
-            <HugeiconsIcon icon={Home01Icon} strokeWidth={2} className="size-3.5" />
+      <ScrollArea className="border-t">
+        <div className="flex items-center gap-1 px-2.5 py-1">
+          <div role="tablist" className="flex shrink-0 items-center gap-1">
+            <div
+              ref={tabRef(HOME)}
+              role="tab"
+              id={tabId(HOME)}
+              aria-controls={panelId(HOME)}
+              tabIndex={active === HOME ? 0 : -1}
+              aria-selected={active === HOME}
+              aria-label={messages.app.home}
+              onClick={() => onSelect(HOME)}
+              onKeyDown={(e) => onTabKey(e, HOME)}
+              className={cn(tabClass, "w-9 justify-center border-transparent text-muted-foreground hover:bg-muted/60")}
+            >
+              <HugeiconsIcon icon={Home01Icon} strokeWidth={2} className="size-3.5" />
+            </div>
+
+            {tabs.map((t) => (
+              <div
+                key={t.key}
+                ref={tabRef(t.key)}
+                role="tab"
+                id={tabId(t.key)}
+                aria-controls={panelId(t.key)}
+                tabIndex={t.key === active ? 0 : -1}
+                aria-selected={t.key === active}
+                onClick={() => onSelect(t.key)}
+                onKeyDown={(e) => onTabKey(e, t.key)}
+                /* middle click: closes, like a browser */
+                onAuxClick={(e) => e.button === 1 && onClose(t.key)}
+                className={cn(
+                  tabClass,
+                  "max-w-44 gap-1.5 border-transparent px-2.5 text-muted-foreground hover:bg-muted/60"
+                )}
+              >
+                <span className="truncate">{t.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={messages.app.closeTab(t.name)}
+                  /* after: the click target goes from 20 to 28px without growing the icon (see checkbox) */
+                  className="relative -me-1.5 shrink-0 opacity-0 group-aria-selected/tab:opacity-100 group-hover/tab:opacity-100 focus-visible:opacity-100 after:absolute after:-inset-1"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onClose(t.key)
+                  }}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-2.5" />
+                </Button>
+              </div>
+            ))}
           </div>
 
-          {tabs.map((t) => (
-            <div
-              key={t.key}
-              ref={tabRef(t.key)}
-              role="tab"
-              id={tabId(t.key)}
-              aria-controls={panelId(t.key)}
-              tabIndex={t.key === active ? 0 : -1}
-              aria-selected={t.key === active}
-              onClick={() => onSelect(t.key)}
-              onKeyDown={(e) => onTabKey(e, t.key)}
-              /* middle click: closes, like a browser */
-              onAuxClick={(e) => e.button === 1 && onClose(t.key)}
-              className={cn(
-                tabClass,
-                "max-w-44 gap-1.5 border-transparent px-2.5 text-muted-foreground hover:bg-muted/60"
-              )}
-            >
-              <span className="truncate">{t.name}</span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={messages.app.closeTab(t.name)}
-                /* after: the click target goes from 20 to 28px without growing the icon (see checkbox) */
-                className="relative -me-1.5 shrink-0 opacity-0 group-aria-selected/tab:opacity-100 group-hover/tab:opacity-100 focus-visible:opacity-100 after:absolute after:-inset-1"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onClose(t.key)
-                }}
-              >
-                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-2.5" />
-              </Button>
-            </div>
-          ))}
+          {/* the "+" is no longer a tab: it opens the repository-creation dialog (see App) */}
+          <button
+            type="button"
+            aria-label={messages.app.newTab}
+            onClick={onNew}
+            className={cn(
+              tabClass,
+              "w-9 shrink-0 justify-center border-transparent text-muted-foreground hover:bg-muted/60"
+            )}
+          >
+            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
+          </button>
         </div>
-
-        {/* the "+" is no longer a tab: it opens the repository-creation dialog (see App) */}
-        <button
-          type="button"
-          aria-label={messages.app.newTab}
-          onClick={onNew}
-          className={cn(
-            tabClass,
-            "w-9 shrink-0 justify-center border-transparent text-muted-foreground hover:bg-muted/60"
-          )}
-        >
-          <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-        </button>
-      </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     </header>
   )
 }
