@@ -1,9 +1,4 @@
-import {
-  Book02Icon,
-  BugIcon,
-  InformationCircleIcon,
-  SystemUpdate01Icon,
-} from "@hugeicons/core-free-icons"
+import { Book02Icon, BugIcon, InformationCircleIcon, SystemUpdate01Icon } from "@hugeicons/core-free-icons"
 
 import { messages } from "@/lib/messages"
 import type { MenuDescriptor } from "@/app/menu/types"
