@@ -1,0 +1,4 @@
+#!/bin/sh
+# Formats staged files via lint-staged (preserves partial staging).
+# Enabled by `git config core.hooksPath .githooks` — done by the package.json `prepare` script.
+pnpm lint-staged
