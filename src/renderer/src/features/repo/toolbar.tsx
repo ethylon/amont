@@ -90,7 +90,7 @@ export const Toolbar = memo(function Toolbar({
               </Badge>
             )}
           </span>
-          <GitCmd cmd={cmdOverride ?? cmd} />
+          <GitCmd cmd={cmdOverride ?? cmd} running={busyOp === op} />
         </span>
       </Button>
     )
