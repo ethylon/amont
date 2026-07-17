@@ -6,7 +6,6 @@ import type { DiffCtx } from "@/features/diff/diff-view"
 import { messages } from "@/lib/messages"
 import { cn, formatBytes } from "@/lib/utils"
 import { AsyncHint } from "@/components/ui/async-hint"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 /* A light/dark checkerboard so a transparent PNG/SVG reads as transparent instead of blending
    into the panel. Pure CSS — no asset, no extra request under the CSP. */
@@ -71,8 +70,7 @@ function ImagePanel({
           {messages.diff.imageTooLarge} ({formatBytes(data.size)})
         </div>
       ) : (
-        /* no local scroll: an oversized image lets the panel grow and the outer ScrollArea take over */
-        <div className={cn("flex flex-1 items-center justify-center rounded-md p-2", CHECKER)}>
+        <div className={cn("flex flex-1 items-center justify-center overflow-auto rounded-md p-2", CHECKER)}>
           {/* url lags the bytes by one effect tick (and is null again mid-refetch): the
               checkerboard simply shows empty for that frame rather than a broken img */}
           {url && (
@@ -108,7 +106,7 @@ export function ImageDiffView({ api, repoId, ctx, file, ext }: Props) {
   const both = Boolean(data.old && data.new)
 
   return (
-    <ScrollArea className="min-h-0 flex-auto rounded-md bg-muted/40">
+    <div className="min-h-0 flex-auto overflow-auto rounded-md bg-muted/40">
       <div className="flex min-h-full flex-col gap-4 p-4 lg:flex-row">
         {data.old && (
           <ImagePanel
@@ -127,6 +125,6 @@ export function ImageDiffView({ api, repoId, ctx, file, ext }: Props) {
           />
         )}
       </div>
-    </ScrollArea>
+    </div>
   )
 }
