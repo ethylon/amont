@@ -314,16 +314,13 @@ describe("finishFlow: release/hotfix native sequence", () => {
       cfg: { "gitflow.prefix.versiontag": "v" },
     })
     await finishFlow(r, "hotfix/1.2.1")
-    assert.deepEqual(
-      mutating(calls).slice(0, 5),
-      [
-        ["checkout", "master"],
-        ["merge", "--no-ff", "hotfix/1.2.1"],
-        ["tag", "-a", "v1.2.1", "-m", "1.2.1", "master"],
-        ["checkout", "develop"],
-        ["merge", "--no-ff", "v1.2.1"],
-      ]
-    )
+    assert.deepEqual(mutating(calls).slice(0, 5), [
+      ["checkout", "master"],
+      ["merge", "--no-ff", "hotfix/1.2.1"],
+      ["tag", "-a", "v1.2.1", "-m", "1.2.1", "master"],
+      ["checkout", "develop"],
+      ["merge", "--no-ff", "v1.2.1"],
+    ])
   })
 
   it("hotfix with no commits: refused, like AVH's 'You need some commits'", async () => {
