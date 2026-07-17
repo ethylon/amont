@@ -1,16 +1,25 @@
-MIT License
+Amont Freeware License
 
-Copyright (c) 2026 Mathieu Guey
+Copyright (c) 2026 Mathieu Guey. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Amont (the "Software") is proprietary software distributed free of charge
+("freeware").
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Permission is granted to any individual or organization to download, install
+and use the Software, for personal or commercial purposes, free of charge.
+
+You may share the Software with others only as an unmodified copy of the
+official installer, or by linking to the official download page.
+
+Except to the extent such a restriction is prohibited by applicable law, you
+may not, without prior written permission from the copyright holder:
+
+- modify, adapt, translate or create derivative works of the Software;
+- reverse engineer, decompile or disassemble the Software;
+- sell, rent, lease, sublicense or otherwise commercialize the Software.
+
+Versions of the Software released before this license came into effect were
+published under the MIT License and remain governed by it.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
