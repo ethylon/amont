@@ -382,6 +382,21 @@ export const messages = {
     get deleteBranchCancel() {
       return t`Cancel`
     },
+    get deleteRemoteBranch() {
+      return t`Delete remote branch`
+    },
+    get deleteRemoteBranchTitle() {
+      return t`Delete remote branch?`
+    },
+    deleteRemoteBranchBody: (name: string) => t`The branch « ${name} » will be deleted on the remote.`,
+    get deleteTag() {
+      return t`Delete tag`
+    },
+    get deleteTagTitle() {
+      return t`Delete tag?`
+    },
+    deleteTagBody: (name: string) => t`The tag « ${name} » will be deleted.`,
+    deleteTagRemote: (remote: string) => t`Also delete the tag on « ${remote} »`,
     get finishFeature() {
       return t`Finish feature`
     },
@@ -597,6 +612,74 @@ export const messages = {
     },
     get close() {
       return t`Close (Esc)`
+    },
+  },
+
+  /* the graph's commit context menu and the surfaces it opens (create banners, tag dialog,
+     reset modal) — labels carry the short hash so the menu says which commit it acts on */
+  commit: {
+    checkout: (hash: string) => t`Checkout ${hash}`,
+    createBranchFrom: (hash: string) => t`Create branch from ${hash}…`,
+    createWorktreeFrom: (hash: string) => t`Create worktree from ${hash}…`,
+    get createTagHere() {
+      return t`Create tag here…`
+    },
+    resetBranchTo: (branch: string, hash: string) => t`Reset « ${branch} » to ${hash}…`,
+    revert: (hash: string) => t`Revert ${hash}`,
+
+    /* inline create-branch / create-worktree banners */
+    branchBannerLabel: (hash: string) => t`New branch at ${hash}`,
+    worktreeBannerLabel: (hash: string) => t`New worktree at ${hash}`,
+    get branchPlaceholder() {
+      return t`branch name`
+    },
+    get at() {
+      return t`at`
+    },
+    get checkoutAfterCreate() {
+      return t`Check out`
+    },
+    get create() {
+      return t`Create`
+    },
+    get creating() {
+      return t`creating…`
+    },
+    get cancel() {
+      return t`Cancel`
+    },
+
+    /* create-tag dialog */
+    get tagTitle() {
+      return t`Create a tag`
+    },
+    tagBody: (hash: string) => t`A tag will be created on commit ${hash}.`,
+    get tagPlaceholder() {
+      return t`tag name`
+    },
+
+    /* reset modal — one card per mode, hard is the destructive one */
+    get resetTitle() {
+      return t`Reset branch?`
+    },
+    resetBody: (branch: string, hash: string) => t`« ${branch} » will be moved to ${hash}.`,
+    get resetSoft() {
+      return t`Soft`
+    },
+    get resetSoftHint() {
+      return t`Keep all changes staged`
+    },
+    get resetMixed() {
+      return t`Mixed`
+    },
+    get resetMixedHint() {
+      return t`Keep all changes unstaged`
+    },
+    get resetHard() {
+      return t`Hard`
+    },
+    get resetHardHint() {
+      return t`Discard all changes`
     },
   },
 

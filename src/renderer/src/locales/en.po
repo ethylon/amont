@@ -16,6 +16,9 @@ msgstr ""
 msgid "… {n} lines truncated"
 msgstr "… {n} lines truncated"
 
+msgid "« {branch} » will be moved to {hash}."
+msgstr "« {branch} » will be moved to {hash}."
+
 msgid "(first-parent)"
 msgstr "(first-parent)"
 
@@ -94,6 +97,9 @@ msgstr "a command"
 msgid "A repository without a working tree, ready to be used as a remote."
 msgstr "A repository without a working tree, ready to be used as a remote."
 
+msgid "A tag will be created on commit {hash}."
+msgstr "A tag will be created on commit {hash}."
+
 msgid "Abort merge"
 msgstr "Abort merge"
 
@@ -117,6 +123,9 @@ msgstr "After"
 
 msgid "Also delete the remote branch « {upstream} »"
 msgstr "Also delete the remote branch « {upstream} »"
+
+msgid "Also delete the tag on « {remote} »"
+msgstr "Also delete the tag on « {remote} »"
 
 msgid "Also search diff content"
 msgstr "Also search diff content"
@@ -142,6 +151,9 @@ msgstr "Apply"
 msgid "Apply and drop"
 msgstr "Apply and drop"
 
+msgid "at"
+msgstr "at"
+
 msgid "author"
 msgstr "author"
 
@@ -162,6 +174,9 @@ msgstr "Before"
 
 msgid "Branch · {n, plural, one {# commit} other {# commits}}"
 msgstr "Branch · {n, plural, one {# commit} other {# commits}}"
+
+msgid "branch name"
+msgstr "branch name"
 
 msgid "Branches"
 msgstr "Branches"
@@ -190,11 +205,17 @@ msgstr "Changes to « {path} » will be permanently lost."
 msgid "Check for updates…"
 msgstr "Check for updates…"
 
+msgid "Check out"
+msgstr "Check out"
+
 msgid "Checking for updates…"
 msgstr "Checking for updates…"
 
 msgid "Checkout"
 msgstr "Checkout"
+
+msgid "Checkout {hash}"
+msgstr "Checkout {hash}"
 
 msgid "Choose a destination folder first."
 msgstr "Choose a destination folder first."
@@ -298,6 +319,18 @@ msgstr "Create a local repository, a bare remote repository, or clone an existin
 msgid "Create a repository"
 msgstr "Create a repository"
 
+msgid "Create a tag"
+msgstr "Create a tag"
+
+msgid "Create branch from {hash}…"
+msgstr "Create branch from {hash}…"
+
+msgid "Create tag here…"
+msgstr "Create tag here…"
+
+msgid "Create worktree from {hash}…"
+msgstr "Create worktree from {hash}…"
+
 msgid "Create worktree…"
 msgstr "Create worktree…"
 
@@ -343,6 +376,18 @@ msgstr "Delete branch"
 msgid "Delete branch?"
 msgstr "Delete branch?"
 
+msgid "Delete remote branch"
+msgstr "Delete remote branch"
+
+msgid "Delete remote branch?"
+msgstr "Delete remote branch?"
+
+msgid "Delete tag"
+msgstr "Delete tag"
+
+msgid "Delete tag?"
+msgstr "Delete tag?"
+
 msgid "Deleted"
 msgstr "Deleted"
 
@@ -378,6 +423,9 @@ msgstr "Discard"
 
 msgid "Discard all"
 msgstr "Discard all"
+
+msgid "Discard all changes"
+msgstr "Discard all changes"
 
 msgid "Discard changes"
 msgstr "Discard changes"
@@ -523,6 +571,9 @@ msgstr "Give your own commit prefixes a badge color. Matches both [PREFIX] and p
 #~ msgid "Hand-edited — undo the edits to re-enable the pickers."
 #~ msgstr "Hand-edited — undo the edits to re-enable the pickers."
 
+msgid "Hard"
+msgstr "Hard"
+
 msgid "Help"
 msgstr "Help"
 
@@ -573,6 +624,12 @@ msgstr "Interval"
 
 msgid "Its remote branch has already been deleted."
 msgstr "Its remote branch has already been deleted."
+
+msgid "Keep all changes staged"
+msgstr "Keep all changes staged"
+
+msgid "Keep all changes unstaged"
+msgstr "Keep all changes unstaged"
 
 msgid "Language"
 msgstr "Language"
@@ -628,6 +685,9 @@ msgstr "Merging {theirs} (B) into {ours} (A)"
 msgid "min"
 msgstr "min"
 
+msgid "Mixed"
+msgstr "Mixed"
+
 msgid "Monospace font"
 msgstr "Monospace font"
 
@@ -640,6 +700,9 @@ msgstr "name"
 msgid "Name"
 msgstr "Name"
 
+msgid "New branch at {hash}"
+msgstr "New branch at {hash}"
+
 msgid "New repositories and clones are created inside this folder."
 msgstr "New repositories and clones are created inside this folder."
 
@@ -648,6 +711,9 @@ msgstr "New repository…"
 
 msgid "New tab"
 msgstr "New tab"
+
+msgid "New worktree at {hash}"
+msgstr "New worktree at {hash}"
 
 msgid "Next result"
 msgstr "Next result"
@@ -832,6 +898,12 @@ msgstr "Repository created: {path}"
 msgid "Reset"
 msgstr "Reset"
 
+msgid "Reset « {branch} » to {hash}…"
+msgstr "Reset « {branch} » to {hash}…"
+
+msgid "Reset branch?"
+msgstr "Reset branch?"
+
 msgid "Reset to defaults"
 msgstr "Reset to defaults"
 
@@ -846,6 +918,9 @@ msgstr "Restart now"
 
 msgid "Reveal in file explorer"
 msgstr "Reveal in file explorer"
+
+msgid "Revert {hash}"
+msgstr "Revert {hash}"
 
 msgid "Root folder"
 msgstr "Root folder"
@@ -873,6 +948,9 @@ msgstr "Show sidebar"
 
 msgid "Side by side"
 msgstr "Side by side"
+
+msgid "Soft"
+msgstr "Soft"
 
 msgid "Something went wrong"
 msgstr "Something went wrong"
@@ -940,6 +1018,9 @@ msgstr "System"
 msgid "tag {tag}"
 msgstr "tag {tag}"
 
+msgid "tag name"
+msgstr "tag name"
+
 msgid "Tags"
 msgstr "Tags"
 
@@ -961,8 +1042,14 @@ msgstr "Take B in every conflict"
 msgid "Text diff"
 msgstr "Text diff"
 
+msgid "The branch « {name} » will be deleted on the remote."
+msgstr "The branch « {name} » will be deleted on the remote."
+
 msgid "The branch « {name} » will be deleted."
 msgstr "The branch « {name} » will be deleted."
+
+msgid "The tag « {name} » will be deleted."
+msgstr "The tag « {name} » will be deleted."
 
 msgid "theirs — incoming"
 msgstr "theirs — incoming"

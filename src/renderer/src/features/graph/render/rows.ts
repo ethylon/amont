@@ -340,6 +340,9 @@ export function rowDiv(
     const s = scrollText(showPrefix ? ps.text : c.s)
     /* the italics signal the provisional: this subject isn't a deliberately chosen commit message */
     if (c.stash) s.className += " italic text-muted-foreground"
+    /* revert design: the quoted subject is the undone commit's — struck through, the
+       clearest "this change was taken back" a row can say (the badge carries the intent) */
+    if (ps.revert && showPrefix) s.className += " line-through decoration-foreground/40"
     s.title = c.s
     subj.appendChild(s)
   }

@@ -1,14 +1,17 @@
 import { lazy, Suspense, useMemo, useRef, useState } from "react"
 
 import { worktreeCount } from "@/lib/git"
+import { useStatusQuery } from "@/features/repo/repo-queries"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { ErrorBoundary } from "@/app/error-boundary"
 import type { GraphCallbacks } from "@/features/graph/controller"
 import { CommitGraph } from "@/features/graph/react/commit-graph"
+import { CommitMenu, CreateTagDialog, ResetDialog, type CommitMenuTarget } from "@/features/graph/react/commit-menu"
 
 /* Code-split at the overlay seam (perf audit, finding 6): both views render behind store
    state (ui.diff / ui.conflict), never on first paint, and DiffView alone drags diff2html
@@ -48,9 +51,19 @@ export function GraphColumn() {
 
   const { data: rawWt } = useWorktreeQuery(api, repoId)
   const worktree = rawWt && worktreeCount(rawWt) ? rawWt : null
+  /* current branch for the commit menu's reset entry (label + detached-HEAD disable);
+     same query key the toolbar reads — react-query dedupes */
+  const currentBranch = useStatusQuery(api, repoId).data?.branch ?? null
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const [diffNonce, setDiffNonce] = useState(0)
+
+  /* Commit context menu (imperative rows → React menu): the right-clicked row is resolved
+     here, before the Base UI trigger opens — a click outside a commit row (empty space, a
+     stash entry) swallows the event so no menu opens on nothing. */
+  const [menuTarget, setMenuTarget] = useState<CommitMenuTarget | null>(null)
+  const [tagAt, setTagAt] = useState<string | null>(null)
+  const [resetAt, setResetAt] = useState<string | null>(null)
 
   /* No selection-syncing effect here: the store is the source of truth AND already pushes
      every `selection.rows` change to the canvas imperatively (each mutation in
@@ -101,50 +114,86 @@ export function GraphColumn() {
 
       {/* the diff overlays the graph instead of unmounting it: scroll, selection and layout
           of the canvas survive its closing */}
-      <div className="relative grid min-h-0">
-        <CommitGraph
-          api={api}
-          callbacks={callbacks}
-          onReady={(graph) => {
-            graphRef.current = graph
-            if (graph) void storeApi.getState().resetAndLoad()
-          }}
-        />
-        {diff && (
-          <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
-            <ErrorBoundary key={`${diff.file.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
-              {/* Suspense inside the boundary: a failed chunk load surfaces as the same
+      <ContextMenu>
+        <ContextMenuTrigger
+          render={
+            <div
+              className="relative grid min-h-0"
+              onContextMenuCapture={(ev) => {
+                const rowEl = (ev.target as HTMLElement).closest<HTMLElement>(".amont-row")
+                const row = rowEl ? Number(rowEl.dataset.i) : null
+                const c = row !== null ? graphRef.current?.commit(row) : undefined
+                /* not a commit row (empty space, overlay, stash entry): the capture-phase stop
+                   keeps the event from ever reaching the trigger's own listener — no menu */
+                if (!c || c.stash) {
+                  ev.preventDefault()
+                  ev.stopPropagation()
+                  return
+                }
+                /* the menu acts on the commit the user is looking at: select it like a click */
+                storeApi.getState().selectRow(row!, false)
+                setMenuTarget({ hash: c.h })
+              }}
+            />
+          }
+        >
+          <CommitGraph
+            api={api}
+            callbacks={callbacks}
+            onReady={(graph) => {
+              graphRef.current = graph
+              if (graph) void storeApi.getState().resetAndLoad()
+            }}
+          />
+          {diff && (
+            <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
+              <ErrorBoundary key={`${diff.file.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
+                {/* Suspense inside the boundary: a failed chunk load surfaces as the same
                   reset-able error card as a render throw */}
-              <Suspense fallback={null}>
-                <DiffView
-                  api={api}
-                  repoId={repoId}
-                  ctx={diff.ctx}
-                  file={diff.file}
-                  view={diffMode}
-                  onViewChange={setDiffMode}
-                  onClose={closeDiff}
-                />
-              </Suspense>
-            </ErrorBoundary>
-          </div>
+                <Suspense fallback={null}>
+                  <DiffView
+                    api={api}
+                    repoId={repoId}
+                    ctx={diff.ctx}
+                    file={diff.file}
+                    view={diffMode}
+                    onViewChange={setDiffMode}
+                    onClose={closeDiff}
+                  />
+                </Suspense>
+              </ErrorBoundary>
+            </div>
+          )}
+          {conflict && (
+            <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
+              <ErrorBoundary key={`${conflict.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
+                <Suspense fallback={null}>
+                  <ConflictView
+                    api={api}
+                    repoId={repoId}
+                    file={conflict}
+                    onClose={closeConflict}
+                    onResolve={resolveConflict}
+                  />
+                </Suspense>
+              </ErrorBoundary>
+            </div>
+          )}
+        </ContextMenuTrigger>
+        {menuTarget && (
+          <CommitMenu
+            target={menuTarget}
+            currentBranch={currentBranch}
+            onCreateBranch={(hash) => storeApi.getState().openBranchCreate(hash)}
+            onCreateWorktree={(hash) => storeApi.getState().openWorktreeCreate(hash)}
+            onCreateTag={setTagAt}
+            onReset={setResetAt}
+          />
         )}
-        {conflict && (
-          <div data-amont-keep-focus className="absolute inset-0 z-2 flex flex-col bg-background">
-            <ErrorBoundary key={`${conflict.path}:${diffNonce}`} onReset={() => setDiffNonce((n) => n + 1)}>
-              <Suspense fallback={null}>
-                <ConflictView
-                  api={api}
-                  repoId={repoId}
-                  file={conflict}
-                  onClose={closeConflict}
-                  onResolve={resolveConflict}
-                />
-              </Suspense>
-            </ErrorBoundary>
-          </div>
-        )}
-      </div>
+      </ContextMenu>
+
+      {tagAt && <CreateTagDialog at={tagAt} onClose={() => setTagAt(null)} />}
+      {resetAt && currentBranch && <ResetDialog branch={currentBranch} to={resetAt} onClose={() => setResetAt(null)} />}
     </div>
   )
 }
