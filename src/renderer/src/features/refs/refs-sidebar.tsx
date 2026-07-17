@@ -7,6 +7,7 @@ import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import type { PathTree } from "@/lib/path-tree"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { useFlowQuery } from "@/features/flow/flow-queries"
 import { FlowShortcut } from "@/features/flow/flow-shortcut"
 import { useRefsQuery } from "@/features/refs/refs-queries"
@@ -209,28 +210,30 @@ export const RefsSidebar = memo(function RefsSidebar() {
             </InputGroup>
           </div>
 
-          <div className="flex flex-1 flex-col gap-1.5 overflow-auto px-2 pt-2 pb-4">
-            {/* the promoted gitflow move — a shortcut, not a ref: it steps aside while filtering */}
-            {!q && <FlowShortcut />}
-            {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
-            {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
-            {groups &&
-              q &&
-              !groups.head &&
-              !groups.remote &&
-              !groups.tag &&
-              !stashes.some((s) => matchStash(s, q)) &&
-              !worktrees.some((w) => !w.main && matchWorktree(w, q)) && (
-                <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
-              )}
-            {/* local branches, remotes, worktrees, tags, stashes — worktrees sit with the
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex flex-col gap-1.5 px-2 pt-2 pb-4">
+              {/* the promoted gitflow move — a shortcut, not a ref: it steps aside while filtering */}
+              {!q && <FlowShortcut />}
+              {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
+              {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
+              {groups &&
+                q &&
+                !groups.head &&
+                !groups.remote &&
+                !groups.tag &&
+                !stashes.some((s) => matchStash(s, q)) &&
+                !worktrees.some((w) => !w.main && matchWorktree(w, q)) && (
+                  <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
+                )}
+              {/* local branches, remotes, worktrees, tags, stashes — worktrees sit with the
               branch groups (they anchor checkouts), tags and stashes close the list */}
-            {group("head")}
-            {group("remote")}
-            <WorktreesSection filter={q} />
-            {group("tag")}
-            <StashSection filter={q} />
-          </div>
+              {group("head")}
+              {group("remote")}
+              <WorktreesSection filter={q} />
+              {group("tag")}
+              <StashSection filter={q} />
+            </div>
+          </ScrollArea>
         </div>
       </nav>
 
