@@ -17,8 +17,8 @@ import { classifyGitFailure, parseProgressPercent } from "./parse.ts"
 
 /* GIT_TERMINAL_PROMPT=0: without a TTY, a git command asking for a password would hang
    indefinitely. Graphical credential helpers (GCM) remain usable.
-   GIT_EDITOR: git doesn't open an editor without a TTY, but `git flow` is a shell script that
-   does need one for its annotated tag. `true` turns that into a clean failure. */
+   GIT_EDITOR: belt-and-braces — every command that could want an editor (tag -a, merge) is
+   passed an explicit `-m`/no-edit, `true` turns any leftover case into a clean failure. */
 const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_EDITOR: "true", GIT_MERGE_AUTOEDIT: "no" }
 
 /** Reads: 60s. Network operations and pickaxe search pass their own timeout
