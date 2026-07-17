@@ -1,4 +1,8 @@
-# Landing copy — draft v1 (2026-07-16)
+# Landing copy — draft v2 (2026-07-17)
+
+v2: the project is closed-source freeware — every "open source" / MIT / "view the
+source" claim is replaced; downloads and issues live on the public
+`ethylon/amont-releases` repo.
 
 Single message above the fold: **fast, readable Git history**. Everything below serves it.
 Framework: AIDA compressed. One CTA (Download), repeated once at the end.
@@ -6,19 +10,18 @@ Framework: AIDA compressed. One CTA (Download), repeated once at the end.
 ## Meta
 
 - Title: `Amont — Git history you can actually read`
-- Description: `Amont is a free, open-source Git client for Windows built around one idea:
+- Description: `Amont is a free Git client for Windows built around one idea:
 a commit graph fast enough to be your workspace. Smooth at 100,000+ commits,
 keyboard-driven, and it shows every git command it runs.`
 
 ## Hero
 
-- Badge: `v{version} · Free & open source · Windows`
+- Badge: `v{version} · Windows · Freeware`
 - H1: `Git history you can actually read.`
 - Lede: `Amont lays your repository out as one fast, readable commit graph —
 branches, merges, tags, stashes and ahead/behind status at a glance.
 Smooth at 100,000+ commits. Driven entirely from the keyboard if you want.`
-- CTA: `Download for Windows`
-- Secondary (text link, not a button): `View the source ↗`
+- CTA: `Download for Windows` (single CTA — no secondary link since going closed-source)
 - Screenshot: the graph, full width.
 - Caption: `A real history — Amont browsing its own repository.`
 
@@ -60,8 +63,9 @@ Amont runs the git already installed on your machine — and proves it.`
 - `**The exact command, before you click.** Every mutation button shows the git
 command it will run. A read-only console logs every command executed.`
 - `**Your git, your repo.** No bundled binaries, no hidden state, no account.`
-- `**Free and open.** MIT-licensed, developed in the open on GitHub. Optional
-crash reports carry no repository contents and no personal data.`
+- `**Free for everyone.** Amont is freeware: free for personal and commercial use,
+no account, no license key. Optional crash reports carry no repository contents
+and no personal data.`
 
 ## Download
 
@@ -71,6 +75,8 @@ date from there — background download, install on quit.`
 - CTA: `Download for Windows`
 - Platform note: `Windows only for now — macOS and Linux aren't packaged yet.`
 - SmartScreen box: keep current honest wording.
+- Dedicated page: `/download/` (EN) and `/fr/telecharger/` (FR) repeat this section
+  with the version badge and a back-home link; the nav "Download" entry points there.
 
 ## Headline alternatives
 
