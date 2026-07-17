@@ -457,7 +457,7 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
                 }}
               >
                 {messages.conflict.markResolved}
-                <GitCmd cmd={`git add -- ${file.path}`} className="text-primary-foreground/70" />
+                <GitCmd cmd={`git add -- ${file.path}`} running={saving} className="text-primary-foreground/70" />
               </Button>
             </div>
           </div>
