@@ -176,6 +176,21 @@ describe("parseSubject", () => {
   it('leaves any random "truc: machin" as plain text', () => {
     assert.deepEqual(parseSubject("truc: machin"), { type: null, label: null, text: "truc: machin" })
   })
+
+  it('gives git\'s own `Revert "…"` subject the revert badge, quoting out the undone subject', () => {
+    assert.deepEqual(parseSubject('Revert "feat: ajout du graphe"'), {
+      type: "revert",
+      label: "revert",
+      text: "feat: ajout du graphe",
+      revert: true,
+    })
+    /* a nested revert keeps the inner quotes intact */
+    assert.deepEqual(parseSubject('Revert "Revert "fix: x""').text, 'Revert "fix: x"')
+    /* the conventional prefix keeps its usual (non-struck) treatment */
+    assert.equal(parseSubject("revert: retour arrière").revert, undefined)
+    /* an unquoted or foreign "Revert…" subject stays plain text */
+    assert.deepEqual(parseSubject("Reverted the thing"), { type: null, label: null, text: "Reverted the thing" })
+  })
 })
 
 describe("custom prefix rules", () => {
