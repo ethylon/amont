@@ -296,7 +296,7 @@ export function computeNextTag(kind: "release" | "hotfix", suffix: string, lastT
   return kind === "hotfix" ? `${m[1]}${m[2]}.${m[3]}.${+m[4] + 1}` : `${m[1]}${m[2]}.${+m[3] + 1}.0`
 }
 
-/** The `gitflow.*` key/value pairs `flowInit` writes before `git flow init -d`. A stable order,
+/** The `gitflow.*` key/value pairs `flowInit` writes. A stable order,
     trunk branches first, so the config is deterministic (and the test can assert it). */
 export function flowInitConfigArgs(cfg: FlowInitConfig): [string, string][] {
   return [
