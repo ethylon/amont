@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group"
 import { LABEL_CLS } from "@/components/ui/typography"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { homeKeys } from "@/features/home/keys"
 
@@ -145,135 +144,129 @@ export function CreateDialog({ open, onOpenChange, onOpened }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] sm:max-w-lg">
-        {/* max-h relayed onto the viewport, minus DialogContent's p-4: the stock viewport
-            (size-full) would otherwise resolve against an auto height and never scroll */}
-        <ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-[calc(85vh-2rem)]">
-          <div className="flex flex-col gap-5">
-            <DialogHeader>
-              <DialogTitle>{messages.create.title}</DialogTitle>
-              <DialogDescription>{messages.create.intro}</DialogDescription>
-            </DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col gap-5 overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{messages.create.title}</DialogTitle>
+          <DialogDescription>{messages.create.intro}</DialogDescription>
+        </DialogHeader>
 
-            <Section
-              icon={FolderLibraryIcon}
-              title={messages.create.destination}
-              hint={dest ? messages.create.destinationHint : messages.create.noDestination}
-            >
-              <div className={rowCls}>
-                <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{dest ?? "—"}</p>
-                <Button variant="outline" size="xs" onClick={() => void chooseDir()}>
-                  {messages.home.choose}
-                </Button>
-              </div>
-            </Section>
-
-            <Section icon={FolderDownloadIcon} title={messages.create.cloneTitle} hint={messages.create.cloneHint}>
-              <form
-                className={formCls}
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  void clone()
-                }}
-              >
-                <label className={rowCls}>
-                  <span className={labelCls}>{messages.create.url}</span>
-                  <Input
-                    value={url}
-                    onChange={(e) => setUrlAndName(e.target.value)}
-                    placeholder={messages.create.urlPlaceholder}
-                  />
-                </label>
-                {/* the addon spells out the exact path the clone will create: destination
-                prefix frozen, only the final folder name stays editable */}
-                <label className={rowCls}>
-                  <span className={labelCls}>{messages.create.name}</span>
-                  <InputGroup>
-                    {destPrefix && (
-                      <InputGroupAddon>
-                        {/* start-truncated (rtl + ltr override): a long destination keeps its tail
-                        visible — the part the name visually attaches to */}
-                        <InputGroupText className="max-w-64">
-                          <span dir="rtl" className="max-w-full truncate">
-                            <span dir="ltr" className="[unicode-bidi:bidi-override]">
-                              {destPrefix}
-                            </span>
-                          </span>
-                        </InputGroupText>
-                      </InputGroupAddon>
-                    )}
-                    <InputGroupInput
-                      value={cloneName}
-                      onChange={(e) => {
-                        setCloneName(e.target.value)
-                        setCloneNameEdited(true)
-                      }}
-                    />
-                  </InputGroup>
-                </label>
-                <div className={rowCls}>
-                  <span className={labelCls} />
-                  <Button type="submit" size="sm" disabled={!dest || !url.trim() || !cloneName.trim() || busy !== null}>
-                    {messages.create.clone}
-                  </Button>
-                  {busy === "clone" && <AsyncHint>{messages.create.cloning}</AsyncHint>}
-                </div>
-                {failure("clone")}
-              </form>
-            </Section>
-
-            <Section icon={FolderAddIcon} title={messages.create.localTitle} hint={messages.create.localHint}>
-              <form
-                className={formCls}
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  void createLocal()
-                }}
-              >
-                <label className={rowCls}>
-                  <span className={labelCls}>{messages.create.name}</span>
-                  <Input value={localName} onChange={(e) => setLocalName(e.target.value)} />
-                </label>
-                <div className={rowCls}>
-                  <span className={labelCls} />
-                  <Button type="submit" size="sm" disabled={!dest || !localName.trim() || busy !== null}>
-                    {messages.create.create}
-                  </Button>
-                  {busy === "local" && <AsyncHint>{messages.create.creating}</AsyncHint>}
-                </div>
-                {failure("local")}
-              </form>
-            </Section>
-
-            <Section icon={CloudServerIcon} title={messages.create.bareTitle} hint={messages.create.bareHint}>
-              <form
-                className={formCls}
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  void createBare()
-                }}
-              >
-                <label className={rowCls}>
-                  <span className={labelCls}>{messages.create.name}</span>
-                  <Input value={bareName} onChange={(e) => setBareName(e.target.value)} />
-                </label>
-                <div className={rowCls}>
-                  <span className={labelCls} />
-                  <Button type="submit" size="sm" disabled={!dest || !bareName.trim() || busy !== null}>
-                    {messages.create.create}
-                  </Button>
-                  {busy === "bare" && <AsyncHint>{messages.create.creating}</AsyncHint>}
-                </div>
-                {failure("bare")}
-                {barePath && (
-                  <Badge color="success" shape="squared" className="self-start">
-                    {messages.create.createdAt(barePath)}
-                  </Badge>
-                )}
-              </form>
-            </Section>
+        <Section
+          icon={FolderLibraryIcon}
+          title={messages.create.destination}
+          hint={dest ? messages.create.destinationHint : messages.create.noDestination}
+        >
+          <div className={rowCls}>
+            <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{dest ?? "—"}</p>
+            <Button variant="outline" size="xs" onClick={() => void chooseDir()}>
+              {messages.home.choose}
+            </Button>
           </div>
-        </ScrollArea>
+        </Section>
+
+        <Section icon={FolderDownloadIcon} title={messages.create.cloneTitle} hint={messages.create.cloneHint}>
+          <form
+            className={formCls}
+            onSubmit={(e) => {
+              e.preventDefault()
+              void clone()
+            }}
+          >
+            <label className={rowCls}>
+              <span className={labelCls}>{messages.create.url}</span>
+              <Input
+                value={url}
+                onChange={(e) => setUrlAndName(e.target.value)}
+                placeholder={messages.create.urlPlaceholder}
+              />
+            </label>
+            {/* the addon spells out the exact path the clone will create: destination
+                prefix frozen, only the final folder name stays editable */}
+            <label className={rowCls}>
+              <span className={labelCls}>{messages.create.name}</span>
+              <InputGroup>
+                {destPrefix && (
+                  <InputGroupAddon>
+                    {/* start-truncated (rtl + ltr override): a long destination keeps its tail
+                        visible — the part the name visually attaches to */}
+                    <InputGroupText className="max-w-64">
+                      <span dir="rtl" className="max-w-full truncate">
+                        <span dir="ltr" className="[unicode-bidi:bidi-override]">
+                          {destPrefix}
+                        </span>
+                      </span>
+                    </InputGroupText>
+                  </InputGroupAddon>
+                )}
+                <InputGroupInput
+                  value={cloneName}
+                  onChange={(e) => {
+                    setCloneName(e.target.value)
+                    setCloneNameEdited(true)
+                  }}
+                />
+              </InputGroup>
+            </label>
+            <div className={rowCls}>
+              <span className={labelCls} />
+              <Button type="submit" size="sm" disabled={!dest || !url.trim() || !cloneName.trim() || busy !== null}>
+                {messages.create.clone}
+              </Button>
+              {busy === "clone" && <AsyncHint>{messages.create.cloning}</AsyncHint>}
+            </div>
+            {failure("clone")}
+          </form>
+        </Section>
+
+        <Section icon={FolderAddIcon} title={messages.create.localTitle} hint={messages.create.localHint}>
+          <form
+            className={formCls}
+            onSubmit={(e) => {
+              e.preventDefault()
+              void createLocal()
+            }}
+          >
+            <label className={rowCls}>
+              <span className={labelCls}>{messages.create.name}</span>
+              <Input value={localName} onChange={(e) => setLocalName(e.target.value)} />
+            </label>
+            <div className={rowCls}>
+              <span className={labelCls} />
+              <Button type="submit" size="sm" disabled={!dest || !localName.trim() || busy !== null}>
+                {messages.create.create}
+              </Button>
+              {busy === "local" && <AsyncHint>{messages.create.creating}</AsyncHint>}
+            </div>
+            {failure("local")}
+          </form>
+        </Section>
+
+        <Section icon={CloudServerIcon} title={messages.create.bareTitle} hint={messages.create.bareHint}>
+          <form
+            className={formCls}
+            onSubmit={(e) => {
+              e.preventDefault()
+              void createBare()
+            }}
+          >
+            <label className={rowCls}>
+              <span className={labelCls}>{messages.create.name}</span>
+              <Input value={bareName} onChange={(e) => setBareName(e.target.value)} />
+            </label>
+            <div className={rowCls}>
+              <span className={labelCls} />
+              <Button type="submit" size="sm" disabled={!dest || !bareName.trim() || busy !== null}>
+                {messages.create.create}
+              </Button>
+              {busy === "bare" && <AsyncHint>{messages.create.creating}</AsyncHint>}
+            </div>
+            {failure("bare")}
+            {barePath && (
+              <Badge color="success" shape="squared" className="self-start">
+                {messages.create.createdAt(barePath)}
+              </Badge>
+            )}
+          </form>
+        </Section>
       </DialogContent>
     </Dialog>
   )
