@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -102,42 +101,37 @@ export const Toolbar = memo(function Toolbar({
   const fetchCmd = `${fetchOp.cmd}${prune ? " --prune" : ""}`
 
   return (
-    <ScrollArea className="h-11.5 shrink-0 border-b">
-      {/* h-full, not h-11.5: the border-b eats 1px off the viewport, a fixed inner height
-          would overflow it vertically by that pixel */}
-      <div className="flex h-full items-center gap-2 pr-3.5">
-        {/* w-59 = the sidebar's width: the closing separator lands on its border-r.
+    <div className="flex h-11.5 shrink-0 items-center gap-2 overflow-x-auto border-b pr-3.5">
+      {/* w-59 = the sidebar's width: the closing separator lands on its border-r.
           Fixed width also keeps the bar's geometry stable across repo-name lengths. */}
-        <div className="flex w-59 shrink-0 items-center gap-2 self-stretch pl-2.5">
-          <IconButton
-            label={sidebarOpen ? messages.repo.hideSidebar : messages.repo.showSidebar}
-            icon={PanelLeftCloseIcon}
-            swapIcon={PanelLeftOpenIcon}
-            swapped={sidebarOpen}
-            onClick={onToggleSidebar}
-          />
+      <div className="flex w-59 shrink-0 items-center gap-2 self-stretch pl-2.5">
+        <IconButton
+          label={sidebarOpen ? messages.repo.hideSidebar : messages.repo.showSidebar}
+          icon={PanelLeftCloseIcon}
+          swapIcon={PanelLeftOpenIcon}
+          swapped={sidebarOpen}
+          onClick={onToggleSidebar}
+        />
 
-          <span className="amont-reponame flex min-w-0 flex-1 items-center gap-1.5 text-xs">
-            <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium">{repo.name}</span>
-          </span>
+        <span className="amont-reponame flex min-w-0 flex-1 items-center gap-1.5 text-xs">
+          <HugeiconsIcon icon={Folder01Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate font-medium">{repo.name}</span>
+        </span>
 
-          <Separator orientation="vertical" className="my-2" />
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1">
-          {/* `--prune` is a live setting, so fetch's shown command is built from it (see fetchCmd). */}
-          {opButton(fetchOp, fetchCmd)}
-          {restOps.map((op) => opButton(op))}
-        </div>
-
-        <Separator orientation="vertical" className="mx-1 my-2" />
-
-        {children}
-
-        <span className="flex-1" />
+        <Separator orientation="vertical" className="my-2" />
       </div>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
+
+      <div className="flex shrink-0 items-center gap-1">
+        {/* `--prune` is a live setting, so fetch's shown command is built from it (see fetchCmd). */}
+        {opButton(fetchOp, fetchCmd)}
+        {restOps.map((op) => opButton(op))}
+      </div>
+
+      <Separator orientation="vertical" className="mx-1 my-2" />
+
+      {children}
+
+      <span className="flex-1" />
+    </div>
   )
 })

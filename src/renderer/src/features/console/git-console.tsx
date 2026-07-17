@@ -8,7 +8,6 @@ import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 /* `key`: lines have no identity of their own on the main side; a local counter is enough for React. */
 type Entry = TraceLine & { key: number }
@@ -100,11 +99,8 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
      panel mounts after the state flips (portal), an effect can measure before the content lays
      out and land mid-history. The ref attaches once the container exists, scrollHeight is final. */
   const attachScroll = useCallback((el: HTMLDivElement | null) => {
-    /* the ScrollArea viewport is the actual scroller — the stock shadcn component
-       exposes no viewport ref, hence the data-slot query */
-    const vp = el?.querySelector<HTMLDivElement>('[data-slot="scroll-area-viewport"]') ?? null
-    scrollRef.current = vp
-    if (vp) vp.scrollTop = vp.scrollHeight
+    scrollRef.current = el
+    if (el) el.scrollTop = el.scrollHeight
   }, [])
 
   /* new line: follow the bottom, unless the user has scrolled up to read the history */
@@ -204,20 +200,16 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
             </div>
           </div>
 
-          {/* max-h relayed onto the viewport: Root has no definite height in the popover,
-              the stock viewport (size-full) would otherwise resolve against auto and never scroll */}
-          <ScrollArea
+          <div
             ref={attachScroll}
-            className="min-h-0 max-h-[min(60vh,24rem)] flex-1 [&>[data-slot=scroll-area-viewport]]:max-h-[min(60vh,24rem)]"
+            className="min-h-0 max-h-[min(60vh,24rem)] flex-1 overflow-auto px-2.5 py-2 font-mono text-[0.6875rem] leading-relaxed"
           >
-            <div className="px-2.5 py-2 font-mono text-[0.6875rem] leading-relaxed">
-              {lines.length === 0 ? (
-                <p className="text-muted-foreground">{messages.console.noCommandsYet}</p>
-              ) : (
-                lines.map((l) => <Line key={l.key} line={l} />)
-              )}
-            </div>
-          </ScrollArea>
+            {lines.length === 0 ? (
+              <p className="text-muted-foreground">{messages.console.noCommandsYet}</p>
+            ) : (
+              lines.map((l) => <Line key={l.key} line={l} />)
+            )}
+          </div>
         </PopoverContent>
       </Popover>
     </div>
