@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Spinner } from "@/components/ui/spinner"
 import { RollingText } from "@/components/ui/rolling-text"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -124,7 +125,7 @@ const WtBlock = memo(function WtBlock({
         {title} · {files.length}
       </FileListHeader>
 
-      <div data-file-nav="" className="min-h-0 flex-1 overflow-y-auto">
+      <ScrollArea data-file-nav="" className="min-h-0 flex-1">
         {files.length ? (
           <FileEntries
             files={files}
@@ -138,7 +139,7 @@ const WtBlock = memo(function WtBlock({
         ) : (
           <p className="px-1.5 py-0.5 text-xs text-muted-foreground">{empty}</p>
         )}
-      </div>
+      </ScrollArea>
     </div>
   )
 })
