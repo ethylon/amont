@@ -181,8 +181,11 @@ msgstr "Amont {version} est prêt à être installé."
 msgid "Amont is up to date."
 msgstr "Amont est à jour."
 
-msgid "Appearance, colors, and fetch behavior."
-msgstr "Apparence, couleurs et comportement du fetch."
+msgid "Appearance, colors, and diff highlighting."
+msgstr "Apparence, couleurs et coloration des diffs."
+
+#~ msgid "Appearance, colors, and fetch behavior."
+#~ msgstr "Apparence, couleurs et comportement du fetch."
 
 msgid "Apply"
 msgstr "Appliquer"
@@ -535,6 +538,15 @@ msgstr "tag attendu"
 msgid "Extension"
 msgstr "Extension"
 
+msgid "Fail when the branches have diverged."
+msgstr "Échoue quand les branches ont divergé."
+
+msgid "Fast-forward if possible"
+msgstr "Avance rapide si possible"
+
+msgid "Fast-forward only"
+msgstr "Avance rapide uniquement"
+
 msgid "Feature"
 msgstr "Feature"
 
@@ -549,6 +561,9 @@ msgstr "Fetch"
 
 msgid "Fetch from all remotes in the background, on a timer."
 msgstr "Récupère depuis tous les distants en arrière-plan, à intervalle régulier."
+
+msgid "Fetch options"
+msgstr "Options de fetch"
 
 msgid "Fetching…"
 msgstr "Récupération…"
@@ -739,6 +754,9 @@ msgstr "Fusionner {branch}"
 msgid "Merge into « {branch} »"
 msgstr "Fusionner dans « {branch} »"
 
+msgid "Merge when the branches have diverged."
+msgstr "Fusionne quand les branches ont divergé."
+
 msgid "merged"
 msgstr "fusionné"
 
@@ -922,6 +940,9 @@ msgstr "Publier la release {name}"
 msgid "Pull"
 msgstr "Pull"
 
+msgid "Pull options"
+msgstr "Options de pull"
+
 msgid "Pulling…"
 msgstr "Réception…"
 
@@ -936,6 +957,9 @@ msgstr "Envoi…"
 
 msgid "Ready"
 msgstr "Prêt"
+
+msgid "Rebase"
+msgstr "Rebase"
 
 msgid "Rebase on {base}"
 msgstr "Rebaser sur {base}"
@@ -975,6 +999,9 @@ msgstr "Retirer la ligne du résultat"
 
 msgid "Remove worktree"
 msgstr "Supprimer le worktree"
+
+msgid "Replay local commits on top of the fetched branch."
+msgstr "Rejoue les commits locaux sur la branche récupérée."
 
 msgid "Report an issue…"
 msgstr "Signaler un problème…"

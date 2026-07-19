@@ -438,7 +438,7 @@ export function formatPriceParts(cents: number): { units: string; decimals: stri
     });
   }
 
-  const SETTINGS = { autoFetch: false, autoFetchIntervalMin: 5, prune: true };
+  const SETTINGS = { autoFetch: false, autoFetchIntervalMin: 5, prune: true, pullMode: "ff" };
 
   /* Fichiers/diffs par commit pour les commits que les captures ouvrent ; les autres
      retombent sur le jeu générique. Contenus copiés de demo-repo.mjs. */

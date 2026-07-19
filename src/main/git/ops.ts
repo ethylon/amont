@@ -12,6 +12,7 @@
 import { writeFile } from "node:fs/promises"
 
 import { AppError, decodeError } from "../../shared/errors.ts"
+import { pullModeFlag } from "../../shared/settings.ts"
 import type { BranchAct, OpEvent, OpName, ResetMode, StashAct, WorktreeAct } from "../../shared/types.ts"
 import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
 import { getSettings } from "../settings.ts"
@@ -25,18 +26,21 @@ import { conflictOp } from "./queries.ts"
    --progress: without a TTY git stays silent about its progress; we force it so the console streams it. */
 const OPS: Record<OpName, string[]> = {
   fetch: ["fetch", "--all", "--progress"],
-  pull: ["pull", "--ff-only", "--progress"],
+  pull: ["pull", "--progress"], // never run as-is: opArgs always injects the integration-mode flag
   push: ["push", "--progress"],
 }
 const OP_GROUP: Record<OpName, string> = { fetch: "Fetch", pull: "Pull", push: "Push" }
 
 export const isOpName = (name: string): name is OpName => Object.hasOwn(OPS, name)
 
-/* `--prune` on fetch is a user setting (settings.ts): drop remote-tracking refs whose upstream
-   branch is gone. Read live at call time so a change in the settings modal takes effect on the
-   very next fetch, no restart. The other ops carry no settings-driven flag. */
-const opArgs = (name: OpName): string[] =>
-  name === "fetch" && getSettings().prune ? ["fetch", "--all", "--prune", "--progress"] : OPS[name]
+/* `--prune` on fetch and pull's integration mode (`--ff`/`--ff-only`/`--rebase`) are user
+   settings (settings.ts), edited from the toolbar's options cards. Read live at call time so a
+   change takes effect on the very next run, no restart. Push carries no settings-driven flag. */
+const opArgs = (name: OpName): string[] => {
+  if (name === "fetch" && getSettings().prune) return ["fetch", "--all", "--prune", "--progress"]
+  if (name === "pull") return ["pull", pullModeFlag(getSettings().pullMode), "--progress"]
+  return OPS[name]
+}
 
 /* Operation header: brackets the stream at the level of the user action (a push, a pull,
    auto-fetch, a checkout…), whereas `r.git()` only sees isolated commands. Background reads
@@ -131,14 +135,15 @@ async function upstreamOf(r: RepoHandle, name: string): Promise<{ remote: string
 const BRANCH_OPS: Record<BranchAct, (r: RepoHandle, name: string) => Promise<void>> = {
   merge: (r, name) => r.git(["merge", name], { timeout: OP_TIMEOUT }).then(() => {}),
 
-  /* We don't fetch into a checked-out branch: on HEAD, it's a pull. Elsewhere, the explicit
+  /* We don't fetch into a checked-out branch: on HEAD, it's a pull — with the same integration
+     mode as the toolbar's Pull, so the action means one thing app-wide. Elsewhere, the explicit
      refspec is fast-forward-only, and git takes the opportunity to update `refs/remotes/…` too. */
   async pull(r, name) {
     const { remote, merge } = await upstreamOf(r, name)
     const current = (await r.git(["rev-parse", "--abbrev-ref", "HEAD"])).trim()
     await r.git(
       name === current
-        ? ["pull", "--ff-only", "--progress"]
+        ? ["pull", pullModeFlag(getSettings().pullMode), "--progress"]
         : ["fetch", remote, `${merge}:refs/heads/${name}`, "--progress"],
       { timeout: OP_TIMEOUT, onProgress: reportProgress(r, "pull") }
     )
