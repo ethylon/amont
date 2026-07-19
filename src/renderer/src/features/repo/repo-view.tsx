@@ -167,6 +167,7 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const opState = useRepoStore((s) => s.ops.opState)
   const busyOp = useRepoStore((s) => s.ops.busyOp)
   const opProgress = useRepoStore((s) => s.ops.opProgress)
+  const queued = useRepoStore((s) => s.ops.queue.pending)
   const stats = useRepoStore((s) => s.graph.stats)
   const graphRef = useRepoStore((s) => s.graphRef)
   const toggleSidebar = useRepoStore((s) => s.toggleSidebar)
@@ -262,6 +263,7 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         repo={repo}
         status={status}
         busyOp={busyOp}
+        queued={queued}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
         onRunOp={onRunOp}
@@ -374,6 +376,7 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         flow={workFlow}
         opState={opState}
         opProgress={opProgress}
+        queued={queued}
         stats={stats}
         maint={tools.maint}
         health={health}

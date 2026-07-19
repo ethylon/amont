@@ -310,6 +310,12 @@ export type OpEvent = { id: number } & (
 /** `.git` moved under our feet. Main only emits it when the app is in the foreground. */
 export type ChangeEvent = { id: number }
 
+/** Live state of the per-repo mutation queue (cf. main/repos.ts `withLock`): the label of the
+    operation holding the lock and the labels still waiting behind it, in run order. Emitted on
+    every transition (enqueue, start, settle) — the footer shows "N queued" from `pending`, the
+    toolbar greys a network op already running or waiting. */
+export type QueueEvent = { id: number; running: string | null; pending: string[] }
+
 /** A console line: operation header, launched command, stderr output, or outcome. */
 export type TraceLine = { id: number } & (
   | { kind: "group"; text: string; ts: number }
