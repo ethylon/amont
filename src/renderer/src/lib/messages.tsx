@@ -864,26 +864,9 @@ export const messages = {
     get reset() {
       return t`Reset`
     },
-    get feature() {
-      return t`Feature`
-    },
-    get bugfix() {
-      return t`Bugfix`
-    },
-    get hotfix() {
-      return t`Hotfix`
-    },
-    get release() {
-      return t`Release`
-    },
-    get info() {
-      return t`Info`
-    },
-    get refactor() {
-      return t`Refactor`
-    },
-    get polish() {
-      return t`Polish`
+    /** below the fixed rows: the types that deliberately have no editable hue */
+    get neutralNote() {
+      return t`Housekeeping badges (chore, docs, style, ci, build, wip, plugin) keep the neutral gray; beta follows the accent color.`
     },
     /** custom prefix → color rules, below the fixed work-type roles */
     get customPrefixes() {
