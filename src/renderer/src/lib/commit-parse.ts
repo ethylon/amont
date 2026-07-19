@@ -41,7 +41,7 @@ Object.entries({
    any random "thing: stuff" stays plain text. */
 const CONVENTIONAL: Record<string, string> = {
   feat: "feat",
-  fix: "bugfix",
+  fix: "fix",
   hotfix: "hotfix",
   perf: "perf",
   refactor: "refactor",
@@ -64,6 +64,7 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   hotfix: "danger",
   revert: "revert",
   bugfix: "warning",
+  fix: "warning", // `fix:` keeps its own label; same icon as bugfix, so they share one settings row
   perf: "perf",
   release: "release",
   beta: "beta",
@@ -138,6 +139,7 @@ export const typeColor = (type: string): BadgeColor => {
 const TYPE_ICON: Record<string, IconSvgElement> = {
   feat: SparklesIcon,
   feature: SparklesIcon,
+  fix: Bug01Icon,
   bugfix: Bug01Icon,
   hotfix: Fire02Icon,
   perf: FlashIcon,
