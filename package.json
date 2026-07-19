@@ -5,13 +5,13 @@
   "type": "module",
   "description": "A Git history visualizer",
   "author": "Mathieu GUEY",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ethylon/amont.git"
   },
   "bugs": {
-    "url": "https://github.com/ethylon/amont-releases/issues"
+    "url": "https://github.com/ethylon/amont/issues"
   },
   "homepage": "https://amont.dev",
   "main": "./out/main/index.js",
