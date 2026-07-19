@@ -19,6 +19,7 @@ import { createGitRunner, killAll, type GitRunner } from "./git/exec.ts"
 import { basename } from "./util.ts"
 import { getSettings } from "./settings.ts"
 import { remember } from "./state.ts"
+import { addGitBreadcrumb } from "./telemetry.ts"
 import { watchGit, type Watchable } from "./watcher.ts"
 
 /** Hooks provided by the window layer (window.ts), injected at opening rather than read from
@@ -209,7 +210,7 @@ export function openRepo(path: string, hooks: (id: number) => RepoHooks): Promis
 
 async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promise<Repo> {
   const children = new Set<ChildProcess>()
-  const probe = createGitRunner({ path, children })
+  const probe = createGitRunner({ path, children, onFailure: addGitBreadcrumb })
 
   let gitDir: string
   try {
@@ -220,7 +221,7 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
 
   const id = nextId++
   const events = hooks(id)
-  const runner = createGitRunner({ path, trace: (line) => events.trace(line), children })
+  const runner = createGitRunner({ path, trace: (line) => events.trace(line), children, onFailure: addGitBreadcrumb })
 
   const r: RepoHandle = {
     id,
