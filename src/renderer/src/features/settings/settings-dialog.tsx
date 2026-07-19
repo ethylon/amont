@@ -116,7 +116,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             ))}
           </nav>
 
-          <div className="min-w-0 flex-1">
+          {/* the pane owns the scroll (not the max-h wrapper): without overflow here the Colors
+              list would paint past the wrapper, over the dialog footer */}
+          <div className="min-w-0 flex-1 overflow-y-auto pe-1">
             {section === "customization" && <CustomizationSection />}
             {section === "colors" && <ColorsSection />}
             {section === "diff" && <DiffSection />}
