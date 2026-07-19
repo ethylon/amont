@@ -270,12 +270,17 @@ export const RefsSidebar = memo(function RefsSidebar() {
                 <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.noMatchingRef}</p>
               )}
             {/* local branches, remotes, worktrees, tags, stashes — worktrees sit with the
-              branch groups (they anchor checkouts), tags and stashes close the list */}
-            {group("head")}
-            {group("remote")}
-            <WorktreesSection filter={q} />
-            {group("tag")}
-            <StashSection filter={q} />
+              branch groups (they anchor checkouts), tags and stashes close the list.
+              A hairline rule separates each rendered section from the previous one: the
+              adjacent-sibling selector keys off the DOM, so a section that returns `null`
+              (empty or filtered out) leaves no node and never strands a divider. */}
+            <div className="flex flex-col [&>*+*]:mt-1.5 [&>*+*]:border-t [&>*+*]:pt-1.5">
+              {group("head")}
+              {group("remote")}
+              <WorktreesSection filter={q} />
+              {group("tag")}
+              <StashSection filter={q} />
+            </div>
           </div>
         </div>
       </nav>
