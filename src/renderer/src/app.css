@@ -76,7 +76,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.52 0.105 223.128);
+  --primary: oklch(0.52 0.12 256.5);
   --primary-foreground: oklch(0.984 0.019 200.873);
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
@@ -90,11 +90,17 @@
   --ring: oklch(0.708 0 0);
   --radius: 0.625rem;
 
+  /* Brand mark gradient (Mark, index.html/crash.html splash): Givre at the head down to Abysse
+     at the foot. On light backgrounds the top is a darkened Givre so the head keeps its contrast
+     (cf. the light-bg mark variant in the brand kit); the foot stays Abysse. */
+  --mark-top: #3fb4c4;
+  --mark-bottom: #0e2748;
+
   --success: oklch(0.52 0.14 150);
   --warning: oklch(0.56 0.13 70);
-  /* release: bold violet, distinct from the brand teal (primary) and the other chip hues */
+  /* release: bold violet, distinct from the brand blue (primary) and the other chip hues */
   --release: oklch(0.53 0.22 300);
-  /* info: blue (test); refactor: cyan — the chroma keeps them apart from the primary teal (hue 223) */
+  /* info: blue (test) — the brand's Courant, sharing the primary's hue by design; refactor: cyan, held apart by hue */
   --info: oklch(0.52 0.13 250);
   --refactor: oklch(0.52 0.1 195);
   /* polish: rose — a finishing-touch hue, far enough from the red destructive (hue 27) not to read as an alert */
@@ -125,7 +131,7 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.609 0.126 221.723);
+  --sidebar-primary: oklch(0.61 0.13 256.5);
   --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
@@ -140,7 +146,7 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.45 0.085 224.283);
+  --primary: oklch(0.45 0.11 256.5);
   --primary-foreground: oklch(0.984 0.019 200.873);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
@@ -152,6 +158,10 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+
+  /* On dark, the mark leads with full Givre at the head. */
+  --mark-top: #8fe3e8;
+  --mark-bottom: #0e2748;
 
   --success: oklch(0.74 0.15 150);
   --warning: oklch(0.8 0.14 70);
@@ -177,7 +187,7 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.715 0.143 215.221);
+  --sidebar-primary: oklch(0.7 0.14 256.5);
   --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
