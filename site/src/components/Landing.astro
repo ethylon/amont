@@ -7,7 +7,7 @@ import Starfield from "./Starfield.astro"
 import HeroDemo from "./HeroDemo.astro"
 import CommandLog from "./CommandLog.astro"
 import Footer from "./Footer.astro"
-import { dict, DOWNLOAD_URL, type Locale } from "../i18n/ui"
+import { dict, REPO_URL, DOWNLOAD_URL, type Locale } from "../i18n/ui"
 import pkg from "../../../package.json"
 
 import graphLight from "../../../docs/graph-light.png"
@@ -79,10 +79,18 @@ const shots = {
               </svg>
               {t.hero.ctaDownload}
             </a>
+            <a
+              href={REPO_URL}
+              rel="noopener"
+              class="font-medium text-zinc-600 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
+            >
+              {t.hero.ctaSource}
+              <span aria-hidden="true">↗</span>
+            </a>
           </div>
 
           <p class="mt-5 font-mono text-xs text-zinc-500">
-            v{pkg.version} · Windows · {t.hero.free}
+            v{pkg.version} · Windows · MIT
           </p>
         </div>
       </div>
