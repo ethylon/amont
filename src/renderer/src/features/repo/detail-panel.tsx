@@ -25,7 +25,7 @@ import type { ChainInfo, GraphHandle } from "@/features/graph/controller"
 import { shortHash } from "@/features/graph/ids"
 import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { Avatar } from "@/components/ui/avatar"
-import { AsyncHint } from "@/components/ui/async-hint"
+import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
 import { LABEL_CLS } from "@/components/ui/typography"
 import { FileList } from "@/features/repo/file-list"
@@ -42,7 +42,19 @@ type Props = {
   onJump(hash: string): void
 }
 
-const Loading = () => <AsyncHint className="py-1">{messages.detail.loadingFiles}</AsyncHint>
+/* Ghost of the file list below: a status square and a path bar per row, fixed
+   pseudo-random widths so the skeleton is stable across renders. */
+const GHOST_FILES = ["w-40", "w-28", "w-48", "w-32", "w-36"]
+const Loading = () => (
+  <SkeletonGroup label={messages.detail.loadingFiles} className="space-y-2.5 py-1.5">
+    {GHOST_FILES.map((w, i) => (
+      <div key={i} className="flex items-center gap-2">
+        <Skeleton className="size-3.5 shrink-0 rounded" />
+        <Skeleton className={cn("h-2.5 rounded-full", w)} />
+      </div>
+    ))}
+  </SkeletonGroup>
+)
 
 const Hint = ({ children }: { children: React.ReactNode }) => (
   <p className="shrink-0 text-xs text-muted-foreground">{children}</p>

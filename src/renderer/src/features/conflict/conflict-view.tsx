@@ -42,7 +42,7 @@ import {
 } from "./conflict-parse"
 import { useConflictQuery, useMergeStateQuery } from "./conflict-queries"
 import { CodeLine, useShikiTokens, type TokenLine } from "@/features/diff/shiki-tokens"
-import { AsyncHint } from "@/components/ui/async-hint"
+import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -53,6 +53,31 @@ import { IconButton } from "@/components/ui/icon-button"
    "removed", they're two competing additions. */
 const SIDE_TINT: Record<PickSide, string> = { ours: "bg-info/8", theirs: "bg-success/8" }
 const PICKED_TINT: Record<PickSide, string> = { ours: "bg-info/20", theirs: "bg-success/20" }
+
+/* Ghost of the two aligned panes while the conflict file loads: a side header (badge bar)
+   then code-length lines per column, in the real grid's frame. */
+const GHOST_SIDE = ["w-3/5", "w-2/5", "w-1/2", "w-2/3", "w-1/3", "w-3/5", "w-1/4", "w-1/2"]
+function ConflictSkeleton() {
+  return (
+    <SkeletonGroup label={messages.conflict.loading} className="min-h-0 flex-[3] overflow-hidden rounded-md border">
+      <div className="grid min-h-full grid-cols-2">
+        {["", "border-l"].map((cls) => (
+          <div key={cls} className={cls}>
+            <div className="flex items-center gap-2 border-b px-2 py-2">
+              <Skeleton className="size-3.5 rounded" />
+              <Skeleton className="h-2.5 w-24 rounded-full" />
+            </div>
+            <div className="space-y-2.5 p-2">
+              {GHOST_SIDE.map((w, i) => (
+                <Skeleton key={i} className={cn("h-2.5 rounded-full", w)} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SkeletonGroup>
+  )
+}
 
 const MONO = "font-mono text-xs leading-normal [tab-size:4]"
 /* Off-screen rows skip layout and paint entirely (`content-visibility: auto`); the intrinsic
@@ -372,7 +397,7 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
       {error ? (
         <p className="shrink-0 text-xs text-muted-foreground">{messages.conflict.unavailable}</p>
       ) : !cf ? (
-        <AsyncHint className="shrink-0 py-1">{messages.conflict.loading}</AsyncHint>
+        <ConflictSkeleton />
       ) : (
         <>
           {/* --- The two sides, aligned segment by segment: each pair of cells shares a grid
