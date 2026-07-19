@@ -13,24 +13,28 @@ import {
   Refresh01Icon,
 } from "@hugeicons/core-free-icons"
 
-import type { OpName, Repo, StashAct, Status } from "@/lib/git"
+import { pullModeFlag, type OpName, type Repo, type StashAct, type Status } from "@/lib/git"
 import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
+import { useSettings } from "@/lib/use-settings"
 import { Badge } from "@/components/ui/badge"
+import { ButtonGroup, ButtonGroupSeparator } from "@/components/ui/button-group"
 import { GitCmd, MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
+import { FetchOptions, PullOptions } from "@/features/repo/op-options"
 
 /* labels are thunks, not values: reading messages.* at module scope would run `t` during
    import, before setupI18n() has activated a locale (cf. refs-menu.tsx). Pull/Push reuse the
-   refs catalogue entries — same action, same string. Fetch's `cmd` is the base; `--prune` is
-   appended live from the setting (see the component), so the shown command stays truthful. */
+   refs catalogue entries — same action, same string. Fetch's and pull's `cmd` are bases; the
+   `--prune` and integration-mode flags are appended live from the settings (see the component),
+   so the shown command stays truthful. */
 const OPS = [
   { op: "fetch", label: () => messages.repo.fetch, icon: Refresh01Icon, cmd: "git fetch --all" },
-  { op: "pull", label: () => messages.refs.pull, icon: ArrowDown02Icon, cmd: "git pull --ff-only" },
+  { op: "pull", label: () => messages.refs.pull, icon: ArrowDown02Icon, cmd: "git pull" },
   { op: "push", label: () => messages.refs.push, icon: ArrowUp02Icon, cmd: "git push" },
 ] as const
 
@@ -49,15 +53,15 @@ type Props = {
   /** newest entry (`stash@{0}`) or `null`: the apply/pop menu only exists when there is one */
   latestStash: string | null
   onStash(action: StashAct, name?: string): void
-  /** the `prune` setting: appends `--prune` to the shown fetch command when on */
-  prune: boolean
   /** the search bar: it needs the graph, which the toolbar doesn't know about */
   children: React.ReactNode
 }
 
 /* memo (perf audit, finding 4b): a commit click re-renders the tab, but none of the
    toolbar's props move — with stable callbacks and a memoized `children` element on
-   RepoView's side, the whole bar (and the search field inside it) skips. */
+   RepoView's side, the whole bar (and the search field inside it) skips. The settings
+   feeding the command labels and options cards are a subscription (useSettings), not a
+   prop, so their changes re-render through the memo. */
 export const Toolbar = memo(function Toolbar({
   repo,
   status,
@@ -69,21 +73,22 @@ export const Toolbar = memo(function Toolbar({
   canStash,
   latestStash,
   onStash,
-  prune,
   children,
 }: Props) {
   /* memo'd component: re-render on a runtime language switch even when no prop moved */
   useLocale()
+  /* the shared settings query the options cards patch: the shown fetch/pull commands track it */
+  const { settings, patch } = useSettings()
   const counts: Record<OpName, number | null> = {
     fetch: null,
     pull: status?.behind ?? null,
     push: status?.ahead ?? null,
   }
 
-  /* one op button (fetch/pull/push); `cmdOverride` lets fetch show its live, prune-aware command.
-     A running op no longer greys the two others: clicking them queues (main-side FIFO) — that's
-     how a fetch→pull→push chain is fired in one go. Only the same op, already running or
-     already waiting, is greyed: a duplicate would be dropped main-side anyway. */
+  /* one op button (fetch/pull/push); `cmdOverride` lets fetch/pull show their live,
+     settings-aware command. A running op no longer greys the two others: clicking them queues
+     (main-side FIFO) — that's how a fetch→pull→push chain is fired in one go. Only the same op,
+     already running or already waiting, is greyed: a duplicate would be dropped main-side anyway. */
   const opButton = ({ op, label, icon, cmd }: (typeof OPS)[number], cmdOverride?: string) => {
     const n = counts[op]
     return (
@@ -116,9 +121,11 @@ export const Toolbar = memo(function Toolbar({
     )
   }
 
-  const [fetchOp, ...restOps] = OPS
-  /* `--prune` is a live setting, appended to fetch's shown command so it never lies */
-  const fetchCmd = `${fetchOp.cmd}${prune ? " --prune" : ""}`
+  const [fetchOp, pullOp, pushOp] = OPS
+  /* live settings, appended to the shown commands so they never lie (git/ops.ts reads the
+     same values at call time) */
+  const fetchCmd = `${fetchOp.cmd}${settings.prune ? " --prune" : ""}`
+  const pullCmd = `${pullOp.cmd} ${pullModeFlag(settings.pullMode)}`
 
   return (
     <div className="flex h-11.5 shrink-0 items-center gap-2 overflow-x-auto border-b pr-3.5">
@@ -142,9 +149,19 @@ export const Toolbar = memo(function Toolbar({
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
-        {/* `--prune` is a live setting, so fetch's shown command is built from it (see fetchCmd). */}
-        {opButton(fetchOp, fetchCmd)}
-        {restOps.map((op) => opButton(op))}
+        {/* fetch and pull are split buttons: the main part runs the op, the chevron opens its
+            options card (op-options.tsx) — the settings whose flags the shown command carries */}
+        <ButtonGroup>
+          {opButton(fetchOp, fetchCmd)}
+          <ButtonGroupSeparator />
+          <FetchOptions settings={settings} onPatch={patch} />
+        </ButtonGroup>
+        <ButtonGroup>
+          {opButton(pullOp, pullCmd)}
+          <ButtonGroupSeparator />
+          <PullOptions settings={settings} onPatch={patch} />
+        </ButtonGroup>
+        {opButton(pushOp)}
       </div>
 
       <Separator orientation="vertical" className="mx-1 my-2" />

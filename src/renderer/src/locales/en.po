@@ -181,8 +181,11 @@ msgstr "Amont {version} is ready to install."
 msgid "Amont is up to date."
 msgstr "Amont is up to date."
 
-msgid "Appearance, colors, and fetch behavior."
-msgstr "Appearance, colors, and fetch behavior."
+msgid "Appearance, colors, and diff highlighting."
+msgstr "Appearance, colors, and diff highlighting."
+
+#~ msgid "Appearance, colors, and fetch behavior."
+#~ msgstr "Appearance, colors, and fetch behavior."
 
 msgid "Apply"
 msgstr "Apply"
@@ -535,6 +538,15 @@ msgstr "expected tag"
 msgid "Extension"
 msgstr "Extension"
 
+msgid "Fail when the branches have diverged."
+msgstr "Fail when the branches have diverged."
+
+msgid "Fast-forward if possible"
+msgstr "Fast-forward if possible"
+
+msgid "Fast-forward only"
+msgstr "Fast-forward only"
+
 msgid "Feature"
 msgstr "Feature"
 
@@ -549,6 +561,9 @@ msgstr "Fetch"
 
 msgid "Fetch from all remotes in the background, on a timer."
 msgstr "Fetch from all remotes in the background, on a timer."
+
+msgid "Fetch options"
+msgstr "Fetch options"
 
 msgid "Fetching…"
 msgstr "Fetching…"
@@ -742,6 +757,9 @@ msgstr "Merge {branch}"
 msgid "Merge into « {branch} »"
 msgstr "Merge into « {branch} »"
 
+msgid "Merge when the branches have diverged."
+msgstr "Merge when the branches have diverged."
+
 msgid "merged"
 msgstr "merged"
 
@@ -925,6 +943,9 @@ msgstr "Publish release {name}"
 msgid "Pull"
 msgstr "Pull"
 
+msgid "Pull options"
+msgstr "Pull options"
+
 msgid "Pulling…"
 msgstr "Pulling…"
 
@@ -939,6 +960,9 @@ msgstr "Pushing…"
 
 msgid "Ready"
 msgstr "Ready"
+
+msgid "Rebase"
+msgstr "Rebase"
 
 msgid "Rebase on {base}"
 msgstr "Rebase on {base}"
@@ -978,6 +1002,9 @@ msgstr "Remove line from the output"
 
 msgid "Remove worktree"
 msgstr "Remove worktree"
+
+msgid "Replay local commits on top of the fetched branch."
+msgstr "Replay local commits on top of the fetched branch."
 
 msgid "Report an issue…"
 msgstr "Report an issue…"

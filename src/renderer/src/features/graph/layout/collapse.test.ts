@@ -37,6 +37,16 @@ describe("collapsePairs", () => {
     assert.deepEqual(cap.cap?.targets, ["main", "develop"])
   })
 
+  it("pairs a develop merge with a master side landed as a GitHub PR", () => {
+    /* parseMerge strips the owner from the PR source, so the twin match (same from,
+       same release tip) works when the release reached master through a PR. */
+    const dev = c("d1", ["dp", "rt"], "Merge branch 'release/1.2.0' into develop")
+    const mas = c("m1", ["mp", "rt"], "Merge pull request #26 from ethylon/release/1.2.0")
+    const cap = collapsePairs([dev, mas])[0]
+    assert.equal(cap.cap?.flow, "release")
+    assert.deepEqual(cap.cap?.targets, ["master", "develop"])
+  })
+
   it('recognizes the "Merge tag" pattern (the develop merge\'s 2nd parent IS the master merge)', () => {
     const dev = c("d1", ["dp", "m1"], "Merge tag 'v1.2.0' into develop")
     const mas = c("m1", ["mp", "rt"], "Merge branch 'release/1.2.0'")

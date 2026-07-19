@@ -758,7 +758,7 @@ export const messages = {
       return t`Settings`
     },
     get intro() {
-      return t`Appearance, colors, and fetch behavior.`
+      return t`Appearance, colors, and diff highlighting.`
     },
     /* left-nav sections */
     get sectionCustomization() {
@@ -767,11 +767,15 @@ export const messages = {
     get sectionColors() {
       return t`Colors`
     },
-    get sectionFetch() {
-      return t`Fetch`
-    },
     get resetDefaults() {
       return t`Reset to defaults`
+    },
+    /* toolbar options cards (features/repo/op-options.tsx) — the split chevron next to Fetch/Pull */
+    get fetchOptions() {
+      return t`Fetch options`
+    },
+    get pullOptions() {
+      return t`Pull options`
     },
     get autoFetch() {
       return t`Auto-fetch`
@@ -791,6 +795,25 @@ export const messages = {
     },
     get pruneHint() {
       return t`Drop remote-tracking branches that no longer exist on the remote.`
+    },
+    /* `git pull` integration modes (shared/settings.ts PullMode) */
+    get pullFf() {
+      return t`Fast-forward if possible`
+    },
+    get pullFfHint() {
+      return t`Merge when the branches have diverged.`
+    },
+    get pullFfOnly() {
+      return t`Fast-forward only`
+    },
+    get pullFfOnlyHint() {
+      return t`Fail when the branches have diverged.`
+    },
+    get pullRebase() {
+      return t`Rebase`
+    },
+    get pullRebaseHint() {
+      return t`Replay local commits on top of the fetched branch.`
     },
     get crashReports() {
       return t`Send anonymous crash reports`
