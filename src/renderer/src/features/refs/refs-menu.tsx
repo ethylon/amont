@@ -6,11 +6,13 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowDown02Icon,
   ArrowUp02Icon,
+  Cancel01Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
   FolderAddIcon,
   GitBranchIcon,
   GitMergeIcon,
+  RocketIcon,
 } from "@hugeicons/core-free-icons"
 
 import type { FlowPrefixes, GitRef } from "@/lib/git"
@@ -31,6 +33,38 @@ const FLOW_LABEL = {
 const flowType = (name: string, prefixes: FlowPrefixes | null) =>
   prefixes &&
   (Object.keys(FLOW_LABEL) as (keyof FlowPrefixes)[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]))
+
+/* Menu of a multi-selection (≥ 2 local branches focused, right-click on one of them): the
+   selection acts as a whole — compose a release out of it, or queue its merges into the
+   current branch — instead of the single-branch menu. The order shown (and merged) is the
+   order the branches were clicked in. */
+export function SelectionMenu({ ctx }: { ctx: Ctx }) {
+  const branches = ctx.selection
+  const mergeable = branches.filter((b) => b !== ctx.current)
+  return (
+    <ContextMenuContent className="max-w-72">
+      <ContextMenuItem onClick={() => ctx.onCreateRelease(branches)}>
+        <HugeiconsIcon icon={RocketIcon} strokeWidth={2} />
+        <MenuItemWithCmd
+          label={messages.refs.createReleaseWith(branches.length)}
+          cmd={`git flow release start … + ${branches.length} merge${branches.length > 1 ? "s" : ""}`}
+        />
+      </ContextMenuItem>
+      <ContextMenuItem disabled={!ctx.current || !mergeable.length} onClick={() => ctx.onMergeSelection(branches)}>
+        <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} />
+        <MenuItemWithCmd
+          label={messages.refs.mergeInto(ctx.current ?? "HEAD")}
+          cmd={`git merge --no-ff ${mergeable.join(" ")}`}
+        />
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onClick={() => ctx.onClearFocus()}>
+        <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+        {messages.refs.clearSelection}
+      </ContextMenuItem>
+    </ContextMenuContent>
+  )
+}
 
 /* The menu only opens on a local branch: a remote is neither merged nor pushed,
    and a tag has none of that. `flow finish` knows the full name, prefix included. */

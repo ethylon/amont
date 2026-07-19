@@ -4,6 +4,10 @@
 
 import { decodeError, type ErrorPayload } from "../../../shared/errors.ts"
 
+/* re-exported for callers that branch on the code (the merge queue routes MERGE_CONFLICT
+   to its conflict state instead of a badge) — the renderer keeps a single import site */
+export { decodeError }
+
 const MESSAGES: Record<ErrorPayload["code"], (detail?: string) => string> = {
   NOT_A_REPO: () => "Not a git repository (or git not found)",
   NO_REPO: () => "This repository is no longer open",

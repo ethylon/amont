@@ -88,6 +88,9 @@ export const RefsSidebar = memo(function RefsSidebar() {
   const runDeleteTag = useRepoStore((s) => s.deleteTag)
   const onFocusRef = useRepoStore((s) => s.focusRef)
   const onAddWorktree = useRepoStore((s) => s.addWorktree)
+  const openReleaseCreate = useRepoStore((s) => s.openReleaseCreate)
+  const armMergeQueue = useRepoStore((s) => s.armMergeQueue)
+  const clearFocus = useRepoStore((s) => s.clearFocus)
 
   /* pending deletions (branch / remote branch / tag), held until the confirmation dialog
      resolves them (mirrors the discard dialog's local-state pattern) */
@@ -136,6 +139,18 @@ export const RefsSidebar = memo(function RefsSidebar() {
   const worktreeBranches = useMemo(() => new Set(worktrees.flatMap((w) => (w.branch ? [w.branch] : []))), [worktrees])
   const current = useMemo(() => data?.find((r) => r.head)?.name ?? null, [data])
   const onAddWorktreeCb = useCallback((name: string) => void onAddWorktree(name), [onAddWorktree])
+  /* focused local branches, in click order (the Set keeps insertion order): what the
+     multi-selection menu acts on, and the seed of the release modal's merge order */
+  const selection = useMemo(
+    () => [...focusedKeys].filter((k) => k.startsWith("head:")).map((k) => k.slice("head:".length)),
+    [focusedKeys]
+  )
+  const onMergeSelection = useCallback(
+    (branches: string[]) => {
+      if (current) armMergeQueue(current, branches)
+    },
+    [current, armMergeQueue]
+  )
   /* one object, memoized: a stable ctx is what lets the sections and rows below skip —
      it only changes when the focus, the flow config or the refs themselves do */
   const ctx = useMemo<Ctx>(
@@ -151,8 +166,25 @@ export const RefsSidebar = memo(function RefsSidebar() {
       onFocusRef,
       worktreeBranches,
       onAddWorktree: onAddWorktreeCb,
+      selection,
+      onCreateRelease: openReleaseCreate,
+      onMergeSelection,
+      onClearFocus: clearFocus,
     }),
-    [current, flow, onCheckout, onBranch, focusedKeys, onFocusRef, worktreeBranches, onAddWorktreeCb]
+    [
+      current,
+      flow,
+      onCheckout,
+      onBranch,
+      focusedKeys,
+      onFocusRef,
+      worktreeBranches,
+      onAddWorktreeCb,
+      selection,
+      openReleaseCreate,
+      onMergeSelection,
+      clearFocus,
+    ]
   )
 
   /* preferred remote for a tag's remote-side delete: "origin" when it exists, else the first

@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/context-menu"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { ScrollText } from "@/features/graph/interactions/scroll-text"
-import { BranchMenu } from "@/features/refs/refs-menu"
+import { BranchMenu, SelectionMenu } from "@/features/refs/refs-menu"
 
 type RowProps = { onCheckout(name: string): void }
 /* the context a branch's menu needs to know, passed down as-is at every level
@@ -51,6 +51,13 @@ export type Ctx = RowProps & {
       branch, so "Create worktree" is disabled for them */
   worktreeBranches: Set<string>
   onAddWorktree(name: string): void
+  /** focused local branches, in click order — ≥ 2 swaps a lit row's menu for SelectionMenu */
+  selection: string[]
+  /** opens the "create a release" modal seeded with the selection (its order = merge order) */
+  onCreateRelease(branches: string[]): void
+  /** arms the merge queue on the current branch with the selection */
+  onMergeSelection(branches: string[]): void
+  onClearFocus(): void
 }
 
 /** identity of a ref, shared with RepoView: local `master` and `origin/master` coexist */
@@ -208,12 +215,14 @@ const RefRow = memo(function RefRow({
     </button>
   )
 
-  /* the trigger carries the `li`: right-click takes the whole row, not just the button */
+  /* the trigger carries the `li`: right-click takes the whole row, not just the button.
+     A lit row inside a multi-selection opens the selection's menu (release, batch merge)
+     instead of its own — right-clicking an unlit branch keeps the per-branch menu. */
   if (r.kind === "head")
     return (
       <ContextMenu>
         <ContextMenuTrigger render={<li />}>{row}</ContextMenuTrigger>
-        <BranchMenu r={r} ctx={ctx} />
+        {lit && ctx.selection.length >= 2 ? <SelectionMenu ctx={ctx} /> : <BranchMenu r={r} ctx={ctx} />}
       </ContextMenu>
     )
 

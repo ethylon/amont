@@ -28,6 +28,9 @@ msgstr "(merge)"
 msgid "(root)"
 msgstr "(root)"
 
+msgid "{done}/{total} merged"
+msgstr "{done}/{total} merged"
+
 msgid "{kind} in progress"
 msgstr "{kind} in progress"
 
@@ -43,14 +46,23 @@ msgstr "{n, plural, =0 {no commits} one {# commit} other {# commits}}"
 msgid "{n, plural, =0 {no files} one {# file} other {# files}}"
 msgstr "{n, plural, =0 {no files} one {# file} other {# files}}"
 
+msgid "{n, plural, =0 {nothing to merge} one {# to merge} other {# to merge}}"
+msgstr "{n, plural, =0 {nothing to merge} one {# to merge} other {# to merge}}"
+
 msgid "{n, plural, one {# additional reference} other {# additional references}}"
 msgstr "{n, plural, one {# additional reference} other {# additional references}}"
+
+msgid "{n, plural, one {# branch} other {# branches}}"
+msgstr "{n, plural, one {# branch} other {# branches}}"
 
 msgid "{n, plural, one {# commit selected} other {# commits selected}}"
 msgstr "{n, plural, one {# commit selected} other {# commits selected}}"
 
 msgid "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
 msgstr "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
+
+msgid "{n, plural, one {# conflicted file} other {# conflicted files}}"
+msgstr "{n, plural, one {# conflicted file} other {# conflicted files}}"
 
 msgid "{n, plural, one {# new commit} other {# new commits}}"
 msgstr "{n, plural, one {# new commit} other {# new commits}}"
@@ -66,6 +78,9 @@ msgstr "{n, plural, one {# untracked file will be deleted.} other {# untracked f
 
 msgid "{n, plural, one {Changes to # file will be permanently lost.} other {Changes to # files will be permanently lost.}}"
 msgstr "{n, plural, one {Changes to # file will be permanently lost.} other {Changes to # files will be permanently lost.}}"
+
+msgid "{n, plural, one {Create a release with this branch…} other {Create a release with these # branches…}}"
+msgstr "{n, plural, one {Create a release with this branch…} other {Create a release with these # branches…}}"
 
 msgid "{n} d"
 msgstr "{n} d"
@@ -100,6 +115,9 @@ msgstr "A repository without a working tree, ready to be used as a remote."
 msgid "A tag will be created on commit {hash}."
 msgstr "A tag will be created on commit {hash}."
 
+msgid "Abort"
+msgstr "Abort"
+
 msgid "Abort merge"
 msgstr "Abort merge"
 
@@ -120,6 +138,12 @@ msgstr "Additional references"
 
 msgid "After"
 msgstr "After"
+
+msgid "All branches merged into {target}"
+msgstr "All branches merged into {target}"
+
+msgid "already in {base}"
+msgstr "already in {base}"
 
 msgid "Also delete the remote branch « {upstream} »"
 msgstr "Also delete the remote branch « {upstream} »"
@@ -235,6 +259,9 @@ msgstr "Choose…"
 msgid "Clear"
 msgstr "Clear"
 
+msgid "Clear selection"
+msgstr "Clear selection"
+
 msgid "Click a commit for its detail."
 msgstr "Click a commit for its detail."
 
@@ -261,6 +288,9 @@ msgstr "Close {name}"
 
 msgid "Close tab"
 msgstr "Close tab"
+
+msgid "Close the merge queue"
+msgstr "Close the merge queue"
 
 msgid "co-authors"
 msgstr "co-authors"
@@ -313,8 +343,14 @@ msgstr "Conflicts"
 msgid "Create"
 msgstr "Create"
 
+msgid "Create {name}"
+msgstr "Create {name}"
+
 msgid "Create a local repository, a bare remote repository, or clone an existing one."
 msgstr "Create a local repository, a bare remote repository, or clone an existing one."
+
+msgid "Create a release"
+msgstr "Create a release"
 
 msgid "Create a repository"
 msgstr "Create a repository"
@@ -541,6 +577,9 @@ msgstr "finish targets"
 msgid "finishing…"
 msgstr "finishing…"
 
+msgid "first merged on top"
+msgstr "first merged on top"
+
 msgid "Flat view"
 msgstr "Flat view"
 
@@ -597,6 +636,12 @@ msgstr "https://… or git@…"
 
 msgid "Image preview"
 msgstr "Image preview"
+
+msgid "in conflict"
+msgstr "in conflict"
+
+msgid "Include {branch}"
+msgstr "Include {branch}"
 
 msgid "Info"
 msgstr "Info"
@@ -667,6 +712,9 @@ msgstr "Map a file extension to a language so its diffs are syntax-highlighted. 
 msgid "Mark as resolved"
 msgstr "Mark as resolved"
 
+msgid "Merge {branch}"
+msgstr "Merge {branch}"
+
 msgid "Merge into « {branch} »"
 msgstr "Merge into « {branch} »"
 
@@ -682,6 +730,9 @@ msgstr "Merged output — editable"
 msgid "Merging {theirs} (B) into {ours} (A)"
 msgstr "Merging {theirs} (B) into {ours} (A)"
 
+msgid "Merging…"
+msgstr "Merging…"
+
 msgid "min"
 msgstr "min"
 
@@ -693,6 +744,12 @@ msgstr "Monospace font"
 
 msgid "More actions"
 msgstr "More actions"
+
+msgid "Move {branch} down"
+msgstr "Move {branch} down"
+
+msgid "Move {branch} up"
+msgstr "Move {branch} up"
 
 msgid "name"
 msgstr "name"
@@ -726,6 +783,9 @@ msgstr "No commands yet."
 
 msgid "No conflict markers left."
 msgstr "No conflict markers left."
+
+msgid "no conflicts"
+msgstr "no conflicts"
 
 msgid "No matching ref."
 msgstr "No matching ref."
@@ -775,6 +835,9 @@ msgstr "Open repository…"
 msgid "Open worktree « {name} »"
 msgstr "Open worktree « {name} »"
 
+msgid "Order matters: conflicts are re-evaluated after each merge. A conflict announced here is resolved in the conflict view, at merge time."
+msgstr "Order matters: conflicts are re-evaluated after each merge. A conflict announced here is resolved in the conflict view, at merge time."
+
 msgid "ours — current branch"
 msgstr "ours — current branch"
 
@@ -798,6 +861,9 @@ msgstr "Polish"
 
 msgid "prefix"
 msgstr "prefix"
+
+msgid "preview unavailable"
+msgstr "preview unavailable"
 
 msgid "Preview unavailable."
 msgstr "Preview unavailable."
@@ -910,6 +976,9 @@ msgstr "Reset to defaults"
 msgid "Reset to selection"
 msgstr "Reset to selection"
 
+msgid "Resolve conflicts"
+msgstr "Resolve conflicts"
+
 msgid "Resolve conflicts before committing."
 msgstr "Resolve conflicts before committing."
 
@@ -948,6 +1017,9 @@ msgstr "Show sidebar"
 
 msgid "Side by side"
 msgstr "Side by side"
+
+msgid "skipped"
+msgstr "skipped"
 
 msgid "Soft"
 msgstr "Soft"
@@ -1048,6 +1120,9 @@ msgstr "The branch « {name} » will be deleted on the remote."
 msgid "The branch « {name} » will be deleted."
 msgstr "The branch « {name} » will be deleted."
 
+msgid "The selected branches will be merged into the release one at a time, in the order below."
+msgstr "The selected branches will be merged into the release one at a time, in the order below."
+
 msgid "The tag « {name} » will be deleted."
 msgstr "The tag « {name} » will be deleted."
 
@@ -1128,6 +1203,9 @@ msgstr "Version tag prefix"
 
 msgid "View"
 msgstr "View"
+
+msgid "waiting"
+msgstr "waiting"
 
 msgid "Worktrees"
 msgstr "Worktrees"

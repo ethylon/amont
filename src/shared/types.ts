@@ -210,6 +210,25 @@ export type FlowInitConfig = {
   versiontag: string
 }
 
+/** Predicted outcome of one branch in a merge-cascade dry-run (`git merge-tree --write-tree`,
+    cf. main/git/merge-preview.ts — the worktree and refs never move). */
+export type MergePreviewStatus =
+  /** merges without conflict on top of the base and the clean branches before it */
+  | "clean"
+  /** the merge would stop on conflicts — `files` carries the conflicted paths */
+  | "conflicts"
+  /** already reachable from the base: nothing to merge */
+  | "merged"
+  /** the prediction is unavailable (branch vanished, git without `merge-tree --write-tree`) */
+  | "unknown"
+
+export type MergePreview = {
+  branch: string
+  status: MergePreviewStatus
+  /** conflicted paths (status "conflicts" only), capped main-side */
+  files: string[]
+}
+
 /** Parsed `git count-objects -vH`. Counts are numbers; sizes stay the human-readable strings
     `-H` produces ("48.00 KiB") — the maintenance modal only displays them. */
 export type CountObjects = {

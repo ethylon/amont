@@ -29,6 +29,7 @@ import type {
   DiffText,
   FlowPrefixes,
   GitRef,
+  MergePreview,
   MergeState,
   OpEvent,
   OpName,
@@ -114,6 +115,12 @@ export type InvokeChannels = {
       rebase + fast-forward, and branch deletion or `-k`. Full branch name, like `repo:branch`. */
   "flow:finish": (id: number, name: string, opts: FlowFinishOpts) => Promise<void>
   "repo:branch": (id: number, action: BranchAct, name: string) => Promise<void>
+  /** `git merge [--no-ff] <name>` into HEAD — the release queue's one-at-a-time merge. A
+      conflict rejects with MERGE_CONFLICT and leaves the merge state for the conflict view. */
+  "repo:merge": (id: number, name: string, noFF: boolean) => Promise<void>
+  /** Dry-run of merging `branches` (in order) into `base`: `git merge-tree --write-tree`
+      cascaded through synthetic commits — the worktree and refs never move. */
+  "repo:mergePreview": (id: number, base: string, branches: string[]) => Promise<MergePreview[]>
   /** `git branch -D <name>`, then — when `deleteRemote` — `git push <remote> --delete` of its
       upstream. Split from `repo:branch`: the renderer confirms it and passes the remote choice. */
   "repo:branchDelete": (id: number, name: string, deleteRemote: boolean) => Promise<void>
@@ -254,6 +261,8 @@ export type Bridge = {
   flowPublish: InvokeChannels["flow:publish"]
   flowFinish: InvokeChannels["flow:finish"]
   branch: InvokeChannels["repo:branch"]
+  merge: InvokeChannels["repo:merge"]
+  mergePreview: InvokeChannels["repo:mergePreview"]
   branchDelete: InvokeChannels["repo:branchDelete"]
   remoteBranchDelete: InvokeChannels["repo:remoteBranchDelete"]
   tagDelete: InvokeChannels["repo:tagDelete"]

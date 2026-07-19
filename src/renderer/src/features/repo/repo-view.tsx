@@ -18,6 +18,7 @@ import { DetailPanel } from "@/features/repo/detail-panel"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
 import { FlowStartBanner } from "@/features/flow/flow-start-banner"
+import { MergeQueueBanner } from "@/features/flow/merge-queue-banner"
 import { BranchCreateBanner, WorktreeCreateBanner } from "@/features/repo/create-banners"
 import { repoHealth } from "@/features/maintenance/health"
 import { useRepoMenuTools } from "@/features/repo/use-repo-menu-tools"
@@ -38,6 +39,9 @@ const FlowInitDialog = lazy(() =>
 )
 const MaintenanceDialog = lazy(() =>
   import("@/features/maintenance/maintenance-dialog").then((m) => ({ default: m.MaintenanceDialog }))
+)
+const ReleaseCreateDialog = lazy(() =>
+  import("@/features/flow/release-create-dialog").then((m) => ({ default: m.ReleaseCreateDialog }))
 )
 
 /* GraphColumn belongs to features/graph — memoized here, at the import site (perf audit,
@@ -157,6 +161,9 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const closeBranchCreate = useRepoStore((s) => s.closeBranchCreate)
   const worktreeCreate = useRepoStore((s) => s.ui.worktreeCreate)
   const closeWorktreeCreate = useRepoStore((s) => s.closeWorktreeCreate)
+  const releaseCreate = useRepoStore((s) => s.ui.releaseCreate)
+  const closeReleaseCreate = useRepoStore((s) => s.closeReleaseCreate)
+  const mergeQueue = useRepoStore((s) => s.mergeQueue)
   const view = useRepoStore((s) => s.ui.view)
   const diff = useRepoStore((s) => s.ui.diff)
   const selection = useRepoStore((s) => s.selection.rows)
@@ -298,7 +305,9 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
           )}
 
           {/* finish confirmation takes the strip over the cockpit (same component, the content
-              rolls); otherwise the read-only cockpit of the checked-out flow branch */}
+              rolls); the merge queue takes it over the cockpit too, while HEAD sits on its
+              target — the cockpit returns when the queue empties; otherwise the read-only
+              cockpit of the checked-out flow branch */}
           {flowFinish && finishInfo ? (
             <FlowBanner
               kind={flowFinish.kind}
@@ -307,6 +316,8 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
               finish
               onFinishDone={closeFlowFinish}
             />
+          ) : mergeQueue && status?.branch === mergeQueue.target ? (
+            <MergeQueueBanner />
           ) : workFlow && flowInfo && status?.branch ? (
             <FlowBanner kind={workFlow} branch={status.branch} info={flowInfo} />
           ) : null}
@@ -380,6 +391,11 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
       {active && tools.initOpen && (
         <Suspense fallback={null}>
           <FlowInitDialog onClose={tools.closeInit} />
+        </Suspense>
+      )}
+      {active && releaseCreate && (
+        <Suspense fallback={null}>
+          <ReleaseCreateDialog branches={releaseCreate.branches} onClose={closeReleaseCreate} />
         </Suspense>
       )}
       {active && tools.statsOpen && (
