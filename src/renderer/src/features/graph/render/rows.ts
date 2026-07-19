@@ -12,7 +12,7 @@ import {
 } from "@hugeicons/core-free-icons"
 
 import type { Commit } from "../../../../../shared/types.ts"
-import { avatarUrl, initials, tint } from "@/lib/avatar"
+import { avatarUrl, githubEmailAvatar, initials, tint } from "@/lib/avatar"
 import { worktreeName } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { iconEl } from "./icon-el.ts"
@@ -103,8 +103,9 @@ export function ghostChips(names: string[], color: string) {
   return wrap
 }
 
-/* Imperative twin of `<Avatar>`: the image overlays the monogram, a 404 removes it.
-   A graph row is never recycled — removing it is enough, nothing will remount it. */
+/* Imperative twin of `<Avatar>`: the image overlays the monogram, a 404 removes it, and GitHub's
+   e-mail lookup gets the same second chance — resolved, the image is re-attached with the new
+   source. A graph row is never recycled, so nothing else will remount it. */
 function avatarEl(name: string, email: string) {
   const el = document.createElement("span")
   el.className =
@@ -119,7 +120,17 @@ function avatarEl(name: string, email: string) {
     img.src = src
     img.alt = ""
     img.className = "absolute inset-0 size-full"
-    img.onerror = () => img.remove()
+    img.onerror = () => {
+      img.remove()
+      /* `src !== url` breaks the cycle if the looked-up source itself errors: the cached
+         lookup then answers with the URL already in place, and the image stays removed. */
+      void githubEmailAvatar(email).then((url) => {
+        if (url && img.src !== url) {
+          img.src = url
+          el.appendChild(img)
+        }
+      })
+    }
     el.appendChild(img)
   }
   return el
