@@ -23,7 +23,7 @@ import { messages } from "@/lib/messages"
 import { shortHash } from "@/features/graph/ids"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { Button } from "@/components/ui/button"
-import { GitCmd, MenuItemWithCmd } from "@/components/ui/git-cmd"
+import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
 import {
   Dialog,
@@ -152,9 +152,8 @@ export function CreateTagDialog({ at, onClose }: { at: string; onClose(): void }
           <Button variant="outline" onClick={onClose}>
             {messages.commit.cancel}
           </Button>
-          <Button className="h-auto flex-col gap-0 py-1" disabled={!name.trim() || busy} onClick={() => void submit()}>
+          <Button disabled={!name.trim() || busy} onClick={() => void submit()}>
             {busy ? messages.commit.creating : messages.commit.create}
-            <GitCmd cmd={`git tag ${name.trim() || "<name>"} ${short}`} />
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -189,26 +188,20 @@ export function ResetDialog({ branch, to, onClose }: { branch: string; to: strin
             <Button
               key={mode}
               variant={mode === "hard" ? "destructive" : "outline"}
-              className="h-auto flex-col items-start gap-0 py-1.5"
+              className="justify-start gap-2"
               onClick={() => {
                 void resetTo(mode, to)
                 onClose()
               }}
             >
-              <span className="flex w-full items-baseline gap-2">
-                <span>{label()}</span>
-                <span
-                  className={
-                    mode === "hard" ? "text-xs font-normal opacity-80" : "text-xs font-normal text-muted-foreground"
-                  }
-                >
-                  {hint()}
-                </span>
+              {label()}
+              <span
+                className={
+                  mode === "hard" ? "text-xs font-normal opacity-80" : "text-xs font-normal text-muted-foreground"
+                }
+              >
+                {hint()}
               </span>
-              <GitCmd
-                cmd={`git reset --${mode} ${short}`}
-                className={mode === "hard" ? "text-destructive/70" : undefined}
-              />
             </Button>
           ))}
         </div>

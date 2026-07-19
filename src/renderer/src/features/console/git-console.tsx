@@ -8,6 +8,7 @@ import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { RollingText } from "@/components/ui/rolling-text"
 
 /* `key`: lines have no identity of their own on the main side; a local counter is enough for React. */
 type Entry = TraceLine & { key: number }
@@ -165,7 +166,14 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
           {entry?.verb && (
             <span className={cn("shrink-0 font-medium", VERB[tone] ?? "text-foreground")}>{entry.verb}</span>
           )}
-          <span className={cn("truncate", tone === "danger" && "text-destructive")}>{text}</span>
+          {/* same roll as the commit button: a new console line rises from below, pushing the
+              previous one up. Shimmers while a command is streaming (busy tone) — the textual
+              counterpart of the status dot's pulse. */}
+          <RollingText
+            text={text}
+            shimmer={tone === "busy"}
+            className={cn("min-w-0", tone === "danger" && "text-destructive")}
+          />
           {entry?.percent != null && <span className="shrink-0 text-foreground tabular-nums">{entry.percent}%</span>}
         </PopoverTrigger>
 

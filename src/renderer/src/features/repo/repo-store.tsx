@@ -28,6 +28,7 @@ import {
   onChanged,
   onOp,
   onProgress,
+  onQueue,
   type BranchAct,
   type FileChange,
   type FlowPrefixes,
@@ -53,7 +54,7 @@ import type { WtAct } from "@/features/worktree/worktree-panel"
 
 export type SelMode = "multi" | "branch"
 
-export type MergeQueueItemState = "pending" | "merging" | "merged" | "conflict" | "skipped"
+export type MergeQueueItemState = "pending" | "merging" | "merged" | "conflict"
 
 /** The ordered merge queue armed by the release modal (or the selection menu): its branches
     are merged into `target` one at a time, each on an explicit click — never chained. The
@@ -65,8 +66,8 @@ export type MergeQueue = {
   items: { branch: string; state: MergeQueueItemState }[]
 }
 
-/** Nothing left to act on: every branch either landed or was deliberately set aside. */
-const queueDone = (q: MergeQueue) => q.items.every((i) => i.state === "merged" || i.state === "skipped")
+/** Nothing left to act on: every branch landed. */
+const queueDone = (q: MergeQueue) => q.items.every((i) => i.state === "merged")
 
 export interface RepoStoreState {
   readonly repoId: number
@@ -118,6 +119,9 @@ export interface RepoStoreState {
     /** live `NN%` of the running network op (fetch/pull/push), streamed from git's `--progress`;
         `null` between commands or before git emits its first percentage. Footer feed, cf. status-bar. */
     opProgress: { op: OpName; percent: number } | null
+    /** main-side mutation queue (`git:queue`): the label holding the lock and the labels
+        waiting behind it, in run order — footer "N queued" indicator, toolbar greying */
+    queue: { running: string | null; pending: string[] }
     /** a gitflow operation (start/finish/publish/init) is running its git commands — the flow
         banners swap the kind icon for a spinner and roll the traced commands (cf. FlowBanner).
         Scoped to the commands themselves, not the invalidation/reload that follows: the ticker
@@ -162,15 +166,14 @@ export interface RepoStoreState {
   /** drops the queue (remaining merges only — the release itself is untouched) */
   closeMergeQueue(): void
   /** one explicit merge: `git merge --no-ff <branch>` into HEAD. Success advances the item to
-      `merged`; a conflict parks it on `conflict` (the banner routes to resolution); any other
-      failure puts it back to `pending` with the error badge. */
+      `merged`; a conflict parks it on `conflict` — resolution and abort belong to the
+      repo-wide ConflictBanner; any other failure puts it back to `pending` with the error
+      badge. */
   queueMerge(branch: string): Promise<void>
-  /** `git merge --abort` of the conflicted item, which leaves the queue as `skipped` */
-  queueAbort(branch: string): Promise<void>
   /** Re-reads the pending/conflict items against the target (mergePreview): an item that
       landed outside the queue's own click — a conflict resolved and committed by hand, a
       manual merge — moves to `merged`; a conflict whose merge is no longer in progress
-      (aborted externally) falls back to `pending`. */
+      (aborted, via the ConflictBanner or a terminal) falls back to `pending`. */
   queueRecheck(): Promise<void>
   openDiff(ctx: DiffCtx, file: FileChange): void
   closeDiff(): void
@@ -184,6 +187,8 @@ export interface RepoStoreState {
   setBusyOp(op: OpName | null): void
   /** live footer percentage of a running network op; `null` clears it (op settled or reset) */
   setOpProgress(progress: { op: OpName; percent: number } | null): void
+  /** mirrors a `git:queue` event into `ops.queue` */
+  setQueue(queue: { running: string | null; pending: string[] }): void
   /** raises/clears `ops.flowBusy` around a gitflow command (cf. runFlow/runBranch/runFlowPublish) */
   setFlowBusy(v: boolean): void
   showOp(text: string, color: OpState["color"], action?: OpState["action"]): void
@@ -296,7 +301,7 @@ export function createRepoStore(
       releaseCreate: null,
     },
     mergeQueue: null,
-    ops: { busyOp: null, opState: null, opProgress: null, flowBusy: false },
+    ops: { busyOp: null, opState: null, opProgress: null, queue: { running: null, pending: [] }, flowBusy: false },
     graph: { stats: null },
 
     selectRow(row, additive) {
@@ -572,43 +577,19 @@ export function createRepoStore(
       }
     },
 
-    async queueAbort(branch) {
-      const q = get().mergeQueue
-      if (!q || !q.items.some((i) => i.branch === branch && i.state === "conflict")) return
-      const err = await api.mergeAbort().then(() => null, describeError)
-      if (err) {
-        get().showOp(err, "danger")
-        return
-      }
-      set((s) =>
-        s.mergeQueue
-          ? {
-              mergeQueue: {
-                ...s.mergeQueue,
-                items: s.mergeQueue.items.map((i) => (i.branch === branch ? { ...i, state: "skipped" as const } : i)),
-              },
-            }
-          : {}
-      )
-      invalidateRepo(queryClient, repoId)
-      await get().resetAndLoad({ soft: true })
-      const left = get().mergeQueue
-      if (left && queueDone(left)) set(() => ({ mergeQueue: null }))
-    },
-
     async queueRecheck() {
       const q = get().mergeQueue
       if (!q) return
       const stale = q.items.filter((i) => i.state === "conflict" || i.state === "pending")
       if (!stale.length) return
       /* fresh read, not the query cache: right after a conflicted merge the cached mergeState
-         still says "not merging" for a beat — demoting the conflict on that stale beat would
-         flash it back to pending. Only a genuinely finished merge moves items here. */
-      const merging = await api.mergeState().then(
-        (ms) => ms.merging,
+         still says "no operation" for a beat — demoting the conflict on that stale beat would
+         flash it back to pending. Only a genuinely concluded operation moves items here. */
+      const inProgress = await api.mergeState().then(
+        (ms) => ms.op !== null,
         () => true
       )
-      if (merging) return
+      if (inProgress) return
       const preview = await api
         .mergePreview(
           q.target,
@@ -624,7 +605,7 @@ export function createRepoStore(
             ...s.mergeQueue,
             items: s.mergeQueue.items.map((i) => {
               if (status.get(i.branch) === "merged") return { ...i, state: "merged" as const }
-              /* the conflicted merge is gone (aborted outside the queue): back in line */
+              /* the conflicted merge is gone (aborted): back in line */
               if (i.state === "conflict") return { ...i, state: "pending" as const }
               return i
             }),
@@ -682,6 +663,9 @@ export function createRepoStore(
     },
     setOpProgress(progress) {
       set((s) => ({ ops: { ...s.ops, opProgress: progress } }))
+    },
+    setQueue(queue) {
+      set((s) => ({ ops: { ...s.ops, queue } }))
     },
     setFlowBusy(v) {
       set((s) => ({ ops: { ...s.ops, flowBusy: v } }))
@@ -1042,6 +1026,17 @@ export function useRepoEvents(active: boolean): void {
         }
       }),
     [repoId, queryClient, store]
+  )
+
+  /* Mutation-queue transitions (main/repos.ts withLock): what runs and what waits behind it.
+     Feeds the footer's "N queued" indicator and the toolbar's per-op greying. */
+  useEffect(
+    () =>
+      onQueue((p) => {
+        if (p.id !== repoId) return
+        store.getState().setQueue({ running: p.running, pending: p.pending })
+      }),
+    [repoId, store]
   )
 
   /* Live `--progress` percentage of the running network op → footer feed, mirroring how the

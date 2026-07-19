@@ -368,8 +368,12 @@
       const onTraceListeners = new Set()
       const onProgressListeners = new Set()
       const onUpdateListeners = new Set()
+      const onQueueListeners = new Set()
       window.__changed = (payload = { id: REPO.id }) => onChangedListeners.forEach((cb) => cb(payload))
       window.__update = (payload) => onUpdateListeners.forEach((cb) => cb(payload))
+      /* mutation queue: nothing ever waits in the mock, but the footer indicator can be driven
+         by hand — __queue({ running: "push", pending: ["pull", "checkout topic"] }) */
+      window.__queue = (payload) => onQueueListeners.forEach((cb) => cb({ id: REPO.id, ...payload }))
 
       /* Git-flow + HEAD are mutable so the Repository menu can be driven through its states.
          From the console: __setFlow(null) shows "Initialize Git Flow…"; __setBranch("feature/x")
@@ -528,6 +532,10 @@
           onProgressListeners.add(cb)
           return () => onProgressListeners.delete(cb)
         },
+        onQueue: (cb) => {
+          onQueueListeners.add(cb)
+          return () => onQueueListeners.delete(cb)
+        },
         /* auto-update: window.__update({origin:"manual",kind:"ready",version:"9.9.9"}) drives
            the card by hand from the console */
         onUpdate: (cb) => {
@@ -674,7 +682,7 @@
           merging = false
         },
         mergeState: async () => ({
-          merging,
+          op: merging ? "merge" : null,
           ours: merging ? "develop" : null,
           theirs: merging ? "feature/cost-optim" : null,
         }),

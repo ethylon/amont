@@ -2,12 +2,13 @@
    this strip replaces the read-only flow cockpit and drives the composed merges — one
    explicit click per branch, never chained. Same 32px grammar as the other banners: the
    flow tint of the target, spinner + traced-commands ticker while a merge runs, and the
-   destructive tint when a merge stopped on conflicts (resolution routes to the existing
-   conflict view; aborting skips the branch without touching the release).
+   destructive tint when a merge stopped on conflicts.
 
-   The queue also self-heals from work done outside its own buttons (a conflict resolved and
-   committed by hand, an external abort): whenever no merge is in progress while an item still
-   says "conflict", queueRecheck re-reads reality (cf. repo-store). */
+   A conflict carries no actions here: the repo-wide ConflictBanner (rendered above, as for
+   any conflicted operation) already routes to the conflict view and owns the abort — this
+   strip only keeps the queue's context in sight. Whichever way the conflict concludes
+   (resolved and committed, or aborted), queueRecheck re-reads reality once no operation is
+   in progress and moves the item to `merged` or back to `pending` (cf. repo-store). */
 
 import { useEffect } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -24,7 +25,6 @@ import { useMergeStateQuery } from "@/features/conflict/conflict-queries"
 import { FLOW_META } from "@/features/flow/flow-context"
 import { useFlowQuery } from "@/features/flow/flow-queries"
 import { useRepoStore, type MergeQueueItemState } from "@/features/repo/repo-store"
-import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 
 /* one background per state — the base class carries none, so these never fight */
 const CHIP: Record<MergeQueueItemState, string> = {
@@ -32,14 +32,12 @@ const CHIP: Record<MergeQueueItemState, string> = {
   merging: "border-current/40 bg-current/10",
   conflict: "border-destructive/45 bg-destructive/10 text-destructive",
   pending: "border-current/25 bg-background opacity-70",
-  skipped: "border-current/20 bg-background line-through opacity-50",
 }
 
 const CHIP_LABEL: Record<Exclude<MergeQueueItemState, "merging">, () => string> = {
   merged: () => messages.queue.stateMerged,
   conflict: () => messages.queue.stateConflict,
   pending: () => messages.queue.statePending,
-  skipped: () => messages.queue.stateSkipped,
 }
 
 export function MergeQueueBanner() {
@@ -47,15 +45,11 @@ export function MergeQueueBanner() {
   const repoId = useRepoStore((s) => s.repoId)
   const queue = useRepoStore((s) => s.mergeQueue)
   const queueMerge = useRepoStore((s) => s.queueMerge)
-  const queueAbort = useRepoStore((s) => s.queueAbort)
   const queueRecheck = useRepoStore((s) => s.queueRecheck)
   const closeMergeQueue = useRepoStore((s) => s.closeMergeQueue)
-  const showWorktree = useRepoStore((s) => s.showWorktree)
 
   const { data: flow = null } = useFlowQuery(api, repoId)
   const { data: mergeState } = useMergeStateQuery(api, repoId)
-  /* live conflicted-path count of the stopped merge (the failure's own list isn't kept) */
-  const conflictFiles = useWorktreeQuery(api, repoId).data?.conflicts.length ?? 0
 
   const items = queue?.items ?? []
   const merging = items.some((i) => i.state === "merging")
@@ -63,10 +57,11 @@ export function MergeQueueBanner() {
   const next = items.find((i) => i.state === "pending")
   const done = items.filter((i) => i.state === "merged").length
 
-  /* a conflict no longer backed by a merge in progress was handled elsewhere (resolved and
-     committed, or aborted): reconcile. queueRecheck re-reads mergeState fresh before moving
-     anything, so a stale cached `merging` here costs at most a no-op call. */
-  const externallySettled = !!conflict && mergeState !== undefined && !mergeState.merging
+  /* a conflict no longer backed by an operation in progress was handled (resolved and
+     committed, or aborted — both live in the ConflictBanner): reconcile. queueRecheck
+     re-reads mergeState fresh before moving anything, so a stale cached `op` here costs at
+     most a no-op call. */
+  const externallySettled = !!conflict && mergeState !== undefined && mergeState.op === null
   useEffect(() => {
     if (externallySettled) void queueRecheck()
   }, [externallySettled, queueRecheck])
@@ -125,10 +120,6 @@ export function MergeQueueBanner() {
         ))}
       </span>
 
-      {conflict && !merging && conflictFiles > 0 && (
-        <span className="opacity-85">{messages.release.conflictedFiles(conflictFiles)}</span>
-      )}
-
       {merging ? (
         /* the expected command seeds the ticker until the first traced one rolls in */
         <RollingText
@@ -141,25 +132,12 @@ export function MergeQueueBanner() {
 
       <span className="opacity-70 tabular-nums">{messages.queue.mergedCount(done, items.length)}</span>
 
-      {conflict && !merging ? (
-        <>
-          <Button size="sm" color="destructive" onClick={showWorktree}>
-            {messages.queue.resolve}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-foreground"
-            onClick={() => void queueAbort(conflict.branch)}
-          >
-            {messages.queue.abort}
-          </Button>
-        </>
-      ) : next ? (
+      {/* no conflict actions here — the ConflictBanner above owns resolution and abort */}
+      {!conflict && next && (
         <Button size="sm" color={m?.btn} disabled={merging} onClick={() => void queueMerge(next.branch)}>
           {merging ? messages.queue.merging : messages.queue.mergeNext(next.branch)}
         </Button>
-      ) : null}
+      )}
 
       <Button
         variant="ghost"

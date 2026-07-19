@@ -5,7 +5,6 @@
 
 import { messages } from "@/lib/messages"
 import { Button } from "@/components/ui/button"
-import { GitCmd } from "@/components/ui/git-cmd"
 import {
   Dialog,
   DialogContent,
@@ -52,17 +51,12 @@ export function DiscardDialog({
           </Button>
           <Button
             variant="destructive"
-            className="h-auto flex-col gap-0 py-1"
             onClick={() => {
               onConfirm(request)
               onClose()
             }}
           >
             {messages.worktree.discardConfirm}
-            <GitCmd
-              cmd={request.paths.length ? "git restore -- …" : "git clean -f -- …"}
-              className="text-destructive/70"
-            />
           </Button>
         </DialogFooter>
       </DialogContent>
