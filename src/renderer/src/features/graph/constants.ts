@@ -39,31 +39,17 @@ export const laneColor = (i: number) => `var(--lane-${i % LANES})`
 
 /** column gutter, `pe-2.5` or empty end-of-lane space */
 export const GAP = 10
-
-/* --- User-resizable columns (drag strips on the boundaries, cf. react/col-resize.tsx) ---
-   Every resizable size rides a CSS var written by lib/customization on <html> (absent var =
-   default via the fallback): a drag repaints through the var without touching any class. The
-   keys of `Customization.graphCols` are this union; `branch`/`type` are CHIP caps (their
-   tracks keep auto-sizing on content below the cap, cf. render/measure.ts), the other three
-   are exact track widths. The Tailwind classes must stay literals (the scanner can't see an
-   interpolated class), so the fallback pixels are repeated inside them: keep each pair in sync. */
-export type GraphCol = "branch" | "type" | "author" | "date" | "hash"
-/** prefix badge cap: 112px (the former `max-w-28`) */
-export const TYPE_CAP = 112
-export const TYPE_MAX = "max-w-(--amont-typecap,112px)"
-/** branch name cap: 96px (the former `max-w-24`), beyond which it scrolls on hover */
-export const BRANCH_CAP = 96
-export const BRANCH_MAX = "max-w-(--amont-branchcap,96px)"
+export const TYPE_MAX = "max-w-28"
+/** branch name cap: 96px, beyond which it scrolls on hover */
+export const BRANCH_MAX = "max-w-24"
 /* Fixed budget of 1: the column is one chip wide, showing two would require measuring every row
    instead of just counting. Refs are sorted branch → tag (cf. parseRefs), so `slice(0, 1)`
    correctly keeps the higher-priority branch name. */
 export const BRANCH_BUDGET = 1
 
-/* --- Fixed column widths: a single source for both the grid-template AND fixedW() ---
+/* --- Fixed column widths: a single source for both the grid-template AND FIXED_W ---
    Before: `FIXED_W` re-summed the same pixels as the literal `grid-cols-[...]` by hand. A
-   column change (addition, width) could only drift from one without the other. The three
-   right-side columns are now DEFAULTS behind their resize var (same fallback discipline as
-   the caps above). */
+   column change (addition, width) could only drift from one without the other. */
 /** offset of the graph column under the SVG (`calc(var(--graphw,0px)+Npx)`) */
 export const COL_GRAPH_GUTTER = 12
 /** assumed minimum width of the subject column (`1fr`, not fixed — only used to estimate
@@ -75,21 +61,7 @@ export const COL_HASH = 68
 /** `pr-4.5` (Tailwind, 4.5 × 4px): end-of-row margin */
 export const ROW_PADDING_END = 18
 
-/** Defaults of the resizable columns, keyed like `Customization.graphCols` — what a cleared
-    override (double-click on the strip) goes back to. */
-export const COL_DEFAULTS: Record<GraphCol, number> = {
-  branch: BRANCH_CAP,
-  type: TYPE_CAP,
-  author: COL_AUTHOR,
-  date: COL_DATE,
-  hash: COL_HASH,
-}
-
-/** Minimum row width for `inner.style.minWidth`: the fixed tracks summed from the same values
-    the grid-template reads — author/date/hash are passed by the controller, which owns the
-    live (possibly user-resized, cf. lib/customization `getGraphCols`) widths. */
-export const fixedW = (author: number, date: number, hash: number) =>
-  COL_GRAPH_GUTTER + COL_SUBJECT_MIN + author + date + hash + ROW_PADDING_END
+export const FIXED_W = COL_GRAPH_GUTTER + COL_SUBJECT_MIN + COL_AUTHOR + COL_DATE + COL_HASH + ROW_PADDING_END
 
 /* The branch column sits left of the metro: it merges the former branch chips (which used
    to precede the subject) and the tags column. Branch name takes priority; overflow branches
@@ -102,7 +74,7 @@ export const fixedW = (author: number, date: number, hash: number) =>
    fell back to a single column (everything crammed to the left). `grid-cols-(--amont-cols)` is a
    static class, so it gets emitted; the interpolated value flows through the var. The spaces around
    the calc's `+` are mandatory — `calc(a+b)` is invalid. */
-export const GRID_COLS = `var(--amont-branch,0px) calc(var(--graphw,0px) + ${COL_GRAPH_GUTTER}px) var(--amont-type,0px) 1fr var(--amont-colauthor,${COL_AUTHOR}px) var(--amont-coldate,${COL_DATE}px) var(--amont-colhash,${COL_HASH}px)`
+export const GRID_COLS = `var(--amont-branch,0px) calc(var(--graphw,0px) + ${COL_GRAPH_GUTTER}px) var(--amont-type,0px) 1fr ${COL_AUTHOR}px ${COL_DATE}px ${COL_HASH}px`
 
 export const ROW_CLASS =
   "amont-row grid h-7 cursor-pointer grid-cols-(--amont-cols) " +
