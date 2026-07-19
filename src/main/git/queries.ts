@@ -108,7 +108,10 @@ export async function resolveWorktree(r: RepoHandle, path: unknown): Promise<Wor
    target feeds the B-side label. Rebase is probed before cherry-pick — an interactive rebase
    stopped on a conflict can leave CHERRY_PICK_HEAD alongside REBASE_HEAD, and the abort must
    then be `rebase --abort` (a cherry-pick abort would leave the rebase state behind).
-   rev-parse failing is the normal "no operation" case, not an error. */
+   rev-parse failing is the normal "no operation" case, not an error. REBASE_HEAD alone is not
+   trusted: git can leave the pseudo-ref behind after a rebase ends (`--quit` on git < 2.44, a
+   crash, a tool cleaning the state dirs only), so rebase is reported only when its state
+   directory exists — git's own in-progress test (wt-status.c). */
 const OP_HEADS: readonly (readonly [MergeOp, string])[] = [
   ["merge", "MERGE_HEAD"],
   ["rebase", "REBASE_HEAD"],
@@ -121,7 +124,25 @@ const OP_HEADS: readonly (readonly [MergeOp, string])[] = [
 export async function conflictOp(r: RepoHandle): Promise<{ op: MergeOp; head: string } | null> {
   for (const [op, ref] of OP_HEADS) {
     const head = (await r.git(["rev-parse", "-q", "--verify", ref]).catch(() => "")).trim()
-    if (head) return { op, head }
+    if (!head) continue
+    if (op === "rebase" && !(await rebaseStateDir(r))) continue
+    return { op, head }
+  }
+  return null
+}
+
+/** The rebase state directory on disk, if any: the authoritative in-progress signal, and the
+    place where the replayed branch name survives while HEAD is detached. */
+async function rebaseStateDir(r: RepoHandle): Promise<string | null> {
+  for (const dir of ["rebase-merge", "rebase-apply"]) {
+    const full = resolve(r.gitDir, dir)
+    if (
+      await stat(full).then(
+        (s) => s.isDirectory(),
+        () => false
+      )
+    )
+      return full
   }
   return null
 }
@@ -129,11 +150,10 @@ export async function conflictOp(r: RepoHandle): Promise<{ op: MergeOp; head: st
 /** The branch a rebase is replaying, from the backend's state directory — HEAD is detached
     mid-rebase, so the name survives nowhere else. Both backends store it the same way. */
 async function rebaseHeadName(r: RepoHandle): Promise<string | null> {
-  for (const dir of ["rebase-merge", "rebase-apply"]) {
-    const name = (await readFile(resolve(r.gitDir, dir, "head-name"), "utf8").catch(() => "")).trim()
-    if (name) return name.replace(/^refs\/heads\//, "")
-  }
-  return null
+  const dir = await rebaseStateDir(r)
+  if (!dir) return null
+  const name = (await readFile(resolve(dir, "head-name"), "utf8").catch(() => "")).trim()
+  return name ? name.replace(/^refs\/heads\//, "") : null
 }
 
 export async function mergeState(r: RepoHandle): Promise<MergeState> {

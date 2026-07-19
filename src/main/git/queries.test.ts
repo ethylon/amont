@@ -99,13 +99,27 @@ describe("mergeState: which operation is in progress, and its A/B labels", () =>
     })
 
     it("no head-name on disk: theirs falls back to the short hash", async () => {
-      const { r } = fakeRepo({ refs: { REBASE_HEAD: SHA } })
+      dir = mkdtempSync(join(tmpdir(), "amont-test-"))
+      mkdirSync(join(dir, "rebase-apply"))
+      const { r } = fakeRepo({ refs: { REBASE_HEAD: SHA }, gitDir: dir })
       assert.deepEqual(await mergeState(r), { op: "rebase", ours: null, theirs: SHA.slice(0, 8) })
     })
 
     it("wins over a leftover CHERRY_PICK_HEAD: aborting the pick alone would strand the rebase", async () => {
-      const { r } = fakeRepo({ refs: { REBASE_HEAD: SHA, CHERRY_PICK_HEAD: SHA } })
+      dir = mkdtempSync(join(tmpdir(), "amont-test-"))
+      mkdirSync(join(dir, "rebase-merge"))
+      const { r } = fakeRepo({ refs: { REBASE_HEAD: SHA, CHERRY_PICK_HEAD: SHA }, gitDir: dir })
       assert.equal((await conflictOp(r))?.op, "rebase")
+    })
+
+    it("stale REBASE_HEAD without a state directory: no operation", async () => {
+      const { r } = fakeRepo({ refs: { REBASE_HEAD: SHA } })
+      assert.deepEqual(await mergeState(r), { op: null, ours: null, theirs: null })
+    })
+
+    it("stale REBASE_HEAD during a real cherry-pick: the pick is reported, not the ghost rebase", async () => {
+      const { r } = fakeRepo({ refs: { REBASE_HEAD: SHA, CHERRY_PICK_HEAD: SHA }, branch: "main" })
+      assert.deepEqual(await mergeState(r), { op: "cherry-pick", ours: "main", theirs: SHA.slice(0, 8) })
     })
   })
 })
