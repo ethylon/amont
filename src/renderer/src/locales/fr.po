@@ -652,8 +652,8 @@ msgstr "Hotfix"
 msgid "Hotfix prefix"
 msgstr "Préfixe hotfix"
 
-msgid "Housekeeping badges (chore, docs, style, ci, build, wip, plugin) keep the neutral gray; beta follows the accent color."
-msgstr "Les badges d'entretien (chore, docs, style, ci, build, wip, plugin) gardent le gris neutre ; beta suit la couleur d'accent."
+#~ msgid "Housekeeping badges (chore, docs, style, ci, build, wip, plugin) keep the neutral gray; beta follows the accent color."
+#~ msgstr "Les badges d'entretien (chore, docs, style, ci, build, wip, plugin) gardent le gris neutre ; beta suit la couleur d'accent."
 
 msgid "https://… or git@…"
 msgstr "https://… ou git@…"
@@ -1188,6 +1188,9 @@ msgstr "Diff unifié"
 
 msgid "unmerged segment"
 msgstr "segment non fusionné"
+
+msgid "Unrecognized [TAG] prefixes keep the neutral gray — give them a color with a custom prefix rule below."
+msgstr "Les préfixes [TAG] non reconnus gardent le gris neutre — donnez-leur une couleur avec une règle de préfixe personnalisé ci-dessous."
 
 msgid "Unstage"
 msgstr "Désindexer"

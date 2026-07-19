@@ -18,7 +18,6 @@ import { messages } from "@/lib/messages"
 import { iconEl } from "./icon-el.ts"
 import { badgeSeparator, badgeVariants, type BadgeColor } from "@/components/ui/badge"
 import {
-  BACKUP_WIP,
   isCustomType,
   parseMerge,
   parseRefs,
@@ -308,7 +307,7 @@ export function rowDiv(
   row.appendChild(badge)
 
   const subj = document.createElement("div")
-  subj.className = "flex min-w-0 items-center gap-1.5 truncate pe-2.5" + (BACKUP_WIP.test(c.s) ? " opacity-30" : "")
+  subj.className = "flex min-w-0 items-center gap-1.5 truncate pe-2.5"
 
   if (c.cap) {
     /* Capsule: the whole pattern on one row — `release/x →(rocket/flame) master · develop`. */

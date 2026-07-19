@@ -66,11 +66,19 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   bugfix: "warning",
   perf: "perf",
   release: "release",
-  beta: "primary",
+  beta: "beta",
   test: "info",
   refactor: "refactor",
   polish: "polish",
-  /* chore/docs/style/ci/build stay neutral: housekeeping, not an intent worth flagging */
+  /* housekeeping types: their tokens default to the neutral gray (cf. app.css) — a hue is a
+     Settings ▸ Colors edit away, not an intent the defaults flag */
+  wip: "wip",
+  plugin: "plugin",
+  chore: "chore",
+  docs: "docs",
+  style: "style",
+  ci: "ci",
+  build: "build",
 }
 
 /* User-defined prefixes (Settings ▸ Colors, cf. lib/customization.ts). Kept in a module registry the
@@ -165,10 +173,6 @@ export function typesOfColor(color: BadgeColor): string[] {
   }
   return out
 }
-
-/* Automatic backups from a third-party tool: present in the history, never an intent.
-   They stay readable, but stop competing for attention with the rest of the column. */
-export const BACKUP_WIP = /^\s*\[(?:AUTO-)?BACKUP\]\s*WIP\b/i
 
 export type ParsedSubject = {
   type: string | null
