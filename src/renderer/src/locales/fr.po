@@ -55,6 +55,9 @@ msgstr "{n, plural, one {# conflit restant} other {# conflits restants}}"
 msgid "{n, plural, one {# new commit} other {# new commits}}"
 msgstr "{n, plural, one {# nouveau commit} other {# nouveaux commits}}"
 
+msgid "{n, plural, one {# operation queued} other {# operations queued}}"
+msgstr "{n, plural, one {# opération en attente} other {# opérations en attente}}"
+
 msgid "{n, plural, one {# other branch on this tip} other {# other branches on this tip}}"
 msgstr "{n, plural, one {# autre branche sur ce sommet} other {# autres branches sur ce sommet}}"
 

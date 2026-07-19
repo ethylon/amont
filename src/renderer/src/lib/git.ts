@@ -27,6 +27,7 @@ export type {
   OpName,
   OpenResult,
   ProgressEvent,
+  QueueEvent,
   Repo,
   RepoRef,
   ResetMode,
@@ -111,6 +112,7 @@ export const onOp = bridge.onOp
 export const onChanged = bridge.onChanged
 export const onTrace = bridge.onTrace
 export const onProgress = bridge.onProgress
+export const onQueue = bridge.onQueue
 export const onUpdate = bridge.onUpdate
 
 /* Opens the repos of restored tabs. Called once, explicitly, from main.tsx —
