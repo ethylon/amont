@@ -374,7 +374,11 @@ export function createRepoStore(
       if (!g) return
       const key = `${r.kind}:${r.name}`
       const removing = additive && get().selection.focusedKeys.has(key)
-      if (!removing) await g.jumpTo(r.tip)
+      /* `select: false` — center the tip without letting the jump select it: reveal()'s built-in
+         non-additive select would wipe the current multi-selection before the additive branch
+         below extends it (a Ctrl-click on a second branch dropped the first). focusRef sets the
+         selection itself, right below. */
+      if (!removing) await g.jumpTo(r.tip, false)
       const row = (await g.rowsOf([r.tip]))[0]
       if (row === undefined) return
       const seg = r.kind === "tag" ? [row] : g.branchSegment(row)
