@@ -48,6 +48,10 @@ export interface RunOpts {
       parsed from git's stderr as it rewrites its progress line. Set only where a UI wants it —
       other commands pay nothing. */
   onProgress?: (percent: number) => void
+  /** Extra environment merged over the base GIT_ENV — the typed console adds
+      GIT_ALLOW_PROTOCOL so a `fetch "ext::sh -c …"` can't become command execution
+      (cf. git/console.ts). */
+  env?: Record<string, string>
 }
 
 export interface RunnerContext {
@@ -96,7 +100,10 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
     if (opts.signal?.aborted) return Promise.reject(new AppError("ABORTED"))
 
     return new Promise((resolve, reject) => {
-      const child = spawn("git", ["-C", ctx.path, ...args], { env: GIT_ENV, windowsHide: true })
+      const child = spawn("git", ["-C", ctx.path, ...args], {
+        env: opts.env ? { ...GIT_ENV, ...opts.env } : GIT_ENV,
+        windowsHide: true,
+      })
       ctx.children.add(child)
       child.stdin.on("error", () => {}) // git may exit without reading: EPIPE, harmless
       child.stdin.end(opts.input ?? "")

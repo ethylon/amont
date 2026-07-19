@@ -193,6 +193,10 @@ export type InvokeChannels = {
   "repo:countObjects": (id: number) => Promise<CountObjects>
   "repo:fsck": (id: number) => Promise<void>
   "repo:gc": (id: number) => Promise<void>
+  /** One git command typed in the console popup. The raw string is parsed and policed
+      main-side (git/console.ts — builtin allowlist, no global options, dangerous flags and
+      helper transports refused); output streams back on the usual `git:trace` event. */
+  "repo:console": (id: number, command: string) => Promise<void>
   /** Kills the git process associated with `requestId` for this repo, if it's still running
       (AUDIT.md §2 B4). Silent no-op if the request has already finished or doesn't exist. */
   "repo:cancel": (id: number, requestId: string) => Promise<void>
@@ -304,6 +308,7 @@ export type Bridge = {
   countObjects: InvokeChannels["repo:countObjects"]
   fsck: InvokeChannels["repo:fsck"]
   gc: InvokeChannels["repo:gc"]
+  consoleRun: InvokeChannels["repo:console"]
   fileIcon: InvokeChannels["repo:fileIcon"]
   openFile: InvokeChannels["repo:openFile"]
   cancel: InvokeChannels["repo:cancel"]
