@@ -13,6 +13,7 @@ import type { BootState, Repo } from "../shared/types.ts"
 import * as create from "./create.ts"
 import * as flow from "./git/flow.ts"
 import * as maintenance from "./git/maintenance.ts"
+import { mergePreview } from "./git/merge-preview.ts"
 import * as ops from "./git/ops.ts"
 import { BRANCH } from "./git/parse.ts"
 import * as queries from "./git/queries.ts"
@@ -246,6 +247,8 @@ export function registerIpc(): void {
   )
 
   handle("repo:branch", (_ev, id, action, name) => ops.branchAction(repos.use(id), action, name))
+  handle("repo:merge", (_ev, id, name, noFF) => ops.mergeBranch(repos.use(id), name, noFF === true))
+  handle("repo:mergePreview", (_ev, id, base, branches) => mergePreview(repos.use(id), base, branches))
   handle("repo:branchDelete", (_ev, id, name, deleteRemote) =>
     ops.deleteBranch(repos.use(id), name, deleteRemote === true)
   )

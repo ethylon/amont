@@ -157,6 +157,21 @@ const BRANCH_OPS: Record<BranchAct, (r: RepoHandle, name: string) => Promise<voi
   finish: (r, name) => finishFlow(r, name),
 }
 
+/** `git merge [--no-ff] <name>` into HEAD — the release queue's one-at-a-time merge. `--no-ff`
+    keeps one merge commit per composed branch, the shape the queue promises. A conflict
+    surfaces as MERGE_CONFLICT and the merge state stays for the conflict view. */
+export async function mergeBranch(r: RepoHandle, name: string, noFF: boolean): Promise<void> {
+  if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
+  await withLock(r, "merge", async () => {
+    groupTrace(r, `Merge ${name}`)
+    try {
+      await r.git(["merge", ...(noFF ? ["--no-ff"] : []), name], { timeout: OP_TIMEOUT })
+    } finally {
+      mute(r)
+    }
+  })
+}
+
 export async function branchAction(r: RepoHandle, action: BranchAct, name: string): Promise<void> {
   if (!Object.hasOwn(BRANCH_OPS, action)) throw new AppError("BAD_ARG", "action")
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")

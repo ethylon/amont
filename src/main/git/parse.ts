@@ -315,6 +315,16 @@ export function flowInitConfigArgs(cfg: FlowInitConfig): [string, string][] {
   ]
 }
 
+/* --- Merge preview ---
+   Output of `git merge-tree --write-tree --no-messages --name-only <a> <b>`: the written
+   tree's OID on the first line, then — on a conflicted merge (exit 1) — one conflicted path
+   per line. `--name-only` already deduplicates; the dedup here only guards against a future
+   git dropping it. */
+export function parseMergeTree(out: string): { tree: string; files: string[] } {
+  const lines = out.split("\n").filter(Boolean)
+  return { tree: lines[0]?.trim() ?? "", files: [...new Set(lines.slice(1))] }
+}
+
 /* --- Maintenance ---
    git rewrites its progress on a single line with `\r` ("Counting objects:  45% (90/200)"); a
    determinate percentage is the last `NN%` in a chunk. `null` for a phase git reports without a
