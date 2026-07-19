@@ -15,8 +15,9 @@ import {
   RocketIcon,
 } from "@hugeicons/core-free-icons"
 
-import type { FlowPrefixes, GitRef } from "@/lib/git"
+import { pullModeFlag, type FlowPrefixes, type GitRef } from "@/lib/git"
 import { messages } from "@/lib/messages"
+import { useSettings } from "@/lib/use-settings"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
 import type { Ctx } from "@/features/refs/refs-tree"
@@ -70,7 +71,9 @@ export function SelectionMenu({ ctx }: { ctx: Ctx }) {
    and a tag has none of that. `flow finish` knows the full name, prefix included. */
 export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
   const flow = flowType(r.name, ctx.flow)
-  /* the displayed commands replicate BRANCH_OPS on the main side: `origin/master` → remote + branch */
+  /* the displayed commands replicate BRANCH_OPS on the main side: `origin/master` → remote + branch,
+     and a pull of the checked-out branch carries the live integration mode (the toolbar's Pull card) */
+  const { settings } = useSettings()
   const [remote, ...up] = (r.upstream ?? "").split("/")
   const upBranch = up.join("/")
   return (
@@ -89,7 +92,11 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
         <HugeiconsIcon icon={ArrowDown02Icon} strokeWidth={2} />
         <MenuItemWithCmd
           label={messages.refs.pull}
-          cmd={!r.upstream || r.head ? "git pull --ff-only" : `git fetch ${remote} ${upBranch}:${r.name}`}
+          cmd={
+            !r.upstream || r.head
+              ? `git pull ${pullModeFlag(settings.pullMode)}`
+              : `git fetch ${remote} ${upBranch}:${r.name}`
+          }
         />
       </ContextMenuItem>
       <ContextMenuItem disabled={!r.upstream} onClick={() => ctx.onBranch("push", r.name)}>
