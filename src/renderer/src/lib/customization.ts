@@ -49,23 +49,18 @@ type ColorMap = Partial<Record<ColorRole, string>>
 export type ThemeHex = Record<ThemeKey, string>
 
 /** A file-extension → shiki-grammar mapping row (Settings ▸ Diff): teaches the diff highlighter a
-    grammar the bare extension doesn't imply (`.csproj` is XML, `.jet` is SQL). */
+    grammar the bare extension doesn't imply (e.g. mapping `.csproj` to XML). */
 export type LangAlias = { ext: string; lang: string }
 
 /** A user prefix → per-theme badge color (Settings ▸ Colors): a `PREFIX:` / `[PREFIX]` commit subject
     the built-in type tables don't recognize still gets a colored badge, its own hue in each theme. */
 export type PrefixRule = { prefix: string; colors: ThemeHex }
 
-/** The extension→grammar mappings that used to be hardcoded in diff-view/shiki-tokens; now the seed
-    of the editable list, restored by the Diff section's "Reset to defaults". */
-const LANG_ALIASES_DEFAULT: readonly LangAlias[] = [
-  { ext: "jet", lang: "sql" },
-  { ext: "csproj", lang: "xml" },
-  { ext: "props", lang: "xml" },
-  { ext: "targets", lang: "xml" },
-  { ext: "slnx", lang: "xml" },
-  { ext: "svg", lang: "xml" },
-]
+/** No extension→grammar mappings are shipped by default: the list starts empty and is the user's own
+    (Settings ▸ Diff). The set that used to seed it (`.jet` → sql, the MSBuild `.csproj`/`.props`/… →
+    xml) were one developer's in-house conventions and shouldn't be imposed on everyone — anyone who
+    wants them adds them locally. "Reset to defaults" therefore clears the list back to empty. */
+const LANG_ALIASES_DEFAULT: readonly LangAlias[] = []
 
 export interface Customization {
   /** UI (sans) font family; `null` = the bundled default (Geist) */
@@ -118,9 +113,9 @@ function coerce(value: unknown): Customization {
     }
     return out
   }
-  /* Absent (older shape) falls back to the built-in defaults; an explicit empty array is the user
-     having deleted every mapping, and is respected as-is. Blank/malformed rows are dropped and the
-     list is capped, same defensive posture as the color map above. */
+  /* No default seed: a non-array (older shape, corrupt) yields an empty list, same as a user who
+     deleted every mapping. Blank/malformed rows are dropped and the list is capped, same defensive
+     posture as the color map above. */
   const langAliases = (v: unknown): LangAlias[] => {
     if (!Array.isArray(v)) return LANG_ALIASES_DEFAULT.map((a) => ({ ...a }))
     const out: LangAlias[] = []
@@ -301,7 +296,7 @@ export function setLangAliases(aliases: LangAlias[]): void {
   commit({ ...current, langAliases: aliases })
 }
 
-/** Restore the built-in extension→grammar mappings. */
+/** Clear the extension→grammar list back to its default — empty (no mappings ship by default). */
 export function resetLangAliases(): void {
   commit({ ...current, langAliases: LANG_ALIASES_DEFAULT.map((a) => ({ ...a })) })
 }

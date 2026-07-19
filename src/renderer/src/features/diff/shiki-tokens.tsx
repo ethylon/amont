@@ -7,8 +7,8 @@ import { useEffect, useState } from "react"
 
 import { getLangAliases, useLangAliasSig } from "@/lib/customization"
 
-/* Extension → shiki grammar now comes from the user-editable map (Settings ▸ Diff, seeded with the
-   in-house extensions that used to be hardcoded here — `.csproj` → xml, `.jet` → sql). */
+/* Extension → shiki grammar comes entirely from the user-editable map (Settings ▸ Diff), which ships
+   empty — no extension mappings are imposed by default; the user adds the ones they want. */
 export function langOf(path: string): string {
   const name = path.slice(path.lastIndexOf("/") + 1)
   const dot = name.lastIndexOf(".")
