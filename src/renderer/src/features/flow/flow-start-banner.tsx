@@ -145,7 +145,8 @@ export function FlowStartBanner({ kind, prefix, initialBase, onDone }: Props) {
         /* the expected command seeds the ticker until the first traced one rolls in */
         <RollingText
           text={cmd ?? `git flow ${kind} start ${value.trim()}`}
-          className="shimmer min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
+          shimmer
+          className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
         />
       ) : (
         <span className="flex-1" />

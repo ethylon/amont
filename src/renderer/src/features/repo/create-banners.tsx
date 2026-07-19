@@ -84,7 +84,7 @@ function CreateBanner({
       {extra}
       {error && <span className="min-w-0 flex-1 truncate text-destructive">{error}</span>}
       {busy ? (
-        <RollingText text={cmd(value.trim())} className="shimmer min-w-0 flex-1 font-mono text-[0.625rem] opacity-80" />
+        <RollingText text={cmd(value.trim())} shimmer className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80" />
       ) : (
         <span className="flex-1" />
       )}
