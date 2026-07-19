@@ -5,7 +5,7 @@
    runnable under Node (cf. lanes.test.ts). */
 
 import type { Commit } from "../../../../../shared/types.ts"
-import { mergeSource, parseMerge } from "../../../lib/commit-parse.ts"
+import { parseMerge } from "../../../lib/commit-parse.ts"
 import { CHUNK } from "../constants.ts"
 import { internId } from "../ids.ts"
 import { chunkOf, type Edge, type LayoutState } from "./state.ts"
@@ -70,12 +70,8 @@ export function layoutChunk(S: LayoutState, at: (row: number) => Commit, total: 
     S.hashOf[row] = internId(S.ids, c.h)
     if (c.r) S.refsOf.set(row, c.r)
     if (c.p.length > 1) {
-      const mg = parseMerge(c.s)
+      const mg = parseMerge(c.s) // covers gitflow, tag and GitHub PR forms alike
       if (mg) S.mergeOf.set(row, mg)
-      else {
-        const src = mergeSource(c.s) // GitHub PR: a source with no "Merge branch" form
-        if (src) S.mergeOf.set(row, { from: src, to: null, noise: false })
-      }
     }
     S.laneOf[row] = lane
     chunkOf(S.nodes, Math.floor(row / CHUNK)).push({

@@ -254,10 +254,21 @@ export function parseBody(raw: string): CommitBody {
 
 /* --- Merges --- */
 
-export type ParsedMerge = { from: string; to: string | null; tag?: boolean; noise: boolean }
+export type ParsedMerge = {
+  from: string
+  to: string | null
+  tag?: boolean
+  /** GitHub PR merge ("Merge pull request #N from owner/branch"): the PR number */
+  pr?: number
+  noise: boolean
+}
 
 /* Gitflow merges: "Merge branch 'X' into Y" → chips X → Y.
-   A sync merge (remote-tracking, or 'X' of <url> into the same branch) is noise. */
+   A sync merge (remote-tracking, or 'X' of <url> into the same branch) is noise.
+   A GitHub PR merge carries its number in `pr`; its subject never names the target (`to` stays
+   null — the row's lane already says it), and the owner/ prefix (fork or repo) is stripped from
+   the source so it names the branch like a local ref would — including for a branch merged then
+   deleted, with no ref left for it. */
 export function parseMerge(s: string): ParsedMerge | null {
   let m = /^Merge (remote-tracking )?branch '([^']+)'( of \S+)?(?: into '?(.+?)'?)?$/.exec(s)
   if (m) {
@@ -268,16 +279,11 @@ export function parseMerge(s: string): ParsedMerge | null {
   }
   m = /^Merge tag '([^']+)'(?: into '?(.+?)'?)?$/.exec(s)
   if (m) return { from: m[1], to: m[2] || null, tag: true, noise: false }
-  return null
-}
-
-/* Name of a merge's source branch, all formats: gitflow/tag (via parseMerge) and GitHub PR
-   "Merge pull request #N from owner/branch". Used to name a branch that was merged then deleted,
-   with no local ref left for it. The owner/ prefix (fork or repo) is stripped. */
-export function mergeSource(s: string): string | null {
-  const m = parseMerge(s)
-  if (m) return m.from
-  const pr = /^Merge pull request #\d+ from (\S+)/.exec(s)
-  if (pr) return pr[1].includes("/") ? pr[1].slice(pr[1].indexOf("/") + 1) : pr[1]
+  m = /^Merge pull request #(\d+) from (\S+)/.exec(s)
+  if (m) {
+    const ref = m[2]
+    const from = ref.includes("/") ? ref.slice(ref.indexOf("/") + 1) : ref
+    return { from, to: null, pr: +m[1], noise: false }
+  }
   return null
 }

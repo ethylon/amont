@@ -64,7 +64,7 @@
         },
         {
           h: sha("dd015555"),
-          p: [sha("dd02bb22")],
+          p: [sha("dd04dd44")],
           d: "2026-07-09",
           a: "Grace Hopper",
           e: ME,
@@ -72,6 +72,26 @@
           /* git's own revert subject: exercises the revert design (badge + struck-through
              original subject, cf. lib/commit-parse.ts / render/rows.ts) */
           s: 'Revert "polish(ui): nettoyage des composants du graphe"',
+        },
+        {
+          h: sha("dd04dd44"),
+          p: [sha("dd02bb22"), sha("dd05ee55")],
+          d: "2026-07-09",
+          a: "Grace Hopper",
+          e: ME,
+          r: "",
+          /* GitHub PR merge: exercises the unified PR badge (#N │ branch, cf. render/rows.ts);
+             the source branch has no ref left — deleted after the merge, the usual PR ending. */
+          s: "Merge pull request #142 from octocat/claude/branches-panel-separators-t4no79",
+        },
+        {
+          h: sha("dd05ee55"),
+          p: [sha("dd02bb22")],
+          d: "2026-07-09",
+          a: "Ada Lovelace",
+          e: "ada@analytical.engine",
+          r: "",
+          s: "feat(graph): separators in the branches panel",
         },
         {
           h: sha("dd02bb22"),
