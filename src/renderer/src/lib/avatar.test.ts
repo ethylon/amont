@@ -18,6 +18,10 @@ describe("avatarUrl — resolution", () => {
     assert.equal(avatarUrl("  678+Bob@Users.NoReply.GitHub.com  "), "https://avatars.githubusercontent.com/u/678?s=64")
   })
 
+  it("resolves pinned well-known addresses to their GitHub account", () => {
+    assert.equal(avatarUrl(" NoReply@Anthropic.com "), "https://avatars.githubusercontent.com/u/81847?s=64")
+  })
+
   it("falls back to Gravatar (d=404) for the id-less noreply form", () => {
     const url = avatarUrl("ada@users.noreply.github.com")!
     assert.match(url, /^https:\/\/www\.gravatar\.com\/avatar\/[0-9a-f]{64}\?s=64&d=404$/)

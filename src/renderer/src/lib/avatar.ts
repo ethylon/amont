@@ -7,6 +7,13 @@ import { laneColor } from "@/features/graph/constants"
    The older, id-less form (`login@users.noreply.github.com`) isn't handled: it has no id to give. */
 const GH_NOREPLY = /^(\d+)\+[^@]+@users\.noreply\.github\.com$/
 
+/* GitHub also attributes a few well-known addresses to accounts server-side — a mapping no address
+   encodes, so the ids are pinned here. Claude commits as `noreply@anthropic.com`, which GitHub
+   resolves to github.com/claude. */
+const KNOWN_IDS: Record<string, number> = {
+  "noreply@anthropic.com": 81847,
+}
+
 /* Otherwise Gravatar, indexed by the sha256 of the normalized e-mail: the only source that needs
    neither an account nor configuration. `d=404` fails the image when the author has none there —
    the monogram behind stays visible, and the app works offline.
@@ -14,7 +21,7 @@ const GH_NOREPLY = /^(\d+)\+[^@]+@users\.noreply\.github\.com$/
 export function avatarUrl(email: string) {
   if (!email) return null
   const e = email.trim().toLowerCase()
-  const id = Number(GH_NOREPLY.exec(e)?.[1])
+  const id = Number(GH_NOREPLY.exec(e)?.[1]) || KNOWN_IDS[e]
   if (id) return `https://avatars.githubusercontent.com/u/${id}?s=64`
   return `https://www.gravatar.com/avatar/${sha256(e)}?s=64&d=404`
 }
