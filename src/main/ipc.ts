@@ -21,7 +21,7 @@ import * as repos from "./repos.ts"
 import { scan } from "./scan.ts"
 import { getSettings, onSettingsChange, setSettings } from "./settings.ts"
 import { openable, persisted, saveState } from "./state.ts"
-import { setTelemetryEnabled, telemetryState } from "./telemetry.ts"
+import { captureIpcError, setTelemetryEnabled, telemetryState } from "./telemetry.ts"
 import { checkForUpdates, installUpdate } from "./updater.ts"
 import { basename } from "./util.ts"
 import { getMainWindow } from "./window.ts"
@@ -36,9 +36,18 @@ function handle<K extends InvokeChannel>(
   channel: K,
   fn: (event: IpcMainInvokeEvent, ...args: Parameters<InvokeChannels[K]>) => ReturnType<InvokeChannels[K]>
 ): void {
-  ipcMain.handle(channel, (event, ...args) => {
+  ipcMain.handle(channel, async (event, ...args) => {
     if (event.sender !== getMainWindow()?.webContents) throw new AppError("NOT_ALLOWED", "unexpected sender")
-    return fn(event, ...(args as Parameters<InvokeChannels[K]>))
+    /* Telemetry net at the boundary: an unexpected code is captured here whether the renderer
+       will surface it (toast) or swallow it into a fallback (`stashes() → []`) — then
+       re-thrown untouched, so the renderer contract doesn't move. Expected codes
+       (MERGE_CONFLICT, NOT_A_REPO…) pass through without a glance. */
+    try {
+      return await fn(event, ...(args as Parameters<InvokeChannels[K]>))
+    } catch (e) {
+      captureIpcError(channel, e)
+      throw e
+    }
   })
 }
 
