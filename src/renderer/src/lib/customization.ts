@@ -71,7 +71,7 @@ const LANG_ALIASES_DEFAULT: readonly LangAlias[] = [
 export interface Customization {
   /** UI (sans) font family; `null` = the bundled default (Geist) */
   fontUi: string | null
-  /** monospace font family; `null` = the bundled default (Geist Mono) */
+  /** monospace font family; `null` = the bundled default (Ubuntu Mono) */
   fontMono: string | null
   /** restrict the mono picker to monospace families */
   monoOnly: boolean
