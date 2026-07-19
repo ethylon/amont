@@ -778,7 +778,7 @@ export function formatPriceParts(cents: number): { units: string; decimals: stri
       merging = false;
     },
     mergeState: async () => ({
-      merging,
+      op: merging ? "merge" : null,
       ours: merging ? "main" : null,
       theirs: merging ? "feature/currency-switch" : null,
     }),
