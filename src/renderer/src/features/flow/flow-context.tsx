@@ -92,18 +92,15 @@ function FlowInfoRow({ kind, branch, info }: { kind: BranchFlow; branch: string;
         )}
         {branch}
       </span>
-      {busy ? (
-        /* the count seeds the ticker: the first traced command rolls in over it */
-        <RollingText
-          text={cmd ?? count(info)}
-          className="shimmer min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
-        />
-      ) : (
-        <>
-          <span className="opacity-80">{count(info)}</span>
-          <span className="flex-1" />
-        </>
-      )}
+      {/* the ticker stays mounted across idle/busy so the count rolls up into the first traced
+          command (and rolls back when the op ends) — the same continuous roll as the commit
+          button, rather than swapping the count out for a freshly mounted ticker. Shimmers only
+          while busy. */}
+      <RollingText
+        text={busy ? (cmd ?? count(info)) : count(info)}
+        shimmer={busy}
+        className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
+      />
       <span className="flex items-center gap-1.5 opacity-80">
         <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} className="size-3.5 shrink-0" />
         {messages.flow.to(info.targets.join(" + "))}
@@ -181,7 +178,8 @@ function FlowFinishRow({
         /* seed with the branch until the first traced command rolls in */
         <RollingText
           text={cmd ?? (rebase ? `git rebase ${target} ${branch}` : `git flow ${kind} finish --no-ff`)}
-          className="shimmer min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
+          shimmer
+          className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
         />
       ) : (
         <span className="flex-1" />
