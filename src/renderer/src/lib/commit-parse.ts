@@ -62,9 +62,9 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   feat: "success",
   feature: "success", // `feature/…` branch prefix, see gitflow.ts
   hotfix: "danger",
-  revert: "danger",
+  revert: "revert",
   bugfix: "warning",
-  perf: "warning",
+  perf: "perf",
   release: "release",
   beta: "primary",
   test: "info",
@@ -108,8 +108,21 @@ const customType = (raw: string): string | null => {
   return key && customPrefixes.has(key) ? key : null
 }
 
-export const typeColor = (type: string): BadgeColor =>
-  TYPE_COLOR[type] ?? (customPrefixes.has(type) ? "lane" : "neutral")
+/* Deleted color presets (Settings ▸ Colors): the customization store pushes the removed hues here,
+   same module-registry pattern as customPrefixes above. A type whose hue was deleted falls back to
+   the neutral gray of a `chore`, until "Reset to defaults" brings the preset back. */
+let neutralizedColors = new Set<string>()
+
+/** Replace the set of badge hues whose color preset the user deleted. */
+export function setNeutralizedColors(colors: readonly string[]): void {
+  neutralizedColors = new Set(colors)
+}
+
+export const typeColor = (type: string): BadgeColor => {
+  const color = TYPE_COLOR[type]
+  if (color) return neutralizedColors.has(color) ? "neutral" : color
+  return customPrefixes.has(type) ? "lane" : "neutral"
+}
 
 /* One glyph per intent, same table shape as TYPE_COLOR. Read before the label does — and for
    the neutral housekeeping types (chore/docs/style/ci/build) the icon is the only cue they carry.

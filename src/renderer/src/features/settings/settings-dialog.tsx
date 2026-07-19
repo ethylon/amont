@@ -25,7 +25,9 @@ import {
   COLOR_ROLES,
   listFonts,
   neutralPrefixHexes,
+  removeColorRole,
   resetColor,
+  resetColors,
   resetCustomization,
   resetLangAliases,
   setColor,
@@ -311,29 +313,25 @@ function FontSelect({
 
 function ColorsSection() {
   const dark = useTheme() // re-render on theme flip so the preview badge tracks the active theme
-  useCustomization() // and on any color change so the swatches stay in sync
+  const { removedRoles } = useCustomization() // and on any color change so the swatches stay in sync
   const active: ThemeKey = dark ? "dark" : "light"
 
   return (
     <div className="grid gap-3">
       <div className="flex items-start justify-between gap-3">
         <p className="text-[0.625rem] text-muted-foreground">{messages.colors.intro}</p>
-        <ResetButton
-          onClick={() => {
-            resetColor("light")
-            resetColor("dark")
-          }}
-        />
+        {/* restores every hue AND the deleted presets */}
+        <ResetButton onClick={resetColors} />
       </div>
 
       <div className="grid gap-2">
         {/* column headers over the two swatch columns */}
         <div className="flex items-center gap-2.5 text-[0.625rem] text-muted-foreground">
-          <span className="w-40 shrink-0" />
+          <span className="w-24 shrink-0" />
           <span className="w-9 shrink-0 text-center">{messages.menu.themeLight}</span>
           <span className="w-9 shrink-0 text-center">{messages.menu.themeDark}</span>
         </div>
-        {COLOR_ROLES.map((role) => (
+        {COLOR_ROLES.filter((role) => !removedRoles.includes(role)).map((role) => (
           <ColorRow key={role} role={role} active={active} />
         ))}
       </div>
@@ -359,41 +357,31 @@ function Swatch({ value, onChange, label }: { value: string; onChange: (hex: str
   )
 }
 
-/** One badge hue: live preview chips of the type badges it drives — exactly the labels and icons
-    the graph shows (cf. typesOfColor, derived from the same tables) — plus a light and a dark
-    swatch. */
+/** One color preset: a live preview of its type badge — exactly the label and icon the graph
+    shows (cf. typesOfColor, derived from the same tables) — a light and a dark swatch, a reset
+    link and a delete button ("Reset to defaults" brings a deleted preset back). */
 function ColorRow({ role, active }: { role: ColorRole; active: ThemeKey }) {
-  const types = typesOfColor(role)
-  const label = types.join(" · ")
+  const [type] = typesOfColor(role)
+  const icon = typeIcon(type)
   return (
     <div className="flex items-center gap-2.5">
       {/* `lane` derives both hue and text from `--badge-color`; driving it with the active theme's
-          hex previews how each badge reads on screen right now. */}
-      <span className="flex w-40 shrink-0 items-center gap-1.5">
-        {types.map((type) => {
-          const icon = typeIcon(type)
-          return (
-            <Badge
-              key={type}
-              color="lane"
-              shape="squared"
-              style={{ "--badge-color": colorHex(active, role) } as CSSProperties}
-            >
-              {icon && <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />}
-              {type}
-            </Badge>
-          )
-        })}
+          hex previews how the badge reads on screen right now. */}
+      <span className="flex w-24 shrink-0 items-center">
+        <Badge color="lane" shape="squared" style={{ "--badge-color": colorHex(active, role) } as CSSProperties}>
+          {icon && <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />}
+          {type}
+        </Badge>
       </span>
       <Swatch
         value={colorHex("light", role)}
         onChange={(hex) => setColor("light", role, hex)}
-        label={`${label} — ${messages.menu.themeLight}`}
+        label={`${type} — ${messages.menu.themeLight}`}
       />
       <Swatch
         value={colorHex("dark", role)}
         onChange={(hex) => setColor("dark", role, hex)}
-        label={`${label} — ${messages.menu.themeDark}`}
+        label={`${type} — ${messages.menu.themeDark}`}
       />
       <button
         type="button"
@@ -405,6 +393,7 @@ function ColorRow({ role, active }: { role: ColorRole; active: ThemeKey }) {
       >
         {messages.colors.reset}
       </button>
+      <IconButton label={messages.settings.remove} icon={Delete02Icon} onClick={() => removeColorRole(role)} />
     </div>
   )
 }
