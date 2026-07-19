@@ -8,7 +8,7 @@
 
 A fast, keyboard-friendly Git client for Windows.
 
-[![Latest release](https://img.shields.io/github/v/release/ethylon/amont?label=release&color=8b5cf6)](https://github.com/ethylon/amont/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/ethylon/amont?label=release&color=5b8fd6)](https://github.com/ethylon/amont/releases/latest)
 [![CI](https://github.com/ethylon/amont/actions/workflows/ci.yml/badge.svg)](https://github.com/ethylon/amont/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d4)
