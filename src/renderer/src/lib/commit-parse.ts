@@ -62,16 +62,24 @@ const TYPE_COLOR: Record<string, BadgeColor> = {
   feat: "success",
   feature: "success", // `feature/…` branch prefix, see gitflow.ts
   hotfix: "danger",
-  revert: "danger",
-  fix: "warning",
+  revert: "revert",
   bugfix: "warning",
-  perf: "warning",
+  fix: "warning", // `fix:` keeps its own label; same icon as bugfix, so they share one settings row
+  perf: "perf",
   release: "release",
-  beta: "primary",
+  beta: "beta",
   test: "info",
   refactor: "refactor",
   polish: "polish",
-  /* chore/docs/style/ci/build stay neutral: housekeeping, not an intent worth flagging */
+  /* housekeeping types: their tokens default to the neutral gray (cf. app.css) — a hue is a
+     Settings ▸ Colors edit away, not an intent the defaults flag */
+  wip: "wip",
+  plugin: "plugin",
+  chore: "chore",
+  docs: "docs",
+  style: "style",
+  ci: "ci",
+  build: "build",
 }
 
 /* User-defined prefixes (Settings ▸ Colors, cf. lib/customization.ts). Kept in a module registry the
@@ -109,8 +117,21 @@ const customType = (raw: string): string | null => {
   return key && customPrefixes.has(key) ? key : null
 }
 
-export const typeColor = (type: string): BadgeColor =>
-  TYPE_COLOR[type] ?? (customPrefixes.has(type) ? "lane" : "neutral")
+/* Deleted color presets (Settings ▸ Colors): the customization store pushes the removed hues here,
+   same module-registry pattern as customPrefixes above. A type whose hue was deleted falls back to
+   the neutral gray of a `chore`, until "Reset to defaults" brings the preset back. */
+let neutralizedColors = new Set<string>()
+
+/** Replace the set of badge hues whose color preset the user deleted. */
+export function setNeutralizedColors(colors: readonly string[]): void {
+  neutralizedColors = new Set(colors)
+}
+
+export const typeColor = (type: string): BadgeColor => {
+  const color = TYPE_COLOR[type]
+  if (color) return neutralizedColors.has(color) ? "neutral" : color
+  return customPrefixes.has(type) ? "lane" : "neutral"
+}
 
 /* One glyph per intent, same table shape as TYPE_COLOR. Read before the label does — and for
    the neutral housekeeping types (chore/docs/style/ci/build) the icon is the only cue they carry.
@@ -139,9 +160,21 @@ const TYPE_ICON: Record<string, IconSvgElement> = {
 
 export const typeIcon = (type: string): IconSvgElement | undefined => TYPE_ICON[type]
 
-/* Automatic backups from a third-party tool: present in the history, never an intent.
-   They stay readable, but stop competing for attention with the rest of the column. */
-export const BACKUP_WIP = /^\s*\[(?:AUTO-)?BACKUP\]\s*WIP\b/i
+/** Badge types a hue drives, in table order — derived from TYPE_COLOR so the Settings ▸ Colors
+    previews can never drift from the graph. Alias types sharing an earlier type's icon (`feature`
+    next to `feat`) collapse into the one chip. */
+export function typesOfColor(color: BadgeColor): string[] {
+  const out: string[] = []
+  const icons = new Set<IconSvgElement>()
+  for (const [type, c] of Object.entries(TYPE_COLOR)) {
+    if (c !== color) continue
+    const icon = TYPE_ICON[type]
+    if (icon && icons.has(icon)) continue
+    if (icon) icons.add(icon)
+    out.push(type)
+  }
+  return out
+}
 
 export type ParsedSubject = {
   type: string | null

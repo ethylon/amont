@@ -652,6 +652,9 @@ msgstr "Hotfix"
 msgid "Hotfix prefix"
 msgstr "Hotfix prefix"
 
+#~ msgid "Housekeeping badges (chore, docs, style, ci, build, wip, plugin) keep the neutral gray; beta follows the accent color."
+#~ msgstr "Housekeeping badges (chore, docs, style, ci, build, wip, plugin) keep the neutral gray; beta follows the accent color."
+
 msgid "https://… or git@…"
 msgstr "https://… or git@…"
 
@@ -664,8 +667,8 @@ msgstr "in conflict"
 msgid "Include {branch}"
 msgstr "Include {branch}"
 
-msgid "Info"
-msgstr "Info"
+#~ msgid "Info"
+#~ msgstr "Info"
 
 msgid "Initialize"
 msgstr "Initialize"
@@ -877,8 +880,8 @@ msgstr "parent"
 msgid "parents"
 msgstr "parents"
 
-msgid "Polish"
-msgstr "Polish"
+#~ msgid "Polish"
+#~ msgstr "Polish"
 
 msgid "prefix"
 msgstr "prefix"
@@ -946,8 +949,8 @@ msgstr "Rebasing {theirs} (B)"
 msgid "Recent"
 msgstr "Recent"
 
-msgid "Refactor"
-msgstr "Refactor"
+#~ msgid "Refactor"
+#~ msgstr "Refactor"
 
 msgid "Release"
 msgstr "Release"
@@ -1185,6 +1188,9 @@ msgstr "Unified diff"
 
 msgid "unmerged segment"
 msgstr "unmerged segment"
+
+msgid "Unrecognized [TAG] prefixes keep the neutral gray — give them a color with a custom prefix rule below."
+msgstr "Unrecognized [TAG] prefixes keep the neutral gray — give them a color with a custom prefix rule below."
 
 msgid "Unstage"
 msgstr "Unstage"

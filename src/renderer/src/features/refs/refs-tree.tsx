@@ -70,10 +70,21 @@ const DOT: Partial<Record<BadgeColor, string>> = {
   primary: "bg-primary",
   success: "bg-success",
   warning: "bg-warning",
+  perf: "bg-perf",
   danger: "bg-destructive",
+  revert: "bg-revert",
   release: "bg-release",
   info: "bg-info",
   refactor: "bg-refactor",
+  polish: "bg-polish",
+  beta: "bg-beta",
+  wip: "bg-wip",
+  plugin: "bg-plugin",
+  chore: "bg-chore",
+  docs: "bg-docs",
+  style: "bg-style",
+  ci: "bg-ci",
+  build: "bg-build",
 }
 
 export const buildTree = (refs: GitRef[]) => buildPathTree(refs, (r) => r.name)

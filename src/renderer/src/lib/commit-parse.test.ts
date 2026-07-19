@@ -14,7 +14,9 @@ import {
   parseSubject,
   prefixColorVar,
   setCustomPrefixes,
+  setNeutralizedColors,
   typeColor,
+  typesOfColor,
 } from "./commit-parse.ts"
 
 /** "master*" = remote merged into the local branch */
@@ -244,5 +246,59 @@ describe("custom prefix rules", () => {
   it("builds a safe CSS custom-property name from any prefix", () => {
     assert.equal(prefixColorVar("Epic-1"), "--amont-prefix-epic1")
     assert.equal(prefixColorVar("[HOT FIX]"), "--amont-prefix-hotfix")
+  })
+})
+
+describe("typesOfColor", () => {
+  const HUES = [
+    "success",
+    "warning",
+    "perf",
+    "danger",
+    "revert",
+    "release",
+    "info",
+    "refactor",
+    "polish",
+    "beta",
+    "wip",
+    "plugin",
+    "chore",
+    "docs",
+    "style",
+    "ci",
+    "build",
+  ] as const
+
+  it("maps each editable hue back to the single type badge it drives (Settings ▸ Colors rows)", () => {
+    assert.deepEqual(typesOfColor("success"), ["feat"]) // `feature` collapses into `feat` (same icon)
+    assert.deepEqual(typesOfColor("warning"), ["bugfix"])
+    assert.deepEqual(typesOfColor("perf"), ["perf"])
+    assert.deepEqual(typesOfColor("danger"), ["hotfix"])
+    assert.deepEqual(typesOfColor("revert"), ["revert"])
+    assert.deepEqual(typesOfColor("release"), ["release"])
+    assert.deepEqual(typesOfColor("info"), ["test"]) // the "info" hue never labels a badge "info"
+    assert.deepEqual(typesOfColor("refactor"), ["refactor"])
+    assert.deepEqual(typesOfColor("polish"), ["polish"])
+    // every remaining badge type carries its own hue too — none is locked out of the settings list
+    for (const hue of ["beta", "wip", "plugin", "chore", "docs", "style", "ci", "build"] as const)
+      assert.deepEqual(typesOfColor(hue), [hue])
+  })
+
+  it("round-trips through typeColor: every listed type actually wears that hue", () => {
+    for (const hue of HUES) for (const type of typesOfColor(hue)) assert.equal(typeColor(type), hue)
+  })
+
+  it("neutralizes a deleted preset's types, and restores them once the set is cleared", () => {
+    setNeutralizedColors(["warning", "success"])
+    try {
+      assert.equal(typeColor("bugfix"), "neutral")
+      assert.equal(typeColor("feat"), "neutral")
+      assert.equal(typeColor("feature"), "neutral") // the collapsed alias follows its preset
+      assert.equal(typeColor("perf"), "perf") // its own preset now — deleting bugfix leaves it alone
+    } finally {
+      setNeutralizedColors([])
+    }
+    assert.equal(typeColor("bugfix"), "warning")
   })
 })
