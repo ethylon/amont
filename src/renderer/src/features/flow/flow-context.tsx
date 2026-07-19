@@ -17,7 +17,8 @@ import { Spinner } from "@/components/ui/spinner"
 /* Colors and hues of all flow indicators (statusbar, cockpit, card): same hues
    as the sidebar badges, same icons as the commit-type badges (feat's sparkle,
    the graph's merge-chip release/hotfix glyphs).
-   `btn` = same hue for the flow-start button, so it follows the banner tint. */
+   `btn` = same hue for the flow-start/finish buttons and the finish row's checkboxes,
+   so they follow the banner tint. */
 export const FLOW_META: Record<BranchFlow, { icon: IconSvgElement; text: string; bg: string; btn: ButtonColor }> = {
   feature: { icon: SparklesIcon, text: "text-success", bg: "bg-success/10", btn: "success" },
   bugfix: { icon: Bug01Icon, text: "text-warning", bg: "bg-warning/10", btn: "warning" },
@@ -166,11 +167,11 @@ function FlowFinishRow({
       )}
       <span className="font-medium">{branch}</span>
       <label className={cn("flex cursor-pointer items-center gap-1.5", busy && "pointer-events-none opacity-50")}>
-        <Checkbox checked={rebase} onCheckedChange={(v) => setRebase(v === true)} disabled={busy} />
+        <Checkbox color={m.btn} checked={rebase} onCheckedChange={(v) => setRebase(v === true)} disabled={busy} />
         {messages.gitflow.rebaseOn(target)}
       </label>
       <label className={cn("flex cursor-pointer items-center gap-1.5", busy && "pointer-events-none opacity-50")}>
-        <Checkbox checked={del} onCheckedChange={(v) => setDel(v === true)} disabled={busy} />
+        <Checkbox color={m.btn} checked={del} onCheckedChange={(v) => setDel(v === true)} disabled={busy} />
         {messages.gitflow.deleteBranch}
       </label>
       {error && <span className="min-w-0 flex-1 truncate text-destructive">{error}</span>}
