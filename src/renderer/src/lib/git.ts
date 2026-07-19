@@ -224,6 +224,9 @@ export type RepoApi = {
   fsck(): Promise<void>
   /** `git gc`; no progress without a TTY — footer shows an indeterminate spinner */
   gc(): Promise<void>
+  /** one command typed in the console popup — parsed and policed main-side (git/console.ts),
+      output streamed back on the trace event like every other command */
+  consoleRun(command: string): Promise<void>
   /** Windows icon of the file, `null` if it doesn't exist on disk */
   fileIcon(path: string): Promise<string | null>
   openFile(path: string): Promise<string>
@@ -283,6 +286,7 @@ export const repoApi = (id: number): RepoApi => ({
   countObjects: () => bridge.countObjects(id),
   fsck: () => bridge.fsck(id),
   gc: () => bridge.gc(id),
+  consoleRun: (command) => bridge.consoleRun(id, command),
   fileIcon: (path) => bridge.fileIcon(id, path),
   openFile: (path) => bridge.openFile(id, path),
   cancel: (requestId) => bridge.cancel(id, requestId),

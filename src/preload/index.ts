@@ -110,6 +110,7 @@ const bridge: Bridge = {
   countObjects: invoke("repo:countObjects"),
   fsck: invoke("repo:fsck"),
   gc: invoke("repo:gc"),
+  consoleRun: invoke("repo:console"),
   fileIcon: invoke("repo:fileIcon"),
   openFile: invoke("repo:openFile"),
   cancel: invoke("repo:cancel"),

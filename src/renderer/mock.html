@@ -591,6 +591,28 @@
           await simulateFlowCmds(["git config --get-regexp ^gitflow\\.prefix\\.", `git flow ${kind} publish ${name}`])
         },
         countObjects: async () => counts,
+        /* typed console command: replay the trace stream main would emit (group header, the
+           command echo, some output, the outcome). A `config …` input rejects with the same
+           AppError-shaped payload as the real policy (git/console.ts), so the popup's inline
+           error line can be exercised in the harness. */
+        consoleRun: async (_id, command) => {
+          const text = String(command)
+            .trim()
+            .replace(/^git\s+/, "")
+          const sub = text.split(/\s+/)[0] || ""
+          if (sub === "config" || sub === "smash") throw new Error(JSON.stringify({ code: "NOT_ALLOWED", detail: sub }))
+          if (text.includes("|")) throw new Error(JSON.stringify({ code: "BAD_ARG", detail: "|" }))
+          emitTrace({ kind: "group", text: "Console", ts: Date.now() })
+          emitTrace({ kind: "cmd", text: `git ${text}` })
+          await new Promise((r) => setTimeout(r, 250))
+          if (sub === "status") {
+            emitTrace({ kind: "out", text: "On branch " + currentBranch })
+            emitTrace({ kind: "out", text: "nothing to commit, working tree clean" })
+          } else {
+            emitTrace({ kind: "out", text: "(mock) ok" })
+          }
+          emitTrace({ kind: "exit", ok: true, ms: 250 })
+        },
         fsck: async () => {
           await simulateMaint("fsck")
         },

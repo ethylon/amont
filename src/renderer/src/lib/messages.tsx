@@ -262,6 +262,17 @@ export const messages = {
       return t`✗ Failed`
     },
     commandFailed: (cmd: string) => t`Command failed: ${cmd}`,
+    /** the typed-command input (aria-label; the visible affordance is the `$` prompt) */
+    get commandInput() {
+      return t`Git command`
+    },
+    get commandPlaceholder() {
+      return t`Type a git command — Enter to run`
+    },
+    /** NOT_ALLOWED from main's console policy (git/console.ts): subcommand or flag refused */
+    blocked: (what: string) => t`Not allowed here: ${what}`,
+    /** BAD_ARG from the console parser: shell syntax, unterminated quote, empty command */
+    invalid: (what: string) => t`Can't run this (${what}) — plain git commands only, no shell syntax`,
   },
 
   diff: {

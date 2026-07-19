@@ -235,6 +235,9 @@ msgstr "Bugfix"
 msgid "Bugfix prefix"
 msgstr "Bugfix prefix"
 
+msgid "Can't run this ({what}) — plain git commands only, no shell syntax"
+msgstr "Can't run this ({what}) — plain git commands only, no shell syntax"
+
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -634,6 +637,9 @@ msgstr "Garbage files"
 msgid "Garbage size"
 msgstr "Garbage size"
 
+msgid "Git command"
+msgstr "Git command"
+
 msgid "Git console"
 msgstr "Git console"
 
@@ -852,6 +858,9 @@ msgstr "No staged files."
 
 msgid "none"
 msgstr "none"
+
+msgid "Not allowed here: {what}"
+msgstr "Not allowed here: {what}"
 
 msgid "Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes."
 msgstr "Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes."
@@ -1200,6 +1209,9 @@ msgstr "Too large to preview"
 
 msgid "Tree view"
 msgstr "Tree view"
+
+msgid "Type a git command — Enter to run"
+msgstr "Type a git command — Enter to run"
 
 msgid "Uncommitted changes"
 msgstr "Uncommitted changes"
