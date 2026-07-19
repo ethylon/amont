@@ -58,6 +58,10 @@ export interface Watchable {
   lastGraphKey: string | null
   watchers: FSWatcher[]
   watchRetries: number
+  /** telemetry hook for the two silent watcher degradations — subscribe failure, retries
+      exhausted (main/telemetry.ts captureGitError). Injected by repos.ts like the runner's
+      onFailure, so this module keeps importing nothing Electron-bound (watcher.test.ts). */
+  captureError?: (scope: "watcher.subscribe" | "watcher.retries-exhausted", err: unknown) => void
   /** pending backoff retry, so closeRepo can cancel it — otherwise a retry scheduled after a
       watch error fires post-close and leaves an orphaned watcher nobody will ever close */
   retryTimer: NodeJS.Timeout | null
@@ -110,11 +114,16 @@ export function watchGit(r: Watchable): void {
     if (r.events.isFocused()) void emitChanged(r)
     else r.dirty = true
   }
-  const onError = () => {
+  const onError = (err: unknown) => {
     if (!r.watchers.length) return // a second watcher of the same set erroring: already torn down
     for (const w of r.watchers) w.close()
     r.watchers = []
-    if (r.watchRetries >= RETRY_CAP) return // beyond that: permanent silence, no noise
+    if (r.watchRetries >= RETRY_CAP) {
+      /* beyond that: permanent silence for the user (manual refresh only) — the one
+         degradation telemetry must hear about, with the fs error that exhausted us */
+      r.captureError?.("watcher.retries-exhausted", err)
+      return
+    }
     const delay = Math.min(RETRY_BASE_MS * 2 ** r.watchRetries, RETRY_MAX_MS)
     r.watchRetries++
     r.retryTimer = setTimeout(() => {
@@ -124,7 +133,7 @@ export function watchGit(r: Watchable): void {
   }
   /* the debounce timer is shared: HEAD + a ref moving in the same checkout must still
      collapse into a single `changed` */
-  const add = (dir: string, recursive: boolean, prefix: string): FSWatcher | null => {
+  const add = (dir: string, recursive: boolean, prefix: string, onFail?: (err: unknown) => void): FSWatcher | null => {
     try {
       const w = watch(dir, { recursive }, (_type, file) => {
         if (!file) return
@@ -135,15 +144,18 @@ export function watchGit(r: Watchable): void {
       })
       w.on("error", onError)
       return w
-    } catch {
+    } catch (err) {
+      onFail?.(err)
       return null
     }
   }
 
-  const root = add(r.gitDir, false, "")
+  const root = add(r.gitDir, false, "", (err) => r.captureError?.("watcher.subscribe", err))
   if (!root) {
-    /* no watcher on the first try (directory already gone): the app stays usable, the
-       refresh falls back to manual — no retry here, nothing managed to subscribe */
+    /* no watcher on the first try (directory already gone — or EMFILE/EPERM, which the
+       captureError above surfaces): the app stays usable, the refresh falls back to manual —
+       no retry here, nothing managed to subscribe. Only the root subscribe reports: a missing
+       `logs/refs` is the documented nominal case for the narrower watches (cf. header). */
     return
   }
   const refs = add(join(r.gitDir, "refs"), true, "refs/")

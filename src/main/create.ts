@@ -11,6 +11,7 @@ import type { ChildProcess } from "node:child_process"
 import { AppError } from "../shared/errors.ts"
 import { createGitRunner, killAll } from "./git/exec.ts"
 import { persisted } from "./state.ts"
+import { addGitBreadcrumb } from "./telemetry.ts"
 
 /** Destinations blessed by the system dialog this session; the root folder is always allowed. */
 const chosenDirs = new Set<string>()
@@ -40,7 +41,7 @@ export const killCreations = (): void => killAll(children)
 /** A clone pulls over the network: minutes, not the 60s read default. */
 const CLONE_TIMEOUT = 10 * 60_000
 
-const runner = (dir: string) => createGitRunner({ path: dir, children })
+const runner = (dir: string) => createGitRunner({ path: dir, children, onFailure: addGitBreadcrumb })
 
 /** `dir/name`, guaranteed fresh — git init would silently adopt an existing folder. */
 function target(dir: string, name: string): string {
