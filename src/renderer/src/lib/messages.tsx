@@ -85,7 +85,7 @@ export const messages = {
       return t`No root folder. Choose one to list its repositories.`
     },
     get scanningRepos() {
-      return t`scanning for repositories…`
+      return t`Scanning for repositories…`
     },
     get noReposFoundUnderRoot() {
       return t`No repositories found under this root.`
@@ -142,10 +142,10 @@ export const messages = {
       return t`Clone`
     },
     get creating() {
-      return t`creating…`
+      return t`Creating…`
     },
     get cloning() {
-      return t`cloning…`
+      return t`Cloning…`
     },
     createdAt: (path: string) => t`Repository created: ${path}`,
   },
@@ -177,7 +177,7 @@ export const messages = {
 
   detail: {
     get loadingFiles() {
-      return t`loading files…`
+      return t`Loading files…`
     },
     get stash() {
       return t`stash`
@@ -259,7 +259,7 @@ export const messages = {
       return t`No commands yet.`
     },
     get failed() {
-      return t`✗ failed`
+      return t`✗ Failed`
     },
     commandFailed: (cmd: string) => t`Command failed: ${cmd}`,
   },
@@ -287,7 +287,7 @@ export const messages = {
       return t`Empty diff.`
     },
     get loading() {
-      return t`diff…`
+      return t`Diff…`
     },
     truncated: (n: string) => t`… ${n} lines truncated`,
     get stageHunk() {
@@ -348,7 +348,7 @@ export const messages = {
     },
     error: (msg: string) => t`Error: ${msg}`,
     get errorShort() {
-      return t`error`
+      return t`Error`
     },
     get noResults() {
       return t`No results`
@@ -434,7 +434,7 @@ export const messages = {
       return t`Branches unavailable.`
     },
     get loadingBranches() {
-      return t`branches…`
+      return t`Branches…`
     },
     get noMatchingRef() {
       return t`No matching ref.`
@@ -652,7 +652,7 @@ export const messages = {
       return t`Conflict unavailable.`
     },
     get loading() {
-      return t`conflict…`
+      return t`Conflict…`
     },
     get close() {
       return t`Close (Esc)`
@@ -687,7 +687,7 @@ export const messages = {
       return t`Create`
     },
     get creating() {
-      return t`creating…`
+      return t`Creating…`
     },
     get cancel() {
       return t`Cancel`
@@ -887,26 +887,9 @@ export const messages = {
     get reset() {
       return t`Reset`
     },
-    get feature() {
-      return t`Feature`
-    },
-    get bugfix() {
-      return t`Bugfix`
-    },
-    get hotfix() {
-      return t`Hotfix`
-    },
-    get release() {
-      return t`Release`
-    },
-    get info() {
-      return t`Info`
-    },
-    get refactor() {
-      return t`Refactor`
-    },
-    get polish() {
-      return t`Polish`
+    /** below the fixed rows: the only badge without a preset is the unknown-tag fallback */
+    get neutralNote() {
+      return t`Unrecognized [TAG] prefixes keep the neutral gray — give them a color with a custom prefix rule below.`
     },
     /** custom prefix → color rules, below the fixed work-type roles */
     get customPrefixes() {
@@ -1114,7 +1097,7 @@ export const messages = {
       return t`Initialize`
     },
     get initializing() {
-      return t`initializing…`
+      return t`Initializing…`
     },
     get cancel() {
       return t`Cancel`
@@ -1123,7 +1106,7 @@ export const messages = {
       return t`Start`
     },
     get starting() {
-      return t`starting…`
+      return t`Starting…`
     },
     /* inline start banner — feature/bugfix take a name, release/hotfix a version */
     get namePlaceholder() {
@@ -1147,7 +1130,7 @@ export const messages = {
       return t`Finish`
     },
     get finishing() {
-      return t`finishing…`
+      return t`Finishing…`
     },
     rebaseOn: (base: string) => t`Rebase on ${base}`,
     get deleteBranch() {
@@ -1188,7 +1171,7 @@ export const messages = {
     moveDown: (branch: string) => t`Move ${branch} down`,
     create: (name: string) => t`Create ${name}`,
     get creating() {
-      return t`creating…`
+      return t`Creating…`
     },
   },
 
@@ -1253,7 +1236,7 @@ export const messages = {
       return t`Compact`
     },
     get loading() {
-      return t`loading…`
+      return t`Loading…`
     },
     get verifying() {
       return t`Verifying database…`

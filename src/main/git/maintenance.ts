@@ -8,6 +8,7 @@ import { join } from "node:path"
 
 import type { CountObjects } from "../../shared/types.ts"
 import { withLock, type RepoHandle } from "../repos.ts"
+import { captureGitError } from "../telemetry.ts"
 import { sweepPackGarbage } from "./packs.ts"
 import { parseCountObjects } from "./parse.ts"
 
@@ -46,6 +47,7 @@ export const gc = (r: RepoHandle): Promise<void> =>
       git: r.git,
       timeout: MAINT_TIMEOUT,
       log: (text) => r.events.trace({ kind: "out", text }),
+      onUnrecoverable: (e) => captureGitError("maintenance.pack-unrecoverable", e),
     })
     if (recovered) await r.git(["gc"], { timeout: MAINT_TIMEOUT })
     /* re-check: the sweep clears everything it recognizes (the renderer refetches the stats when
