@@ -7,6 +7,7 @@ import {
   CloudIcon,
   Fire02Icon,
   FolderLinksIcon,
+  GitPullRequestIcon,
   RocketIcon,
   Tag01Icon,
 } from "@hugeicons/core-free-icons"
@@ -335,16 +336,33 @@ export function rowDiv(
     if (mg.noise) row.classList.add("opacity-45")
     subj.title = c.s
     const from = document.createElement("span")
-    from.className = chip(flow ? tagFlowColor(flow) : mergeColor(mg)) + " max-w-42"
-    if (flow) from.appendChild(iconEl(flow === "hotfix" ? Fire02Icon : RocketIcon, "shrink-0"))
-    from.appendChild(scrollText(mg.from))
-    from.title = mg.from
-    const arrow = iconEl(ArrowRight01Icon, "size-3.5 shrink-0 text-muted-foreground")
-    const to = document.createElement("span")
-    to.className = chip("neutral") + " max-w-42"
-    to.appendChild(scrollText(mg.to || "HEAD"))
-    to.title = mg.to || ""
-    subj.append(from, arrow, to)
+    if (mg.pr !== undefined) {
+      /* GitHub PR merge: a single badge — PR icon, #number, rule, source branch — same
+         icon│rule│name grammar as a synced ref chip. No target arrow: the subject never names
+         it, and the row's lane already shows where the merge landed. The PR icon keeps the
+         leading slot even on a release/hotfix PR; the flow speaks through the hue and the
+         row accent. Wider cap than a plain source chip: the number shares the width. */
+      from.className = chip(flow ? tagFlowColor(flow) : mergeColor(mg)) + " ps-1.5 max-w-56"
+      from.appendChild(iconEl(GitPullRequestIcon, "shrink-0"))
+      from.appendChild(document.createTextNode(`#${mg.pr}`))
+      const sep = document.createElement("span")
+      sep.className = badgeSeparator
+      from.appendChild(sep)
+      from.appendChild(scrollText(mg.from))
+      from.title = mg.from
+      subj.appendChild(from)
+    } else {
+      from.className = chip(flow ? tagFlowColor(flow) : mergeColor(mg)) + " max-w-42"
+      if (flow) from.appendChild(iconEl(flow === "hotfix" ? Fire02Icon : RocketIcon, "shrink-0"))
+      from.appendChild(scrollText(mg.from))
+      from.title = mg.from
+      const arrow = iconEl(ArrowRight01Icon, "size-3.5 shrink-0 text-muted-foreground")
+      const to = document.createElement("span")
+      to.className = chip("neutral") + " max-w-42"
+      to.appendChild(scrollText(mg.to || "HEAD"))
+      to.title = mg.to || ""
+      subj.append(from, arrow, to)
+    }
   } else {
     /* prefix column off → keep the prefix inline (full `c.s`), else the stripped text */
     const s = scrollText(showPrefix ? ps.text : c.s)

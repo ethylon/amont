@@ -71,6 +71,12 @@ describe("mergeColor", () => {
     assert.equal(mergeColor(merge("feature/x", "feature/y")), "neutral")
     assert.equal(mergeColor(merge("feature/x", null)), "neutral")
   })
+
+  it("paints a PR merge primary despite its unnamed target — flow hue still wins", () => {
+    assert.equal(mergeColor(merge("feature/x", null, { pr: 142 })), "primary")
+    assert.equal(mergeColor(merge("release/1.3.0", null, { pr: 26 })), "release")
+    assert.equal(mergeColor(merge("hotfix/1.2.1", null, { pr: 27 })), "danger")
+  })
 })
 
 describe("tagFlowColor", () => {

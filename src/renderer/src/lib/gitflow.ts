@@ -35,11 +35,13 @@ export function mergeFlow(mg: ParsedMerge): FlowKind | null {
 }
 
 /* Color of a merge's source chip. The release/hotfix pattern takes priority; otherwise a tag
-   stays amber, and a merge into a trunk keeps its teal. */
+   stays amber, and a merge into a trunk keeps its teal. A PR merge never names its target, but
+   it IS a deliberate integration — it rides the same trunk hue. */
 export function mergeColor(mg: ParsedMerge): BadgeColor {
   const flow = mergeFlow(mg)
   if (flow) return FLOW_COLOR[flow]
   if (mg.tag) return "warning"
+  if (mg.pr !== undefined) return "primary"
   return !mg.noise && mg.to && MAIN_TARGETS.test(mg.to) ? "primary" : "neutral"
 }
 
