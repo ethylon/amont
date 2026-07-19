@@ -383,8 +383,6 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
 
       <StatusBar
         repoId={repo.id}
-        branch={status?.branch ?? null}
-        flow={workFlow}
         opState={opState}
         opProgress={opProgress}
         queued={queued}

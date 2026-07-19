@@ -1,14 +1,9 @@
 import { memo } from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { GitBranchIcon } from "@hugeicons/core-free-icons"
 
 import type { Stats } from "@/features/graph/controller"
 import type { OpName } from "@/lib/git"
-import type { BranchFlow } from "@/lib/gitflow"
 import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
-import { cn } from "@/lib/utils"
-import { FLOW_META } from "@/features/flow/flow-context"
 import { GitConsole, type FeedEntry } from "@/features/console/git-console"
 import { MAINT_RUNNING, type MaintState } from "@/features/maintenance/maintenance-status"
 import type { RepoHealth } from "@/features/maintenance/health"
@@ -28,9 +23,6 @@ export type OpState = {
 
 type Props = {
   repoId: number
-  branch: string | null
-  /** work type of the current branch, `null` outside a flow (master, detached HEAD…) */
-  flow: BranchFlow | null
   opState: OpState | null
   /** live `NN%` of the running network op (fetch/pull/push), streamed from git's `--progress` */
   opProgress: { op: OpName; percent: number } | null
@@ -68,13 +60,11 @@ function feedEntry({ opState, opProgress, maint, health, onCompact }: Props): Fe
 
 /* memo (perf audit, finding 4b): selection clicks re-render the tab but leave the footer's
    props untouched — with RepoView memoizing `health`/`onCompact`, the bar only re-renders
-   when an operation, the branch or the graph stats actually move. */
+   when an operation or the graph stats actually move. */
 export const StatusBar = memo(function StatusBar(props: Props) {
   /* memo'd component: re-render on a runtime language switch even when no prop moved */
   useLocale()
-  const { repoId, branch, flow, stats, queued } = props
-  /* the work type tints the branch segment: shared signals from flow-context */
-  const f = flow && FLOW_META[flow]
+  const { repoId, stats, queued } = props
   const entry = feedEntry(props)
   return (
     <footer className="flex h-7 shrink-0 items-center gap-3 border-t pr-3 pl-3.5 text-[0.625rem] text-muted-foreground">
@@ -86,12 +76,6 @@ export const StatusBar = memo(function StatusBar(props: Props) {
           ongoing selection announcement for a mere pagination progress update. */}
       <span aria-live="polite" className="sr-only">
         {stats ? messages.graph.commitsLoaded(nf.format(stats.loaded), nf.format(stats.total)) : ""}
-      </span>
-
-      {/* min-w-0 + truncate: a long branch name ellipses instead of pushing the feed out of view */}
-      <span className={cn("flex max-w-[40ch] min-w-0 shrink items-center gap-1.5", f && `font-medium ${f.text}`)}>
-        <HugeiconsIcon icon={f ? f.icon : GitBranchIcon} strokeWidth={2} className="size-3 shrink-0" />
-        <span className="truncate">{branch ?? "—"}</span>
       </span>
 
       <GitConsole repoId={repoId} entry={entry} />
