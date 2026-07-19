@@ -1,11 +1,23 @@
 /* Pure helpers for the Sentry reporting of git failures (spec: docs/superpowers/specs/
-   2026-07-20-git-errors-sentry-design.md). Zero import, runnable under Node as-is — this is
-   the unit-test surface of the telemetry workstream, like parse.ts is for the parsers; the
-   Sentry calls themselves live in main/telemetry.ts, Electron-bound and untested.
+   2026-07-20-git-errors-sentry-design.md). No runtime import, runnable under Node as-is —
+   this is the unit-test surface of the telemetry workstream, like parse.ts is for the
+   parsers; the Sentry calls themselves live in main/telemetry.ts, Electron-bound and
+   untested.
 
    Privacy is the design constraint (cf. main/telemetry.ts header): nothing user-identifying
    may leave — no absolute path, URL, host, credential, branch or file name, email, or sha.
    sanitizeDetail() enforces that on git's stderr; gitVerb() never even looks at arguments. */
+
+import type { ErrorCode } from "../../shared/errors.ts"
+
+/** What the runner hands its failure hook (cf. exec.ts RunnerContext.onFailure): enough for
+    a breadcrumb, nothing user-identifying. */
+export interface GitFailureInfo {
+  verb: string
+  code: ErrorCode
+  exitCode: number | null
+  ms: number
+}
 
 /* Second tokens that name the operation (`stash pop`, `config --unset`): a closed list, so a
    sha, a path or a branch sitting in second position can never end up in telemetry. */
