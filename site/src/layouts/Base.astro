@@ -2,7 +2,7 @@
 import { getImage } from "astro:assets"
 import "../styles/global.css"
 import geistWoff2 from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url"
-import { dict, DOWNLOAD_URL, RELEASES_URL, type Locale } from "../i18n/ui"
+import { dict, DOWNLOAD_URL, REPO_URL, type Locale } from "../i18n/ui"
 import graphLight from "../../../docs/graph-light.png"
 import pkg from "../../../package.json"
 
@@ -45,9 +45,10 @@ const jsonLd = {
       downloadUrl: DOWNLOAD_URL,
       screenshot: ogUrl,
       image: ogUrl,
+      license: `${REPO_URL}/blob/main/LICENSE`,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       author: { "@type": "Person", name: "Mathieu Guey" },
-      sameAs: [RELEASES_URL],
+      sameAs: [REPO_URL],
       inLanguage: ["en", "fr"],
     },
     {

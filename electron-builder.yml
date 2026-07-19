@@ -25,11 +25,10 @@ afterPack: scripts/after-pack.mjs
 # The release stays a draft for the duration of the upload: the workflow publishes it after.
 # `releaseType: release` would recreate the release on every artifact -> 422 already_exists.
 #
-# The source repo is private: installers and latest.yml are published to the public
-# releases-only repo `ethylon/amont-releases`, which is also where the in-app updater
-# (electron-updater reads this publish config via app-update.yml) looks for updates.
+# Installers and latest.yml are published to this repo's GitHub Releases, which is also where
+# the in-app updater (electron-updater reads this publish config via app-update.yml) looks.
 publish:
   provider: github
   owner: ethylon
-  repo: amont-releases
+  repo: amont
   releaseType: draft

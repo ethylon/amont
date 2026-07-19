@@ -19,7 +19,7 @@ export interface Dict {
     title: string
     lede: string
     ctaDownload: string
-    free: string
+    ctaSource: string
     caption: string
     captionDemo: string
     demoTitle: string
@@ -60,14 +60,14 @@ export const dict: Record<Locale, Dict> = {
     meta: {
       title: "Amont — Git history you can actually read",
       description:
-        "Amont is a free Git client for Windows built around one idea: a commit graph fast enough to be your workspace. Smooth at 100,000+ commits, keyboard-driven, and it shows every git command it runs.",
+        "Amont is a free, open-source Git client for Windows built around one idea: a commit graph fast enough to be your workspace. Smooth at 100,000+ commits, keyboard-driven, and it shows every git command it runs.",
     },
     nav: { graph: "The graph", tour: "Tour", download: "Download", theme: "Toggle theme" },
     hero: {
       title: "Git history you can actually read.",
       lede: "Amont lays your repository out as one fast, readable commit graph: branches, merges, tags, stashes and ahead/behind status at a glance. Smooth at 100,000+ commits. Driven entirely from the keyboard if you want.",
       ctaDownload: "Download for Windows",
-      free: "Freeware",
+      ctaSource: "View the source",
       caption: "A real history: Amont browsing its own repository.",
       captionDemo: "Live demo: the real interface, in your browser, on a simulated repository.",
       demoTitle: "Interactive demo: the real Amont interface on a simulated repository",
@@ -128,8 +128,8 @@ export const dict: Record<Locale, Dict> = {
           body: "No bundled binaries, no hidden state, no account.",
         },
         {
-          title: "Free for everyone",
-          body: "Amont is freeware: free for personal and commercial use, no account, no license key. Optional crash reports carry no repository contents and no personal data.",
+          title: "Free and open",
+          body: "MIT-licensed, developed in the open on GitHub. Optional crash reports carry no repository contents and no personal data.",
         },
       ],
       consoleLabel: "Command log — read-only",
@@ -142,27 +142,27 @@ export const dict: Record<Locale, Dict> = {
       smartscreenTitle: "About the SmartScreen warning",
       smartscreen:
         "Released binaries are not code-signed yet, so Windows shows an “unknown publisher” warning when you run the installer. This is expected. Update integrity relies on HTTPS to GitHub and the sha512 checksum in latest.yml.",
-      pageTitle: "Download Amont — a free Git client for Windows",
+      pageTitle: "Download Amont — a free, open-source Git client for Windows",
       pageDescription:
-        "Get the Amont installer for Windows from the latest release. Freeware, no account, and it keeps itself up to date.",
+        "Get the Amont installer for Windows from the latest release. Free and open-source, no account, and it keeps itself up to date.",
       backHome: "Back to the site",
     },
     footer: {
-      license: "Freeware · © Mathieu Guey",
+      license: "MIT © Mathieu Guey",
     },
   },
   fr: {
     meta: {
       title: "Amont — un historique Git enfin lisible",
       description:
-        "Amont est un client Git gratuit pour Windows, construit autour d’une idée : un graphe de commits assez rapide pour être votre espace de travail. Fluide à plus de 100 000 commits, pilotable au clavier, et il affiche chaque commande git exécutée.",
+        "Amont est un client Git libre et open source pour Windows, construit autour d’une idée : un graphe de commits assez rapide pour être votre espace de travail. Fluide à plus de 100 000 commits, pilotable au clavier, et il affiche chaque commande git exécutée.",
     },
     nav: { graph: "Le graphe", tour: "Visite", download: "Télécharger", theme: "Changer de thème" },
     hero: {
       title: "Un historique Git enfin lisible.",
       lede: "Amont déploie votre dépôt en un graphe de commits rapide et lisible : branches, merges, tags, stashs et divergence ahead/behind d’un coup d’œil. Fluide à plus de 100 000 commits. Pilotable entièrement au clavier si vous voulez.",
       ctaDownload: "Télécharger pour Windows",
-      free: "Gratuit",
+      ctaSource: "Lire le code source",
       caption: "Un vrai historique : Amont sur son propre dépôt.",
       captionDemo: "Démo en direct : la vraie interface, dans votre navigateur, sur un dépôt simulé.",
       demoTitle: "Démo interactive : la vraie interface d'Amont sur un dépôt simulé",
@@ -223,8 +223,8 @@ export const dict: Record<Locale, Dict> = {
           body: "Pas de binaire embarqué, pas d’état caché, pas de compte.",
         },
         {
-          title: "Gratuit pour tout le monde",
-          body: "Amont est un logiciel gratuit, pour un usage personnel comme professionnel — pas de compte, pas de clé de licence. Les rapports de crash optionnels ne contiennent ni contenu de dépôt ni donnée personnelle.",
+          title: "Libre et ouvert",
+          body: "Sous licence MIT, développé en public sur GitHub. Les rapports de crash optionnels ne contiennent ni contenu de dépôt ni donnée personnelle.",
         },
       ],
       consoleLabel: "Journal des commandes — lecture seule",
@@ -237,21 +237,19 @@ export const dict: Record<Locale, Dict> = {
       smartscreenTitle: "À propos de l’avertissement SmartScreen",
       smartscreen:
         "Les binaires publiés ne sont pas encore signés : Windows affiche un avertissement « éditeur inconnu » au lancement de l’installeur. C’est attendu. L’intégrité des mises à jour repose sur HTTPS vers GitHub et le sha512 de latest.yml.",
-      pageTitle: "Télécharger Amont — un client Git gratuit pour Windows",
+      pageTitle: "Télécharger Amont — un client Git libre et open source pour Windows",
       pageDescription:
-        "Téléchargez l’installeur d’Amont pour Windows depuis la dernière release. Gratuit, sans compte, et il se tient à jour tout seul.",
+        "Téléchargez l’installeur d’Amont pour Windows depuis la dernière release. Libre et open source, sans compte, et il se tient à jour tout seul.",
       backHome: "Retour au site",
     },
     footer: {
-      license: "Logiciel gratuit · © Mathieu Guey",
+      license: "MIT © Mathieu Guey",
     },
   },
 }
 
-// The source repo is private; only the releases repo (installers, latest.yml, issue
-// tracker) is public. Every outbound GitHub link on the site points there.
-export const RELEASES_URL = "https://github.com/ethylon/amont-releases"
-export const DOWNLOAD_URL = `${RELEASES_URL}/releases/latest`
+export const REPO_URL = "https://github.com/ethylon/amont"
+export const DOWNLOAD_URL = `${REPO_URL}/releases/latest`
 
 export function localePath(locale: Locale): string {
   return locale === "en" ? "/" : "/fr/"

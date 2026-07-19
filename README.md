@@ -8,12 +8,12 @@
 
 A fast, keyboard-friendly Git client for Windows.
 
-[![Latest release](https://img.shields.io/github/v/release/ethylon/amont-releases?label=release&color=8b5cf6)](https://github.com/ethylon/amont-releases/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/ethylon/amont?label=release&color=8b5cf6)](https://github.com/ethylon/amont/releases/latest)
 [![CI](https://github.com/ethylon/amont/actions/workflows/ci.yml/badge.svg)](https://github.com/ethylon/amont/actions/workflows/ci.yml)
-[![License: Freeware](https://img.shields.io/badge/license-freeware-blue)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d4)
 
-**[Download the latest release](https://github.com/ethylon/amont-releases/releases/latest)** ·
+**[Download the latest release](https://github.com/ethylon/amont/releases/latest)** ·
 [Website](https://amont.dev) ·
 [Features](#features) · [Screenshots](#screenshots) · [Install](#install) · [Development](#development)
 
@@ -72,9 +72,8 @@ graph is the workspace.
   binaries, no hidden state, no account.
 - **Sandboxed UI.** The interface runs in Chromium’s sandbox with a strict CSP; only the
   main process touches git, the disk and the network.
-- **Free for everyone.** Freeware, for personal and commercial use — no account, no
-  license key. Optional crash reports carry no repository contents and no personal
-  data; see [Privacy](#privacy).
+- **Free and open.** MIT-licensed. Optional crash reports carry no repository contents
+  and no personal data; see [Privacy](#privacy).
 
 ### Everything else
 
@@ -148,7 +147,7 @@ once no conflict markers remain.
 
 ## Install
 
-**[Download the installer from the latest release](https://github.com/ethylon/amont-releases/releases/latest)**
+**[Download the installer from the latest release](https://github.com/ethylon/amont/releases/latest)**
 and run it. Amont then keeps itself up to date: it checks GitHub Releases at startup,
 downloads updates in the background, and installs them on quit or when you click
 _Restart now_.
@@ -228,5 +227,4 @@ boundaries and how to report a vulnerability.
 
 ## License
 
-[Freeware](LICENSE) © Mathieu Guey — free for personal and commercial use. Versions
-released before the license change remain under MIT.
+[MIT](LICENSE) © Mathieu Guey
