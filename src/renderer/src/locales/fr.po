@@ -478,6 +478,9 @@ msgstr "Documentation"
 msgid "Downloading Amont {version}…"
 msgstr "Téléchargement d'Amont {version}…"
 
+msgid "Drag to resize the column — double-click to reset"
+msgstr "Glisser pour redimensionner la colonne — double-clic pour réinitialiser"
+
 msgid "Drop"
 msgstr "Supprimer"
 

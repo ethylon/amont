@@ -15,6 +15,7 @@ import { useSyncExternalStore } from "react"
 
 import { foldPrefix, prefixColorVar, setCustomPrefixes } from "@/lib/commit-parse"
 import { isDark, onThemeChange } from "@/lib/theme"
+import { COL_DEFAULTS, type GraphCol } from "@/features/graph/constants"
 
 /** Editable badge hues, surfaced to the user as feature / bugfix / hotfix / release / info /
     refactor / polish. `danger` is the shadcn `--destructive` token; the rest are amont's own. */
@@ -84,6 +85,10 @@ export interface Customization {
   langAliases: LangAlias[]
   /** custom prefix → badge color rules, matched by parseSubject after the built-in type tables */
   prefixRules: PrefixRule[]
+  /** user-resized graph columns (px), dragged on the boundary strips of the commit graph; a
+      missing key = the default in features/graph/constants (`COL_DEFAULTS`). `branch`/`type`
+      are chip caps — their tracks keep auto-sizing on content — the rest are track widths. */
+  graphCols: Partial<Record<GraphCol, number>>
 }
 
 export const CUSTOMIZATION_DEFAULTS: Customization = {
@@ -95,6 +100,23 @@ export const CUSTOMIZATION_DEFAULTS: Customization = {
   colors: { light: {}, dark: {} },
   langAliases: LANG_ALIASES_DEFAULT.map((a) => ({ ...a })),
   prefixRules: [],
+  graphCols: {},
+}
+
+/* Bounds of a column drag: below 40px a column reads as gone (collapsing is the measurer's
+   job, on content, not the user's), above 480px it eats the subject for good. */
+export const GRAPH_COL_MIN = 40
+export const GRAPH_COL_MAX = 480
+
+/** column → the `--amont-*` custom property its override rides. The grid template and the
+    chip max-width classes (features/graph/constants) read these with the default as var()
+    fallback, so a cleared override needs nothing more than removing the property. */
+export const GRAPH_COL_VAR: Record<GraphCol, string> = {
+  branch: "--amont-branchcap",
+  type: "--amont-typecap",
+  author: "--amont-colauthor",
+  date: "--amont-coldate",
+  hash: "--amont-colhash",
 }
 
 const KEY = "amont.customization"
@@ -153,6 +175,16 @@ function coerce(value: unknown): Customization {
     }
     return out
   }
+  const graphCols = (v: unknown): Partial<Record<GraphCol, number>> => {
+    const out: Partial<Record<GraphCol, number>> = {}
+    if (v && typeof v === "object") {
+      for (const col of Object.keys(COL_DEFAULTS) as GraphCol[]) {
+        const px = (v as Record<string, unknown>)[col]
+        if (typeof px === "number" && Number.isFinite(px)) out[col] = clampCol(px)
+      }
+    }
+    return out
+  }
   const colors = src.colors && typeof src.colors === "object" ? (src.colors as Record<string, unknown>) : {}
   return {
     fontUi: str(src.fontUi),
@@ -163,8 +195,11 @@ function coerce(value: unknown): Customization {
     colors: { light: colorMap(colors.light), dark: colorMap(colors.dark) },
     langAliases: langAliases(src.langAliases),
     prefixRules: prefixRules(src.prefixRules),
+    graphCols: graphCols(src.graphCols),
   }
 }
+
+const clampCol = (px: number) => Math.round(Math.min(GRAPH_COL_MAX, Math.max(GRAPH_COL_MIN, px)))
 
 function load(): Customization {
   try {
@@ -232,6 +267,15 @@ export function applyCustomization(): void {
     else style.removeProperty(ROLE_VAR[role])
   }
 
+  /* Resized graph columns: an override writes its var (grid tracks and chip caps resolve it
+     live — mounted rows re-lay out without a rebuild); a column at its default removes the
+     property and the var() fallbacks in features/graph/constants take over. */
+  for (const col of Object.keys(GRAPH_COL_VAR) as GraphCol[]) {
+    const px = current.graphCols[col]
+    if (px !== undefined && px !== COL_DEFAULTS[col]) style.setProperty(GRAPH_COL_VAR[col], px + "px")
+    else style.removeProperty(GRAPH_COL_VAR[col])
+  }
+
   /* Custom prefix colors ride their own `--amont-prefix-<key>` var, written for the active theme —
      so a badge painted once (imperative graph) follows theme flips and live edits without a rebuild.
      Vars for prefixes that went away are cleared so a deleted rule leaves nothing behind. */
@@ -283,16 +327,31 @@ export function resetColor(theme: ThemeKey, role?: ColorRole): void {
   commit({ ...current, colors: { ...current.colors, [theme]: next } })
 }
 
-/** Reset the flat fields (fonts + toggles) to defaults; colors, lang aliases and prefix rules each
-    keep their own section-level reset. */
+/** Reset the flat fields (fonts + toggles) to defaults; colors, lang aliases, prefix rules and
+    column widths each keep their own reset (a double-click on a strip, for the columns). */
 export function resetCustomization(): void {
   commit({
     ...CUSTOMIZATION_DEFAULTS,
     colors: current.colors,
     langAliases: current.langAliases,
     prefixRules: current.prefixRules,
+    graphCols: current.graphCols,
   })
 }
+
+/* --- Graph column widths (drag strips, features/graph/react/col-resize.tsx) --- */
+
+/** Set one graph column's width (px, clamped); `null` — or the default value — clears the
+    override, so the stored blob only ever carries actual deviations. */
+export function setGraphCol(col: GraphCol, px: number | null): void {
+  const next = { ...current.graphCols }
+  if (px === null || clampCol(px) === COL_DEFAULTS[col]) delete next[col]
+  else next[col] = clampCol(px)
+  commit({ ...current, graphCols: next })
+}
+
+/** Effective width of every resizable column: the override if set, else the default. */
+export const getGraphCols = (): Record<GraphCol, number> => ({ ...COL_DEFAULTS, ...current.graphCols })
 
 /* --- Lang aliases (Settings ▸ Diff) --- */
 
