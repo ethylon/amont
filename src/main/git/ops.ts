@@ -19,6 +19,7 @@ import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { finishFlow } from "./flow.ts"
 import { ALL_REFS, BRANCH, HASH } from "./parse.ts"
+import { conflictOp } from "./queries.ts"
 
 /* --- Network ---
    --progress: without a TTY git stays silent about its progress; we force it so the console streams it. */
@@ -442,13 +443,17 @@ export async function resolveConflict(r: RepoHandle, path: string, content: stri
   })
 }
 
-/** Puts the tree back where the merge found it. Loses manual resolutions — same safeguard
-    policy as branch delete: git refuses when there's no merge to abort, nothing more. */
+/** Puts the tree back where the operation found it. The state on disk picks the command —
+    merge, rebase, cherry-pick and revert each park their own pseudo-ref (queries.conflictOp)
+    and each has its own `--abort`; re-detecting here rather than trusting the renderer keeps
+    the abort aimed at whatever is actually in progress. Loses manual resolutions — same
+    safeguard policy as branch delete: git refuses when there's nothing to abort, nothing more. */
 export async function mergeAbort(r: RepoHandle): Promise<void> {
   await withLock(r, "merge abort", async () => {
-    groupTrace(r, "Merge abort")
+    const op = (await conflictOp(r))?.op ?? "merge"
+    groupTrace(r, `Abort ${op}`)
     try {
-      await r.git(["merge", "--abort"])
+      await r.git([op, "--abort"])
     } finally {
       mute(r)
     }

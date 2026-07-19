@@ -12,7 +12,6 @@ import type { FileChange, RepoApi, TraceLine, Worktree, WtSource } from "@/lib/g
 import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { useTraceStep } from "@/lib/use-trace-step"
-import { useMergeStateQuery } from "@/features/conflict/conflict-queries"
 import { useStatusQuery } from "@/features/repo/repo-queries"
 import { DiscardDialog, type DiscardRequest } from "@/features/worktree/discard-dialog"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
@@ -26,7 +25,7 @@ import {
   useFileView,
   type FileView,
 } from "@/features/repo/file-list"
-import { GitCmd, MenuItemWithCmd } from "@/components/ui/git-cmd"
+import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,7 +86,7 @@ function WtBlockMenu({ items }: { items: WtMenuItem[] }) {
   )
 }
 
-/* memo: the panel re-renders on any worktree/status/mergeState refetch; a block whose
+/* memo: the panel re-renders on any worktree/status refetch; a block whose
    files array (memoized upstream) and callbacks (all stable) haven't moved skips its
    whole subtree — with hundreds of dirty files that's the bulk of the panel's tree. */
 const WtBlock = memo(function WtBlock({
@@ -270,11 +269,9 @@ export function WorktreePanel() {
   const repoId = useRepoStore((s) => s.repoId)
   const storeApi = useRepoStoreApi()
   const { data: worktree = EMPTY_WT } = useWorktreeQuery(api, repoId)
-  const { data: mergeSt } = useMergeStateQuery(api, repoId)
   const activePath = useRepoStore((s) => s.ui.diff?.file.path ?? s.ui.conflict?.path)
   const onOpenDiff = useRepoStore((s) => s.openDiff)
   const onOpenConflict = useRepoStore((s) => s.openConflict)
-  const onAbortMerge = useRepoStore((s) => s.abortMerge)
   const onRun = useRepoStore((s) => s.runWt)
   const onDiscard = useRepoStore((s) => s.runDiscard)
   const runStash = useRepoStore((s) => s.runStash)
@@ -465,26 +462,8 @@ export function WorktreePanel() {
         <FileViewToggle view={view} onChange={setView} />
       </div>
 
-      {/* Merge in progress: names both sides once for the whole panel — the same A/B
-          vocabulary the conflict view uses — and offers the way out. */}
-      {mergeSt?.merging && (
-        <div className="mt-3 flex shrink-0 items-center justify-between gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1">
-          <span className="text-xs text-balance">
-            {messages.conflict.mergeBanner(mergeSt.theirs ?? "MERGE_HEAD", mergeSt.ours ?? "HEAD")}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-auto min-h-6 shrink-0 py-0.5 normal-case tracking-normal text-destructive"
-            onClick={onAbortMerge}
-          >
-            <span className="flex flex-col items-start">
-              <span>{messages.conflict.abortMerge}</span>
-              <GitCmd cmd="git merge --abort" className="text-destructive/70" />
-            </span>
-          </Button>
-        </div>
-      )}
+      {/* The merge-in-progress strip lives at the repo level now (conflict-banner.tsx):
+          always on screen, whatever the view — including here. */}
 
       {/* equal-share blocks, each with its own scroll, always visible */}
       <div className="mt-4 flex min-h-0 flex-1 flex-col border-t pt-3">

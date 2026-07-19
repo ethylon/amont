@@ -52,6 +52,9 @@ msgstr "{n, plural, one {# commit sélectionné} other {# commits sélectionnés
 msgid "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
 msgstr "{n, plural, one {# conflit restant} other {# conflits restants}}"
 
+msgid "{n, plural, one {# conflicted file} other {# conflicted files}}"
+msgstr "{n, plural, one {# fichier en conflit} other {# fichiers en conflit}}"
+
 msgid "{n, plural, one {# new commit} other {# new commits}}"
 msgstr "{n, plural, one {# nouveau commit} other {# nouveaux commits}}"
 
@@ -103,8 +106,17 @@ msgstr "Un dépôt sans copie de travail, prêt à servir de dépôt distant."
 msgid "A tag will be created on commit {hash}."
 msgstr "Un tag sera créé sur le commit {hash}."
 
+msgid "Abort cherry-pick"
+msgstr "Interrompre le cherry-pick"
+
 msgid "Abort merge"
 msgstr "Interrompre le merge"
+
+msgid "Abort rebase"
+msgstr "Interrompre le rebase"
+
+msgid "Abort revert"
+msgstr "Interrompre le revert"
 
 msgid "Add extension"
 msgstr "Ajouter une extension"
@@ -123,6 +135,9 @@ msgstr "Références supplémentaires"
 
 msgid "After"
 msgstr "Après"
+
+msgid "All conflicts resolved — commit to conclude."
+msgstr "Tous les conflits sont résolus — commitez pour conclure."
 
 msgid "Also delete the remote branch « {upstream} »"
 msgstr "Supprimer aussi la branche distante « {upstream} »"
@@ -220,6 +235,9 @@ msgstr "Basculer"
 msgid "Checkout {hash}"
 msgstr "Basculer sur {hash}"
 
+msgid "Cherry-picking {theirs} (B)"
+msgstr "Cherry-pick de {theirs} (B)"
+
 msgid "Choose a destination folder first."
 msgstr "Choisissez d'abord un dossier de destination."
 
@@ -312,6 +330,9 @@ msgstr "conflit…"
 
 msgid "Conflicts"
 msgstr "Conflits"
+
+msgid "Conflicts in the working tree"
+msgstr "Conflits dans la copie de travail"
 
 msgid "Create"
 msgstr "Créer"
@@ -856,6 +877,9 @@ msgstr "Prêt"
 msgid "Rebase on {base}"
 msgstr "Rebaser sur {base}"
 
+msgid "Rebasing {theirs} (B)"
+msgstr "Rebase de {theirs} (B)"
+
 msgid "Recent"
 msgstr "Récents"
 
@@ -924,6 +948,9 @@ msgstr "Afficher dans l'explorateur de fichiers"
 
 msgid "Revert {hash}"
 msgstr "Revert {hash}"
+
+msgid "Reverting {theirs} (B)"
+msgstr "Revert de {theirs} (B)"
 
 msgid "Root folder"
 msgstr "Dossier racine"
@@ -1131,6 +1158,9 @@ msgstr "Préfixe de tag de version"
 
 msgid "View"
 msgstr "Affichage"
+
+msgid "View conflicts"
+msgstr "Voir les conflits"
 
 msgid "Worktrees"
 msgstr "Worktrees"

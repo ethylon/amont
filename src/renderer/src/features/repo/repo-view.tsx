@@ -14,6 +14,7 @@ import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
 import { BootSkeleton } from "@/features/repo/boot-skeleton"
 import { CommitSearch } from "@/features/search/commit-search"
+import { ConflictBanner } from "@/features/conflict/conflict-banner"
 import { DetailPanel } from "@/features/repo/detail-panel"
 import { ErrorBoundary } from "@/app/error-boundary"
 import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
@@ -281,6 +282,10 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
             !booted && "opacity-0"
           )}
         >
+          {/* conflict mode first, above the flow strips: an in-progress merge/rebase/… is the
+              state everything else waits on, and the banner carries its way out (abort) */}
+          <ConflictBanner />
+
           {flowStart && (
             <FlowStartBanner
               key={`${flowStart.kind}:${flowStart.base ?? ""}`}

@@ -682,7 +682,7 @@
           merging = false
         },
         mergeState: async () => ({
-          merging,
+          op: merging ? "merge" : null,
           ours: merging ? "develop" : null,
           theirs: merging ? "feature/cost-optim" : null,
         }),

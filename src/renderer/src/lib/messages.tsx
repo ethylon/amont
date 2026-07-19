@@ -570,8 +570,31 @@ export const messages = {
     /* the A/B letters are deliberately literal (not translated): they're the visual anchor
        shared by the banner, the pane headers and the per-conflict buttons */
     mergeBanner: (theirs: string, ours: string) => t`Merging ${theirs} (B) into ${ours} (A)`,
+    rebaseBanner: (theirs: string) => t`Rebasing ${theirs} (B)`,
+    cherryPickBanner: (theirs: string) => t`Cherry-picking ${theirs} (B)`,
+    revertBanner: (theirs: string) => t`Reverting ${theirs} (B)`,
+    /* conflicted paths without an operation on disk (a stash pop): nothing to abort */
+    get conflictsBanner() {
+      return t`Conflicts in the working tree`
+    },
+    conflictedFiles: (n: number) => plural(n, { one: "# conflicted file", other: "# conflicted files" }),
+    get allResolved() {
+      return t`All conflicts resolved — commit to conclude.`
+    },
+    get viewConflicts() {
+      return t`View conflicts`
+    },
     get abortMerge() {
       return t`Abort merge`
+    },
+    get abortRebase() {
+      return t`Abort rebase`
+    },
+    get abortCherryPick() {
+      return t`Abort cherry-pick`
+    },
+    get abortRevert() {
+      return t`Abort revert`
     },
     sideA: (label: string) => t`A · ${label}`,
     sideB: (label: string) => t`B · ${label}`,
