@@ -11,7 +11,6 @@ import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { GitCmd } from "@/components/ui/git-cmd"
 import {
   Dialog,
   DialogContent,
@@ -34,12 +33,6 @@ export function DeleteBranchDialog({
   const canDeleteRemote = hasRemote && !branch.gone
   const [deleteRemote, setDeleteRemote] = useState(false)
   const remoteId = useId()
-
-  const [remote, ...rest] = branch.upstream.split("/")
-  const cmd =
-    deleteRemote && canDeleteRemote
-      ? `git branch -D ${branch.name} && git push ${remote} --delete ${rest.join("/")}`
-      : `git branch -D ${branch.name}`
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -79,14 +72,12 @@ export function DeleteBranchDialog({
           </Button>
           <Button
             variant="destructive"
-            className="h-auto flex-col gap-0 py-1"
             onClick={() => {
               onConfirm(deleteRemote && canDeleteRemote)
               onClose()
             }}
           >
             {messages.refs.deleteBranchConfirm}
-            <GitCmd cmd={cmd} className="text-destructive/70" />
           </Button>
         </DialogFooter>
       </DialogContent>
