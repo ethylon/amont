@@ -19,7 +19,7 @@ import { createGitRunner, killAll, type GitRunner } from "./git/exec.ts"
 import { basename } from "./util.ts"
 import { getSettings } from "./settings.ts"
 import { remember } from "./state.ts"
-import { addGitBreadcrumb } from "./telemetry.ts"
+import { addGitBreadcrumb, captureGitError } from "./telemetry.ts"
 import { watchGit, type Watchable } from "./watcher.ts"
 
 /** Hooks provided by the window layer (window.ts), injected at opening rather than read from
@@ -238,6 +238,7 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     watchers: [],
     watchRetries: 0,
     retryTimer: null,
+    captureError: captureGitError,
     trunk: null,
     stashCache: null,
     snapshotCache: null,
