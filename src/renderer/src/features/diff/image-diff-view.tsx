@@ -5,7 +5,7 @@ import { IMAGE_MIME, useImageDiffQuery } from "@/features/diff/image-diff-querie
 import type { DiffCtx } from "@/features/diff/diff-view"
 import { messages } from "@/lib/messages"
 import { cn, formatBytes } from "@/lib/utils"
-import { AsyncHint } from "@/components/ui/async-hint"
+import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 
 /* A light/dark checkerboard so a transparent PNG/SVG reads as transparent instead of blending
    into the panel. Pure CSS — no asset, no extra request under the CSP. */
@@ -99,7 +99,21 @@ type Props = {
 export function ImageDiffView({ api, repoId, ctx, file, ext }: Props) {
   const { data, isPending, isError } = useImageDiffQuery(api, repoId, ctx, file, true)
 
-  if (isPending) return <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
+  /* ghost of the before/after pair, in the real container's frame — a one-sided result
+     (added/deleted image) just collapses one panel when it lands */
+  if (isPending)
+    return (
+      <SkeletonGroup label={messages.diff.loading} className="min-h-0 flex-auto overflow-hidden rounded-md bg-muted/40">
+        <div className="flex min-h-full flex-col gap-4 p-4 lg:flex-row">
+          {[0, 1].map((i) => (
+            <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+              <Skeleton className="h-4.5 w-20 rounded" />
+              <Skeleton className="min-h-40 w-full flex-1 rounded-md" />
+            </div>
+          ))}
+        </div>
+      </SkeletonGroup>
+    )
   if (isError || (!data.old && !data.new))
     return <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.imageUnavailable}</p>
 

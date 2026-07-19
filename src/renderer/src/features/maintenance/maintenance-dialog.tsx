@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query"
 import type { MaintKind, RepoApi } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -13,6 +15,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { MaintenanceStatus, type MaintState } from "@/features/maintenance/maintenance-status"
+
+/* Ghost of the eight stat rows (label + number bars): same grid, same hairlines, same
+   row height as the real report — the dialog doesn't jump when the numbers land. */
+const GHOST_STATS = ["w-24", "w-20", "w-28", "w-16", "w-24", "w-20", "w-24", "w-20"]
 
 type Props = {
   api: RepoApi
@@ -53,7 +59,17 @@ export function MaintenanceDialog({ api, repoId, maint, onRunMaint, onClose }: P
 
         <dl className="grid grid-cols-2 gap-x-4 rounded-md border p-3 text-xs">
           {isLoading && !data ? (
-            <p className="col-span-2 text-muted-foreground">{messages.maintenance.loading}</p>
+            <SkeletonGroup label={messages.maintenance.loading} className="col-span-2 grid grid-cols-2 gap-x-4">
+              {GHOST_STATS.map((w, i) => (
+                <div
+                  key={i}
+                  className="flex h-6 items-center justify-between gap-3 border-b border-border/40 [&:nth-last-child(-n+2)]:border-0"
+                >
+                  <Skeleton className={cn("h-2.5 rounded-full", w)} />
+                  <Skeleton className="h-2.5 w-10 rounded-full" />
+                </div>
+              ))}
+            </SkeletonGroup>
           ) : (
             rows.map(([label, value]) => (
               <div

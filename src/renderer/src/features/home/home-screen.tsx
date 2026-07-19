@@ -8,7 +8,7 @@ import { describeError } from "@/lib/errors"
 import { messages } from "@/lib/messages"
 import { cn } from "@/lib/utils"
 import { Mark } from "@/components/ui/mark"
-import { AsyncHint } from "@/components/ui/async-hint"
+import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -35,6 +35,29 @@ function RepoButton({ repo, onClick }: { repo: RepoRef; onClick(): void }) {
         <span className="block truncate text-[0.625rem] text-muted-foreground">{repo.path}</span>
       </span>
     </button>
+  )
+}
+
+/* Ghost of a few RepoButton rows while the disk scan walks the root folder:
+   folder square + name/path bars, same paddings as the real row. */
+const GHOST_REPOS = [
+  ["w-24", "w-48"],
+  ["w-32", "w-40"],
+  ["w-28", "w-52"],
+]
+function ScanSkeleton() {
+  return (
+    <SkeletonGroup label={messages.home.scanningRepos}>
+      {GHOST_REPOS.map(([name, path], i) => (
+        <div key={i} className="flex items-center gap-2.5 px-2.5 py-2">
+          <Skeleton className="size-4 shrink-0 rounded" />
+          <div className="min-w-0 space-y-1.5">
+            <Skeleton className={cn("h-2.5 rounded-full", name)} />
+            <Skeleton className={cn("h-2 rounded-full", path)} />
+          </div>
+        </div>
+      ))}
+    </SkeletonGroup>
   )
 }
 
@@ -192,7 +215,7 @@ export function HomeScreen({ active, onOpened }: Props) {
           {!root ? (
             <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">{messages.home.noRootFolder}</p>
           ) : found === null ? (
-            <AsyncHint className="px-2.5 py-2">{messages.home.scanningRepos}</AsyncHint>
+            <ScanSkeleton />
           ) : !found.length ? (
             <p className="px-2.5 py-2 text-xs text-pretty text-muted-foreground">
               {messages.home.noReposFoundUnderRoot}

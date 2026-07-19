@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils"
 import { Spinner } from "@/components/ui/spinner"
 
-/** Spinner + muted text trio, for waiting on a first response (AUDIT.md §7, phase 5 —
-    copied identically in detail-panel/home-screen/refs-sidebar/diff-view). `className`
+/** Spinner + muted text trio, for an operation in flight (clone/create, cf. create-dialog).
+    First-load data waits show a shaped Skeleton instead (components/ui/skeleton). `className`
     carries the padding specific to each location, `cn` merges it without conflict. */
 export function AsyncHint({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
