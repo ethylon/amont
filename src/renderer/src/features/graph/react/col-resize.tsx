@@ -1,12 +1,6 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent, RefObject } from "react"
 
-import {
-  getGraphCols,
-  GRAPH_COL_MAX,
-  GRAPH_COL_MIN,
-  GRAPH_COL_VAR,
-  setGraphCol,
-} from "@/lib/customization"
+import { getGraphCols, GRAPH_COL_MAX, GRAPH_COL_MIN, GRAPH_COL_VAR, setGraphCol } from "@/lib/customization"
 import { messages } from "@/lib/messages"
 import { GRID_COLS, type GraphCol } from "../constants.ts"
 import type { GraphHandle } from "../controller.ts"
