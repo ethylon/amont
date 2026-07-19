@@ -6,7 +6,7 @@
    opened when current nor removed). */
 
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowUpRight01Icon, CleanIcon, Delete02Icon, FolderOpenIcon, Tree02Icon } from "@hugeicons/core-free-icons"
+import { ArrowUpRight01Icon, CleanIcon, Delete02Icon, FolderOpenIcon, Tree07Icon } from "@hugeicons/core-free-icons"
 
 import { worktreeName, type WorktreeAct, type WorktreeInfo } from "@/lib/git"
 import { messages } from "@/lib/messages"
@@ -55,7 +55,7 @@ function WorktreeRow({
           title={w.current ? messages.worktrees.currentTab : w.path}
           className="amont-refrow flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs text-foreground select-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
         >
-          <HugeiconsIcon icon={Tree02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
+          <HugeiconsIcon icon={Tree07Icon} strokeWidth={2} className="size-3.5 shrink-0 text-muted-foreground" />
           {/* a prunable entry's folder is gone: it reads as a leftover, same as a gone branch */}
           <ScrollText
             text={name}
