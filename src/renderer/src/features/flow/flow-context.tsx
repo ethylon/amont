@@ -98,7 +98,8 @@ function FlowInfoRow({ kind, branch, info }: { kind: BranchFlow; branch: string;
           while busy. */}
       <RollingText
         text={busy ? (cmd ?? count(info)) : count(info)}
-        className={cn("min-w-0 flex-1 font-mono text-[0.625rem] opacity-80", busy && "shimmer")}
+        shimmer={busy}
+        className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
       />
       <span className="flex items-center gap-1.5 opacity-80">
         <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} className="size-3.5 shrink-0" />
@@ -177,7 +178,8 @@ function FlowFinishRow({
         /* seed with the branch until the first traced command rolls in */
         <RollingText
           text={cmd ?? (rebase ? `git rebase ${target} ${branch}` : `git flow ${kind} finish --no-ff`)}
-          className="shimmer min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
+          shimmer
+          className="min-w-0 flex-1 font-mono text-[0.625rem] opacity-80"
         />
       ) : (
         <span className="flex-1" />

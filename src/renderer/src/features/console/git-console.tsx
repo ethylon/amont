@@ -171,7 +171,8 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
               counterpart of the status dot's pulse. */}
           <RollingText
             text={text}
-            className={cn("min-w-0", tone === "busy" && "shimmer", tone === "danger" && "text-destructive")}
+            shimmer={tone === "busy"}
+            className={cn("min-w-0", tone === "danger" && "text-destructive")}
           />
           {entry?.percent != null && <span className="shrink-0 text-foreground tabular-nums">{entry.percent}%</span>}
         </PopoverTrigger>
