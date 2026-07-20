@@ -422,6 +422,12 @@ export const messages = {
     get finishHotfix() {
       return t`Finish hotfix`
     },
+    /* multi-selection context menu (≥ 2 local branches focused) */
+    createReleaseWith: (n: number) =>
+      plural(n, { one: "Create a release with this branch…", other: "Create a release with these # branches…" }),
+    get clearSelection() {
+      return t`Clear selection`
+    },
     get branchesUnavailable() {
       return t`Branches unavailable.`
     },
@@ -1102,6 +1108,72 @@ export const messages = {
     get cancelFinish() {
       return t`Cancel`
     },
+  },
+
+  /* "Create a release" modal (sidebar multi-selection): composes a release and previews each
+     merge (`git merge-tree` dry-run) before arming the merge queue. */
+  release: {
+    get title() {
+      return t`Create a release`
+    },
+    get intro() {
+      return t`The selected branches will be merged into the release one at a time, in the order below.`
+    },
+    branchCount: (n: number) => plural(n, { one: "# branch", other: "# branches" }),
+    get reorderHint() {
+      return t`first merged on top`
+    },
+    toMerge: (n: number) => plural(n, { 0: "nothing to merge", one: "# to merge", other: "# to merge" }),
+    get statusClean() {
+      return t`no conflicts`
+    },
+    conflictedFiles: (n: number) => plural(n, { one: "# conflicted file", other: "# conflicted files" }),
+    alreadyIn: (base: string) => t`already in ${base}`,
+    get previewUnavailable() {
+      return t`preview unavailable`
+    },
+    get orderHint() {
+      return t`Order matters: conflicts are re-evaluated after each merge. A conflict announced here is resolved in the conflict view, at merge time.`
+    },
+    include: (branch: string) => t`Include ${branch}`,
+    moveUp: (branch: string) => t`Move ${branch} up`,
+    moveDown: (branch: string) => t`Move ${branch} down`,
+    create: (name: string) => t`Create ${name}`,
+    get creating() {
+      return t`creating…`
+    },
+  },
+
+  /* Merge-queue banner: the strip that drives the release's one-at-a-time merges. */
+  queue: {
+    mergeNext: (branch: string) => t`Merge ${branch}`,
+    get merging() {
+      return t`Merging…`
+    },
+    get resolve() {
+      return t`Resolve conflicts`
+    },
+    get abort() {
+      return t`Abort`
+    },
+    get close() {
+      return t`Close the merge queue`
+    },
+    /** chip states, for assistive tech (the visual state is color + icon) */
+    get stateMerged() {
+      return t`merged`
+    },
+    get statePending() {
+      return t`waiting`
+    },
+    get stateConflict() {
+      return t`in conflict`
+    },
+    get stateSkipped() {
+      return t`skipped`
+    },
+    allMerged: (target: string) => t`All branches merged into ${target}`,
+    mergedCount: (done: number, total: number) => t`${done}/${total} merged`,
   },
 
   maintenance: {

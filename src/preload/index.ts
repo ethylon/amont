@@ -69,6 +69,8 @@ const bridge: Bridge = {
   flowPublish: invoke("flow:publish"),
   flowFinish: invoke("flow:finish"),
   branch: invoke("repo:branch"),
+  merge: invoke("repo:merge"),
+  mergePreview: invoke("repo:mergePreview"),
   branchDelete: invoke("repo:branchDelete"),
   remoteBranchDelete: invoke("repo:remoteBranchDelete"),
   tagDelete: invoke("repo:tagDelete"),
