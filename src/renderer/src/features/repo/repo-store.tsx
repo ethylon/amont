@@ -226,6 +226,8 @@ export interface RepoStoreState {
   resetTo(mode: ResetMode, to: string): Promise<void>
   /** `git revert --no-edit <hash>` — a conflict lands in the usual conflicts view */
   revertCommit(hash: string): Promise<void>
+  /** `git cherry-pick <hash>` onto HEAD — a conflict lands in the usual conflicts view */
+  cherryPickCommit(hash: string): Promise<void>
   checkout(name: string): Promise<void>
   runWt(act: WtAct, paths: string[]): Promise<void>
   /** whole-file discard: tracked paths restored from the index, untracked deleted */
@@ -825,6 +827,10 @@ export function createRepoStore(
 
     revertCommit(hash) {
       return get().runGitAction(() => api.revert(hash))
+    },
+
+    cherryPickCommit(hash) {
+      return get().runGitAction(() => api.cherryPick(hash))
     },
 
     checkout(name) {

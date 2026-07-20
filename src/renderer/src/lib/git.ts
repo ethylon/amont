@@ -166,6 +166,8 @@ export type RepoApi = {
   reset(mode: ResetMode, to: string): Promise<void>
   /** `git revert --no-edit <hash>` (with `-m 1` for a merge commit) */
   revert(hash: string): Promise<void>
+  /** `git cherry-pick <hash>` onto HEAD (with `-m 1` for a merge commit) */
+  cherryPick(hash: string): Promise<void>
   files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
   /** message body (`%b`), trailers included */
   body(hash: string, requestId?: string): Promise<string>
@@ -255,6 +257,7 @@ export const repoApi = (id: number): RepoApi => ({
   tagCreate: (name, at) => bridge.tagCreate(id, name, at),
   reset: (mode, to) => bridge.reset(id, mode, to),
   revert: (hash) => bridge.revert(id, hash),
+  cherryPick: (hash) => bridge.cherryPick(id, hash),
   files: (hash, parent, requestId) => bridge.files(id, hash, parent, requestId),
   body: (hash, requestId) => bridge.body(id, hash, requestId),
   diff: (hash, parent, path, oldPath, requestId) => bridge.diff(id, hash, parent, path, oldPath, requestId),
