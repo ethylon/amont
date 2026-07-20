@@ -23,7 +23,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, type ReactNo
 import { useQueryClient } from "@tanstack/react-query"
 import { createStore, useStore, type StoreApi } from "zustand"
 
-import { describeError, describePayload } from "@/lib/errors"
+import { decodeError, describeError, describePayload } from "@/lib/errors"
 import {
   onChanged,
   onOp,
@@ -53,6 +53,21 @@ import type { OpState } from "@/features/repo/status-bar"
 import type { WtAct } from "@/features/worktree/worktree-panel"
 
 export type SelMode = "multi" | "branch"
+
+export type MergeQueueItemState = "pending" | "merging" | "merged" | "conflict"
+
+/** The ordered merge queue armed by the release modal (or the selection menu): its branches
+    are merged into `target` one at a time, each on an explicit click — never chained. The
+    queue is session state, not git state: a restart falls back to a plain release with
+    unmerged features, resumable from the branches' own merge actions. */
+export type MergeQueue = {
+  /** branch the queue merges into — the banner shows while HEAD sits on it */
+  target: string
+  items: { branch: string; state: MergeQueueItemState }[]
+}
+
+/** Nothing left to act on: every branch landed. */
+const queueDone = (q: MergeQueue) => q.items.every((i) => i.state === "merged")
 
 export interface RepoStoreState {
   readonly repoId: number
@@ -92,7 +107,12 @@ export interface RepoStoreState {
     branchCreate: { from: string } | null
     /** inline "create worktree at commit" banner (graph context menu); exclusive with `branchCreate` */
     worktreeCreate: { from: string } | null
+    /** "create a release from these branches" modal (sidebar selection menu) — `branches`
+        keeps the selection order, which seeds the merge order */
+    releaseCreate: { branches: string[] } | null
   }
+  /** ordered merge queue (release composition) — see MergeQueue */
+  mergeQueue: MergeQueue | null
   ops: {
     busyOp: OpName | null
     opState: OpState | null
@@ -139,6 +159,22 @@ export interface RepoStoreState {
   closeBranchCreate(): void
   openWorktreeCreate(from: string): void
   closeWorktreeCreate(): void
+  openReleaseCreate(branches: string[]): void
+  closeReleaseCreate(): void
+  /** arms the merge queue on `target` with `branches`, in order (replaces any previous queue) */
+  armMergeQueue(target: string, branches: string[]): void
+  /** drops the queue (remaining merges only — the release itself is untouched) */
+  closeMergeQueue(): void
+  /** one explicit merge: `git merge --no-ff <branch>` into HEAD. Success advances the item to
+      `merged`; a conflict parks it on `conflict` — resolution and abort belong to the
+      repo-wide ConflictBanner; any other failure puts it back to `pending` with the error
+      badge. */
+  queueMerge(branch: string): Promise<void>
+  /** Re-reads the pending/conflict items against the target (mergePreview): an item that
+      landed outside the queue's own click — a conflict resolved and committed by hand, a
+      manual merge — moves to `merged`; a conflict whose merge is no longer in progress
+      (aborted, via the ConflictBanner or a terminal) falls back to `pending`. */
+  queueRecheck(): Promise<void>
   openDiff(ctx: DiffCtx, file: FileChange): void
   closeDiff(): void
   setDiffMode(v: DiffViewMode): void
@@ -262,7 +298,9 @@ export function createRepoStore(
       flowFinish: null,
       branchCreate: null,
       worktreeCreate: null,
+      releaseCreate: null,
     },
+    mergeQueue: null,
     ops: { busyOp: null, opState: null, opProgress: null, queue: { running: null, pending: [] }, flowBusy: false },
     graph: { stats: null },
 
@@ -484,6 +522,101 @@ export function createRepoStore(
     },
     closeWorktreeCreate() {
       set((s) => ({ ui: { ...s.ui, worktreeCreate: null } }))
+    },
+    openReleaseCreate(branches) {
+      if (!branches.length) return
+      set((s) => ({ ui: { ...s.ui, releaseCreate: { branches } } }))
+    },
+    closeReleaseCreate() {
+      set((s) => ({ ui: { ...s.ui, releaseCreate: null } }))
+    },
+
+    /* --- Merge queue (release composition) --- */
+
+    armMergeQueue(target, branches) {
+      const items = branches.filter((b) => b !== target).map((branch) => ({ branch, state: "pending" as const }))
+      set(() => ({ mergeQueue: items.length ? { target, items } : null }))
+    },
+    closeMergeQueue() {
+      set(() => ({ mergeQueue: null }))
+    },
+
+    async queueMerge(branch) {
+      const q = get().mergeQueue
+      /* one at a time, always explicit: a second click while a merge runs is a no-op */
+      if (!q || q.items.some((i) => i.state === "merging")) return
+      if (!q.items.some((i) => i.branch === branch && (i.state === "pending" || i.state === "conflict"))) return
+      const setItem = (state: MergeQueueItemState) =>
+        set((s) =>
+          s.mergeQueue
+            ? {
+                mergeQueue: {
+                  ...s.mergeQueue,
+                  items: s.mergeQueue.items.map((i) => (i.branch === branch ? { ...i, state } : i)),
+                },
+              }
+            : {}
+        )
+      setItem("merging")
+      get().setFlowBusy(true) // the banner swaps its icon for a spinner and rolls the traced commands
+      const err = await api.merge(branch, true).then(() => null, decodeError)
+      get().setFlowBusy(false)
+      setItem(err ? (err.code === "MERGE_CONFLICT" ? "conflict" : "pending") : "merged")
+      invalidateRepo(queryClient, repoId)
+      if (err && err.code !== "MERGE_CONFLICT") {
+        get().showOp(describePayload(err), "danger")
+        return
+      }
+      /* a landed merge reshapes the graph — full reload; a conflict only dirtied the tree,
+         the soft reload refreshes without ripping the user's view away */
+      await get().resetAndLoad(err ? { soft: true } : undefined)
+      const done = get().mergeQueue
+      if (done && queueDone(done)) {
+        set(() => ({ mergeQueue: null }))
+        get().showOp(messages.queue.allMerged(done.target), "primary")
+      }
+    },
+
+    async queueRecheck() {
+      const q = get().mergeQueue
+      if (!q) return
+      const stale = q.items.filter((i) => i.state === "conflict" || i.state === "pending")
+      if (!stale.length) return
+      /* fresh read, not the query cache: right after a conflicted merge the cached mergeState
+         still says "no operation" for a beat — demoting the conflict on that stale beat would
+         flash it back to pending. Only a genuinely concluded operation moves items here. */
+      const inProgress = await api.mergeState().then(
+        (ms) => ms.op !== null,
+        () => true
+      )
+      if (inProgress) return
+      const preview = await api
+        .mergePreview(
+          q.target,
+          stale.map((i) => i.branch)
+        )
+        .catch(() => null)
+      if (!preview) return
+      const status = new Map(preview.map((p) => [p.branch, p.status]))
+      set((s) => {
+        if (!s.mergeQueue || s.mergeQueue.target !== q.target) return {}
+        return {
+          mergeQueue: {
+            ...s.mergeQueue,
+            items: s.mergeQueue.items.map((i) => {
+              if (status.get(i.branch) === "merged") return { ...i, state: "merged" as const }
+              /* the conflicted merge is gone (aborted): back in line */
+              if (i.state === "conflict") return { ...i, state: "pending" as const }
+              return i
+            }),
+          },
+        }
+      })
+      const left = get().mergeQueue
+      if (left && queueDone(left)) {
+        set(() => ({ mergeQueue: null }))
+        get().showOp(messages.queue.allMerged(left.target), "primary")
+      }
     },
     openDiff(ctx, file) {
       set((s) => ({ ui: { ...s.ui, diff: { ctx, file } } }))

@@ -16,6 +16,7 @@ import {
   parseFlowPrefixes,
   parseForEachRef,
   parseLogPage,
+  parseMergeTree,
   parseNameStatus,
   parsePorcelain,
   parseProgressPercent,
@@ -539,5 +540,27 @@ describe("parseCountObjects (git count-objects -vH)", () => {
       garbage: 0,
       sizeGarbage: "0",
     })
+  })
+})
+
+describe("parseMergeTree (merge-tree --write-tree --no-messages --name-only)", () => {
+  it("reads a clean merge: the tree OID alone", () => {
+    assert.deepEqual(parseMergeTree("3fa53f04ad626f9b1cb43a2b18f4ab8e0a7c4e2c\n"), {
+      tree: "3fa53f04ad626f9b1cb43a2b18f4ab8e0a7c4e2c",
+      files: [],
+    })
+  })
+
+  it("reads a conflicted merge: OID then one path per line", () => {
+    const out = "3fa53f04ad626f9b1cb43a2b18f4ab8e0a7c4e2c\nsrc/api/search.ts\nsrc/store/index.ts\n"
+    assert.deepEqual(parseMergeTree(out), {
+      tree: "3fa53f04ad626f9b1cb43a2b18f4ab8e0a7c4e2c",
+      files: ["src/api/search.ts", "src/store/index.ts"],
+    })
+  })
+
+  it("deduplicates paths and survives an empty output", () => {
+    assert.deepEqual(parseMergeTree("oid\na.ts\na.ts\n"), { tree: "oid", files: ["a.ts"] })
+    assert.deepEqual(parseMergeTree(""), { tree: "", files: [] })
   })
 })

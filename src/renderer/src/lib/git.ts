@@ -23,6 +23,8 @@ export type {
   GitRef,
   MaintKind,
   MergeOp,
+  MergePreview,
+  MergePreviewStatus,
   MergeState,
   OpEvent,
   OpName,
@@ -65,6 +67,7 @@ import type {
   FlowKind,
   FlowPrefixes,
   GitRef,
+  MergePreview,
   MergeState,
   OpName,
   ResetMode,
@@ -144,6 +147,11 @@ export type RepoApi = {
   flowFinish(name: string, opts: FlowFinishOpts): Promise<void>
   /** merge into HEAD, pull/push of a given branch, or `git flow <type> finish` */
   branch(action: BranchAct, name: string): Promise<void>
+  /** `git merge [--no-ff] <name>` into HEAD — a conflict rejects with MERGE_CONFLICT and
+      leaves the merge state for the conflict view */
+  merge(name: string, noFF: boolean): Promise<void>
+  /** dry-run of merging `branches` (in order) into `base` — the worktree never moves */
+  mergePreview(base: string, branches: string[]): Promise<MergePreview[]>
   /** `git branch -D <name>`, plus the `push --delete` of its upstream when `deleteRemote` */
   branchDelete(name: string, deleteRemote: boolean): Promise<void>
   /** `git push <remote> --delete <branch>` of a remote-tracking ref ("origin/topic") */
@@ -235,6 +243,8 @@ export const repoApi = (id: number): RepoApi => ({
   flowPublish: (kind, name) => bridge.flowPublish(id, kind, name),
   flowFinish: (name, opts) => bridge.flowFinish(id, name, opts),
   branch: (action, name) => bridge.branch(id, action, name),
+  merge: (name, noFF) => bridge.merge(id, name, noFF),
+  mergePreview: (base, branches) => bridge.mergePreview(id, base, branches),
   branchDelete: (name, deleteRemote) => bridge.branchDelete(id, name, deleteRemote),
   remoteBranchDelete: (name) => bridge.remoteBranchDelete(id, name),
   tagDelete: (name, remote) => bridge.tagDelete(id, name, remote),

@@ -40,6 +40,9 @@ export interface RunOpts {
       exceed Windows' command-line length limit go through without issue. */
   input?: string
   signal?: AbortSignal
+  /** Exit codes to treat as success besides 0 (stdout resolves as usual). `merge-tree
+      --write-tree` exits 1 to say "conflicts" while printing the result we came for. */
+  okCodes?: number[]
   /** Live progress callback for long-running commands (fsck/gc): fired with the latest `NN%`
       parsed from git's stderr as it rewrites its progress line. Set only where a UI wants it —
       other commands pay nothing. */
@@ -164,7 +167,7 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
           const failure = classifyGitFailure({ exitCode: code, stdout: out, stderr: errAll, killedBy })
           return reject(new AppError(failure.code, failure.detail))
         }
-        if (code !== 0) {
+        if (code !== 0 && !(code !== null && opts.okCodes?.includes(code))) {
           ctx.trace?.({ kind: "exit", ok: false, ms })
           const failure = classifyGitFailure({ exitCode: code, stdout: out, stderr: errAll, killedBy: null })
           return reject(new AppError(failure.code, failure.detail))
