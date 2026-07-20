@@ -466,9 +466,10 @@ function PrefixRulesEditor() {
 }
 
 /* --- Diff (syntax highlighting) ---
-   The extension → shiki-grammar map that used to be hardcoded in the diff views (diff-view.tsx /
-   shiki-tokens.tsx). Same write-through store model; a blank extension is ignored by the highlighter
-   until filled, and "Reset to defaults" restores the built-in mappings (`.csproj` → xml, …). */
+   The extension → shiki-grammar map. The editable list ships empty — the user adds their own — over a
+   tiny built-in fallback (`.svg` → xml) that a user row overrides. Same write-through store model; a
+   blank extension is ignored by the highlighter until filled, and "Reset to defaults" clears the list
+   back to empty. */
 function DiffSection() {
   const { langAliases } = useCustomization()
   const setAt = (i: number, alias: LangAlias) => setLangAliases(langAliases.map((a, k) => (k === i ? alias : a)))
