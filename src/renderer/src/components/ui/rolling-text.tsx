@@ -8,8 +8,16 @@ const ROLL_MS = 240
 
 /** Single-line ticker: on a text change the current line rolls up and out while the next one
     rises from below, both clipped to one line so the host never changes height. The two lines
-    are stacked in a single grid cell; only the transform moves, layout stays put. */
-export function RollingText({ text, className }: { text: string; className?: string }) {
+    are stacked in a single grid cell; only the transform moves, layout stays put.
+
+    `shimmer`: shadcn's sweep while the host's operation runs. The class goes on the inner
+    text-bearing span, not the container, and only while the line is settled — two reasons:
+    Chromium drops `background-clip: text` for a subtree whenever a descendant animates a
+    transform (the glyphs go fully invisible during a roll), and both effects drive the
+    `animation` shorthand, so on one span the sweep would cancel the roll. A rolling line thus
+    renders solid and the sweep resumes on settle; while commands stream fast, the roll itself
+    is the busy signal. */
+export function RollingText({ text, className, shimmer }: { text: string; className?: string; shimmer?: boolean }) {
   const [{ prev, cur, seq }, setState] = useState({ prev: null as string | null, cur: text, seq: 0 })
   const curRef = useRef(text)
 
@@ -35,7 +43,10 @@ export function RollingText({ text, className }: { text: string; className?: str
       )}
       <span
         key={`c-${seq}`}
-        className={cn("col-start-1 row-start-1 min-w-0 truncate", prev !== null && "amont-roll-in")}
+        className={cn(
+          "col-start-1 row-start-1 min-w-0 truncate",
+          prev !== null ? "amont-roll-in" : shimmer && "shimmer"
+        )}
       >
         {cur}
       </span>
