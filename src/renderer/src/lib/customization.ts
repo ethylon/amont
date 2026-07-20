@@ -13,17 +13,29 @@
 
 import { useSyncExternalStore } from "react"
 
-import { foldPrefix, prefixColorVar, setCustomPrefixes } from "@/lib/commit-parse"
+import { foldPrefix, prefixColorVar, setCustomPrefixes, setNeutralizedColors } from "@/lib/commit-parse"
 import { isDark, onThemeChange } from "@/lib/theme"
 
-/** Editable badge hues, surfaced to the user as feature / bugfix / hotfix / release / info /
-    refactor / polish. `danger` is the shadcn `--destructive` token; the rest are amont's own. */
-export type ColorRole = "success" | "warning" | "danger" | "release" | "info" | "refactor" | "polish"
+/** Editable badge hues, one per type badge (feat / bugfix / perf / hotfix / revert / release /
+    test / refactor / polish — cf. commit-parse's typesOfColor). `danger` is the shadcn
+    `--destructive` token; the rest are amont's own. */
+export type ColorRole =
+  | "success"
+  | "warning"
+  | "perf"
+  | "danger"
+  | "revert"
+  | "release"
+  | "info"
+  | "refactor"
+  | "polish"
 
 export const COLOR_ROLES: readonly ColorRole[] = [
   "success",
   "warning",
+  "perf",
   "danger",
+  "revert",
   "release",
   "info",
   "refactor",
@@ -34,7 +46,9 @@ export const COLOR_ROLES: readonly ColorRole[] = [
 const ROLE_VAR: Record<ColorRole, string> = {
   success: "--success",
   warning: "--warning",
+  perf: "--perf",
   danger: "--destructive",
+  revert: "--revert",
   release: "--release",
   info: "--info",
   refactor: "--refactor",
@@ -80,6 +94,9 @@ export interface Customization {
   showGitCommands: boolean
   /** per-theme hex overrides of the badge hues; a missing entry = the app.css default */
   colors: Record<ThemeKey, ColorMap>
+  /** color presets deleted from Settings ▸ Colors: their type badges fall back to the neutral
+      gray until "Reset to defaults" restores them */
+  removedRoles: ColorRole[]
   /** file extension → shiki grammar id for diff syntax highlighting (cf. features/diff) */
   langAliases: LangAlias[]
   /** custom prefix → badge color rules, matched by parseSubject after the built-in type tables */
@@ -93,6 +110,7 @@ export const CUSTOMIZATION_DEFAULTS: Customization = {
   showPrefixColumn: true,
   showGitCommands: true,
   colors: { light: {}, dark: {} },
+  removedRoles: [],
   langAliases: LANG_ALIASES_DEFAULT.map((a) => ({ ...a })),
   prefixRules: [],
 }
@@ -154,6 +172,9 @@ function coerce(value: unknown): Customization {
     return out
   }
   const colors = src.colors && typeof src.colors === "object" ? (src.colors as Record<string, unknown>) : {}
+  const removedRoles = Array.isArray(src.removedRoles)
+    ? COLOR_ROLES.filter((r) => (src.removedRoles as unknown[]).includes(r))
+    : []
   return {
     fontUi: str(src.fontUi),
     fontMono: str(src.fontMono),
@@ -161,6 +182,7 @@ function coerce(value: unknown): Customization {
     showPrefixColumn: bool(src.showPrefixColumn, CUSTOMIZATION_DEFAULTS.showPrefixColumn),
     showGitCommands: bool(src.showGitCommands, CUSTOMIZATION_DEFAULTS.showGitCommands),
     colors: { light: colorMap(colors.light), dark: colorMap(colors.dark) },
+    removedRoles,
     langAliases: langAliases(src.langAliases),
     prefixRules: prefixRules(src.prefixRules),
   }
@@ -191,6 +213,7 @@ function syncDerived(): void {
   langAliasMap = null
   langAliasSig = JSON.stringify(current.langAliases)
   setCustomPrefixes(current.prefixRules.map((r) => r.prefix))
+  setNeutralizedColors(current.removedRoles) // ColorRole names double as BadgeColor names
 }
 syncDerived()
 
@@ -283,12 +306,25 @@ export function resetColor(theme: ThemeKey, role?: ColorRole): void {
   commit({ ...current, colors: { ...current.colors, [theme]: next } })
 }
 
+/** Delete a color preset: its row leaves Settings ▸ Colors and its type badges go neutral.
+    Only "Reset to defaults" (resetColors) brings it back. */
+export function removeColorRole(role: ColorRole): void {
+  if (current.removedRoles.includes(role)) return
+  commit({ ...current, removedRoles: [...current.removedRoles, role] })
+}
+
+/** Section-level reset: every hue back to the app.css default, deleted presets restored. */
+export function resetColors(): void {
+  commit({ ...current, colors: { light: {}, dark: {} }, removedRoles: [] })
+}
+
 /** Reset the flat fields (fonts + toggles) to defaults; colors, lang aliases and prefix rules each
     keep their own section-level reset. */
 export function resetCustomization(): void {
   commit({
     ...CUSTOMIZATION_DEFAULTS,
     colors: current.colors,
+    removedRoles: current.removedRoles,
     langAliases: current.langAliases,
     prefixRules: current.prefixRules,
   })

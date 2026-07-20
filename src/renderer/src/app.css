@@ -42,10 +42,12 @@
   /* Outside the shadcn palette, deliberately: the preset only knows destructive. */
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-perf: var(--perf);
   --color-release: var(--release);
   --color-info: var(--info);
   --color-refactor: var(--refactor);
   --color-polish: var(--polish);
+  --color-revert: var(--revert);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -98,6 +100,10 @@
 
   --success: oklch(0.52 0.14 150);
   --warning: oklch(0.56 0.13 70);
+  /* perf and revert start on the hues they historically shared (warning, destructive) but are
+     their own tokens so Settings ▸ Colors can pull them apart from bugfix / hotfix */
+  --perf: oklch(0.56 0.13 70);
+  --revert: oklch(0.577 0.245 27.325);
   /* release: bold violet, distinct from the brand blue (primary) and the other chip hues */
   --release: oklch(0.53 0.22 300);
   /* info: blue (test) — the brand's Courant, sharing the primary's hue by design; refactor: cyan, held apart by hue */
@@ -165,6 +171,8 @@
 
   --success: oklch(0.74 0.15 150);
   --warning: oklch(0.8 0.14 70);
+  --perf: oklch(0.8 0.14 70);
+  --revert: oklch(0.704 0.191 22.216);
   --release: oklch(0.72 0.19 300);
   --info: oklch(0.74 0.14 250);
   --refactor: oklch(0.76 0.12 195);
