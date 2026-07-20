@@ -2,9 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
-@import "@fontsource/ubuntu-mono";
-@import "@fontsource/ubuntu-mono/400-italic.css";
-@import "@fontsource/ubuntu-mono/700.css";
+@import "@fontsource-variable/geist-mono";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -14,14 +12,13 @@
   --color-*: initial;
 
   /* `--amont-font-ui`/`--amont-font-mono` are runtime override hooks (set inline on <html> by
-     lib/customization.ts, empty by default so the fallback — the bundled Geist / Ubuntu Mono —
-     wins). They sit
+     lib/customization.ts, empty by default so the fallback — the bundled Geist — wins). They sit
      *inside* the token value on purpose: with `@theme inline` the utilities inline this value, so
      the emitted `.font-sans`/`.font-mono` rules carry the var() and a runtime override reaches them.
      Overriding `--font-sans` directly would not — inline copies the literal, not a reference. */
   --font-heading: var(--font-sans);
   --font-sans: var(--amont-font-ui, "Geist Variable"), sans-serif;
-  --font-mono: var(--amont-font-mono, "Ubuntu Mono"), Consolas, ui-monospace, monospace;
+  --font-mono: var(--amont-font-mono, "Geist Mono Variable"), Consolas, ui-monospace, monospace;
 
   --color-ring: var(--ring);
   --color-input: var(--input);
@@ -577,10 +574,9 @@
   border-radius: calc(var(--radius) * 0.8);
   margin: 0;
 }
-/* Many coding fonts ship contextual ligatures (calt): `===`/`=>`/`!=` fuse into glyphs
-   that overrun their cells onto the next token and break column alignment. Ubuntu Mono has
-   none, but a user-picked mono override (cf. lib/customization.ts) might — kill them on the
-   diff, inherited by the table, code lines, and every shiki span. */
+/* Geist Mono ships contextual ligatures (calt): `===`/`=>`/`!=` fuse into glyphs that
+   overrun their cells onto the next token and break column alignment. Kill them on the
+   diff — inherited by the table, code lines, and every shiki span. */
 .amont-diffbody {
   font-variant-ligatures: none;
   font-feature-settings:
