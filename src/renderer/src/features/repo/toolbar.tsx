@@ -18,7 +18,7 @@ import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { useSettings } from "@/lib/use-settings"
 import { Badge } from "@/components/ui/badge"
-import { ButtonGroup, ButtonGroupSeparator } from "@/components/ui/button-group"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { GitCmd, MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
@@ -153,12 +153,10 @@ export const Toolbar = memo(function Toolbar({
             options card (op-options.tsx) — the settings whose flags the shown command carries */}
         <ButtonGroup>
           {opButton(fetchOp, fetchCmd)}
-          <ButtonGroupSeparator />
           <FetchOptions settings={settings} onPatch={patch} />
         </ButtonGroup>
         <ButtonGroup>
           {opButton(pullOp, pullCmd)}
-          <ButtonGroupSeparator />
           <PullOptions settings={settings} onPatch={patch} />
         </ButtonGroup>
         {opButton(pushOp)}
@@ -167,10 +165,10 @@ export const Toolbar = memo(function Toolbar({
       <Separator orientation="vertical" className="mx-1 my-2" />
 
       {/* Stash, local counterpart of the network ops (hence past the separator): the button
-          stashes the whole tree (same command as the staging panel's menu entry); the chevron
-          only exists when the list has an entry, and targets the newest one — the sidebar's
-          stash section keeps the per-entry menu. */}
-      <div className="flex shrink-0 items-center">
+          stashes the whole tree (same command as the staging panel's menu entry); the chevron —
+          same split-button grammar as fetch/pull — only exists when the list has an entry, and
+          targets the newest one. The sidebar's stash section keeps the per-entry menu. */}
+      <ButtonGroup>
         <Button
           variant="ghost"
           size="sm"
@@ -187,8 +185,17 @@ export const Toolbar = memo(function Toolbar({
         {latestStash && (
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<IconButton label={messages.worktree.moreActions} icon={ArrowDown01Icon} size="icon-xs" />}
-            />
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={messages.worktree.moreActions}
+                  className="h-auto min-h-6 px-1"
+                />
+              }
+            >
+              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-max min-w-44">
               <DropdownMenuItem onClick={() => onStash("apply", latestStash)}>
                 <HugeiconsIcon icon={ArchiveArrowUpIcon} strokeWidth={2} />
@@ -201,7 +208,7 @@ export const Toolbar = memo(function Toolbar({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </div>
+      </ButtonGroup>
 
       <span className="flex-1" />
 
