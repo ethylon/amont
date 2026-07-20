@@ -8,6 +8,7 @@ import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
 import { useFlowInfoQuery, useFlowQuery } from "@/features/flow/flow-queries"
 import { useStatusQuery } from "@/features/repo/repo-queries"
+import { useStashesQuery } from "@/features/stash/stash-queries"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { RepoProvider, useRepoEvents, useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
@@ -148,6 +149,11 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   /* the tree emptied out while we were looking at it: the view no longer has a subject, and an
      in-progress amend no longer has a block to display in */
   const worktree = worktreeQuery.data && worktreeCount(worktreeQuery.data) ? worktreeQuery.data : null
+
+  /* toolbar stash cluster: same list as the sidebar's stash section (shared query key —
+     react-query dedupes); only the newest entry's name reaches the memoized Toolbar */
+  const runStash = useRepoStore((s) => s.runStash)
+  const latestStash = useStashesQuery(api, repoId).data?.[0]?.name ?? null
   useEffect(() => {
     if (!worktreeQuery.data || worktreeCount(worktreeQuery.data) > 0) return
     const s = storeApi.getState()
@@ -274,6 +280,9 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={toggleSidebar}
         onRunOp={onRunOp}
+        canStash={!!worktree}
+        latestStash={latestStash}
+        onStash={runStash}
         prune={prune}
       >
         {commitSearch}

@@ -1,6 +1,10 @@
 import { memo } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  ArchiveArrowDownIcon,
+  ArchiveArrowUpIcon,
+  ArchiveRestoreIcon,
+  ArrowDown01Icon,
   ArrowDown02Icon,
   ArrowUp02Icon,
   Folder01Icon,
@@ -9,13 +13,14 @@ import {
   Refresh01Icon,
 } from "@hugeicons/core-free-icons"
 
-import type { OpName, Repo, Status } from "@/lib/git"
+import type { OpName, Repo, StashAct, Status } from "@/lib/git"
 import { useLocale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { Badge } from "@/components/ui/badge"
-import { GitCmd } from "@/components/ui/git-cmd"
+import { GitCmd, MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -39,6 +44,11 @@ type Props = {
   sidebarOpen: boolean
   onToggleSidebar(): void
   onRunOp(op: OpName): void
+  /** the worktree has something to stash: an empty tree greys the stash button */
+  canStash: boolean
+  /** newest entry (`stash@{0}`) or `null`: the apply/pop menu only exists when there is one */
+  latestStash: string | null
+  onStash(action: StashAct, name?: string): void
   /** the `prune` setting: appends `--prune` to the shown fetch command when on */
   prune: boolean
   /** the search bar: it needs the graph, which the toolbar doesn't know about */
@@ -56,6 +66,9 @@ export const Toolbar = memo(function Toolbar({
   sidebarOpen,
   onToggleSidebar,
   onRunOp,
+  canStash,
+  latestStash,
+  onStash,
   prune,
   children,
 }: Props) {
@@ -136,9 +149,46 @@ export const Toolbar = memo(function Toolbar({
 
       <Separator orientation="vertical" className="mx-1 my-2" />
 
-      {children}
+      {/* Stash, local counterpart of the network ops (hence past the separator): the button
+          stashes the whole tree (same command as the staging panel's menu entry); the chevron
+          only exists when the list has an entry, and targets the newest one — the sidebar's
+          stash section keeps the per-entry menu. */}
+      <div className="flex shrink-0 items-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-auto min-h-6 gap-2 py-0.5"
+          disabled={!canStash}
+          onClick={() => onStash("push")}
+        >
+          <HugeiconsIcon icon={ArchiveArrowDownIcon} strokeWidth={2} data-icon="inline-start" />
+          <span className="flex flex-col items-start">
+            <span>{messages.worktree.stash}</span>
+            <GitCmd cmd="git stash push -u" />
+          </span>
+        </Button>
+        {latestStash && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<IconButton label={messages.worktree.moreActions} icon={ArrowDown01Icon} size="icon-xs" />}
+            />
+            <DropdownMenuContent align="start" className="w-max min-w-44">
+              <DropdownMenuItem onClick={() => onStash("apply", latestStash)}>
+                <HugeiconsIcon icon={ArchiveArrowUpIcon} strokeWidth={2} />
+                <MenuItemWithCmd label={messages.stash.apply} cmd={`git stash apply ${latestStash}`} />
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onStash("pop", latestStash)}>
+                <HugeiconsIcon icon={ArchiveRestoreIcon} strokeWidth={2} />
+                <MenuItemWithCmd label={messages.stash.applyAndDrop} cmd={`git stash pop ${latestStash}`} />
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
 
       <span className="flex-1" />
+
+      {children}
     </div>
   )
 })
