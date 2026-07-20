@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { HugeiconsIcon } from "@hugeicons/react"
 import { TerminalIcon, Delete02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 
-import { onTrace, type TraceLine } from "@/lib/git"
+import { onTrace, repoApi, type TraceLine } from "@/lib/git"
+import { decodeError, describeError } from "@/lib/errors"
 import { messages } from "@/lib/messages"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
@@ -46,7 +47,13 @@ const VERB: Partial<Record<FeedEntry["tone"], string>> = {
   warning: "text-warning",
 }
 
-/** Read-only git console: the footer feed as trigger, full history on click.
+/* session-local history of typed commands, Up/Down like a terminal — bounded like `lines` */
+const HISTORY_CAP = 50
+
+/** Git console: the footer feed as trigger, full history on click, and a typed-command input.
+    The input sends the raw string to `repo:console`; parsing and the security policy
+    (builtin allowlist, no shell, dangerous flags refused) live main-side in git/console.ts —
+    output streams back on the same trace feed as the GUI's own commands.
 
     Base UI Popover rather than a hand-rolled popover (AUDIT.md §8): role="dialog" set on the Popup by
     the primitive, initial focus in the panel and returned to the trigger on close, Escape and
@@ -110,6 +117,71 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
     if (!open || !el) return
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) el.scrollTop = el.scrollHeight
   }, [lines, open])
+
+  /* --- Typed command --- */
+  const [cmd, setCmd] = useState("")
+  const [cmdError, setCmdError] = useState<string | null>(null)
+  const historyRef = useRef<string[]>([])
+  /* -1 = live draft; otherwise an index into the history being recalled */
+  const histIdxRef = useRef(-1)
+  const draftRef = useRef("")
+
+  const submit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      const text = cmd.trim()
+      if (!text) return
+      /* terminal feel: the input clears immediately, the echo is the `$ git …` trace line
+         main emits — no separate optimistic echo that could disagree with what actually ran */
+      setCmd("")
+      setCmdError(null)
+      const h = historyRef.current
+      if (h[h.length - 1] !== text) h.push(text)
+      if (h.length > HISTORY_CAP) h.shift()
+      histIdxRef.current = -1
+      repoApi(repoId)
+        .consoleRun(text)
+        .catch((err: unknown) => {
+          /* a command git actually ran also traces its own failure above; the inline line is
+             the only feedback for commands the policy refused (which never reach git) */
+          const p = decodeError(err)
+          if (p.code === "NOT_ALLOWED") setCmdError(messages.console.blocked(p.detail ?? text))
+          else if (p.code === "BAD_ARG") setCmdError(messages.console.invalid(p.detail ?? text))
+          else setCmdError(describeError(err))
+        })
+    },
+    [cmd, repoId]
+  )
+
+  /* Up/Down recall, like a terminal: Up walks back saving the in-progress draft, Down walks
+     forward and lands back on the draft past the newest entry. Editing resets to draft mode. */
+  const onCmdKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      const h = historyRef.current
+      if (e.key === "ArrowUp") {
+        if (!h.length || histIdxRef.current === 0) return
+        e.preventDefault()
+        if (histIdxRef.current === -1) {
+          draftRef.current = cmd
+          histIdxRef.current = h.length - 1
+        } else {
+          histIdxRef.current--
+        }
+        setCmd(h[histIdxRef.current])
+      } else if (e.key === "ArrowDown") {
+        if (histIdxRef.current === -1) return
+        e.preventDefault()
+        histIdxRef.current++
+        if (histIdxRef.current >= h.length) {
+          histIdxRef.current = -1
+          setCmd(draftRef.current)
+        } else {
+          setCmd(h[histIdxRef.current])
+        }
+      }
+    },
+    [cmd]
+  )
 
   const clear = useCallback(() => {
     /* also drop the un-flushed batch: resetting the key counter with old-keyed entries
@@ -218,6 +290,34 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
               lines.map((l) => <Line key={l.key} line={l} />)
             )}
           </div>
+
+          <form onSubmit={submit} className="shrink-0 border-t px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 font-mono text-[0.6875rem]">
+              <span aria-hidden className="shrink-0 text-primary select-none">
+                $
+              </span>
+              <input
+                autoFocus
+                value={cmd}
+                onChange={(e) => {
+                  setCmd(e.target.value)
+                  histIdxRef.current = -1
+                }}
+                onKeyDown={onCmdKeyDown}
+                aria-label={messages.console.commandInput}
+                placeholder={messages.console.commandPlaceholder}
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
+                className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/70"
+              />
+            </div>
+            {cmdError && (
+              <p role="alert" className="mt-1 ps-3 text-[0.625rem] text-destructive">
+                {cmdError}
+              </p>
+            )}
+          </form>
         </PopoverContent>
       </Popover>
     </div>

@@ -11,6 +11,7 @@ import { AppError } from "../shared/errors.ts"
 import type { InvokeChannel, InvokeChannels } from "../shared/ipc-contract.ts"
 import type { BootState, Repo } from "../shared/types.ts"
 import * as create from "./create.ts"
+import { runConsole } from "./git/console.ts"
 import * as flow from "./git/flow.ts"
 import * as maintenance from "./git/maintenance.ts"
 import { mergePreview } from "./git/merge-preview.ts"
@@ -367,6 +368,10 @@ export function registerIpc(): void {
   handle("repo:countObjects", (_ev, id) => maintenance.countObjects(repos.use(id)))
   handle("repo:fsck", (_ev, id) => maintenance.fsck(repos.use(id)))
   handle("repo:gc", (_ev, id) => maintenance.gc(repos.use(id)))
+
+  /* Typed console command: the string is parsed and policed inside runConsole
+     (git/console.ts) — this handler forwards it raw, like every other channel. */
+  handle("repo:console", (_ev, id, command) => runConsole(repos.use(id), command))
 
   handle("repo:cancel", (_ev, id, requestId) => {
     repos.use(id).requests.get(requestId)?.abort()

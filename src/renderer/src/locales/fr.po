@@ -232,6 +232,9 @@ msgstr "Bugfix"
 msgid "Bugfix prefix"
 msgstr "Préfixe bugfix"
 
+msgid "Can't run this ({what}) — plain git commands only, no shell syntax"
+msgstr "Impossible d'exécuter ceci ({what}) — commandes git simples uniquement, sans syntaxe shell"
+
 msgid "Cancel"
 msgstr "Annuler"
 
@@ -619,6 +622,9 @@ msgstr "Fichiers indésirables"
 msgid "Garbage size"
 msgstr "Taille indésirable"
 
+msgid "Git command"
+msgstr "Commande git"
+
 msgid "Git console"
 msgstr "Console Git"
 
@@ -834,6 +840,9 @@ msgstr "Aucun fichier indexé."
 
 msgid "none"
 msgstr "aucun"
+
+msgid "Not allowed here: {what}"
+msgstr "Non autorisé ici : {what}"
 
 msgid "Objects stored in this repository's database. Verify checks integrity; compact repacks and prunes."
 msgstr "Objets stockés dans la base de ce dépôt. Vérifier contrôle l'intégrité ; compacter recompresse et élague."
@@ -1173,6 +1182,9 @@ msgstr "Trop volumineux pour l'aperçu"
 
 msgid "Tree view"
 msgstr "Vue arborescente"
+
+msgid "Type a git command — Enter to run"
+msgstr "Tapez une commande git — Entrée pour exécuter"
 
 msgid "Uncommitted changes"
 msgstr "Modifications non commitées"
