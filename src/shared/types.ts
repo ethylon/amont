@@ -255,16 +255,22 @@ export type CommitMessage = { subject: string; body: string }
 
 export type Worktree = Record<"staged" | "unstaged" | "untracked" | "conflicts", FileChange[]>
 
-/** The merge in progress, if any — the source of the "who is A, who is B" labels of the
-    conflict view. `ours` is the checked-out branch (side A, stage 2 of the index), `theirs`
-    the branch being merged in (side B, stage 3, i.e. MERGE_HEAD). A conflict can exist
-    without a merge (stash pop, cherry-pick): `merging` is false and both labels are null —
-    the renderer falls back to generic "ours"/"theirs" wording. */
+/** A conflict-capable operation whose state is parked on disk — each leaves its own
+    pseudo-ref (MERGE_HEAD, REBASE_HEAD, CHERRY_PICK_HEAD, REVERT_HEAD) while in progress,
+    and each has its own `git <op> --abort` back to the pre-operation state. */
+export type MergeOp = "merge" | "rebase" | "cherry-pick" | "revert"
+
+/** The operation in progress, if any — drives the repo-wide conflict banner and is the
+    source of the "who is A, who is B" labels of the conflict view. `ours` is the checked-out
+    branch (side A, stage 2 of the index), `theirs` the side being brought in (side B, stage 3).
+    A conflict can exist without an operation (stash pop): `op` is null and both labels are
+    null — the renderer falls back to generic "ours"/"theirs" wording, and there is nothing
+    to abort. */
 export type MergeState = {
-  merging: boolean
-  /** side A label: current branch name, or null (detached HEAD, no merge) */
+  op: MergeOp | null
+  /** side A label: current branch name, or null (detached HEAD, no operation) */
   ours: string | null
-  /** side B label: a branch pointing at MERGE_HEAD, else its short hash, or null */
+  /** side B label: a branch or the short hash of what's being applied, or null */
   theirs: string | null
 }
 

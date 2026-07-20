@@ -52,6 +52,9 @@ msgstr "{n, plural, one {# commit selected} other {# commits selected}}"
 msgid "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
 msgstr "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
 
+msgid "{n, plural, one {# conflicted file} other {# conflicted files}}"
+msgstr "{n, plural, one {# conflicted file} other {# conflicted files}}"
+
 msgid "{n, plural, one {# new commit} other {# new commits}}"
 msgstr "{n, plural, one {# new commit} other {# new commits}}"
 
@@ -100,8 +103,17 @@ msgstr "A repository without a working tree, ready to be used as a remote."
 msgid "A tag will be created on commit {hash}."
 msgstr "A tag will be created on commit {hash}."
 
+msgid "Abort cherry-pick"
+msgstr "Abort cherry-pick"
+
 msgid "Abort merge"
 msgstr "Abort merge"
+
+msgid "Abort rebase"
+msgstr "Abort rebase"
+
+msgid "Abort revert"
+msgstr "Abort revert"
 
 msgid "Add extension"
 msgstr "Add extension"
@@ -120,6 +132,9 @@ msgstr "Additional references"
 
 msgid "After"
 msgstr "After"
+
+msgid "All conflicts resolved — commit to conclude."
+msgstr "All conflicts resolved — commit to conclude."
 
 msgid "Also delete the remote branch « {upstream} »"
 msgstr "Also delete the remote branch « {upstream} »"
@@ -217,6 +232,9 @@ msgstr "Checkout"
 msgid "Checkout {hash}"
 msgstr "Checkout {hash}"
 
+msgid "Cherry-picking {theirs} (B)"
+msgstr "Cherry-picking {theirs} (B)"
+
 msgid "Choose a destination folder first."
 msgstr "Choose a destination folder first."
 
@@ -309,6 +327,9 @@ msgstr "conflict…"
 
 msgid "Conflicts"
 msgstr "Conflicts"
+
+msgid "Conflicts in the working tree"
+msgstr "Conflicts in the working tree"
 
 msgid "Create"
 msgstr "Create"
@@ -853,6 +874,9 @@ msgstr "Ready"
 msgid "Rebase on {base}"
 msgstr "Rebase on {base}"
 
+msgid "Rebasing {theirs} (B)"
+msgstr "Rebasing {theirs} (B)"
+
 msgid "Recent"
 msgstr "Recent"
 
@@ -921,6 +945,9 @@ msgstr "Reveal in file explorer"
 
 msgid "Revert {hash}"
 msgstr "Revert {hash}"
+
+msgid "Reverting {theirs} (B)"
+msgstr "Reverting {theirs} (B)"
 
 msgid "Root folder"
 msgstr "Root folder"
@@ -1128,6 +1155,9 @@ msgstr "Version tag prefix"
 
 msgid "View"
 msgstr "View"
+
+msgid "View conflicts"
+msgstr "View conflicts"
 
 msgid "Worktrees"
 msgstr "Worktrees"
