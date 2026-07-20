@@ -650,6 +650,8 @@ export function formatPriceParts(cents: number): { units: string; decimals: stri
       onProgressListeners.add(cb);
       return () => onProgressListeners.delete(cb);
     },
+    /* mutation queue: the demo runs everything instantly, nothing ever waits */
+    onQueue: () => () => {},
     onUpdate: (cb) => {
       onUpdateListeners.add(cb);
       return () => onUpdateListeners.delete(cb);
@@ -778,7 +780,7 @@ export function formatPriceParts(cents: number): { units: string; decimals: stri
       merging = false;
     },
     mergeState: async () => ({
-      merging,
+      op: merging ? "merge" : null,
       ours: merging ? "main" : null,
       theirs: merging ? "feature/currency-switch" : null,
     }),

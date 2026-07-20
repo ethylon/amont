@@ -17,6 +17,7 @@ import type {
   DiffText,
   FileChange,
   GitRef,
+  MergeOp,
   MergeState,
   Stash,
   Status,
@@ -102,21 +103,58 @@ export async function resolveWorktree(r: RepoHandle, path: unknown): Promise<Wor
 }
 
 /* --- Merge conflicts ---
-   The A/B labels of the conflict view. `MERGE_HEAD` only exists during a merge: rev-parse
-   failing is the normal "no merge" case, not an error. `theirs` prefers a branch name over
-   a bare hash — several branches on the same tip: the first alphabetically, good enough for
-   a display label. */
+   The conflict banner and the A/B labels of the conflict view. Each conflict-capable
+   operation parks its own pseudo-ref while in progress: its presence is the detection, its
+   target feeds the B-side label. Rebase is probed before cherry-pick — an interactive rebase
+   stopped on a conflict can leave CHERRY_PICK_HEAD alongside REBASE_HEAD, and the abort must
+   then be `rebase --abort` (a cherry-pick abort would leave the rebase state behind).
+   rev-parse failing is the normal "no operation" case, not an error. */
+const OP_HEADS: readonly (readonly [MergeOp, string])[] = [
+  ["merge", "MERGE_HEAD"],
+  ["rebase", "REBASE_HEAD"],
+  ["cherry-pick", "CHERRY_PICK_HEAD"],
+  ["revert", "REVERT_HEAD"],
+]
+
+/** The conflict-capable operation whose state is on disk, if any. Shared with the abort
+    (ops.ts mergeAbort): the command it runs must target the same operation the banner names. */
+export async function conflictOp(r: RepoHandle): Promise<{ op: MergeOp; head: string } | null> {
+  for (const [op, ref] of OP_HEADS) {
+    const head = (await r.git(["rev-parse", "-q", "--verify", ref]).catch(() => "")).trim()
+    if (head) return { op, head }
+  }
+  return null
+}
+
+/** The branch a rebase is replaying, from the backend's state directory — HEAD is detached
+    mid-rebase, so the name survives nowhere else. Both backends store it the same way. */
+async function rebaseHeadName(r: RepoHandle): Promise<string | null> {
+  for (const dir of ["rebase-merge", "rebase-apply"]) {
+    const name = (await readFile(resolve(r.gitDir, dir, "head-name"), "utf8").catch(() => "")).trim()
+    if (name) return name.replace(/^refs\/heads\//, "")
+  }
+  return null
+}
+
 export async function mergeState(r: RepoHandle): Promise<MergeState> {
-  const mergeHead = (await r.git(["rev-parse", "-q", "--verify", "MERGE_HEAD"]).catch(() => "")).trim()
-  if (!mergeHead) return { merging: false, ours: null, theirs: null }
+  const cur = await conflictOp(r)
+  if (!cur) return { op: null, ours: null, theirs: null }
   const branch = (await r.git(["rev-parse", "--abbrev-ref", "HEAD"]).catch(() => "")).trim()
   const ours = branch && branch !== "HEAD" ? branch : null
-  const named = (
-    await r.git(["for-each-ref", "--points-at", mergeHead, "--format=%(refname:short)", "refs/heads"]).catch(() => "")
-  )
-    .split("\n")
-    .filter(Boolean)
-  return { merging: true, ours, theirs: named[0] ?? mergeHead.slice(0, 8) }
+  /* `theirs` prefers a name over a bare hash. Merge: a branch pointing at MERGE_HEAD —
+     several branches on the same tip: the first alphabetically, good enough for a display
+     label. Rebase: the branch being replayed (stage 3 IS its commits). Cherry-pick/revert:
+     the short hash of the commit being applied — no branch has to point there. */
+  if (cur.op === "merge") {
+    const named = (
+      await r.git(["for-each-ref", "--points-at", cur.head, "--format=%(refname:short)", "refs/heads"]).catch(() => "")
+    )
+      .split("\n")
+      .filter(Boolean)
+    return { op: "merge", ours, theirs: named[0] ?? cur.head.slice(0, 8) }
+  }
+  if (cur.op === "rebase") return { op: "rebase", ours, theirs: (await rebaseHeadName(r)) ?? cur.head.slice(0, 8) }
+  return { op: cur.op, ours, theirs: cur.head.slice(0, 8) }
 }
 
 /* A conflict view is a text editor: a binary or enormous file has no business there. */

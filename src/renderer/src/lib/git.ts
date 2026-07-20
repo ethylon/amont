@@ -22,6 +22,7 @@ export type {
   FlowPrefixes,
   GitRef,
   MaintKind,
+  MergeOp,
   MergePreview,
   MergePreviewStatus,
   MergeState,
@@ -29,6 +30,7 @@ export type {
   OpName,
   OpenResult,
   ProgressEvent,
+  QueueEvent,
   Repo,
   RepoRef,
   ResetMode,
@@ -114,6 +116,7 @@ export const onOp = bridge.onOp
 export const onChanged = bridge.onChanged
 export const onTrace = bridge.onTrace
 export const onProgress = bridge.onProgress
+export const onQueue = bridge.onQueue
 export const onUpdate = bridge.onUpdate
 
 /* Opens the repos of restored tabs. Called once, explicitly, from main.tsx —
@@ -205,12 +208,15 @@ export type RepoApi = {
   /** opens a listed worktree as a repo — the caller surfaces it as a tab */
   worktreeOpen(path: string): Promise<Repo>
   worktreeReveal(path: string): Promise<void>
-  /** the A/B labels of the conflict view: current branch (ours) and merged-in branch (theirs) */
+  /** the conflict-capable operation in progress (merge/rebase/cherry-pick/revert) and the
+      A/B labels of the conflict view: current branch (ours) and incoming side (theirs) */
   mergeState(): Promise<MergeState>
   /** the three index stages + working file of a conflicted path */
   conflict(path: string): Promise<ConflictFile>
   /** writes the merged output to the working file and stages it — the conflict is resolved */
   resolve(path: string, content: string): Promise<void>
+  /** aborts whatever conflict-capable operation is in progress — main re-detects it from
+      the on-disk state, so this is always `git <current op> --abort` */
   mergeAbort(): Promise<void>
   /** object-DB shape (`git count-objects -vH`) — the maintenance modal's report */
   countObjects(): Promise<CountObjects>
