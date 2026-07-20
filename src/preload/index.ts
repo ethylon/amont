@@ -95,6 +95,7 @@ const bridge: Bridge = {
   discard: invoke("repo:discard"),
   discardPatch: invoke("repo:discardPatch"),
   commit: invoke("repo:commit"),
+  reword: invoke("repo:reword"),
   checkout: invoke("repo:checkout"),
   stashes: invoke("repo:stashes"),
   stash: invoke("repo:stash"),

@@ -466,6 +466,18 @@ export async function commit(r: RepoHandle, message: string, amend: boolean): Pr
   })
 }
 
+/** Rewrites HEAD's message alone: `--only` with no paths keeps the staged tree out of the
+    amend — the detail panel edits words, never what the commit contains (unlike `commit`
+    above, whose amend deliberately folds the index in). */
+export async function reword(r: RepoHandle, message: string): Promise<void> {
+  if (typeof message !== "string" || !message.trim()) throw new AppError("BAD_ARG", "message")
+  await withLock(r, "reword", async () => {
+    groupTrace(r, "Reword")
+    await r.git(["commit", "--amend", "--only", "-m", message])
+    mute(r)
+  })
+}
+
 /* --- Merge conflicts ---
    The merged output the user validated becomes the working file, then `git add` clears the
    path's conflict stages: that's git's own definition of "resolved". The write and the add

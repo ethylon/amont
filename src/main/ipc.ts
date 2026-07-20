@@ -232,6 +232,7 @@ export function registerIpc(): void {
   handle("repo:discard", (_ev, id, paths, untracked) => ops.discard(repos.use(id), paths, untracked))
   handle("repo:discardPatch", (_ev, id, patch) => ops.discardPatch(repos.use(id), patch))
   handle("repo:commit", (_ev, id, message, amend) => ops.commit(repos.use(id), message, amend))
+  handle("repo:reword", (_ev, id, message) => ops.reword(repos.use(id), message))
   handle("repo:flow", (_ev, id) => flow.flowPrefixes(repos.use(id)))
 
   handle("repo:flowInfo", (_ev, id, branch, kind) => {

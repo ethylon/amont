@@ -160,6 +160,9 @@ msgstr "Tous les conflits sont résolus — commitez pour conclure."
 msgid "already in {base}"
 msgstr "déjà dans {base}"
 
+msgid "Already pushed: amending rewrites history — the next push will need to be forced."
+msgstr "Déjà poussé : amender réécrit l'historique — le prochain push devra être forcé."
+
 msgid "Also delete the remote branch « {upstream} »"
 msgstr "Supprimer aussi la branche distante « {upstream} »"
 
@@ -525,6 +528,9 @@ msgstr "Supprimer"
 
 msgid "Drop remote-tracking branches that no longer exist on the remote."
 msgstr "Supprime les branches de suivi qui n'existent plus sur le distant."
+
+msgid "Edit message"
+msgstr "Modifier le message"
 
 msgid "Empty diff."
 msgstr "Diff vide."

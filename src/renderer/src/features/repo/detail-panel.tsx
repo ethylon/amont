@@ -1,7 +1,7 @@
-import { type CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { CloudIcon } from "@hugeicons/core-free-icons"
+import { Alert02Icon, CloudIcon, Edit02Icon } from "@hugeicons/core-free-icons"
 
 import type { Commit, FileChange, RepoApi } from "@/lib/git"
 import {
@@ -18,8 +18,8 @@ import {
 import { parseMarkdown, type MdToken } from "@/lib/markdown"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
-import { useBodyQuery } from "@/features/repo/repo-queries"
-import type { SelMode } from "@/features/repo/repo-store"
+import { useBodyQuery, useStatusQuery } from "@/features/repo/repo-queries"
+import { useRepoStore, type SelMode } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
 import type { ChainInfo, GraphHandle } from "@/features/graph/controller"
 import { shortHash } from "@/features/graph/ids"
@@ -27,6 +27,13 @@ import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { Avatar } from "@/components/ui/avatar"
 import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Field, FieldError, FieldGroup } from "@/components/ui/field"
+import { GitCmd } from "@/components/ui/git-cmd"
+import { IconButton } from "@/components/ui/icon-button"
+import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
+import { Textarea } from "@/components/ui/textarea"
 import { LABEL_CLS } from "@/components/ui/typography"
 import { FileList } from "@/features/repo/file-list"
 
@@ -203,6 +210,93 @@ function Files({
   )
 }
 
+/* Inline reword of the selected commit — HEAD only, the one commit an amend reaches without
+   a rebase. `--only` keeps the staged tree out of it: editing words must never silently
+   commit whatever happens to be staged. Failure stays inline (like the flow banners) so the
+   message can be corrected without retyping it. */
+function RewordForm({
+  initial,
+  pushed,
+  onClose,
+}: {
+  initial: { subject: string; description: string }
+  /** the commit is already on its upstream: amending will call for a force push (warn, don't block) */
+  pushed: boolean
+  onClose(): void
+}) {
+  const reword = useRepoStore((s) => s.rewordHead)
+  const [subject, setSubject] = useState(initial.subject)
+  const [description, setDescription] = useState(initial.description)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const ready = subject.trim().length > 0
+
+  const submit = async () => {
+    if (!ready || busy) return
+    setBusy(true)
+    const err = await reword(subject, description)
+    setBusy(false)
+    if (err) setError(err)
+    else onClose() // success: the store re-anchors the selection on the new HEAD
+  }
+
+  return (
+    <FieldGroup
+      className="shrink-0"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !busy) onClose()
+      }}
+    >
+      <Field data-invalid={!!error || undefined}>
+        {error && <FieldError>{error}</FieldError>}
+        <Input
+          name="subject"
+          aria-label={messages.worktree.commitMessage}
+          placeholder={messages.worktree.commitMessage}
+          value={subject}
+          autoFocus
+          onChange={(e) => setSubject(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void submit()
+          }}
+        />
+        <Textarea
+          name="description"
+          aria-label={messages.worktree.description}
+          placeholder={messages.worktree.description}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="min-h-16 resize-y text-xs"
+        />
+        {pushed && (
+          <p className="flex items-start gap-1.5 text-xs text-warning">
+            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="mt-0.5 size-3.5 shrink-0" />
+            {messages.detail.pushedWarning}
+          </p>
+        )}
+        <div className="flex items-center gap-2">
+          <Button
+            /* busy ≠ greyed out, same convention as the staging panel's commit button */
+            className="h-auto min-h-6 flex-1 flex-col gap-0 py-1 aria-busy:opacity-100!"
+            disabled={!ready || busy}
+            aria-busy={busy}
+            onClick={() => void submit()}
+          >
+            <span className="flex max-w-full items-center gap-1.5">
+              {busy && <Spinner className="size-3" />}
+              <span className="truncate">{messages.worktree.amend}</span>
+            </span>
+            <GitCmd cmd='git commit --amend --only -m "…"' running={busy} className="text-primary-foreground/70" />
+          </Button>
+          <Button variant="outline" disabled={busy} onClick={onClose}>
+            {messages.detail.cancel}
+          </Button>
+        </div>
+      </Field>
+    </FieldGroup>
+  )
+}
+
 function Single({
   api,
   repoId,
@@ -227,6 +321,21 @@ function Single({
   const { data: raw } = useBodyQuery(api, repoId, c.h)
   const body = raw === undefined ? null : parseBody(raw)
 
+  /* Inline edit of the message (HEAD only — anything older needs a rebase). The draft is
+     stamped with its hash: the panel updates in place across selection changes, so a form
+     opened on HEAD must not survive a click on another commit. */
+  const { data: status } = useStatusQuery(api, repoId)
+  const [draft, setDraft] = useState<{ hash: string; subject: string; description: string } | null>(null)
+  const canEdit = !c.stash && status?.head === c.h
+  const editing = draft?.hash === c.h
+  useEffect(() => setDraft(null), [c.h])
+  const openEdit = async () => {
+    /* headMessage rather than the log's `%s` + the cached body: the canonical prefill for an
+       amend, fetched at click time so a body still loading can't seed an empty description */
+    const msg = await api.headMessage().catch(() => null)
+    setDraft({ hash: c.h, subject: msg?.subject ?? c.s, description: msg?.body ?? raw ?? "" })
+  }
+
   /* A stash shows everything it stashed away: tracked changes (diff against its base) and
      untracked files, stashed in a separate commit (3rd parent), rendered as `?` like
      in the working tree. Their diff is read from that commit, not against the base. */
@@ -247,20 +356,42 @@ function Single({
 
   return (
     <>
-      <h2 className="shrink-0 text-sm leading-snug tracking-tight text-balance [overflow-wrap:anywhere]">
-        <TypeChip commit={c} />
-        {ps.text}
-      </h2>
+      {editing ? (
+        <RewordForm
+          /* `ahead === 0` (with an upstream): HEAD is already contained in it */
+          initial={draft}
+          pushed={status?.ahead === 0}
+          onClose={() => setDraft(null)}
+        />
+      ) : (
+        <>
+          <div className="flex shrink-0 items-start gap-1.5">
+            <h2 className="min-w-0 flex-1 text-sm leading-snug tracking-tight text-balance [overflow-wrap:anywhere]">
+              <TypeChip commit={c} />
+              {ps.text}
+            </h2>
+            {canEdit && (
+              <IconButton
+                label={messages.detail.editMessage}
+                icon={Edit02Icon}
+                size="icon-xs"
+                className="shrink-0 text-muted-foreground"
+                onClick={() => void openEdit()}
+              />
+            )}
+          </div>
 
-      {/* a fifty-line body doesn't push the file list off-screen; keyed on the hash so the
-          scroll position resets per commit (the panel updates in place, no remount) */}
-      {body?.text && (
-        <div
-          key={c.h}
-          className="mt-2 max-h-32 shrink-0 space-y-2 overflow-y-auto text-xs/5 text-muted-foreground [overflow-wrap:anywhere]"
-        >
-          <Markdown text={body.text} />
-        </div>
+          {/* a fifty-line body doesn't push the file list off-screen; keyed on the hash so the
+              scroll position resets per commit (the panel updates in place, no remount) */}
+          {body?.text && (
+            <div
+              key={c.h}
+              className="mt-2 max-h-32 shrink-0 space-y-2 overflow-y-auto text-xs/5 text-muted-foreground [overflow-wrap:anywhere]"
+            >
+              <Markdown text={body.text} />
+            </div>
+          )}
+        </>
       )}
 
       {/* 76px: the track fits "CO-AUTHORS" on one line, letter-spacing included */}

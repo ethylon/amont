@@ -103,6 +103,9 @@ export type InvokeChannels = {
       (`git apply --reverse`); the index never moves. Built renderer-side like applyPatch's. */
   "repo:discardPatch": (id: number, patch: string) => Promise<void>
   "repo:commit": (id: number, message: string, amend: boolean) => Promise<void>
+  /** `git commit --amend --only -m …`: rewrites HEAD's message without folding the index in
+      (the detail panel's inline edit — `repo:commit` with `amend` commits staged changes too). */
+  "repo:reword": (id: number, message: string) => Promise<void>
   "repo:flow": (id: number) => Promise<FlowPrefixes | null>
   "repo:flowInfo": (id: number, branch: string, kind: keyof FlowPrefixes) => Promise<FlowInfo | null>
   /** Write the `gitflow.*` config from the form then `git flow init -d`; resolves the prefixes. */
@@ -295,6 +298,7 @@ export type Bridge = {
   discard: InvokeChannels["repo:discard"]
   discardPatch: InvokeChannels["repo:discardPatch"]
   commit: InvokeChannels["repo:commit"]
+  reword: InvokeChannels["repo:reword"]
   checkout: InvokeChannels["repo:checkout"]
   stashes: InvokeChannels["repo:stashes"]
   stash: InvokeChannels["repo:stash"]
