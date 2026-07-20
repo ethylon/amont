@@ -1,12 +1,13 @@
 /* Mutating operations (AUDIT.md §4): network (fetch/pull/push, auto or manual), branch
    actions (merge/delete/pull/push/finish), checkout, stage/unstage/commit, stash.
 
-   All of them go through the repo mutex (`repos.withLock`, hygiene fix): the
+   All of them go through the repo mutation queue (`repos.withLock`): the
    stash→checkout→pop dance used to run unlocked against autofetch before this refactor — two
    concurrent mutations on the same `.git` otherwise end up with `index.lock` files stepping on
-   each other. Only `runOp` (network) keeps its own manual guard: auto-fetch needs to be able
-   to silently back off when the repo is busy, whereas an explicit user action must throw
-   (BUSY). */
+   each other. A busy repo no longer throws BUSY at an explicit user action: the call waits its
+   turn FIFO (chaining a fetch, a checkout, a push just works). Auto-fetch keeps backing off
+   silently when anything runs or waits — background housekeeping must never lengthen the
+   user's queue. */
 
 import { writeFile } from "node:fs/promises"
 
@@ -69,39 +70,41 @@ function errorPayload(e: unknown): Pick<Extract<OpEvent, { state: "error" }>, "c
   return decodeError(e)
 }
 
-/* One per repo at a time (git sets its own locks, but two concurrent fetches on the
-   same repo end up with a pointless error). The result goes out as an event, not as an
-   invoke return value: auto-fetch has no caller on the renderer side. Unlike the other
-   mutations, this never throws: auto-fetch needs to be able to stay quiet when the repo is busy. */
+/* The result goes out as an event, not as an invoke return value: auto-fetch has no caller on
+   the renderer side. Unlike the other mutations, this never throws — failures travel on the
+   same event. An explicit click on a busy repo queues (repos.withLock) instead of erroring;
+   the `start` event only fires when the op actually takes its turn, so the renderer's busy
+   state tracks execution, not the click. A same-name op already running or waiting is dropped:
+   two pushes back to back would be a pointless duplicate (the toolbar greys those buttons,
+   this guards the menu/shortcut paths). Auto-fetch backs off whenever anything runs or waits —
+   background housekeeping must never lengthen the user's queue. */
 export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<void> {
-  if (r.running) {
-    /* never silent for an explicit click: the window between the click and the renderer's
-       `busy` state is real */
-    if (!auto) r.events.op({ op: name, state: "error", auto, code: "BUSY", detail: r.running })
-    return
-  }
-  r.running = name
-  groupTrace(r, auto ? "Auto-fetch" : OP_GROUP[name])
-  r.events.op({ op: name, state: "start", auto })
-  try {
-    /* `changed` compares the ref-tip snapshots around the command: it catches every move the
-       renderer must redraw — new commits, but also a push updating the remote-tracking ref or
-       a `--prune` deleting tips, both invisible to a commit count. `added` (fetch only, the
-       walk isn't free) feeds the "N new commits" badge. */
-    const before = await refTips(r)
-    /* stream `NN%` to the footer, like fsck (Verify) — but never for a background auto-fetch,
-       which stays non-intrusive (a badge on completion, no live feed occupant). */
-    await r.git(opArgs(name), { timeout: OP_TIMEOUT, onProgress: auto ? undefined : reportProgress(r, name) })
-    const after = await refTips(r)
-    const changed = after.join() !== before.join()
-    const added = changed && name === "fetch" ? await countNew(r, before) : 0
-    r.events.op({ op: name, state: "done", auto, added, changed })
-  } catch (e) {
-    r.events.op({ op: name, state: "error", auto, ...errorPayload(e) })
-  } finally {
-    mute(r)
-    r.running = null
-  }
+  if (auto && r.lockCount > 0) return
+  if (r.running === name || r.pending.includes(name)) return
+  /* the only throw left in this path is withLock's queue-overflow BUSY: surface it on the
+     event channel like every other failure — this function's callers never await an error */
+  await withLock(r, name, async () => {
+    groupTrace(r, auto ? "Auto-fetch" : OP_GROUP[name])
+    r.events.op({ op: name, state: "start", auto })
+    try {
+      /* `changed` compares the ref-tip snapshots around the command: it catches every move the
+         renderer must redraw — new commits, but also a push updating the remote-tracking ref or
+         a `--prune` deleting tips, both invisible to a commit count. `added` (fetch only, the
+         walk isn't free) feeds the "N new commits" badge. */
+      const before = await refTips(r)
+      /* stream `NN%` to the footer, like fsck (Verify) — but never for a background auto-fetch,
+         which stays non-intrusive (a badge on completion, no live feed occupant). */
+      await r.git(opArgs(name), { timeout: OP_TIMEOUT, onProgress: auto ? undefined : reportProgress(r, name) })
+      const after = await refTips(r)
+      const changed = after.join() !== before.join()
+      const added = changed && name === "fetch" ? await countNew(r, before) : 0
+      r.events.op({ op: name, state: "done", auto, added, changed })
+    } catch (e) {
+      r.events.op({ op: name, state: "error", auto, ...errorPayload(e) })
+    } finally {
+      mute(r)
+    }
+  }).catch((e) => r.events.op({ op: name, state: "error", auto, ...errorPayload(e) }))
 }
 
 /* --- Branch actions (context menu) ---
@@ -196,7 +199,8 @@ export async function deleteBranch(r: RepoHandle, name: string, deleteRemote: bo
    the tree back where we found it. `pop` in conflict: git keeps the stash entry and lays down
    its markers — we report it and don't try to recover, the user is already on the right branch.
    The body is shared with `createBranch` (checkout of the branch it just created), which runs
-   it under its own lock — `withLock` doesn't nest, a second acquire would throw BUSY. */
+   it under its own lock — `withLock` doesn't nest, a second acquire would queue behind its
+   own caller and deadlock. */
 async function checkoutWithStash(r: RepoHandle, name: string): Promise<void> {
   const dirty = !!(await r.git(["status", "--porcelain", "-uall"])).trim()
   if (dirty) await r.git(["stash", "push", "-u", "-m", `amont: ${name}`])

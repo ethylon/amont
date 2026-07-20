@@ -234,6 +234,8 @@ export const messages = {
     get pushing() {
       return t`Pushing…`
     },
+    /* footer indicator while mutations wait their turn in the repo queue (main/repos.ts) */
+    queued: (n: number) => plural(n, { one: "# operation queued", other: "# operations queued" }),
   },
 
   console: {

@@ -34,6 +34,8 @@ type Props = {
   opState: OpState | null
   /** live `NN%` of the running network op (fetch/pull/push), streamed from git's `--progress` */
   opProgress: { op: OpName; percent: number } | null
+  /** labels of the mutations waiting their turn in the repo queue (`git:queue`), in run order */
+  queued: string[]
   stats: Stats | null
   /** live database-maintenance progress (Verify/Compact), cf. features/maintenance */
   maint: MaintState | null
@@ -70,7 +72,7 @@ function feedEntry({ opState, opProgress, maint, health, onCompact }: Props): Fe
 export const StatusBar = memo(function StatusBar(props: Props) {
   /* memo'd component: re-render on a runtime language switch even when no prop moved */
   useLocale()
-  const { repoId, branch, flow, stats } = props
+  const { repoId, branch, flow, stats, queued } = props
   /* the work type tints the branch segment: shared signals from flow-context */
   const f = flow && FLOW_META[flow]
   const entry = feedEntry(props)
@@ -93,6 +95,20 @@ export const StatusBar = memo(function StatusBar(props: Props) {
       </span>
 
       <GitConsole repoId={repoId} entry={entry} />
+
+      {/* operations waiting their turn behind the running one (main-side FIFO queue): count
+          in the bar, run order in the tooltip. Announced politely — a queue growing or
+          draining must not interrupt an ongoing announcement. */}
+      {queued.length > 0 && (
+        <span
+          aria-live="polite"
+          title={queued.join(" → ")}
+          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap tabular-nums"
+        >
+          <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-warning" />
+          {messages.ops.queued(queued.length)}
+        </span>
+      )}
 
       {stats && (
         <span className="ms-auto shrink-0 whitespace-nowrap tabular-nums">

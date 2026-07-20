@@ -77,7 +77,7 @@ export function ConflictBanner() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto py-0.5 normal-case tracking-normal text-destructive"
+            className="h-auto min-h-6 py-0.5 normal-case tracking-normal text-destructive"
             disabled={aborting}
             aria-busy={aborting}
             onClick={async () => {

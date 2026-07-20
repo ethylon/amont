@@ -444,7 +444,7 @@ export function ConflictView({ api, repoId, file, onClose, onResolve }: Props) {
                 {remaining ? messages.conflict.remaining(remaining) : messages.conflict.noMarkersLeft}
               </span>
               <Button
-                className="h-auto flex-col gap-0 px-3 py-1"
+                className="h-auto min-h-6 flex-col gap-0 px-3 py-1"
                 disabled={remaining > 0 || saving}
                 aria-busy={saving}
                 onClick={async () => {

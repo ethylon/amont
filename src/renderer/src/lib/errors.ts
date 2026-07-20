@@ -10,7 +10,9 @@ const MESSAGES: Record<ErrorPayload["code"], (detail?: string) => string> = {
   NOT_ALLOWED: () => "Path not allowed",
   EXISTS: (d) => (d ? `Already exists: ${d}` : "The destination already exists"),
   BAD_ARG: (d) => (d ? `Invalid argument: ${d}` : "Invalid argument"),
-  BUSY: () => "An operation is already in progress",
+  /* mutations queue FIFO now (main/repos.ts withLock): BUSY only fires when the queue
+     overflows — something is stuck holding the lock while requests pile up */
+  BUSY: () => "Too many operations queued — wait for the current one to finish",
   MERGE_CONFLICT: (d) => (d ? `Conflict in: ${d}` : "The merge ended in conflict"),
   STASH_POP_CONFLICT: (d) => `On ${d}, but the stash conflicts — entry kept`,
   NOT_FLOW_BRANCH: (d) => `${d} is not a git-flow branch`,
