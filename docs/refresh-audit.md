@@ -19,8 +19,10 @@ verified against the code at the referenced lines.
 > previous rows. §2 (storms): overlapping `resetAndLoad` calls coalesce into one shared
 > trailing rerun. One deliberate choice: external changes reload in place (now invisible —
 > no flash, no scroll/selection loss) rather than showing the auto-fetch-style badge; the
-> badge remains for auto-fetch, whose result is optional. Line references below describe
-> the pre-fix code.
+> badge remains for auto-fetch, whose result is optional. (Since narrowed to the foreground
+> tab: a background tab's auto-fetch defers like an external change and reloads on arrival,
+> so the badge only ever asks when a reload would land under the user's eyes.) Line
+> references below describe the pre-fix code.
 >
 > **Review round** — an adversarial multi-angle review of the first fix pass surfaced and
 > fixed: the fingerprint was name-blind (`refTips` dedups object ids, so `git branch foo`
