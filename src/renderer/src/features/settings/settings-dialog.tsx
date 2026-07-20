@@ -1,10 +1,8 @@
 import { useCallback, useState, type CSSProperties } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   ArrowDown01Icon,
   ArrowRight01Icon,
-  CloudDownloadIcon,
   Delete02Icon,
   PaintBoardIcon,
   PlusSignIcon,
@@ -13,9 +11,7 @@ import {
   SourceCodeIcon,
 } from "@hugeicons/core-free-icons"
 
-import { host, SETTINGS, type Settings } from "@/lib/git"
 import { messages } from "@/lib/messages"
-import { queryKeys } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 import { setTheme, useThemeMode, useTheme } from "@/lib/theme"
 import { setLocale, useLocale } from "@/lib/i18n"
@@ -40,7 +36,7 @@ import {
 import { SHIKI_LANGS } from "@/features/diff/shiki-langs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { CheckRow } from "@/components/ui/check-row"
 import { IconButton } from "@/components/ui/icon-button"
 import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -61,22 +57,21 @@ import {
 } from "@/components/ui/dialog"
 import { useCrashReports } from "./use-crash-reports"
 
-/* App-wide settings, opened from File ▸ Settings. A left nav splits it into three sections that
-   each write straight to their own store — no Save button, only Close:
+/* App-wide settings, opened from File ▸ Settings. A left nav splits it into sections that
+   each write straight to their own store — no Save button, only Close: Customization / Colors /
+   Diff are renderer prefs (localStorage, cf. lib/customization.ts) plus the theme and language
+   runtime switches (lib/theme.ts, lib/i18n.ts) and the crash-reports opt-out.
 
-   - Customization / Colors are renderer prefs (localStorage, cf. lib/customization.ts) plus the
-     theme and language runtime switches (lib/theme.ts, lib/i18n.ts) and the crash-reports opt-out.
-   - Fetch is the main-process settings the modal originally held (cf. shared/settings.ts): every
-     value and choice still comes from the SETTINGS registry, written through host.setSettings, which
-     persists it and re-arms the open repos' autofetch timers live. */
+   The main-process settings (shared/settings.ts) the modal originally held moved to the
+   toolbar's Fetch/Pull options cards (features/repo/op-options.tsx), under the buttons whose
+   commands they shape. */
 
-type Section = "customization" | "colors" | "diff" | "fetch"
+type Section = "customization" | "colors" | "diff"
 
 const SECTIONS: { id: Section; icon: IconSvgElement; label: () => string }[] = [
   { id: "customization", icon: SlidersHorizontalIcon, label: () => messages.settings.sectionCustomization },
   { id: "colors", icon: PaintBoardIcon, label: () => messages.settings.sectionColors },
   { id: "diff", icon: SourceCodeIcon, label: () => messages.settings.sectionDiff },
-  { id: "fetch", icon: CloudDownloadIcon, label: () => messages.settings.sectionFetch },
 ]
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
@@ -114,7 +109,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             {section === "customization" && <CustomizationSection />}
             {section === "colors" && <ColorsSection />}
             {section === "diff" && <DiffSection />}
-            {section === "fetch" && <FetchSection />}
           </div>
         </div>
 
@@ -124,29 +118,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
-/* --- shared row primitives --- */
-
-function CheckRow({
-  checked,
-  onChange,
-  label,
-  hint,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-  label: string
-  hint?: string
-}) {
-  return (
-    <label className="flex cursor-pointer items-start gap-2.5 text-xs">
-      <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} className="mt-0.5" />
-      <span className="min-w-0">
-        <span className="block font-medium">{label}</span>
-        {hint && <span className="block text-[0.625rem] text-muted-foreground">{hint}</span>}
-      </span>
-    </label>
-  )
-}
+/* --- shared row primitives (CheckRow moved to components/ui/check-row.tsx: the toolbar's
+   Fetch options card renders the same rows without pulling in this lazy chunk) --- */
 
 /** A labelled single-select segmented control (controlled group: an empty selection is ignored). */
 function SegRow({
@@ -543,74 +516,6 @@ function LangSelect({ value, onChange }: { value: string; onChange: (v: string) 
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-/* --- Fetch (the original main-process settings) --- */
-
-function FetchSection() {
-  const queryClient = useQueryClient()
-  const { data: settings } = useQuery({
-    queryKey: queryKeys.settings(),
-    queryFn: () => host.getSettings(),
-    staleTime: Infinity,
-  })
-
-  /* optimistic: write the query cache at once (the modal and toolbar reflect it), then persist.
-     A failed write is harmless — the cache reloads from the persisted truth next open. */
-  const patch = useCallback(
-    (p: Partial<Settings>) => {
-      queryClient.setQueryData(queryKeys.settings(), (s: Settings | undefined) => (s ? { ...s, ...p } : s))
-      void host.setSettings(p)
-    },
-    [queryClient]
-  )
-
-  if (!settings) return null
-
-  return (
-    <div className="grid gap-4">
-      {/* Auto-fetch on/off */}
-      <CheckRow
-        checked={settings.autoFetch}
-        onChange={(v) => patch({ autoFetch: v })}
-        label={messages.settings.autoFetch}
-        hint={messages.settings.autoFetchHint}
-      />
-
-      {/* Interval — only meaningful while auto-fetch is on, so it dims and locks with it */}
-      <div className={cn("flex items-center justify-between gap-3", !settings.autoFetch && "opacity-50")}>
-        <span className="text-xs font-medium">{messages.settings.interval}</span>
-        <div className="flex items-center gap-1.5">
-          <ToggleGroup
-            spacing={0}
-            variant="outline"
-            size="sm"
-            disabled={!settings.autoFetch}
-            value={[String(settings.autoFetchIntervalMin)]}
-            onValueChange={(v) => {
-              const n = Number(v[0])
-              if (Number.isFinite(n)) patch({ autoFetchIntervalMin: n })
-            }}
-          >
-            {SETTINGS.autoFetchIntervalMin.options.map((n) => (
-              <ToggleGroupItem key={n} value={String(n)} className="tabular-nums">
-                {n}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <span className="text-[0.625rem] text-muted-foreground">{messages.settings.minutesUnit}</span>
-        </div>
-      </div>
-
-      {/* Prune on fetch */}
-      <CheckRow
-        checked={settings.prune}
-        onChange={(v) => patch({ prune: v })}
-        label={messages.settings.prune}
-        hint={messages.settings.pruneHint}
-      />
-    </div>
   )
 }
 

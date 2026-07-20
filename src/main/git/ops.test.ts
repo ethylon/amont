@@ -78,6 +78,23 @@ describe("runOp `done` event: `changed` (graph reload cue) and `added` (badge co
   })
 })
 
+/* opArgs reads the live settings (registry defaults here — the tests never call setSettings):
+   prune on for fetch, `--ff` as pull's integration mode. Pinning the argv catches a default
+   drifting away from the SETTINGS registry or a flag landing in the wrong position. */
+describe("runOp argv: the settings-driven flags at their defaults", () => {
+  it("fetch carries --prune (default on)", async () => {
+    const { r, calls } = fakeMutRepo()
+    await runOp(r, "fetch")
+    assert.deepEqual(calls[1], ["fetch", "--all", "--prune", "--progress"])
+  })
+
+  it("pull carries the default integration mode (--ff)", async () => {
+    const { r, calls } = fakeMutRepo()
+    await runOp(r, "pull")
+    assert.deepEqual(calls[1], ["pull", "--ff", "--progress"])
+  })
+})
+
 /* --- Commit-anchored ops and remote-side deletions (graph/sidebar context menus) ---
    The fake records every git argv: the assertions pin the exact commands, which is where
    the option-injection guards (BRANCH/HASH validation) and the `-m 1` / `refs/tags/` details
