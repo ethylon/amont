@@ -8,8 +8,9 @@
 
 import type { Commit, RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
+import { getGraphCols } from "@/lib/customization"
 import { scrollTextHover, scrollTextStop } from "./interactions/scroll-text.tsx"
-import { CHUNK, FIXED_W, LANE, laneColor, MAX_LANES, PAD, PAGE, RESIDENT, ROW, ROW_BUCKET } from "./constants.ts"
+import { CHUNK, fixedW, LANE, laneColor, MAX_LANES, PAD, PAGE, RESIDENT, ROW, ROW_BUCKET } from "./constants.ts"
 import { idOf } from "./ids.ts"
 import { branchSegment, chainInfo, chainTip, type ChainInfo } from "./layout/chains.ts"
 import { computeSync, syncSignature, type SyncInfo } from "./layout/sync.ts"
@@ -68,6 +69,12 @@ export type GraphHandle = {
   branchesOf(row: number): { name: string; kind: "head" | "remote" }[]
   /** hue of the row's line, to set as `--badge-color` on branch chips */
   laneColor(row: number): string
+  /** Re-derives the column widths after a user resize (cf. react/col-resize.tsx): the mounted
+      rows already re-laid out through the `--amont-*` vars, this recomputes what CSS can't —
+      `inner`'s min-width, and with `caps` the measured branch/type maxima (their chips just
+      changed cap, so the monotone maxima must be rebuilt from the persisted sources). Much
+      cheaper than `reset()`: no data reload, nothing remounts. */
+  remeasure(caps?: boolean): void
   /** position and hue of the working-tree dot, aligned on HEAD's lane */
   headDot(headSha: string | null): { left: number; color: string } | null
   destroy(): void
@@ -262,7 +269,8 @@ export function createGraph(
     svg.setAttribute("viewBox", `0 0 ${graphW} ${h}`)
     inner.style.height = h + "px"
     const { type, branch } = measurer.measureCols()
-    inner.style.minWidth = graphW + FIXED_W + type + branch + "px"
+    const cols = getGraphCols() // live, possibly user-resized (cf. remeasure below)
+    inner.style.minWidth = graphW + fixedW(cols.author, cols.date, cols.hash) + type + branch + "px"
     cb.onGraphWidth(graphW)
     cb.onBranchWidth(branch)
     emitStats()
@@ -708,6 +716,14 @@ export function createGraph(
       return own.length ? own : tipBranches(loader.state, chainTip(loader.state, row))
     },
     laneColor: (row) => laneColor(loader.state.laneOf[row]),
+
+    /* Same shape as the font-ready path above: requeue the persisted sources, re-measure,
+       re-derive the widths. Mid-reset it's dropped — the swap block re-measures from scratch. */
+    remeasure(caps = true) {
+      if (destroyed || resetOwner) return
+      if (caps) measurer.requeueAll(stashNames)
+      refresh()
+    },
 
     headDot(headSha) {
       const S = loader.state
