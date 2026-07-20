@@ -48,6 +48,7 @@ const makeHooks = (id: number): repos.RepoHooks => ({
   trace: (line) => getMainWindow()?.webContents.send("git:trace", { id, ...line }),
   op: (payload) => getMainWindow()?.webContents.send("git:op", { id, ...payload }),
   progress: (payload) => getMainWindow()?.webContents.send("git:progress", { id, ...payload }),
+  queue: (payload) => getMainWindow()?.webContents.send("git:queue", { id, ...payload }),
   changed: () => getMainWindow()?.webContents.send("git:changed", { id }),
   isFocused: () => getMainWindow()?.isFocused() ?? false,
   /* fingerprint for the watcher's emitChanged gate (refresh audit, §2): a .git event whose

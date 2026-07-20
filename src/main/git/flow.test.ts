@@ -86,7 +86,17 @@ function fakeRepo(state: FakeState = {}) {
     }
     return Promise.resolve("")
   }
-  const r = { running: null, muted: 0, dirty: false, gen: 0, events: { trace: () => {} }, git }
+  const r = {
+    running: null,
+    muted: 0,
+    dirty: false,
+    gen: 0,
+    pending: [] as string[],
+    lockCount: 0,
+    lockTail: Promise.resolve(),
+    events: { trace: () => {}, queue: () => {} },
+    git,
+  }
   return { r: r as unknown as RepoHandle, calls }
 }
 

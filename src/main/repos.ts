@@ -14,7 +14,7 @@ import type { ChildProcess } from "node:child_process"
 
 import { AppError } from "../shared/errors.ts"
 import { autoFetchIntervalMs } from "../shared/settings.ts"
-import type { DistributiveOmit, OpEvent, ProgressEvent, Repo, Stash, TraceLine } from "../shared/types.ts"
+import type { DistributiveOmit, OpEvent, ProgressEvent, QueueEvent, Repo, Stash, TraceLine } from "../shared/types.ts"
 import { createGitRunner, killAll, type GitRunner } from "./git/exec.ts"
 import { basename } from "./util.ts"
 import { getSettings } from "./settings.ts"
@@ -28,6 +28,8 @@ export interface RepoHooks {
   op(payload: DistributiveOmit<OpEvent, "id">): void
   /** live maintenance progress (fsck/gc), streamed to the renderer footer */
   progress(payload: Omit<ProgressEvent, "id">): void
+  /** mutation-queue transitions (enqueue/start/settle) — the footer's "N queued" indicator */
+  queue(payload: Omit<QueueEvent, "id">): void
   changed(): void
   isFocused(): boolean
   /** graph fingerprint for the `emitChanged` gate (cf. watcher.ts) — ipc.ts supplies it in
@@ -63,6 +65,16 @@ export interface RepoHandle extends Watchable {
       branch's tip and the remote set are unchanged — one `git reflog show` per stale branch
       per refresh otherwise */
   goneCache: { remotes: string; verdicts: Map<string, { tip: string; gone: boolean }> } | null
+  /** labels of the mutations waiting behind `running`, in run order (cf. withLock) */
+  pending: string[]
+  /** running + waiting mutations, tracked synchronously — `withLock`'s enqueue test and
+      auto-fetch's back-off read it before any await */
+  lockCount: number
+  /** tail of the mutation queue: each `withLock` chains behind the previous one's settlement */
+  lockTail: Promise<void>
+  /** set by closeRepo/closeAll: an operation still waiting in the queue when the tab closes
+      must not run against a closed repo — its turn resolves to NO_REPO instead */
+  closed: boolean
   /** in-flight git children for this repo; killAll() terminates them all (closeRepo, app close) */
   children: Set<ChildProcess>
   /** cancellable in-flight requests, keyed by id supplied by the renderer (cf. `repo:cancel`) */
@@ -88,27 +100,65 @@ export function all(): RepoHandle[] {
   return [...repos.values()]
 }
 
-/* --- Per-repo mutation mutex ---
+/* --- Per-repo mutation queue ---
    The stash→checkout→pop dance, commit, branch actions, and network operations
    share the same lock: two concurrent mutations on the same repo would otherwise risk
    `.git/index.lock` files stepping on each other. Reads (log, status, refs, diff…) stay
-   outside the mutex, as before this refactor — only repo ownership comes into play here. */
-export function acquire(r: RepoHandle, label: string): void {
-  if (r.running) throw new AppError("BUSY", r.running)
-  r.running = label
-}
+   outside the queue, as before — only repo ownership comes into play here.
 
-export function release(r: RepoHandle): void {
-  r.running = null
-}
+   A busy repo used to throw BUSY at the second caller; chaining operations (fetch, then a
+   checkout, then a push) meant waiting for each one by hand. Mutations now queue FIFO: each
+   `withLock` chains behind the previous one's settlement and the caller's promise resolves
+   with its own operation, so the renderer's usual "await → invalidate → reload" flow holds
+   for queued calls too. Every transition goes out as a `git:queue` event — the footer shows
+   how many operations wait, the toolbar greys a network op already running or queued.
 
-export async function withLock<T>(r: RepoHandle, label: string, fn: () => Promise<T>): Promise<T> {
-  acquire(r, label)
-  try {
-    return await fn()
-  } finally {
-    release(r)
+   Still no nesting: a `withLock` inside a `withLock` no longer throws BUSY — it would wait
+   behind itself forever. Shared bodies (cf. git/ops.ts `checkoutWithStash`) must keep running
+   under their caller's lock. BUSY remains only as the overflow guard below. */
+const QUEUE_MAX = 20
+
+const emitQueue = (r: RepoHandle): void => r.events.queue({ running: r.running, pending: [...r.pending] })
+
+export function withLock<T>(r: RepoHandle, label: string, fn: () => Promise<T>): Promise<T> {
+  /* runaway guard: a queue this deep means something is stuck (a hung remote holds the lock
+     while clicks pile up) — refuse rather than hoard work the user forgot about */
+  if (r.lockCount > QUEUE_MAX) throw new AppError("BUSY", r.running ?? label)
+  const queued = r.lockCount > 0
+  r.lockCount++
+  if (queued) {
+    r.pending.push(label)
+    emitQueue(r)
   }
+  const prev = r.lockTail
+  let settled!: () => void
+  /* the tail resolves in `finally` below, never rejects: a failed operation must not poison
+     the ones queued behind it — their own promises still surface their own errors */
+  r.lockTail = new Promise((res) => (settled = res))
+  const run = async (): Promise<T> => {
+    if (queued) r.pending.splice(r.pending.indexOf(label), 1)
+    /* the tab closed while this one waited: nothing to mutate anymore, and spawning git on a
+       closed repo would leak children past killAll — still hand the turn over, the waiters
+       behind must settle (to this same verdict) rather than hang */
+    if (r.closed) {
+      r.lockCount--
+      settled()
+      throw new AppError("NO_REPO")
+    }
+    r.running = label
+    emitQueue(r)
+    try {
+      return await fn()
+    } finally {
+      r.running = null
+      r.lockCount--
+      settled()
+      /* with waiters left, the successor's own "start" emission follows in a microtask —
+         skipping the intermediate `running: null` frame saves the footer a flicker */
+      if (r.lockCount === 0) emitQueue(r)
+    }
+  }
+  return prev.then(run)
 }
 
 /* --- Autofetch ---
@@ -192,6 +242,10 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     snapshotCache: null,
     logIndex: null,
     goneCache: null,
+    pending: [],
+    lockCount: 0,
+    lockTail: Promise.resolve(),
+    closed: false,
     children,
     requests: new Map(),
     events,
@@ -217,6 +271,7 @@ function safeRealpath(path: string): string {
 export function closeRepo(id: number): void {
   const r = repos.get(id)
   if (!r) return
+  r.closed = true // operations still waiting in the queue resolve to NO_REPO instead of running
   if (r.timer) clearInterval(r.timer)
   if (r.retryTimer) clearTimeout(r.retryTimer)
   for (const w of r.watchers) w.close()
@@ -228,6 +283,7 @@ export function closeRepo(id: number): void {
 /** Closes everything (window / app close): roughly the same guarantees as `closeRepo`. */
 export function closeAll(): void {
   for (const r of repos.values()) {
+    r.closed = true
     if (r.timer) clearInterval(r.timer)
     if (r.retryTimer) clearTimeout(r.retryTimer)
     for (const w of r.watchers) w.close()
