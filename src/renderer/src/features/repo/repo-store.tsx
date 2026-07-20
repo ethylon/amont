@@ -374,7 +374,11 @@ export function createRepoStore(
       if (!g) return
       const key = `${r.kind}:${r.name}`
       const removing = additive && get().selection.focusedKeys.has(key)
-      if (!removing) await g.jumpTo(r.tip)
+      /* `select: false` — center the tip without letting the jump select it: reveal()'s built-in
+         non-additive select would wipe the current multi-selection before the additive branch
+         below extends it (a Ctrl-click on a second branch dropped the first). focusRef sets the
+         selection itself, right below. */
+      if (!removing) await g.jumpTo(r.tip, false)
       const row = (await g.rowsOf([r.tip]))[0]
       if (row === undefined) return
       const seg = r.kind === "tag" ? [row] : g.branchSegment(row)
@@ -941,7 +945,9 @@ export function useRepoStore<T>(selector: (s: RepoStoreState) => T): T {
     translates main's push into query invalidations and store actions, rather than
     living inline in RepoView's layout. `active` defers external-change reloads of a
     background tab until it's shown again: a window refocus with N dirty tabs used to pay
-    N full reloads at once for N−1 invisible graphs (refresh audit, §8). */
+    N full reloads at once for N−1 invisible graphs (refresh audit, §8). A background
+    auto-fetch gets the same treatment: its commits load on arrival, the clickable reload
+    badge being reserved for a fetch that lands under the user's eyes. */
 export function useRepoEvents(active: boolean): void {
   const store = useRepoStoreApi()
   const repoId = useRepoStore((s) => s.repoId)
@@ -950,6 +956,10 @@ export function useRepoEvents(active: boolean): void {
   const activeRef = useRef(active)
   activeRef.current = active
   const pendingChange = useRef(false)
+  /* commits brought in by auto-fetch but not yet folded into a graph reload — accumulated
+     across fetches, the count feeds the "N new commits" acknowledgment of whichever reload
+     lands them: the badge's Reload click, a manual op's reload, or the activation flush */
+  const pendingAdded = useRef(0)
 
   /* One definition of "an external change must refresh this repo" — shared by the live
      handler and the deferred flush below, so a background tab replays exactly the reaction
@@ -978,12 +988,27 @@ export function useRepoEvents(active: boolean): void {
     [repoId, externalReload]
   )
 
-  /* deferred external change lands when the tab is brought back to the foreground */
+  /* Deferred change lands when the tab is brought back to the foreground: arriving at a tab
+     reloads it directly — that instant can't disturb any in-progress work — instead of
+     greeting the user with a "Reload" button; fetched commits announce themselves through
+     the plain self-clearing acknowledgment badge. Leaving a tab folds a still-unclicked
+     reload badge into that same flush (the graph never incorporated those commits), so a
+     return never resurrects it either. */
   useEffect(() => {
-    if (!active || !pendingChange.current) return
+    if (!active) {
+      if (pendingAdded.current > 0) {
+        store.getState().clearOp()
+        pendingChange.current = true
+      }
+      return
+    }
+    if (!pendingChange.current) return
     pendingChange.current = false
+    const added = pendingAdded.current
+    pendingAdded.current = 0
+    if (added > 0) store.getState().showOp(messages.app.newCommits(added), "primary")
     externalReload()
-  }, [active, externalReload])
+  }, [active, externalReload, store])
 
   /* --- Git operations: the click launches, but all the feedback goes through onOp (main
      process auto-fetch emits without a renderer-side caller). --- */
@@ -1008,21 +1033,33 @@ export function useRepoEvents(active: boolean): void {
         /* Une op manuelle est une action explicite : on recharge pour que le graph reflète les
            refs qui ont bougé — commits récupérés (pull), marqueurs « à pusher » et position du
            ref distant (push), branches élaguées (fetch --prune) —, le badge « N nouveaux
-           commits » (fetch seul) ne servant plus que d'accusé de réception. Un auto-fetch reste
-           non intrusif — badge cliquable seul, pour qu'un fetch d'arrière-plan n'arrache jamais
-           le scroll ni la sélection à l'utilisateur ; sans nouveau commit (élagage pur), il n'a
-           même pas de badge à montrer et le graph attend le prochain rechargement. */
+           commits » (fetch seul) ne servant plus que d'accusé de réception. Un auto-fetch ne
+           doit rester non intrusif — badge cliquable seul — que pour l'onglet au premier plan,
+           où recharger arracherait le scroll ou la sélection à l'utilisateur qui regarde ;
+           en arrière-plan il n'y a rien à préserver : le flush d'activation recharge de
+           lui-même à l'arrivée sur l'onglet (comme un changement externe différé) et le badge
+           y redevient un simple accusé de réception. L'élagage pur (aucun commit) suit les
+           mêmes chemins, sans badge — au premier plan, le graph attend le prochain
+           rechargement. */
         if (!p.auto) {
-          if (p.added > 0) s.showOp(messages.app.newCommits(p.added), "primary")
+          pendingAdded.current += p.added
+          if (pendingAdded.current > 0) s.showOp(messages.app.newCommits(pendingAdded.current), "primary")
+          pendingAdded.current = 0
           await s.resetAndLoad()
-        } else if (p.added > 0) {
-          s.showOp(messages.app.newCommits(p.added), "primary", {
-            label: messages.app.reload,
-            run: () => {
-              s.clearOp()
-              void s.resetAndLoad()
-            },
-          })
+        } else if (!activeRef.current) {
+          pendingAdded.current += p.added
+          pendingChange.current = true
+        } else {
+          pendingAdded.current += p.added
+          if (pendingAdded.current > 0)
+            s.showOp(messages.app.newCommits(pendingAdded.current), "primary", {
+              label: messages.app.reload,
+              run: () => {
+                pendingAdded.current = 0
+                s.clearOp()
+                void s.resetAndLoad()
+              },
+            })
         }
       }),
     [repoId, queryClient, store]
