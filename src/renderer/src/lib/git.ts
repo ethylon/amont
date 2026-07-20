@@ -45,10 +45,10 @@ export type {
   WtSource,
 } from "../../../shared/types.ts"
 
-export type { Settings } from "../../../shared/settings.ts"
+export type { PullMode, Settings } from "../../../shared/settings.ts"
 /* the settings registry is a plain-data value (no node/electron deps): safe to bundle renderer-side,
-   so the settings modal reads its defaults/options from the same source the main process does */
-export { SETTINGS } from "../../../shared/settings.ts"
+   so the toolbar's options cards read defaults/options from the same source the main process does */
+export { pullModeFlag, SETTINGS, SETTINGS_DEFAULTS } from "../../../shared/settings.ts"
 
 import type { Bridge } from "../../../shared/ipc-contract.ts"
 import type {
