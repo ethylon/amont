@@ -19,7 +19,7 @@ import { buildTree, refKey, Tree, useResettableOpen, type Ctx } from "@/features
 import { DeleteBranchDialog } from "@/features/refs/delete-branch-dialog"
 import { DeleteRemoteBranchDialog, DeleteTagDialog } from "@/features/refs/delete-remote-dialog"
 import { paintFocusRuns } from "@/features/refs/refs-focus-paint"
-import { AsyncHint } from "@/components/ui/async-hint"
+import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import { RefGroup } from "@/components/ui/ref-group"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 
@@ -30,6 +30,22 @@ const GROUPS = {
   remote: { title: () => messages.refs.remotes, icon: CloudIcon },
   tag: { title: () => messages.refs.tags, icon: Tag01Icon },
 } as const satisfies Record<GitRef["kind"], { title: () => string; icon: IconSvgElement }>
+
+/* Ghost of the ref rows while the first refs read lands — same rows as BootSkeleton's
+   sidebar, so a reload inside an open tab shows the very same ghosts as a boot. */
+const GHOST_REFS = ["w-28", "w-20", "w-24", "w-32", "w-16", "w-24", "w-20"]
+function RefsSkeleton() {
+  return (
+    <SkeletonGroup label={messages.refs.loadingBranches} className="space-y-2.5 px-1.5 py-1">
+      {GHOST_REFS.map((w, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Skeleton className="size-3.5 shrink-0 rounded" />
+          <Skeleton className={cn("h-2.5 rounded-full", w)} />
+        </div>
+      ))}
+    </SkeletonGroup>
+  )
+}
 
 /* memo: per-click renders of the sidebar (focus moved) reuse the section when neither its
    prebuilt tree nor the ctx changed; `focusedKeys` travels inside ctx, so a focus change
@@ -259,7 +275,7 @@ export const RefsSidebar = memo(function RefsSidebar() {
             {/* the promoted gitflow move — a shortcut, not a ref: it steps aside while filtering */}
             {!q && <FlowShortcut />}
             {error && <p className="px-1.5 text-xs text-muted-foreground">{messages.refs.branchesUnavailable}</p>}
-            {!data && !error && <AsyncHint className="px-1.5">{messages.refs.loadingBranches}</AsyncHint>}
+            {!data && !error && <RefsSkeleton />}
             {groups &&
               q &&
               !groups.head &&

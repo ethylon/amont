@@ -21,7 +21,8 @@ import { ImageDiffView } from "@/features/diff/image-diff-view"
 import { getLangAliases, useLangAliasSig } from "@/lib/customization"
 import { messages } from "@/lib/messages"
 import { isDark, useTheme } from "@/lib/theme"
-import { AsyncHint } from "@/components/ui/async-hint"
+import { cn } from "@/lib/utils"
+import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import { IconButton } from "@/components/ui/icon-button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
@@ -39,6 +40,24 @@ export type DiffCtx = { hash: string; parent: string | null } | { wt: "staged" |
 /* Reapplied on every render — the effects rewrite `className` from top to bottom. */
 const DIFF_BODY =
   "amont-diffbody min-h-0 flex-auto overflow-auto rounded-md font-mono text-xs leading-normal [tab-size:4]"
+
+/* Ghost of a diff render in the body's frame: a file-header bar, then code-length lines
+   (fixed pseudo-random widths — a skeleton stable across renders). */
+const GHOST_LINES = ["w-3/5", "w-2/5", "w-4/5", "w-1/3", "w-1/2", "w-2/3", "w-1/4", "w-3/5", "w-2/5", "w-1/2"]
+function DiffSkeleton() {
+  return (
+    <SkeletonGroup label={messages.diff.loading} className="min-h-0 flex-auto overflow-hidden rounded-md border">
+      <div className="border-b bg-muted/40 px-3 py-2">
+        <Skeleton className="h-2.5 w-40 rounded-full" />
+      </div>
+      <div className="space-y-2.5 p-3">
+        {GHOST_LINES.map((w, i) => (
+          <Skeleton key={i} className={cn("h-2.5 rounded-full", w)} />
+        ))}
+      </div>
+    </SkeletonGroup>
+  )
+}
 
 /* Shiki coloring on top of the diff2html render.
    <ins>/<del> segments (word-diff) are preserved by redistributing the tokens.
@@ -336,7 +355,7 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
       ) : error ? (
         <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
       ) : diff === null ? (
-        <AsyncHint className="shrink-0 py-1">{messages.diff.loading}</AsyncHint>
+        <DiffSkeleton />
       ) : parsed && wtSrc ? (
         <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} view={view} />
       ) : (
