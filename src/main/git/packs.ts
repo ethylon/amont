@@ -65,6 +65,10 @@ export interface PackSweep {
   timeout: number
   /** one line per orphan handled (recovered vs deleted), for the console trace */
   log: (text: string) => void
+  /** index-pack rejected an orphan, which is about to be deleted: tolerated but destructive,
+      the caller reports it to telemetry (cf. maintenance.ts). Injected so this module keeps
+      importing nothing Electron-bound (packs.test.ts runs it under plain Node). */
+  onUnrecoverable?: (err: unknown) => void
 }
 
 /** Recover or delete every orphaned pack — `git index-pack` rebuilds the missing `.idx` when
@@ -85,7 +89,8 @@ export async function sweepPackGarbage(s: PackSweep): Promise<number> {
       await s.git(["index-pack", join(s.packDir, pack)], { timeout: s.timeout })
       recovered++
       s.log(`orphaned pack recovered: ${pack}`)
-    } catch {
+    } catch (e) {
+      s.onUnrecoverable?.(e)
       await rm(join(s.packDir, pack), { force: true })
       s.log(`orphaned pack deleted (unrecoverable): ${pack}`)
     }

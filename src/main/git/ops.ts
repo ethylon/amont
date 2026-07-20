@@ -15,7 +15,7 @@ import { AppError, decodeError } from "../../shared/errors.ts"
 import type { BranchAct, OpEvent, OpName, ResetMode, StashAct, WorktreeAct } from "../../shared/types.ts"
 import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
 import { getSettings } from "../settings.ts"
-import { captureOpError } from "../telemetry.ts"
+import { captureGitError, captureOpError } from "../telemetry.ts"
 import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { finishFlow } from "./flow.ts"
@@ -230,8 +230,9 @@ async function checkoutWithStash(r: RepoHandle, name: string): Promise<void> {
     await r.git(["checkout", name])
   } catch (e) {
     /* the recovery pop can itself fail (conflict): the stash entry survives,
-       and it's the checkout failure — the cause — that we surface, not the pop's */
-    if (dirty) await r.git(["stash", "pop"]).catch(() => {})
+       and it's the checkout failure — the cause — that we surface, not the pop's
+       (telemetry hears about the pop, though: an orphaned stash borders on data loss) */
+    if (dirty) await r.git(["stash", "pop"]).catch((pe) => captureGitError("checkout.recovery-pop", pe))
     throw e
   } finally {
     mute(r) // HEAD moved: the renderer reloads on its own, the watcher has nothing to add

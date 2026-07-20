@@ -17,6 +17,7 @@
 import { AppError } from "../../shared/errors.ts"
 import type { MergePreview } from "../../shared/types.ts"
 import type { RepoHandle } from "../repos.ts"
+import { captureGitError } from "../telemetry.ts"
 import { BRANCH, parseMergeTree } from "./parse.ts"
 
 /** The modal never shows more than a handful — no need to ship a pathological conflict list. */
@@ -59,10 +60,15 @@ export async function mergePreview(r: RepoHandle, base: string, branches: string
       continue
     }
     /* exit 0 = clean, exit 1 = conflicts — both print the result; anything else (an older
-       git without --write-tree, a corrupt object) degrades to "unknown" for this branch */
+       git without --write-tree, a corrupt object) degrades to "unknown" for this branch —
+       silently for the user, hence the telemetry: a git too old for the feature would
+       otherwise never be heard of */
     const merged = await r
       .git(["merge-tree", "--write-tree", "--no-messages", "--name-only", cur, sha], { okCodes: [1] })
-      .then(parseMergeTree, () => null)
+      .then(parseMergeTree, (e) => {
+        captureGitError("merge-preview", e)
+        return null
+      })
     if (!merged?.tree) {
       out.push({ branch, status: "unknown", files: [] })
       continue

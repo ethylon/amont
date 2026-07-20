@@ -18,6 +18,7 @@
 import { AppError } from "../../shared/errors.ts"
 import type { FlowFinishOpts, FlowInfo, FlowInitConfig, FlowKind, FlowPrefixes } from "../../shared/types.ts"
 import { withLock, type RepoHandle } from "../repos.ts"
+import { captureGitError } from "../telemetry.ts"
 import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { BRANCH, computeNextTag, flowInitConfigArgs, flowVersionSuffix, parseFlowPrefixes } from "./parse.ts"
@@ -191,6 +192,17 @@ interface FinishMergeOpts {
   deleteBranch: boolean
 }
 
+/* Best-effort cleanup of the base recorded at start: exit 5 = key already absent — nominal
+   for a branch never started through amont, so `okCodes` keeps it out of the error path. What
+   remains in the catch is a real failure (locked or unwritable config): tolerated — the finish
+   that called it already did its work — but reported, a leftover base would silently skew the
+   next finish of a same-named branch. */
+const unsetFlowBase = (r: RepoHandle, branch: string): Promise<void> =>
+  r.git(["config", "--unset", `gitflow.branch.${branch}.base`], { okCodes: [5] }).then(
+    () => undefined,
+    (e) => captureGitError("flow.unset-base", e)
+  )
+
 /* Native `git flow feature|bugfix finish`, merge path (AVH cmd_finish): merge into the base
    recorded at start, then gitflow-parity cleanup — remote branch deleted before the local one,
    recorded base dropped. Idempotent: after a merge conflict resolved and committed by hand, a
@@ -219,7 +231,7 @@ async function finishMerge(r: RepoHandle, branch: string, opts: FinishMergeOpts)
     if (remote) await r.git(["push", origin, "--delete", branch], { timeout: OP_TIMEOUT })
     await r.git(["branch", "-d", branch])
   }
-  await r.git(["config", "--unset", `gitflow.branch.${branch}.base`]).catch(() => {})
+  await unsetFlowBase(r, branch)
 }
 
 /* Native `git flow release|hotfix finish` (AVH _finish_from_develop): merge into master, tag,
@@ -273,7 +285,7 @@ async function finishTagged(r: RepoHandle, branch: string, kind: "release" | "ho
   if (current === branch) await r.git(["checkout", backmerge ?? target])
   if (remote) await r.git(["push", origin, "--delete", branch], { timeout: OP_TIMEOUT })
   await r.git(["branch", "-d", branch])
-  await r.git(["config", "--unset", `gitflow.branch.${branch}.base`]).catch(() => {})
+  await unsetFlowBase(r, branch)
 }
 
 /* Rebase + fast-forward: the one finish shape `git flow` could not produce — without `--no-ff`
@@ -309,7 +321,7 @@ async function finishRebase(r: RepoHandle, name: string, deleteBranch: boolean):
     if (remote) await r.git(["push", origin || "origin", "--delete", name], { timeout: OP_TIMEOUT })
     await r.git(["branch", "-d", name])
   }
-  await r.git(["config", "--unset", `gitflow.branch.${name}.base`]).catch(() => {})
+  await unsetFlowBase(r, name)
 }
 
 /* --- Start / publish --- */
