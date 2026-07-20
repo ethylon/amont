@@ -20,11 +20,23 @@ const badgeVariants = cva(
         neutral: "[--badge-color:var(--muted-foreground)] [--badge-fg:var(--muted-foreground)]",
         success: "[--badge-color:var(--success)] [--badge-fg:var(--success)]",
         warning: "[--badge-color:var(--warning)] [--badge-fg:var(--warning)]",
+        perf: "[--badge-color:var(--perf)] [--badge-fg:var(--perf)]",
         release: "[--badge-color:var(--release)] [--badge-fg:var(--release)]",
         danger: "[--badge-color:var(--destructive)] [--badge-fg:var(--destructive)]",
+        revert: "[--badge-color:var(--revert)] [--badge-fg:var(--revert)]",
         info: "[--badge-color:var(--info)] [--badge-fg:var(--info)]",
         refactor: "[--badge-color:var(--refactor)] [--badge-fg:var(--refactor)]",
         polish: "[--badge-color:var(--polish)] [--badge-fg:var(--polish)]",
+        /* beta defaults to the primary hue, which is meant as a background: same mix toward
+           --foreground as `primary` so it stays legible as text. */
+        beta: "[--badge-color:var(--beta)] [--badge-fg:color-mix(in_oklab,var(--beta)_70%,var(--foreground))]",
+        wip: "[--badge-color:var(--wip)] [--badge-fg:var(--wip)]",
+        plugin: "[--badge-color:var(--plugin)] [--badge-fg:var(--plugin)]",
+        chore: "[--badge-color:var(--chore)] [--badge-fg:var(--chore)]",
+        docs: "[--badge-color:var(--docs)] [--badge-fg:var(--docs)]",
+        style: "[--badge-color:var(--style)] [--badge-fg:var(--style)]",
+        ci: "[--badge-color:var(--ci)] [--badge-fg:var(--ci)]",
+        build: "[--badge-color:var(--build)] [--badge-fg:var(--build)]",
         /* The only axis where the hue has no name: the carrier — or any of its
            ancestors, --badge-color inherits — sets it. Graph lanes are legible enough
            in both themes to also serve as the text color. */

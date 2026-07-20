@@ -864,26 +864,9 @@ export const messages = {
     get reset() {
       return t`Reset`
     },
-    get feature() {
-      return t`Feature`
-    },
-    get bugfix() {
-      return t`Bugfix`
-    },
-    get hotfix() {
-      return t`Hotfix`
-    },
-    get release() {
-      return t`Release`
-    },
-    get info() {
-      return t`Info`
-    },
-    get refactor() {
-      return t`Refactor`
-    },
-    get polish() {
-      return t`Polish`
+    /** below the fixed rows: the only badge without a preset is the unknown-tag fallback */
+    get neutralNote() {
+      return t`Unrecognized [TAG] prefixes keep the neutral gray — give them a color with a custom prefix rule below.`
     },
     /** custom prefix → color rules, below the fixed work-type roles */
     get customPrefixes() {
