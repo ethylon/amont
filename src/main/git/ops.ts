@@ -13,7 +13,7 @@ import { writeFile } from "node:fs/promises"
 
 import { AppError, decodeError } from "../../shared/errors.ts"
 import { pullModeFlag } from "../../shared/settings.ts"
-import type { BranchAct, OpEvent, OpName, ResetMode, StashAct, WorktreeAct } from "../../shared/types.ts"
+import type { BranchAct, OpEvent, OpName, OpVariant, ResetMode, StashAct, WorktreeAct } from "../../shared/types.ts"
 import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
 import { getSettings } from "../settings.ts"
 import { captureGitError, captureOpError } from "../telemetry.ts"
@@ -36,12 +36,23 @@ export const isOpName = (name: string): name is OpName => Object.hasOwn(OPS, nam
 
 /* `--prune` on fetch and pull's integration mode (`--ff`/`--ff-only`/`--rebase`) are user
    settings (settings.ts), edited from the toolbar's options cards. Read live at call time so a
-   change takes effect on the very next run, no restart. Push carries no settings-driven flag. */
-const opArgs = (name: OpName): string[] => {
+   change takes effect on the very next run, no restart. Push carries no settings-driven flag —
+   only the remote-ahead banner's one-shot `variant` (never persisted): `--force-with-lease`
+   rather than `--force`, so a remote that moved again since the probe still gets refused. */
+const opArgs = (name: OpName, variant?: OpVariant): string[] => {
+  if (name === "push" && variant === "force") return ["push", "--force-with-lease", "--progress"]
   if (name === "fetch" && getSettings().prune) return ["fetch", "--all", "--prune", "--progress"]
-  if (name === "pull") return ["pull", pullModeFlag(getSettings().pullMode), "--progress"]
+  if (name === "pull") return ["pull", variant === "ff" ? "--ff" : pullModeFlag(getSettings().pullMode), "--progress"]
   return OPS[name]
 }
+
+/** Commits the upstream has that HEAD doesn't, per the local remote-tracking ref. No upstream
+    or detached HEAD read as 0 — the push then proceeds and git says whatever it has to say. */
+const behindUpstream = (r: RepoHandle): Promise<number> =>
+  r.git(["rev-list", "--count", "HEAD..@{upstream}"]).then(
+    (o) => parseInt(o, 10) || 0,
+    () => 0
+  )
 
 /* Operation header: brackets the stream at the level of the user action (a push, a pull,
    auto-fetch, a checkout…), whereas `r.git()` only sees isolated commands. Background reads
@@ -83,7 +94,7 @@ function errorPayload(e: unknown): Pick<Extract<OpEvent, { state: "error" }>, "c
    two pushes back to back would be a pointless duplicate (the toolbar greys those buttons,
    this guards the menu/shortcut paths). Auto-fetch backs off whenever anything runs or waits —
    background housekeeping must never lengthen the user's queue. */
-export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<void> {
+export async function runOp(r: RepoHandle, name: OpName, auto = false, variant?: OpVariant): Promise<void> {
   if (auto && r.lockCount > 0) return
   if (r.running === name || r.pending.includes(name)) return
   /* the only throw left in this path is withLock's queue-overflow BUSY: surface it on the
@@ -92,6 +103,15 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<
     groupTrace(r, auto ? "Auto-fetch" : OP_GROUP[name])
     r.events.op({ op: name, state: "start", auto })
     try {
+      /* A remote strictly ahead means git would refuse the push anyway (non-fast-forward):
+         probe the tracking ref first and hand the choice back to the user — the renderer turns
+         REMOTE_AHEAD into its banner (fast-forward pull / force push / cancel) instead of
+         letting git's rejection text land as a dead-end badge. A force push skips the probe:
+         it exists to override exactly this state. */
+      if (name === "push" && variant !== "force") {
+        const behind = await behindUpstream(r)
+        if (behind > 0) throw new AppError("REMOTE_AHEAD", String(behind))
+      }
       /* `changed` compares the ref-tip snapshots around the command: it catches every move the
          renderer must redraw — new commits, but also a push updating the remote-tracking ref or
          a `--prune` deleting tips, both invisible to a commit count. `added` (fetch only, the
@@ -99,7 +119,10 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<
       const before = await refTips(r)
       /* stream `NN%` to the footer, like fsck (Verify) — but never for a background auto-fetch,
          which stays non-intrusive (a badge on completion, no live feed occupant). */
-      await r.git(opArgs(name), { timeout: OP_TIMEOUT, onProgress: auto ? undefined : reportProgress(r, name) })
+      await r.git(opArgs(name, variant), {
+        timeout: OP_TIMEOUT,
+        onProgress: auto ? undefined : reportProgress(r, name),
+      })
       const after = await refTips(r)
       const changed = after.join() !== before.join()
       const added = changed && name === "fetch" ? await countNew(r, before) : 0

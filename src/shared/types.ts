@@ -306,6 +306,12 @@ export type ConflictFile = {
 
 export type OpName = "fetch" | "pull" | "push"
 
+/** One-shot deviation from an op's regular flags, chosen from the remote-ahead banner:
+    `force` pushes `--force-with-lease` (and skips the ahead probe that raised the banner),
+    `ff` pulls `--ff` regardless of the configured integration mode — the two ways out the
+    banner offers besides cancelling. Never persisted: the next plain op is back to normal. */
+export type OpVariant = "force" | "ff"
+
 /* The "error" case carries a structured code rather than a pre-formatted French message (fix
    from the "errors" workstream, AUDIT.md §4): the renderer composes the displayed text. Since
    this channel is an event (`webContents.send`), not an `invoke` error, it escapes Electron's

@@ -58,6 +58,9 @@ msgstr "{n, plural, one {# branche} other {# branches}}"
 msgid "{n, plural, one {# commit selected} other {# commits selected}}"
 msgstr "{n, plural, one {# commit sélectionné} other {# commits sélectionnés}}"
 
+msgid "{n, plural, one {# commit to integrate} other {# commits to integrate}}"
+msgstr "{n, plural, one {# commit à intégrer} other {# commits à intégrer}}"
+
 msgid "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
 msgstr "{n, plural, one {# conflit restant} other {# conflits restants}}"
 
@@ -628,6 +631,9 @@ msgstr "Vue à plat"
 msgid "Font list unavailable in this environment."
 msgstr "Liste des polices indisponible dans cet environnement."
 
+msgid "Force push"
+msgstr "Forcer le push"
+
 msgid "Français"
 msgstr "Français"
 
@@ -955,6 +961,9 @@ msgstr "Publier la release {name}"
 msgid "Pull"
 msgstr "Pull"
 
+msgid "Pull (fast-forward)"
+msgstr "Pull (avance rapide)"
+
 msgid "Pull options"
 msgstr "Options de pull"
 
@@ -1188,6 +1197,9 @@ msgstr "La branche « {name} » sera supprimée sur le remote."
 
 msgid "The branch « {name} » will be deleted."
 msgstr "La branche « {name} » sera supprimée."
+
+msgid "The remote branch is ahead"
+msgstr "La branche distante est en avance"
 
 msgid "The selected branches will be merged into the release one at a time, in the order below."
 msgstr "Les branches sélectionnées seront fusionnées dans la release une à une, dans l'ordre ci-dessous."

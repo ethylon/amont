@@ -33,6 +33,7 @@ import type {
   MergeState,
   OpEvent,
   OpName,
+  OpVariant,
   OpenResult,
   ProgressEvent,
   QueueEvent,
@@ -83,7 +84,9 @@ export type InvokeChannels = {
   /** `git clone url` into a new `dir/name` folder, opened as a tab right away. */
   "create:clone": (dir: string, url: string, name: string) => Promise<Repo>
 
-  "repo:op": (id: number, name: OpName) => Promise<void>
+  /** `variant` is the remote-ahead banner's one-shot override (push `--force-with-lease`,
+      pull `--ff`) — only the two valid (name, variant) pairs get past main's validation. */
+  "repo:op": (id: number, name: OpName, variant?: OpVariant) => Promise<void>
   "repo:status": (id: number) => Promise<Status>
   "repo:fileIcon": (id: number, path: string) => Promise<string | null>
   "repo:openFile": (id: number, path: string) => Promise<string>
