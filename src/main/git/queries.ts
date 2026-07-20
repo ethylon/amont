@@ -108,7 +108,9 @@ export async function resolveWorktree(r: RepoHandle, path: unknown): Promise<Wor
    target feeds the B-side label. Rebase is probed before cherry-pick — an interactive rebase
    stopped on a conflict can leave CHERRY_PICK_HEAD alongside REBASE_HEAD, and the abort must
    then be `rebase --abort` (a cherry-pick abort would leave the rebase state behind).
-   rev-parse failing is the normal "no operation" case, not an error. REBASE_HEAD alone is not
+   `rev-parse -q --verify` exits 1 for an absent ref — the normal "no operation" answer, so the
+   probes declare it through `okCodes` rather than catching a rejection: the runner would
+   otherwise trace a ✗ and ring the telemetry breadcrumb on every refresh. REBASE_HEAD alone is not
    trusted: git can leave the pseudo-ref behind after a rebase ends (`--quit` on git < 2.44, a
    crash, a tool cleaning the state dirs only), so rebase is reported only when its state
    directory exists — git's own in-progress test (wt-status.c). */
@@ -123,7 +125,7 @@ const OP_HEADS: readonly (readonly [MergeOp, string])[] = [
     (ops.ts mergeAbort): the command it runs must target the same operation the banner names. */
 export async function conflictOp(r: RepoHandle): Promise<{ op: MergeOp; head: string } | null> {
   for (const [op, ref] of OP_HEADS) {
-    const head = (await r.git(["rev-parse", "-q", "--verify", ref]).catch(() => "")).trim()
+    const head = (await r.git(["rev-parse", "-q", "--verify", ref], { okCodes: [1] })).trim()
     if (!head) continue
     if (op === "rebase" && !(await rebaseStateDir(r))) continue
     return { op, head }
@@ -344,9 +346,10 @@ export async function searchCommits(
 ): Promise<string[]> {
   const base = ["log", ...ALL_REFS, "--format=%H", `-n${SEARCH_MAX}`, "-i", "-F"]
   const runs = [r.git([...base, `--grep=${q}`], { signal }), r.git([...base, `--author=${q}`], { signal })]
-  /* a hash prefix isn't a pattern: rev-parse resolves it, or fails (unknown, ambiguous) */
+  /* a hash prefix isn't a pattern: rev-parse resolves it, or exits 1 (unknown, ambiguous) —
+     a nominal miss, not a failure to trace */
   if (/^[0-9a-f]{4,40}$/i.test(q))
-    runs.push(r.git(["rev-parse", "--verify", "-q", `${q}^{commit}`], { signal }).catch(() => ""))
+    runs.push(r.git(["rev-parse", "--verify", "-q", `${q}^{commit}`], { signal, okCodes: [1] }))
   /* the pickaxe rereads the diff of every commit: slow, so never implicit */
   if (content) runs.push(r.git([...base, `-S${q}`], { timeout: SEARCH_TIMEOUT, signal }))
 

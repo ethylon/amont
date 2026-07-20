@@ -28,14 +28,22 @@ interface FakeState {
   gitDir?: string
 }
 
-/** Minimal handle: `git` replays the pseudo-ref probes and records every call. */
+/** Minimal handle: `git` replays the pseudo-ref probes and records every call. The probes
+    follow the runner's okCodes contract (git/exec.ts): an absent ref exits 1 and resolves
+    empty when declared nominal — a probe that omits the declaration rejects, the same path
+    that would trace a ✗ and ring telemetry in the real runner. */
 function fakeRepo(state: FakeState = {}) {
   const calls: string[][] = []
-  const git = (args: string[]) => {
+  const probes: { ref: string; okCodes?: number[] }[] = []
+  const git = (args: string[], opts?: { okCodes?: number[] }) => {
     calls.push(args)
     if (args[0] === "rev-parse" && args[1] === "-q") {
+      probes.push({ ref: args[3], okCodes: opts?.okCodes })
       const sha = state.refs?.[args[3]]
-      return sha ? Promise.resolve(sha) : Promise.reject(new Error("fatal: bad revision"))
+      if (sha) return Promise.resolve(sha)
+      return opts?.okCodes?.includes(1)
+        ? Promise.resolve("")
+        : Promise.reject(new Error("fatal: exit 1 not declared — the runner would trace a failure"))
     }
     if (args[0] === "rev-parse" && args[1] === "--abbrev-ref") return Promise.resolve(state.branch ?? "HEAD")
     if (args[0] === "for-each-ref") return Promise.resolve((state.pointsAt ?? []).join("\n"))
@@ -52,7 +60,7 @@ function fakeRepo(state: FakeState = {}) {
     lockTail: Promise.resolve(),
     events: { trace: () => {}, queue: () => {} },
   }
-  return { r: r as unknown as RepoHandle, calls }
+  return { r: r as unknown as RepoHandle, calls, probes }
 }
 
 const SHA = "a16d13e9aa16d13e9aa16d13e9aa16d13e9aa16d"
@@ -61,6 +69,18 @@ describe("mergeState: which operation is in progress, and its A/B labels", () =>
   it("no pseudo-ref on disk: no operation", async () => {
     const { r } = fakeRepo()
     assert.deepEqual(await mergeState(r), { op: null, ours: null, theirs: null })
+  })
+
+  it("an absent pseudo-ref is a nominal miss: every probe declares exit 1, none traces a failure", async () => {
+    const { r, probes } = fakeRepo()
+    assert.equal(await conflictOp(r), null)
+    /* all four *_HEAD probed, and none took the rejection path the fake reserves for a
+       probe without okCodes — the path that shows a ✗ in the console on every refresh */
+    assert.deepEqual(
+      probes.map((p) => p.ref),
+      ["MERGE_HEAD", "REBASE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD"]
+    )
+    for (const p of probes) assert.deepEqual(p.okCodes, [1])
   })
 
   it("merge: theirs prefers a branch pointing at MERGE_HEAD", async () => {

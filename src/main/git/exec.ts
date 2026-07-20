@@ -93,8 +93,14 @@ export function killAll(children: Set<ChildProcess>): void {
 }
 
 export function createGitRunner(ctx: RunnerContext): GitRunner {
+  /* Numbers every command this runner traces: parallel reads (the post-fetch refresh fires
+     several at once) interleave their cmd/out/exit lines, and the console pins each exit back
+     onto its own cmd through `seq` — the ✗ used to land under whichever command was last. */
+  let nextSeq = 0
+
   function git(args: string[], opts: RunOpts = {}): Promise<string> {
-    ctx.trace?.({ kind: "cmd", text: `git ${args.join(" ")}` })
+    const seq = ++nextSeq
+    ctx.trace?.({ kind: "cmd", text: `git ${args.join(" ")}`, seq })
     const started = Date.now()
 
     if (opts.signal?.aborted) return Promise.reject(new AppError("ABORTED"))
@@ -140,7 +146,7 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
         pending = lines.pop() ?? ""
         for (const l of lines) {
           const t = l.replace(/\r+$/, "")
-          if (t) ctx.trace?.({ kind: "out", text: t })
+          if (t) ctx.trace?.({ kind: "out", text: t, seq })
         }
       })
 
@@ -166,7 +172,7 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
       child.on("error", (err) => {
         cleanup()
         const ms = Date.now() - started
-        ctx.trace?.({ kind: "exit", ok: false, ms })
+        ctx.trace?.({ kind: "exit", ok: false, ms, seq })
         const failure = classifyGitFailure({ exitCode: null, stdout: out, stderr: err.message, killedBy })
         ctx.onFailure?.({ verb: gitVerb(args), code: failure.code, exitCode: null, ms })
         reject(new AppError(failure.code, failure.detail))
@@ -174,21 +180,21 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
       child.on("close", (code) => {
         cleanup()
         const t = pending.replace(/\r+$/, "")
-        if (t) ctx.trace?.({ kind: "out", text: t })
+        if (t) ctx.trace?.({ kind: "out", text: t, seq })
         const ms = Date.now() - started
         if (killedBy) {
-          ctx.trace?.({ kind: "exit", ok: false, ms })
+          ctx.trace?.({ kind: "exit", ok: false, ms, seq })
           const failure = classifyGitFailure({ exitCode: code, stdout: out, stderr: errAll, killedBy })
           ctx.onFailure?.({ verb: gitVerb(args), code: failure.code, exitCode: code, ms })
           return reject(new AppError(failure.code, failure.detail))
         }
         if (code !== 0 && !(code !== null && opts.okCodes?.includes(code))) {
-          ctx.trace?.({ kind: "exit", ok: false, ms })
+          ctx.trace?.({ kind: "exit", ok: false, ms, seq })
           const failure = classifyGitFailure({ exitCode: code, stdout: out, stderr: errAll, killedBy: null })
           ctx.onFailure?.({ verb: gitVerb(args), code: failure.code, exitCode: code, ms })
           return reject(new AppError(failure.code, failure.detail))
         }
-        ctx.trace?.({ kind: "exit", ok: true, ms })
+        ctx.trace?.({ kind: "exit", ok: true, ms, seq })
         resolve(out)
       })
     })
@@ -226,7 +232,7 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
      output; the caller checks `cat-file -s` first and never asks for a blob past the cap, so
      `maxBuffer` here is only a backstop. */
   function gitBuffer(args: string[]): Promise<Buffer> {
-    ctx.trace?.({ kind: "cmd", text: `git ${args.join(" ")}` })
+    ctx.trace?.({ kind: "cmd", text: `git ${args.join(" ")}`, seq: ++nextSeq })
     const started = Date.now()
     return new Promise((resolve, reject) => {
       const child = execFile(
