@@ -15,6 +15,7 @@ import { AppError, decodeError } from "../../shared/errors.ts"
 import type { BranchAct, OpEvent, OpName, ResetMode, StashAct, WorktreeAct } from "../../shared/types.ts"
 import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
 import { getSettings } from "../settings.ts"
+import { captureGitError, captureOpError } from "../telemetry.ts"
 import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { finishFlow } from "./flow.ts"
@@ -100,11 +101,17 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false): Promise<
       const added = changed && name === "fetch" ? await countNew(r, before) : 0
       r.events.op({ op: name, state: "done", auto, added, changed })
     } catch (e) {
+      /* Telemetry before the event, same error either way: an auto-fetch failure is silent
+         for the user, this is its only exit. captureOpError filters the network noise. */
+      captureOpError(name, e, auto)
       r.events.op({ op: name, state: "error", auto, ...errorPayload(e) })
     } finally {
       mute(r)
     }
-  }).catch((e) => r.events.op({ op: name, state: "error", auto, ...errorPayload(e) }))
+  }).catch((e) => {
+    captureOpError(name, e, auto)
+    r.events.op({ op: name, state: "error", auto, ...errorPayload(e) })
+  })
 }
 
 /* --- Branch actions (context menu) ---
@@ -223,8 +230,9 @@ async function checkoutWithStash(r: RepoHandle, name: string): Promise<void> {
     await r.git(["checkout", name])
   } catch (e) {
     /* the recovery pop can itself fail (conflict): the stash entry survives,
-       and it's the checkout failure — the cause — that we surface, not the pop's */
-    if (dirty) await r.git(["stash", "pop"]).catch(() => {})
+       and it's the checkout failure — the cause — that we surface, not the pop's
+       (telemetry hears about the pop, though: an orphaned stash borders on data loss) */
+    if (dirty) await r.git(["stash", "pop"]).catch((pe) => captureGitError("checkout.recovery-pop", pe))
     throw e
   } finally {
     mute(r) // HEAD moved: the renderer reloads on its own, the watcher has nothing to add

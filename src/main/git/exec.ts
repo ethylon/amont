@@ -14,6 +14,7 @@ import { execFile, spawn, type ChildProcess } from "node:child_process"
 import { AppError } from "../../shared/errors.ts"
 import type { DistributiveOmit, TraceLine } from "../../shared/types.ts"
 import { classifyGitFailure, parseProgressPercent } from "./parse.ts"
+import { gitVerb, type GitFailureInfo } from "./telemetry-scrub.ts"
 
 /* GIT_TERMINAL_PROMPT=0: without a TTY, a git command asking for a password would hang
    indefinitely. Graphical credential helpers (GCM) remain usable.
@@ -54,6 +55,10 @@ export interface RunnerContext {
   /** trace emitter for this tab, already tagged with its id — injected by the caller
       (repos.ts knows the id at the time it builds the runner), never read from a global. */
   trace?: (line: DistributiveOmit<TraceLine, "id">) => void
+  /** telemetry hook, fired on every failed command — a Sentry breadcrumb in production
+      (main/telemetry.ts addGitBreadcrumb). Injected like `trace`, so this module keeps
+      importing nothing Electron-bound (packs.test.ts runs it under plain Node). */
+  onFailure?: (info: GitFailureInfo) => void
   /** in-flight children of this repo; the caller kills them all at `closeRepo` / app close. */
   children: Set<ChildProcess>
 }
@@ -153,8 +158,10 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
 
       child.on("error", (err) => {
         cleanup()
-        ctx.trace?.({ kind: "exit", ok: false, ms: Date.now() - started })
+        const ms = Date.now() - started
+        ctx.trace?.({ kind: "exit", ok: false, ms })
         const failure = classifyGitFailure({ exitCode: null, stdout: out, stderr: err.message, killedBy })
+        ctx.onFailure?.({ verb: gitVerb(args), code: failure.code, exitCode: null, ms })
         reject(new AppError(failure.code, failure.detail))
       })
       child.on("close", (code) => {
@@ -165,11 +172,13 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
         if (killedBy) {
           ctx.trace?.({ kind: "exit", ok: false, ms })
           const failure = classifyGitFailure({ exitCode: code, stdout: out, stderr: errAll, killedBy })
+          ctx.onFailure?.({ verb: gitVerb(args), code: failure.code, exitCode: code, ms })
           return reject(new AppError(failure.code, failure.detail))
         }
         if (code !== 0 && !(code !== null && opts.okCodes?.includes(code))) {
           ctx.trace?.({ kind: "exit", ok: false, ms })
           const failure = classifyGitFailure({ exitCode: code, stdout: out, stderr: errAll, killedBy: null })
+          ctx.onFailure?.({ verb: gitVerb(args), code: failure.code, exitCode: code, ms })
           return reject(new AppError(failure.code, failure.detail))
         }
         ctx.trace?.({ kind: "exit", ok: true, ms })
@@ -179,6 +188,7 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
   }
 
   function diffNoIndex(a: string, b: string): Promise<string> {
+    const started = Date.now()
     return new Promise((resolve, reject) => {
       const child = execFile(
         "git",
@@ -189,9 +199,14 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
           /* Don't swallow the two failures that would otherwise pass as an empty diff: a
              pathological or non-regular file blowing past the buffer cap, and a hang caught by
              the timeout. `exit 1` ("there is a diff") stays the nominal, non-error case. */
-          if (err && (err as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
+          if (err && (err as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+            ctx.onFailure?.({ verb: "diff --no-index", code: "OUTPUT_LIMIT", exitCode: null, ms: Date.now() - started })
             return reject(new AppError("OUTPUT_LIMIT"))
-          if (err && (err as { killed?: boolean }).killed) return reject(new AppError("TIMEOUT"))
+          }
+          if (err && (err as { killed?: boolean }).killed) {
+            ctx.onFailure?.({ verb: "diff --no-index", code: "TIMEOUT", exitCode: null, ms: Date.now() - started })
+            return reject(new AppError("TIMEOUT"))
+          }
           resolve(stdout || "")
         }
       )
@@ -205,6 +220,7 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
      `maxBuffer` here is only a backstop. */
   function gitBuffer(args: string[]): Promise<Buffer> {
     ctx.trace?.({ kind: "cmd", text: `git ${args.join(" ")}` })
+    const started = Date.now()
     return new Promise((resolve, reject) => {
       const child = execFile(
         "git",
@@ -220,10 +236,17 @@ export function createGitRunner(ctx: RunnerContext): GitRunner {
         (err, stdout) => {
           ctx.children.delete(child)
           if (err) {
-            if ((err as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
+            const ms = Date.now() - started
+            if ((err as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+              ctx.onFailure?.({ verb: gitVerb(args), code: "OUTPUT_LIMIT", exitCode: null, ms })
               return reject(new AppError("OUTPUT_LIMIT"))
-            if ((err as { killed?: boolean }).killed) return reject(new AppError("TIMEOUT"))
+            }
+            if ((err as { killed?: boolean }).killed) {
+              ctx.onFailure?.({ verb: gitVerb(args), code: "TIMEOUT", exitCode: null, ms })
+              return reject(new AppError("TIMEOUT"))
+            }
             const failure = classifyGitFailure({ exitCode: null, stdout: "", stderr: err.message, killedBy: null })
+            ctx.onFailure?.({ verb: gitVerb(args), code: failure.code, exitCode: null, ms })
             return reject(new AppError(failure.code, failure.detail))
           }
           resolve(stdout)
