@@ -16,9 +16,9 @@ import { useSyncExternalStore } from "react"
 import { foldPrefix, prefixColorVar, setCustomPrefixes, setNeutralizedColors } from "@/lib/commit-parse"
 import { isDark, onThemeChange } from "@/lib/theme"
 
-/** Editable badge hues, one per type badge (feat / bugfix / perf / hotfix / revert / release /
-    test / refactor / polish — cf. commit-parse's typesOfColor). `danger` is the shadcn
-    `--destructive` token; the rest are amont's own. */
+/** Editable badge hues, one per type badge — the intent hues first, then beta and the
+    housekeeping types whose tokens default to the neutral gray (cf. commit-parse's typesOfColor).
+    `danger` is the shadcn `--destructive` token; the rest are amont's own. */
 export type ColorRole =
   | "success"
   | "warning"
@@ -29,6 +29,14 @@ export type ColorRole =
   | "info"
   | "refactor"
   | "polish"
+  | "beta"
+  | "wip"
+  | "plugin"
+  | "chore"
+  | "docs"
+  | "style"
+  | "ci"
+  | "build"
 
 export const COLOR_ROLES: readonly ColorRole[] = [
   "success",
@@ -40,6 +48,14 @@ export const COLOR_ROLES: readonly ColorRole[] = [
   "info",
   "refactor",
   "polish",
+  "beta",
+  "wip",
+  "plugin",
+  "chore",
+  "docs",
+  "style",
+  "ci",
+  "build",
 ]
 
 /** role → the app.css custom property carrying its hue. */
@@ -53,6 +69,14 @@ const ROLE_VAR: Record<ColorRole, string> = {
   info: "--info",
   refactor: "--refactor",
   polish: "--polish",
+  beta: "--beta",
+  wip: "--wip",
+  plugin: "--plugin",
+  chore: "--chore",
+  docs: "--docs",
+  style: "--style",
+  ci: "--ci",
+  build: "--build",
 }
 
 export type ThemeKey = "light" | "dark"

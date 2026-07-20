@@ -864,9 +864,9 @@ export const messages = {
     get reset() {
       return t`Reset`
     },
-    /** below the fixed rows: the types that deliberately have no editable hue */
+    /** below the fixed rows: the only badge without a preset is the unknown-tag fallback */
     get neutralNote() {
-      return t`Housekeeping badges (chore, docs, style, ci, build, wip, plugin) keep the neutral gray; beta follows the accent color.`
+      return t`Unrecognized [TAG] prefixes keep the neutral gray — give them a color with a custom prefix rule below.`
     },
     /** custom prefix → color rules, below the fixed work-type roles */
     get customPrefixes() {

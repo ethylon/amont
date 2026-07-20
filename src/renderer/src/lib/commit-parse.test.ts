@@ -250,7 +250,25 @@ describe("custom prefix rules", () => {
 })
 
 describe("typesOfColor", () => {
-  const HUES = ["success", "warning", "perf", "danger", "revert", "release", "info", "refactor", "polish"] as const
+  const HUES = [
+    "success",
+    "warning",
+    "perf",
+    "danger",
+    "revert",
+    "release",
+    "info",
+    "refactor",
+    "polish",
+    "beta",
+    "wip",
+    "plugin",
+    "chore",
+    "docs",
+    "style",
+    "ci",
+    "build",
+  ] as const
 
   it("maps each editable hue back to the single type badge it drives (Settings ▸ Colors rows)", () => {
     assert.deepEqual(typesOfColor("success"), ["feat"]) // `feature` collapses into `feat` (same icon)
@@ -262,6 +280,9 @@ describe("typesOfColor", () => {
     assert.deepEqual(typesOfColor("info"), ["test"]) // the "info" hue never labels a badge "info"
     assert.deepEqual(typesOfColor("refactor"), ["refactor"])
     assert.deepEqual(typesOfColor("polish"), ["polish"])
+    // every remaining badge type carries its own hue too — none is locked out of the settings list
+    for (const hue of ["beta", "wip", "plugin", "chore", "docs", "style", "ci", "build"] as const)
+      assert.deepEqual(typesOfColor(hue), [hue])
   })
 
   it("round-trips through typeColor: every listed type actually wears that hue", () => {

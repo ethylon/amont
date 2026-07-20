@@ -4,6 +4,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import {
   ArrowDown01Icon,
   ArrowRight01Icon,
+  Cancel01Icon,
   CloudDownloadIcon,
   Delete02Icon,
   PaintBoardIcon,
@@ -93,7 +94,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <DialogDescription>{messages.settings.intro}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-80 gap-4">
+        {/* max-h + scroll on the content pane: the Colors section now lists one preset per badge
+            type and can outgrow small windows; the nav column stays put while the pane scrolls */}
+        <div className="flex max-h-[65vh] min-h-80 gap-4">
           <nav className="flex w-36 shrink-0 flex-col gap-0.5 border-e border-border/60 pe-2">
             {SECTIONS.map((s) => (
               <button
@@ -359,12 +362,13 @@ function Swatch({ value, onChange, label }: { value: string; onChange: (hex: str
 
 /** One color preset: a live preview of its type badge — exactly the label and icon the graph
     shows (cf. typesOfColor, derived from the same tables) — a light and a dark swatch, a reset
-    link and a delete button ("Reset to defaults" brings a deleted preset back). */
+    link and a delete cross that only shows on row hover ("Reset to defaults" brings a deleted
+    preset back). */
 function ColorRow({ role, active }: { role: ColorRole; active: ThemeKey }) {
   const [type] = typesOfColor(role)
   const icon = typeIcon(type)
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="group/preset flex items-center gap-2.5">
       {/* `lane` derives both hue and text from `--badge-color`; driving it with the active theme's
           hex previews how the badge reads on screen right now. */}
       <span className="flex w-24 shrink-0 items-center">
@@ -393,7 +397,16 @@ function ColorRow({ role, active }: { role: ColorRole; active: ThemeKey }) {
       >
         {messages.colors.reset}
       </button>
-      <IconButton label={messages.settings.remove} icon={Delete02Icon} onClick={() => removeColorRole(role)} />
+      {/* discreet delete: a small red cross, revealed by hovering the row (opacity keeps the
+          column from reflowing, and the button stays focusable for keyboard users) */}
+      <button
+        type="button"
+        aria-label={messages.settings.remove}
+        onClick={() => removeColorRole(role)}
+        className="cursor-pointer text-destructive/70 opacity-0 transition-opacity group-hover/preset:opacity-100 hover:text-destructive focus-visible:opacity-100"
+      >
+        <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />
+      </button>
     </div>
   )
 }
