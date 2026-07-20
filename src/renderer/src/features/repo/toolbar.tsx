@@ -33,6 +33,9 @@ type Props = {
   repo: Repo
   status: Status | null
   busyOp: OpName | null
+  /** labels waiting in the repo's mutation queue (`git:queue`): a same-name network op in
+      there greys its button — queueing a duplicate push would be pointless */
+  queued: string[]
   sidebarOpen: boolean
   onToggleSidebar(): void
   onRunOp(op: OpName): void
@@ -49,6 +52,7 @@ export const Toolbar = memo(function Toolbar({
   repo,
   status,
   busyOp,
+  queued,
   sidebarOpen,
   onToggleSidebar,
   onRunOp,
@@ -63,7 +67,10 @@ export const Toolbar = memo(function Toolbar({
     push: status?.ahead ?? null,
   }
 
-  /* one op button (fetch/pull/push); `cmdOverride` lets fetch show its live, prune-aware command. */
+  /* one op button (fetch/pull/push); `cmdOverride` lets fetch show its live, prune-aware command.
+     A running op no longer greys the two others: clicking them queues (main-side FIFO) — that's
+     how a fetch→pull→push chain is fired in one go. Only the same op, already running or
+     already waiting, is greyed: a duplicate would be dropped main-side anyway. */
   const opButton = ({ op, label, icon, cmd }: (typeof OPS)[number], cmdOverride?: string) => {
     const n = counts[op]
     return (
@@ -72,7 +79,7 @@ export const Toolbar = memo(function Toolbar({
         variant="ghost"
         size="sm"
         className="h-auto gap-2 py-0.5"
-        disabled={n === 0 || busyOp !== null}
+        disabled={n === 0 || busyOp === op || queued.includes(op)}
         aria-busy={busyOp === op}
         onClick={() => onRunOp(op)}
       >

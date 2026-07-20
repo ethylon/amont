@@ -34,6 +34,7 @@ import type {
   OpName,
   OpenResult,
   ProgressEvent,
+  QueueEvent,
   Repo,
   RepoRef,
   ResetMode,
@@ -206,6 +207,7 @@ export type EventChannels = {
   "git:changed": ChangeEvent
   "git:trace": TraceLine
   "git:progress": ProgressEvent
+  "git:queue": QueueEvent
   "update:status": UpdateStatus
 }
 
@@ -241,6 +243,7 @@ export type Bridge = {
   onChanged(cb: (payload: EventChannels["git:changed"]) => void): () => void
   onTrace(cb: (payload: EventChannels["git:trace"]) => void): () => void
   onProgress(cb: (payload: EventChannels["git:progress"]) => void): () => void
+  onQueue(cb: (payload: EventChannels["git:queue"]) => void): () => void
   onUpdate(cb: (payload: EventChannels["update:status"]) => void): () => void
 
   log: InvokeChannels["repo:log"]

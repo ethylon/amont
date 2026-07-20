@@ -28,6 +28,7 @@ import {
   onChanged,
   onOp,
   onProgress,
+  onQueue,
   type BranchAct,
   type FileChange,
   type FlowPrefixes,
@@ -98,6 +99,9 @@ export interface RepoStoreState {
     /** live `NN%` of the running network op (fetch/pull/push), streamed from git's `--progress`;
         `null` between commands or before git emits its first percentage. Footer feed, cf. status-bar. */
     opProgress: { op: OpName; percent: number } | null
+    /** main-side mutation queue (`git:queue`): the label holding the lock and the labels
+        waiting behind it, in run order — footer "N queued" indicator, toolbar greying */
+    queue: { running: string | null; pending: string[] }
     /** a gitflow operation (start/finish/publish/init) is running its git commands — the flow
         banners swap the kind icon for a spinner and roll the traced commands (cf. FlowBanner).
         Scoped to the commands themselves, not the invalidation/reload that follows: the ticker
@@ -147,6 +151,8 @@ export interface RepoStoreState {
   setBusyOp(op: OpName | null): void
   /** live footer percentage of a running network op; `null` clears it (op settled or reset) */
   setOpProgress(progress: { op: OpName; percent: number } | null): void
+  /** mirrors a `git:queue` event into `ops.queue` */
+  setQueue(queue: { running: string | null; pending: string[] }): void
   /** raises/clears `ops.flowBusy` around a gitflow command (cf. runFlow/runBranch/runFlowPublish) */
   setFlowBusy(v: boolean): void
   showOp(text: string, color: OpState["color"], action?: OpState["action"]): void
@@ -257,7 +263,7 @@ export function createRepoStore(
       branchCreate: null,
       worktreeCreate: null,
     },
-    ops: { busyOp: null, opState: null, opProgress: null, flowBusy: false },
+    ops: { busyOp: null, opState: null, opProgress: null, queue: { running: null, pending: [] }, flowBusy: false },
     graph: { stats: null },
 
     selectRow(row, additive) {
@@ -524,6 +530,9 @@ export function createRepoStore(
     },
     setOpProgress(progress) {
       set((s) => ({ ops: { ...s.ops, opProgress: progress } }))
+    },
+    setQueue(queue) {
+      set((s) => ({ ops: { ...s.ops, queue } }))
     },
     setFlowBusy(v) {
       set((s) => ({ ops: { ...s.ops, flowBusy: v } }))
@@ -884,6 +893,17 @@ export function useRepoEvents(active: boolean): void {
         }
       }),
     [repoId, queryClient, store]
+  )
+
+  /* Mutation-queue transitions (main/repos.ts withLock): what runs and what waits behind it.
+     Feeds the footer's "N queued" indicator and the toolbar's per-op greying. */
+  useEffect(
+    () =>
+      onQueue((p) => {
+        if (p.id !== repoId) return
+        store.getState().setQueue({ running: p.running, pending: p.pending })
+      }),
+    [repoId, store]
   )
 
   /* Live `--progress` percentage of the running network op → footer feed, mirroring how the

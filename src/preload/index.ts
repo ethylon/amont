@@ -57,6 +57,7 @@ const bridge: Bridge = {
   onChanged: on("git:changed"),
   onTrace: on("git:trace"),
   onProgress: on("git:progress"),
+  onQueue: on("git:queue"),
 
   log: invoke("repo:log"),
   total: invoke("repo:total"),
