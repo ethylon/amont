@@ -7,7 +7,6 @@ import { afterEach, describe, it } from "vitest"
 
 import {
   isCustomType,
-  mergeSource,
   parseBody,
   parseMerge,
   parseRefs,
@@ -118,7 +117,7 @@ describe("parseBody", () => {
   })
 })
 
-describe("parseMerge / mergeSource", () => {
+describe("parseMerge", () => {
   it("extracts source and target of a branch merge", () => {
     assert.deepEqual(parseMerge("Merge branch 'feature/x' into develop"), {
       from: "feature/x",
@@ -154,10 +153,26 @@ describe("parseMerge / mergeSource", () => {
     assert.equal(parseMerge("feat: not a merge"), null)
   })
 
-  it("extracts the source branch of a GitHub PR merge (the owner/ prefix is dropped)", () => {
-    assert.equal(mergeSource("Merge pull request #12 from owner/feature/x"), "feature/x")
-    assert.equal(mergeSource("Merge branch 'release/2.0'"), "release/2.0")
-    assert.equal(mergeSource("chore: rien"), null)
+  it("recognizes a GitHub PR merge: number in `pr`, owner/ prefix dropped, no target", () => {
+    assert.deepEqual(parseMerge("Merge pull request #142 from ethylon/claude/branches-panel-separators-t4no79"), {
+      from: "claude/branches-panel-separators-t4no79",
+      to: null,
+      pr: 142,
+      noise: false,
+    })
+    assert.deepEqual(parseMerge("Merge pull request #12 from owner/feature/x"), {
+      from: "feature/x",
+      to: null,
+      pr: 12,
+      noise: false,
+    })
+  })
+
+  it("keeps a slash-less PR source as-is, and ignores the Bitbucket Server form", () => {
+    assert.equal(parseMerge("Merge pull request #5 from renovate")?.from, "renovate")
+    /* "Merge pull request #N in PROJ/repo from x to y" (Bitbucket Server): not the GitHub
+       format — stays plain text rather than chipping a wrong source. */
+    assert.equal(parseMerge("Merge pull request #7 in PROJ/repo from feature/x to master"), null)
   })
 })
 

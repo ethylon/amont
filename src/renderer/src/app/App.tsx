@@ -23,7 +23,7 @@ import { HOME as TAB_STRIP_HOME, panelId, tabId, TabStrip } from "@/app/tab-stri
    opening overlay. */
 const CreateDialog = lazy(() => import("@/features/create/create-dialog").then((m) => ({ default: m.CreateDialog })))
 
-/* App-wide settings (customization, colors, fetch): opened from File ▸ Settings, so it lives here
+/* App-wide settings (customization, colors, diff): opened from File ▸ Settings, so it lives here
    rather than per-tab. Code-split behind its open state — pure user-action UI. */
 const SettingsDialog = lazy(() =>
   import("@/features/settings/settings-dialog").then((m) => ({ default: m.SettingsDialog }))

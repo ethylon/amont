@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useState } from 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { branchFlow } from "@/lib/gitflow"
-import { host, repoApi, worktreeCount, type OpName, type Repo } from "@/lib/git"
+import { repoApi, worktreeCount, type OpName, type Repo } from "@/lib/git"
 import { useLocale, type Locale } from "@/lib/i18n"
 import { messages } from "@/lib/messages"
 import { queryKeys } from "@/lib/queries"
@@ -194,12 +194,6 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
      key in detail-panel.tsx. */
   const [detailNonce, setDetailNonce] = useState(0)
 
-  /* the same shared settings query the settings modal writes (queries.ts): the toolbar's
-     fetch-command label reflects the live `--prune` choice. Undefined before load → default (on). */
-  const prune =
-    useQuery({ queryKey: queryKeys.settings(), queryFn: () => host.getSettings(), staleTime: Infinity }).data?.prune ??
-    true
-
   /* stable callbacks/elements for the memoized children below — an inline closure or JSX
      literal would change identity every render and void their memos */
   const onRunOp = useCallback((op: OpName) => void api.op(op), [api])
@@ -283,7 +277,6 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
         canStash={!!worktree}
         latestStash={latestStash}
         onStash={runStash}
-        prune={prune}
       >
         {commitSearch}
       </Toolbar>
