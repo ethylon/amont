@@ -324,14 +324,21 @@
     position: absolute;
     inset-inline: 0;
     z-index: 2;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
     height: 0;
     border-top: 1px dashed color-mix(in oklab, var(--sync-ahead) 60%, transparent);
     pointer-events: none;
   }
+  /* The label rides the hairline in flow (flex-end) but sticks to the scrollport's right
+     edge: pinned through horizontal scrolling, like the diff gutter's line numbers below.
+     No `top` — that would turn into a vertical sticky constraint and pin it while
+     scrolling the history; the -9px centering on the hairline goes through margin. */
   .amont-syncmark > span {
-    position: absolute;
-    top: -9px;
+    position: sticky;
     right: 12px;
+    margin-top: -9px;
     display: inline-flex;
     align-items: center;
     gap: 4px;
