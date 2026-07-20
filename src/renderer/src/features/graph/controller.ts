@@ -44,7 +44,10 @@ export type GraphHandle = {
   /** Reloads the whole graph, double-buffered: the previous render stays painted while the
       new state loads, and the scroll position survives (clamped to the new height). */
   reset(): Promise<void>
-  jumpTo(hash: string): Promise<void>
+  /** centers and flashes the row of `hash`. `select` (default true): the revealed row also becomes
+      the selection — `focusRef` passes false, owning the selection itself so the jump doesn't
+      clobber a multi-selection it is about to extend. */
+  jumpTo(hash: string, select?: boolean): Promise<void>
   /** `active`: row that just acted (click, ctrl-click…) — carries the keyboard cursor (roving
       tabindex, AUDIT.md §8). If omitted, the cursor doesn't move (cf. interactions/selection.ts). */
   setSelection(rows: Iterable<number>, active?: number): void
@@ -364,8 +367,11 @@ export function createGraph(
   }
 
   /* brings an already-laid-out row to the center of the screen, selects it and makes it flash;
-     waits for its page to come back if it was evicted — the selection will read the commit synchronously */
-  async function reveal(row: number, token: number) {
+     waits for its page to come back if it was evicted — the selection will read the commit synchronously.
+     `select`: whether the revealed row also becomes the selection. `focusRef` reveals a branch tip
+     without selecting it (select=false) — it owns the selection itself, and a non-additive select
+     here would clobber the running multi-selection before it gets to extend it. */
+  async function reveal(row: number, token: number, select = true) {
     if (resetOwner) return // mid-reset: scroll/refresh would tear the frozen old DOM — drop the jump
     refresh()
     board.scrollTop = row * ROW - board.clientHeight / 2
@@ -374,7 +380,7 @@ export function createGraph(
     evictNow()
     if (token !== loader.token || destroyed) return
     sync()
-    cb.onSelect(row, false)
+    if (select) cb.onSelect(row, false)
     const el = inner.querySelector<HTMLElement>(`.amont-row[data-i="${row}"]`)
     if (el) {
       el.classList.remove("amont-flash")
@@ -639,12 +645,12 @@ export function createGraph(
       }
     },
 
-    async jumpTo(hash) {
+    async jumpTo(hash, select = true) {
       const token = loader.token
       if (resolveRow(hash) === undefined) await loader.growUntil(() => resolveRow(hash) !== undefined, token)
       const row = resolveRow(hash)
       if (row === undefined || token !== loader.token) return
-      await reveal(row, token)
+      await reveal(row, token, select)
     },
 
     async rowsOf(hashes, maxRows) {
