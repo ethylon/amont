@@ -742,10 +742,6 @@ export const messages = {
         other: "# other branches on this tip",
       }),
     commitsLoaded: (loaded: string, total: string) => t`${loaded} of ${total} commits loaded`,
-    /** tooltip of the column-resize strips (graph/react/col-resize.tsx) */
-    get resizeColumn() {
-      return t`Drag to resize the column — double-click to reset`
-    },
   },
 
   theme: {
