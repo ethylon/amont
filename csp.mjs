@@ -8,6 +8,11 @@
    from the main process, not from here — @sentry/electron forwards them over IPC
    (cf. main/telemetry.ts), so this CSP is unaffected. */
 const IMG = "img-src 'self' data: blob: https://*.gravatar.com https://avatars.githubusercontent.com";
+/* connect-src: the renderer's one fetch() is the avatar e-mail lookup probing whether GitHub
+   knows an address (lib/avatar.ts) — the same host img-src already trusts, nothing new to talk
+   to. 'self' keeps what the default-src fallback granted before this directive existed (dev HMR's
+   websocket included). */
+const CONNECT = "connect-src 'self' https://avatars.githubusercontent.com";
 /* object-src/base-uri/form-action 'none' (AUDIT.md §4, hardening): no embedded plugin,
    no legitimate <base> tag, no <form> in the app — closing these three doors costs
    nothing and reduces the surface of a compromised renderer (hostile diff content). */
@@ -15,8 +20,8 @@ const HARDEN = "object-src 'none'; base-uri 'none'; form-action 'none'";
 /* No 'wasm-unsafe-eval': the diff view's syntax highlighting uses shiki's pure-JS regex engine
    (features/diff/shiki-highlighter.ts), not the WASM oniguruma engine — dropping the full
    `shiki` package for `shiki/core` removed the one thing that needed this directive. */
-const PROD = `default-src 'self'; ${IMG}; ${HARDEN}; style-src 'self' 'unsafe-inline'; script-src 'self'`;
-const DEV = `default-src 'self'; ${IMG}; ${HARDEN}; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'`;
+const PROD = `default-src 'self'; ${IMG}; ${CONNECT}; ${HARDEN}; style-src 'self' 'unsafe-inline'; script-src 'self'`;
+const DEV = `default-src 'self'; ${IMG}; ${CONNECT}; ${HARDEN}; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'`;
 
 /** @returns {import('vite').Plugin} */
 export const csp = () => ({
