@@ -475,7 +475,7 @@ export function WorktreePanel() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto shrink-0 py-0.5 normal-case tracking-normal text-destructive"
+            className="h-auto min-h-6 shrink-0 py-0.5 normal-case tracking-normal text-destructive"
             onClick={onAbortMerge}
           >
             <span className="flex flex-col items-start">

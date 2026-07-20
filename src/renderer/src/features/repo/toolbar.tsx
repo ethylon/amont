@@ -78,7 +78,7 @@ export const Toolbar = memo(function Toolbar({
         key={op}
         variant="ghost"
         size="sm"
-        className="h-auto gap-2 py-0.5"
+        className="h-auto min-h-6 gap-2 py-0.5"
         disabled={n === 0 || busyOp === op || queued.includes(op)}
         aria-busy={busyOp === op}
         onClick={() => onRunOp(op)}
