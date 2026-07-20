@@ -531,6 +531,49 @@
       opacity: 0;
     }
   }
+
+  /* Running-command shimmer: a bright band of the text's own colour sweeps across the subtext
+     while a git command executes — the textual counterpart of the host's spinner (GitCmd, the
+     commit button, the flow banners, the create banners, the footer console). The gradient is
+     built from `currentColor`, so it adopts whatever colour the host sets (primary-foreground on
+     the button, muted-foreground in the footer, the flow tint on a banner). `-webkit-text-fill-color`
+     — not `color` — clears the glyph fill, so `currentColor` still resolves to that host colour
+     instead of collapsing to transparent.
+
+     Two selectors, one effect: GitCmd holds its text directly (`:not(:has(> span))`), while
+     RollingText stacks it in child spans. The `:not(.amont-roll-*)` guard leaves a line alone
+     while it is rolling — the roll (a transform animation on the same span) plays uninterrupted,
+     and the shimmer resumes once the line settles. */
+  @keyframes amont-shimmer {
+    to {
+      background-position: -200% 0;
+    }
+  }
+  .shimmer:not(:has(> span)),
+  .shimmer > span:not(.amont-roll-in):not(.amont-roll-out) {
+    background-image: linear-gradient(
+      100deg,
+      color-mix(in oklab, currentColor 30%, transparent) 0%,
+      color-mix(in oklab, currentColor 30%, transparent) 35%,
+      currentColor 50%,
+      color-mix(in oklab, currentColor 30%, transparent) 65%,
+      color-mix(in oklab, currentColor 30%, transparent) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: amont-shimmer 1.6s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* no sweep; the spinner already signals progress. Restore solid text. */
+    .shimmer:not(:has(> span)),
+    .shimmer > span:not(.amont-roll-in):not(.amont-roll-out) {
+      animation: none;
+      background-image: none;
+      -webkit-text-fill-color: currentColor;
+    }
+  }
 }
 
 /* 2px rail of the release/hotfix pattern. Outside @layer, otherwise ROW_CLASS's
