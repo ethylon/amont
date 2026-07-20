@@ -60,17 +60,23 @@ Done : `pnpm typecheck && pnpm test` verts. Commit : `feat(telemetry): scrubber 
 Dans `src/main/telemetry.ts`, sous `captureRendererGone`, même style :
 
 ```ts
-import { net } from "electron"                          // en tête, à côté de `app`
+import { net } from "electron" // en tête, à côté de `app`
 import { decodeError, type ErrorCode } from "../shared/errors.ts"
 import { gitVerb, isNetworkNoise, sanitizeDetail, shouldSend } from "./git/telemetry-scrub.ts"
 
-export interface GitFailureInfo { verb: string; code: ErrorCode; exitCode: number | null; ms: number }
+export interface GitFailureInfo {
+  verb: string
+  code: ErrorCode
+  exitCode: number | null
+  ms: number
+}
 
 /** Breadcrumb runner : verbe seul, jamais d'args ni de detail. */
 export function addGitBreadcrumb(info: GitFailureInfo): void {
   if (!Sentry || !enabled) return
   Sentry.addBreadcrumb({
-    category: "git", level: "warning",
+    category: "git",
+    level: "warning",
     message: `${info.verb} failed: ${info.code}`,
     data: { code: info.code, exit_code: info.exitCode, duration_ms: info.ms },
   })
@@ -78,7 +84,8 @@ export function addGitBreadcrumb(info: GitFailureInfo): void {
 
 /** Événement ciblé : fingerprint [scope, code], detail assaini, dédup session. */
 export function captureGitError(
-  scope: string, err: unknown,
+  scope: string,
+  err: unknown,
   extra?: { level?: "warning" | "error"; verb?: string; auto?: boolean }
 ): void {
   if (!Sentry || !enabled) return
@@ -88,11 +95,24 @@ export function captureGitError(
     level: extra?.level ?? "warning",
     fingerprint: [scope, code],
     tags: { scope, code },
-    contexts: { git_error: { code, verb: extra?.verb, detail: detail ? sanitizeDetail(detail) : undefined, auto: extra?.auto } },
+    contexts: {
+      git_error: {
+        code,
+        verb: extra?.verb,
+        detail: detail ? sanitizeDetail(detail) : undefined,
+        auto: extra?.auto,
+      },
+    },
   })
 }
 
-const UNEXPECTED: ReadonlySet<string> = new Set(["GIT_FAILED", "UNKNOWN", "OUTPUT_LIMIT", "BAD_ARG", "TIMEOUT"])
+const UNEXPECTED: ReadonlySet<string> = new Set([
+  "GIT_FAILED",
+  "UNKNOWN",
+  "OUTPUT_LIMIT",
+  "BAD_ARG",
+  "TIMEOUT",
+])
 
 /** Filet IPC : codes inattendus uniquement, level error (l'utilisateur a vu l'échec). */
 export function captureIpcError(channel: string, err: unknown): void {
@@ -104,7 +124,7 @@ export function captureIpcError(channel: string, err: unknown): void {
 export function captureOpError(op: string, err: unknown, auto: boolean): void {
   const { code, detail } = decodeError(err)
   if (!UNEXPECTED.has(code)) return
-  if (code === "TIMEOUT") return                        // les 3 ops runOp sont réseau
+  if (code === "TIMEOUT") return // les 3 ops runOp sont réseau
   if (!net.isOnline()) return
   if (detail && isNetworkNoise(detail)) return
   captureGitError(`op.${op}`, err, { auto })
@@ -145,7 +165,8 @@ sender continue de throw avant le try) :
 
 ```ts
 ipcMain.handle(channel, async (event, ...args) => {
-  if (event.sender !== getMainWindow()?.webContents) throw new AppError("NOT_ALLOWED", "unexpected sender")
+  if (event.sender !== getMainWindow()?.webContents)
+    throw new AppError("NOT_ALLOWED", "unexpected sender")
   try {
     return await fn(event, ...(args as Parameters<InvokeChannels[K]>))
   } catch (e) {

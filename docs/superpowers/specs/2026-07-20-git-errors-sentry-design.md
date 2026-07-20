@@ -45,8 +45,8 @@ Fonctions pures, zéro import Electron, testables sous Node (même veine que `pa
   appartient à une whitelist de sous-commandes à deux mots (`stash pop`, `stash push`,
   `config --unset`, `worktree list`, …) — jamais un argument utilisateur ;
 - `isNetworkNoise(detail: string): boolean` — motifs environnementaux (`Could not resolve
-  host`, `unable to access`, `Connection timed out/refused`, `Could not read from remote
-  repository`, `no route to host`, …) ;
+host`, `unable to access`, `Connection timed out/refused`, `Could not read from remote
+repository`, `no route to host`, …) ;
 - dédup par session : `shouldSend(scope, code): boolean` (première occurrence d'un couple →
   `true`, suivantes → `false` ; reset exposé pour les tests).
 
@@ -118,14 +118,14 @@ utilisateur (chemin, branche, URL, email) ne part.
 
 ## Sites de capture explicite (catégorie 2)
 
-| Site (repère actuel) | Scope | Level | Note |
-| --- | --- | --- | --- |
-| `ops.ts:227` (pop de secours après checkout raté) | `checkout.recovery-pop` | warning | Stash orphelin : adjacent à de la perte de données. Le checkout reste l'erreur surfacée (comportement inchangé). |
-| `flow.ts:222/276/312` (`config --unset` base) | `flow.unset-base` | warning | Ajouter `okCodes: [5]` (clé absente = attendu, exit 5) pour ne capturer que les vrais échecs (lock, droits). |
-| `merge-preview.ts:65` (`merge-tree` → `null`) | `merge-preview` | warning | Détecte aussi un git < 2.38 : preview morte en silence pour l'utilisateur. |
-| `watcher.ts:117` (abandon après `RETRY_CAP`) | `watcher.retries-exhausted` | warning | `captureMessage` (pas d'`AppError` ici) : dégradation permanente, plus de refresh auto. |
-| `watcher.ts:143` (échec du watch racine) | `watcher.subscribe` | warning | Uniquement quand le repo vient de s'ouvrir avec succès (le gitDir existait un instant avant) ; un repo supprimé en cours de route ne doit pas spammer — la dédup borne de toute façon. |
-| `packs.ts:88` (`index-pack` rejette → pack supprimé) | `maintenance.pack-unrecoverable` | warning | Recovery destructif : mérite une trace. |
+| Site (repère actuel)                                 | Scope                            | Level   | Note                                                                                                                                                                                   |
+| ---------------------------------------------------- | -------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ops.ts:227` (pop de secours après checkout raté)    | `checkout.recovery-pop`          | warning | Stash orphelin : adjacent à de la perte de données. Le checkout reste l'erreur surfacée (comportement inchangé).                                                                       |
+| `flow.ts:222/276/312` (`config --unset` base)        | `flow.unset-base`                | warning | Ajouter `okCodes: [5]` (clé absente = attendu, exit 5) pour ne capturer que les vrais échecs (lock, droits).                                                                           |
+| `merge-preview.ts:65` (`merge-tree` → `null`)        | `merge-preview`                  | warning | Détecte aussi un git < 2.38 : preview morte en silence pour l'utilisateur.                                                                                                             |
+| `watcher.ts:117` (abandon après `RETRY_CAP`)         | `watcher.retries-exhausted`      | warning | `captureMessage` (pas d'`AppError` ici) : dégradation permanente, plus de refresh auto.                                                                                                |
+| `watcher.ts:143` (échec du watch racine)             | `watcher.subscribe`              | warning | Uniquement quand le repo vient de s'ouvrir avec succès (le gitDir existait un instant avant) ; un repo supprimé en cours de route ne doit pas spammer — la dédup borne de toute façon. |
+| `packs.ts:88` (`index-pack` rejette → pack supprimé) | `maintenance.pack-unrecoverable` | warning | Recovery destructif : mérite une trace.                                                                                                                                                |
 
 Tous les autres catch silencieux du dépôt (~44) sont des fallbacks attendus et restent nus —
 notamment `queries.ts` (probes `rev-parse`/`for-each-ref`/reflog, `blob()`), `repos.ts`
