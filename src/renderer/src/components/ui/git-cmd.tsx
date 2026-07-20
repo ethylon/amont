@@ -4,7 +4,13 @@ import { useShowGitCommands } from "@/lib/customization"
 /* UI experiment: the git command a control triggers, shown as muted mono subtext.
    The subtext tracks the action's colour: muted by default, but a destructive menu item
    tints it (destructive/70) to match its red caption — the same muted-red hierarchy the
-   destructive buttons/modals get via `className="text-destructive/70"`.
+   destructive buttons get via `className="text-destructive/70"`. Confirmation modals don't
+   show it: the command stacked inside the confirm button proved unreadable, so those buttons
+   keep the plain h-6 default.
+
+   Buttons hosting this subtext grow with `h-auto` but stay on the density grid with `min-h-6`
+   (the height every overridden ui component aligns to), so they match their neighbours when
+   the subtext is hidden.
 
    Hidden entirely when the user turns off "show git commands" (Settings ▸ Customization): the
    host control keeps its label, only this subtext drops.

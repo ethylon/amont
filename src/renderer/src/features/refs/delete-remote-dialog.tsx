@@ -9,7 +9,6 @@ import type { GitRef } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { GitCmd } from "@/components/ui/git-cmd"
 import {
   Dialog,
   DialogContent,
@@ -29,7 +28,6 @@ export function DeleteRemoteBranchDialog({
   onConfirm(): void
   onClose(): void
 }) {
-  const [remote, ...rest] = branch.name.split("/")
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -44,14 +42,12 @@ export function DeleteRemoteBranchDialog({
           </Button>
           <Button
             variant="destructive"
-            className="h-auto flex-col gap-0 py-1"
             onClick={() => {
               onConfirm()
               onClose()
             }}
           >
             {messages.refs.deleteBranchConfirm}
-            <GitCmd cmd={`git push ${remote} --delete ${rest.join("/")}`} className="text-destructive/70" />
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -73,11 +69,6 @@ export function DeleteTagDialog({
 }) {
   const [deleteRemote, setDeleteRemote] = useState(false)
   const remoteId = useId()
-
-  const cmd =
-    deleteRemote && remote
-      ? `git tag -d ${tag.name} && git push ${remote} --delete refs/tags/${tag.name}`
-      : `git tag -d ${tag.name}`
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -107,14 +98,12 @@ export function DeleteTagDialog({
           </Button>
           <Button
             variant="destructive"
-            className="h-auto flex-col gap-0 py-1"
             onClick={() => {
               onConfirm(deleteRemote && !!remote)
               onClose()
             }}
           >
             {messages.refs.deleteBranchConfirm}
-            <GitCmd cmd={cmd} className="text-destructive/70" />
           </Button>
         </DialogFooter>
       </DialogContent>
