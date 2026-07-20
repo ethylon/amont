@@ -172,7 +172,7 @@ export const Toolbar = memo(function Toolbar({
             <DropdownMenuTrigger
               render={<IconButton label={messages.worktree.moreActions} icon={ArrowDown01Icon} size="icon-xs" />}
             />
-            <DropdownMenuContent align="start" className="w-max min-w-44">
+            <DropdownMenuContent align="end" className="w-max min-w-44">
               <DropdownMenuItem onClick={() => onStash("apply", latestStash)}>
                 <HugeiconsIcon icon={ArchiveArrowUpIcon} strokeWidth={2} />
                 <MenuItemWithCmd label={messages.stash.apply} cmd={`git stash apply ${latestStash}`} />
