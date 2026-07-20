@@ -323,7 +323,7 @@ export async function logPage(r: RepoHandle, skip: number, count: number, signal
       "--stdin",
       "--date=short",
       "--decorate=full",
-      "--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1e",
+      "--pretty=format:%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%D%x1f%s%x1f%b%x1e",
     ],
     { signal, input: page }
   )
