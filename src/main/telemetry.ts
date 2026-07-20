@@ -14,9 +14,11 @@
    is read on every event by beforeSend/beforeBreadcrumb, so flipping it takes effect immediately,
    no restart — and native minidumps go through the same client, so nothing is uploaded either. */
 
-import { app } from "electron"
+import { app, net } from "electron"
 import type { Event as SentryEvent } from "@sentry/electron/main"
 
+import { decodeError } from "../shared/errors.ts"
+import { isNetworkNoise, sanitizeDetail, shouldSend, type GitFailureInfo } from "./git/telemetry-scrub.ts"
 import { persisted, saveState } from "./state.ts"
 
 const DSN = import.meta.env.MAIN_VITE_SENTRY_DSN
@@ -99,6 +101,80 @@ export function captureRendererGone(
     tags: { reason, exit_code: exitCode },
     contexts: { renderer_crash: { reason, exit_code: exitCode, ...info } },
   })
+}
+
+/* --- Git failure reporting (spec: docs/superpowers/specs/2026-07-20-git-errors-sentry-design.md) ---
+
+   Two tiers. Every failed git command leaves a BREADCRUMB (addGitBreadcrumb, wired into the
+   runner via RunnerContext.onFailure — cf. git/exec.ts): free context on whatever event ships
+   next, crash included, never an event itself. Abnormal-but-tolerated failures additionally
+   send one EVENT (captureGitError) fingerprinted [scope, code]: a swallowed recovery
+   `stash pop`, an unexpected code crossing the IPC boundary (captureIpcError), a non-network
+   runOp failure (captureOpError). Everything runs through the beforeSend/beforeBreadcrumb
+   gates above — opt-out honored live, DSN-less builds inert — and through sanitizeDetail, so
+   no user data (path, URL, branch, email, sha) ever leaves. */
+
+/** Breadcrumb for a failed git command: the verb, never the arguments or stderr. */
+export function addGitBreadcrumb(info: GitFailureInfo): void {
+  if (!Sentry || !enabled) return
+  Sentry.addBreadcrumb({
+    category: "git",
+    level: "warning",
+    message: `${info.verb} failed: ${info.code}`,
+    data: { code: info.code, exit_code: info.exitCode, duration_ms: info.ms },
+  })
+}
+
+/** One event per scope×code per session (repeats keep their breadcrumb), grouped in Sentry
+    by that same pair. Level `warning` = tolerated (the app moved on), `error` = the user saw
+    the failure. */
+export function captureGitError(
+  scope: string,
+  err: unknown,
+  extra?: { level?: "warning" | "error"; verb?: string; auto?: boolean }
+): void {
+  if (!Sentry || !enabled) return
+  const { code, detail } = decodeError(err)
+  if (!shouldSend(scope, code)) return
+  Sentry.captureMessage(`git: ${scope} [${code}]`, {
+    level: extra?.level ?? "warning",
+    fingerprint: [scope, code],
+    tags: { scope, code },
+    contexts: {
+      git_error: {
+        code,
+        verb: extra?.verb,
+        detail: detail ? sanitizeDetail(detail) : undefined,
+        auto: extra?.auto,
+      },
+    },
+  })
+}
+
+/* Codes a healthy app should never produce, whatever the user does: everything else crossing
+   the IPC boundary is nominal product behavior (MERGE_CONFLICT, NO_UPSTREAM, ABORTED…) and
+   stays out of Sentry. BAD_ARG crossing means the renderer sent garbage — a bug, not noise. */
+const UNEXPECTED: ReadonlySet<string> = new Set(["GIT_FAILED", "UNKNOWN", "OUTPUT_LIMIT", "BAD_ARG", "TIMEOUT"])
+
+/** IPC-boundary net (cf. ipc.ts `handle`): fires whether the renderer surfaces the error or
+    swallows it into a fallback — the crossing itself is the signal. */
+export function captureIpcError(channel: string, err: unknown): void {
+  if (!Sentry || !enabled) return
+  if (!UNEXPECTED.has(decodeError(err).code)) return
+  captureGitError(`ipc.${channel}`, err, { level: "error" })
+}
+
+/** runOp failures (fetch/pull/push, cf. git/ops.ts runOp): captured only when they can't be
+    blamed on the environment — TIMEOUT on a network op is a slow link, offline is offline,
+    and the stderr patterns cover the rest. What remains (corrupt repo, broken remote config)
+    is a bug lead even when the auto-fetch that hit it stayed silent. */
+export function captureOpError(op: string, err: unknown, auto: boolean): void {
+  if (!Sentry || !enabled) return
+  const { code, detail } = decodeError(err)
+  if (!UNEXPECTED.has(code) || code === "TIMEOUT") return
+  if (!net.isOnline()) return
+  if (detail && isNetworkNoise(detail)) return
+  captureGitError(`op.${op}`, err, { auto })
 }
 
 /** `available`: a DSN was baked in — the home screen only shows the toggle then. */
