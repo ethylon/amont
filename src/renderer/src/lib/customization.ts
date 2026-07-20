@@ -56,11 +56,16 @@ export type LangAlias = { ext: string; lang: string }
     the built-in type tables don't recognize still gets a colored badge, its own hue in each theme. */
 export type PrefixRule = { prefix: string; colors: ThemeHex }
 
-/** No extension→grammar mappings are shipped by default: the list starts empty and is the user's own
-    (Settings ▸ Diff). The set that used to seed it (`.jet` → sql, the MSBuild `.csproj`/`.props`/… →
-    xml) were one developer's in-house conventions and shouldn't be imposed on everyone — anyone who
-    wants them adds them locally. "Reset to defaults" therefore clears the list back to empty. */
+/** The user-editable list (Settings ▸ Diff) ships empty and is the user's own. The set that used to
+    seed it (`.jet` → sql, the MSBuild `.csproj`/`.props`/… → xml) were one developer's in-house
+    conventions and shouldn't be imposed on everyone — anyone who wants them adds them locally.
+    "Reset to defaults" therefore clears the list back to empty. */
 const LANG_ALIASES_DEFAULT: readonly LangAlias[] = []
+
+/** Built-in fallback mappings, applied under the user's list so a user row for the same extension
+    always wins (cf. getLangAliases). Deliberately minimal — only universal grammars shiki's bare
+    extension detection misses, no personal/in-house conventions: `.svg` is XML. */
+const BUILTIN_LANG_ALIASES: Readonly<Record<string, string>> = { svg: "xml" }
 
 export interface Customization {
   /** UI (sans) font family; `null` = the bundled default (Geist) */
@@ -317,11 +322,12 @@ export function resetPrefixRules(): void {
 export const getShowPrefixColumn = (): boolean => current.showPrefixColumn
 export const getShowGitCommands = (): boolean => current.showGitCommands
 
-/** Effective extension → shiki grammar map, memoized until the next change. Blank rows are skipped;
-    on a duplicate extension the later row wins. */
+/** Effective extension → shiki grammar map, memoized until the next change. Seeded with the built-in
+    fallbacks, then the user's rows applied on top — so a user mapping for a built-in extension (e.g.
+    `.svg`) overrides ours. Blank rows are skipped; on a duplicate extension the later row wins. */
 export function getLangAliases(): Record<string, string> {
   if (langAliasMap) return langAliasMap
-  const map: Record<string, string> = {}
+  const map: Record<string, string> = { ...BUILTIN_LANG_ALIASES }
   for (const a of current.langAliases) {
     const ext = a.ext.trim().toLowerCase().replace(/^\.+/, "")
     const lang = a.lang.trim().toLowerCase()
