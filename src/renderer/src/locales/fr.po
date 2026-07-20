@@ -652,6 +652,9 @@ msgstr "Hotfix"
 msgid "Hotfix prefix"
 msgstr "Préfixe hotfix"
 
+msgid "Housekeeping badges (chore, docs, style, ci, build, wip, plugin) keep the neutral gray; beta follows the accent color."
+msgstr "Les badges d'entretien (chore, docs, style, ci, build, wip, plugin) gardent le gris neutre ; beta suit la couleur d'accent."
+
 msgid "https://… or git@…"
 msgstr "https://… ou git@…"
 
@@ -664,8 +667,8 @@ msgstr "en conflit"
 msgid "Include {branch}"
 msgstr "Inclure {branch}"
 
-msgid "Info"
-msgstr "Info"
+#~ msgid "Info"
+#~ msgstr "Info"
 
 msgid "Initialize"
 msgstr "Initialiser"
@@ -877,8 +880,8 @@ msgstr "parent"
 msgid "parents"
 msgstr "parents"
 
-msgid "Polish"
-msgstr "Peaufinage"
+#~ msgid "Polish"
+#~ msgstr "Peaufinage"
 
 msgid "prefix"
 msgstr "préfixe"
@@ -946,8 +949,8 @@ msgstr "Rebase de {theirs} (B)"
 msgid "Recent"
 msgstr "Récents"
 
-msgid "Refactor"
-msgstr "Refactorisation"
+#~ msgid "Refactor"
+#~ msgstr "Refactorisation"
 
 msgid "Release"
 msgstr "Release"

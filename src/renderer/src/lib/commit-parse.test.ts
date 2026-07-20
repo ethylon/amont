@@ -15,6 +15,7 @@ import {
   prefixColorVar,
   setCustomPrefixes,
   typeColor,
+  typesOfColor,
 } from "./commit-parse.ts"
 
 /** "master*" = remote merged into the local branch */
@@ -244,5 +245,22 @@ describe("custom prefix rules", () => {
   it("builds a safe CSS custom-property name from any prefix", () => {
     assert.equal(prefixColorVar("Epic-1"), "--amont-prefix-epic1")
     assert.equal(prefixColorVar("[HOT FIX]"), "--amont-prefix-hotfix")
+  })
+})
+
+describe("typesOfColor", () => {
+  it("maps each editable hue back to the type badges it drives (Settings ▸ Colors previews)", () => {
+    assert.deepEqual(typesOfColor("success"), ["feat"]) // `feature` collapses into `feat` (same icon)
+    assert.deepEqual(typesOfColor("danger"), ["hotfix", "revert"])
+    assert.deepEqual(typesOfColor("warning"), ["bugfix", "perf"])
+    assert.deepEqual(typesOfColor("release"), ["release"])
+    assert.deepEqual(typesOfColor("info"), ["test"]) // the "info" hue never labels a badge "info"
+    assert.deepEqual(typesOfColor("refactor"), ["refactor"])
+    assert.deepEqual(typesOfColor("polish"), ["polish"])
+  })
+
+  it("round-trips through typeColor: every listed type actually wears that hue", () => {
+    for (const hue of ["success", "danger", "warning", "release", "info", "refactor", "polish"] as const)
+      for (const type of typesOfColor(hue)) assert.equal(typeColor(type), hue)
   })
 })

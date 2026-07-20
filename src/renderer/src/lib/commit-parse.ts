@@ -137,6 +137,22 @@ const TYPE_ICON: Record<string, IconSvgElement> = {
 
 export const typeIcon = (type: string): IconSvgElement | undefined => TYPE_ICON[type]
 
+/** Badge types a hue drives, in table order — derived from TYPE_COLOR so the Settings ▸ Colors
+    previews can never drift from the graph. Alias types sharing an earlier type's icon (`feature`
+    next to `feat`) collapse into the one chip. */
+export function typesOfColor(color: BadgeColor): string[] {
+  const out: string[] = []
+  const icons = new Set<IconSvgElement>()
+  for (const [type, c] of Object.entries(TYPE_COLOR)) {
+    if (c !== color) continue
+    const icon = TYPE_ICON[type]
+    if (icon && icons.has(icon)) continue
+    if (icon) icons.add(icon)
+    out.push(type)
+  }
+  return out
+}
+
 /* Automatic backups from a third-party tool: present in the history, never an intent.
    They stay readable, but stop competing for attention with the rest of the column. */
 export const BACKUP_WIP = /^\s*\[(?:AUTO-)?BACKUP\]\s*WIP\b/i
