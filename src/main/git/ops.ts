@@ -324,6 +324,22 @@ export async function revertCommit(r: RepoHandle, hash: string): Promise<void> {
   })
 }
 
+/** `git cherry-pick <hash>` onto HEAD. Same mainline story as revertCommit: a merge commit
+    needs `-m 1` to apply relative to its first parent. A conflict surfaces as MERGE_CONFLICT
+    and the sequencer state stays for the conflict view to resolve. */
+export async function cherryPick(r: RepoHandle, hash: string): Promise<void> {
+  if (typeof hash !== "string" || !HASH.test(hash)) throw new AppError("BAD_ARG", "hash")
+  await withLock(r, "cherry-pick", async () => {
+    groupTrace(r, `Cherry-pick ${hash.slice(0, 8)}`)
+    try {
+      const parents = (await r.git(["rev-list", "--parents", "-n", "1", hash])).trim().split(/\s+/).length - 1
+      await r.git(["cherry-pick", ...(parents > 1 ? ["-m", "1"] : []), hash])
+    } finally {
+      mute(r)
+    }
+  })
+}
+
 /* --- Remote-only deletions (context menus of a remote branch / a tag) ---
    Same confirmation policy as deleteBranch: the renderer's dialog carries the intent, main
    only validates and runs. */

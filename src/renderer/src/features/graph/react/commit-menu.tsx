@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowTurnBackwardIcon,
+  CherryIcon,
   FolderAddIcon,
   GitBranchIcon,
   PlusSignIcon,
@@ -55,6 +56,7 @@ export function CommitMenu({
 }) {
   const checkout = useRepoStore((s) => s.checkout)
   const revertCommit = useRepoStore((s) => s.revertCommit)
+  const cherryPickCommit = useRepoStore((s) => s.cherryPickCommit)
   const short = shortHash(target.hash)
 
   return (
@@ -91,6 +93,10 @@ export function CommitMenu({
           label={messages.commit.resetBranchTo(currentBranch ?? "HEAD", short)}
           cmd={`git reset --<mode> ${short}`}
         />
+      </ContextMenuItem>
+      <ContextMenuItem onClick={() => void cherryPickCommit(target.hash)}>
+        <HugeiconsIcon icon={CherryIcon} strokeWidth={2} />
+        <MenuItemWithCmd label={messages.commit.cherryPick(short)} cmd={`git cherry-pick ${short}`} />
       </ContextMenuItem>
       <ContextMenuItem onClick={() => void revertCommit(target.hash)}>
         <HugeiconsIcon icon={ArrowTurnBackwardIcon} strokeWidth={2} />

@@ -13,7 +13,16 @@ vi.mock("electron", () => ({ app: {} }))
 import { AppError } from "../../shared/errors.ts"
 import type { DistributiveOmit, OpEvent, OpName, QueueEvent } from "../../shared/types.ts"
 import { withLock, type RepoHandle } from "../repos.ts"
-import { createBranch, createTag, deleteRemoteBranch, deleteTag, resetTo, revertCommit, runOp } from "./ops.ts"
+import {
+  cherryPick,
+  createBranch,
+  createTag,
+  deleteRemoteBranch,
+  deleteTag,
+  resetTo,
+  revertCommit,
+  runOp,
+} from "./ops.ts"
 
 type Emitted = DistributiveOmit<OpEvent, "id">
 
@@ -168,6 +177,18 @@ describe("commit-anchored ops (graph context menu)", () => {
     const { r, calls } = fakeMutRepo({ "rev-list": `${SHA} ${"b".repeat(40)} ${"c".repeat(40)}\n` })
     await revertCommit(r, SHA)
     assert.deepEqual(calls[1], ["revert", "--no-edit", "-m", "1", SHA])
+  })
+
+  it("cherryPick applies a plain commit without a mainline", async () => {
+    const { r, calls } = fakeMutRepo({ "rev-list": `${SHA} ${"b".repeat(40)}\n` })
+    await cherryPick(r, SHA)
+    assert.deepEqual(calls[1], ["cherry-pick", SHA])
+  })
+
+  it("cherryPick applies a merge relative to its first parent", async () => {
+    const { r, calls } = fakeMutRepo({ "rev-list": `${SHA} ${"b".repeat(40)} ${"c".repeat(40)}\n` })
+    await cherryPick(r, SHA)
+    assert.deepEqual(calls[1], ["cherry-pick", "-m", "1", SHA])
   })
 })
 

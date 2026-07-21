@@ -270,6 +270,7 @@ export function registerIpc(): void {
   handle("repo:tagCreate", (_ev, id, name, at) => ops.createTag(repos.use(id), name, at))
   handle("repo:reset", (_ev, id, mode, to) => ops.resetTo(repos.use(id), mode, to))
   handle("repo:revert", (_ev, id, hash) => ops.revertCommit(repos.use(id), hash))
+  handle("repo:cherryPick", (_ev, id, hash) => ops.cherryPick(repos.use(id), hash))
 
   handle("repo:log", (_ev, id, skip, count, requestId) => {
     const r = repos.use(id)

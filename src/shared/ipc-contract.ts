@@ -141,6 +141,8 @@ export type InvokeChannels = {
   "repo:reset": (id: number, mode: ResetMode, to: string) => Promise<void>
   /** `git revert --no-edit <hash>` (with `-m 1` for a merge commit). */
   "repo:revert": (id: number, hash: string) => Promise<void>
+  /** `git cherry-pick <hash>` onto HEAD (with `-m 1` for a merge commit). */
+  "repo:cherryPick": (id: number, hash: string) => Promise<void>
   "repo:log": (id: number, skip: number, count: number, requestId?: string) => Promise<Commit[]>
   "repo:refs": (id: number) => Promise<GitRef[]>
   "repo:files": (id: number, hash: string, parent: string | null, requestId?: string) => Promise<FileChange[]>
@@ -277,6 +279,7 @@ export type Bridge = {
   tagCreate: InvokeChannels["repo:tagCreate"]
   reset: InvokeChannels["repo:reset"]
   revert: InvokeChannels["repo:revert"]
+  cherryPick: InvokeChannels["repo:cherryPick"]
   files: InvokeChannels["repo:files"]
   body: InvokeChannels["repo:body"]
   headMessage: InvokeChannels["repo:headMessage"]

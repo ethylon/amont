@@ -79,6 +79,7 @@ const bridge: Bridge = {
   tagCreate: invoke("repo:tagCreate"),
   reset: invoke("repo:reset"),
   revert: invoke("repo:revert"),
+  cherryPick: invoke("repo:cherryPick"),
   files: invoke("repo:files"),
   body: invoke("repo:body"),
   headMessage: invoke("repo:headMessage"),

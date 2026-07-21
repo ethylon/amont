@@ -262,6 +262,9 @@ msgstr "Basculer"
 msgid "Checkout {hash}"
 msgstr "Basculer sur {hash}"
 
+msgid "Cherry-pick {hash}"
+msgstr "Cherry-pick {hash}"
+
 msgid "Cherry-picking {theirs} (B)"
 msgstr "Cherry-pick de {theirs} (B)"
 

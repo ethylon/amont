@@ -262,6 +262,9 @@ msgstr "Checkout"
 msgid "Checkout {hash}"
 msgstr "Checkout {hash}"
 
+msgid "Cherry-pick {hash}"
+msgstr "Cherry-pick {hash}"
+
 msgid "Cherry-picking {theirs} (B)"
 msgstr "Cherry-picking {theirs} (B)"
 

@@ -681,6 +681,7 @@ export const messages = {
     },
     resetBranchTo: (branch: string, hash: string) => emphasize(t`Reset « ${branch} » to ${hash}…`),
     revert: (hash: string) => t`Revert ${hash}`,
+    cherryPick: (hash: string) => t`Cherry-pick ${hash}`,
 
     /* inline create-branch / create-worktree banners */
     branchBannerLabel: (hash: string) => t`New branch at ${hash}`,
