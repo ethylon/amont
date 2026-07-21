@@ -29,14 +29,24 @@ type Props = {
 
 /** The split chevron and its card shell: a narrow ghost strip closing the ButtonGroup, opening
     the options as a popover under the button. `align="end"` pins the card's right edge to the
-    chevron — the group's own right edge — so it hangs under the whole split button. */
+    chevron — the group's own right edge — so it hangs under the whole split button.
+
+    Même robe que les menus du preset inverted-translucent (rebuild 8fad3df, cf. le Popup de
+    primitives/dropdown-menu.tsx) : `dark` inverse les tokens de la carte, `bg-popover/70` +
+    flou en `before:` (pas sur le popup lui-même : le ring et l'ombre resteraient nets mais le
+    contenu baverait) rendent le fond translucide, et `animate-none!` coupe le zoom d'ouverture
+    — le backdrop-filter ré-échantillonne à chaque frame du scale et scintille. tailwind-merge
+    évince le `bg-popover` opaque du primitive. */
 function OptionsPopover({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Popover>
       <PopoverTrigger render={<Button variant="ghost" size="sm" aria-label={label} className="h-auto min-h-6 px-1" />}>
         <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
       </PopoverTrigger>
-      <PopoverContent align="end" className="gap-3.5 p-3">
+      <PopoverContent
+        align="end"
+        className="dark animate-none! relative gap-3.5 bg-popover/70 p-3 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150"
+      >
         {children}
       </PopoverContent>
     </Popover>
