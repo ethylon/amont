@@ -98,15 +98,15 @@ const holdsFocused = (n: PathTree<GitRef>, keys: Set<string>): boolean =>
 
 const track = (r: GitRef) => [r.ahead && `↑${r.ahead}`, r.behind && `↓${r.behind}`].filter(Boolean).join(" ")
 
-/** Replaces the remount-by-key pattern (3 variants in the old monolithic refs-sidebar.tsx) with a
-    controlled Collapsible: the open state is React state, reset to `defaultOpen` every
-    time a reset dependency changes (a focus set from the graph, a filter starting/stopping)
-    — exactly the effect of remount-by-key, without unmounting/remounting the
-    subtree. Between two resets, the user stays in control: a click on the trigger persists
-    until the next reset. */
-export function useResettableOpen(defaultOpen: boolean, ...resetDeps: unknown[]) {
-  const [open, setOpen] = useState(defaultOpen)
-  useEffect(() => setOpen(defaultOpen), resetDeps) // eslint-disable-line react-hooks/exhaustive-deps
+/** Controlled Collapsible with one-way auto-open: whenever an open dependency changes
+    (a focus set from the graph, a filter starting) and `shouldOpen` is true, the node
+    opens itself. Code never closes a node — once open, it stays open until the user
+    explicitly closes it via the trigger. */
+export function useAutoOpen(shouldOpen: boolean, ...openDeps: unknown[]) {
+  const [open, setOpen] = useState(shouldOpen)
+  useEffect(() => {
+    if (shouldOpen) setOpen(true)
+  }, openDeps) // eslint-disable-line react-hooks/exhaustive-deps
   return { open, onOpenChange: setOpen }
 }
 
@@ -134,7 +134,7 @@ const RefDir = memo(function RefDir({
     [node, ctx.focusedKeys]
   )
   const hasHead = useMemo(() => holdsHead(node), [node])
-  const { open, onOpenChange } = useResettableOpen(forceOpen || openDirs || focused || hasHead, forceOpen, focused)
+  const { open, onOpenChange } = useAutoOpen(forceOpen || openDirs || focused || hasHead, forceOpen, focused)
 
   return (
     <li>
@@ -275,7 +275,7 @@ const RefRow = memo(function RefRow({
    remotes, where the remote (`origin`) would otherwise stay collapsed for lack of a HEAD inside.
    `forceOpen`: everything open, at every level — a filter result hidden in a fold
    would be invisible. A folder holding a focused ref opens through the same mechanism,
-   targeted to its single path (see `useResettableOpen` in RefDir). */
+   targeted to its single path (see `useAutoOpen` in RefDir). */
 export function Tree({
   node,
   icon,

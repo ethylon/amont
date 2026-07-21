@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils"
 import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useWorktreesQuery } from "@/features/worktrees/worktrees-queries"
-import { useResettableOpen } from "@/features/refs/refs-tree"
+import { useAutoOpen } from "@/features/refs/refs-tree"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { RefGroup } from "@/components/ui/ref-group"
 import {
@@ -114,7 +114,7 @@ export function WorktreesSection({ filter }: { filter: string }) {
   // a repo with no linked worktree has nothing to manage here, so the section stays hidden
   const hasLinked = worktrees.some((w) => !w.main)
   const matches = hasLinked ? worktrees.filter((w) => matchWorktree(w, filter)) : []
-  const { open, onOpenChange } = useResettableOpen(true, !!filter)
+  const { open, onOpenChange } = useAutoOpen(true, !!filter)
 
   if (!matches.length) return null
 

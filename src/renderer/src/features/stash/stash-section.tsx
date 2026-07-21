@@ -12,7 +12,7 @@ import type { Stash, StashAct } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { useStashesQuery } from "@/features/stash/stash-queries"
-import { useResettableOpen } from "@/features/refs/refs-tree"
+import { useAutoOpen } from "@/features/refs/refs-tree"
 import { MenuItemWithCmd } from "@/components/ui/git-cmd"
 import { RefGroup } from "@/components/ui/ref-group"
 import {
@@ -85,7 +85,7 @@ export function StashSection({ filter }: { filter: string }) {
   const { data: stashes = [] } = useStashesQuery(api, repoId)
 
   const matches = stashes.filter((s) => matchStash(s, filter))
-  const { open, onOpenChange } = useResettableOpen(true, !!filter)
+  const { open, onOpenChange } = useAutoOpen(true, !!filter)
 
   if (!matches.length) return null
 
