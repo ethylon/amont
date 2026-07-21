@@ -250,23 +250,28 @@ function ChunkSide({
         {lines.length === 0 && ` · ${messages.conflict.deletedOnThisSide}`}
       </label>
       <div className="min-w-0 overflow-x-auto">
-        {lines.map((l, line) => {
-          const ref: LineRef = { side, line }
-          const picked = isPicked(picks, block.index, ref)
-          const pos = pickPosition(picks, block.index, ref)
-          return (
-            <div key={line} className={cn("flex min-w-max items-start", CV_ROW, picked && PICKED_TINT[side])}>
-              {lineButton(ref, picked)}
-              {/* the 1-based click-order position: what makes "output order = click order" legible */}
-              <span className="w-4 shrink-0 text-right text-[0.625rem] leading-normal text-muted-foreground tabular-nums">
-                {pos}
-              </span>
-              <pre className={cn("flex-1 px-1.5 whitespace-pre", MONO, !picked && "opacity-55")}>
-                <CodeLine text={l} tokens={tokens?.[start + line]} />
-              </pre>
-            </div>
-          )
-        })}
+        {/* `w-max min-w-full` (cf. wt-diff-body SCROLL_ROWS): rows stretch to the widest line
+            so the picked tint follows the horizontal scroll instead of stopping at the pane
+            edge on shorter lines. */}
+        <div className="w-max min-w-full">
+          {lines.map((l, line) => {
+            const ref: LineRef = { side, line }
+            const picked = isPicked(picks, block.index, ref)
+            const pos = pickPosition(picks, block.index, ref)
+            return (
+              <div key={line} className={cn("flex items-start", CV_ROW, picked && PICKED_TINT[side])}>
+                {lineButton(ref, picked)}
+                {/* the 1-based click-order position: what makes "output order = click order" legible */}
+                <span className="w-4 shrink-0 text-right text-[0.625rem] leading-normal text-muted-foreground tabular-nums">
+                  {pos}
+                </span>
+                <pre className={cn("flex-1 px-1.5 whitespace-pre", MONO, !picked && "opacity-55")}>
+                  <CodeLine text={l} tokens={tokens?.[start + line]} />
+                </pre>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

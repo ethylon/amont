@@ -159,6 +159,12 @@ function renderRaw(body: HTMLElement, text: string, totalLines: number) {
   const lines = text.split("\n")
   body.textContent = ""
   body.className = DIFF_BODY + " bg-muted py-1.5"
+  /* `w-max min-w-full` (cf. wt-diff-body SCROLL_ROWS): every row stretches to the widest
+     line, so the add/del tints span the whole scroll width instead of stopping at the pane
+     edge on the shorter lines once scrolled sideways. */
+  const rows = document.createElement("div")
+  rows.className = "w-max min-w-full"
+  body.appendChild(rows)
   lines.slice(0, DIFF_MAX_LINES).forEach((l) => {
     const kind = /^(diff |index |new file|deleted file|similarity|rename |--- |\+\+\+ )/.test(l)
       ? "meta"
@@ -170,33 +176,62 @@ function renderRaw(body: HTMLElement, text: string, totalLines: number) {
             ? "del"
             : "ctx"
     const d = document.createElement("div")
-    d.className = "min-w-max px-2 whitespace-pre " + RAW_CLASS[kind]
+    d.className = "px-2 whitespace-pre " + RAW_CLASS[kind]
     d.textContent = l || " "
-    body.appendChild(d)
+    rows.appendChild(d)
   })
   if (totalLines > DIFF_MAX_LINES) {
     const more = document.createElement("div")
-    more.className = "min-w-max px-2 text-muted-foreground"
+    more.className = "px-2 text-muted-foreground"
     more.textContent = messages.diff.truncated((totalLines - DIFF_MAX_LINES).toLocaleString())
-    body.appendChild(more)
+    rows.appendChild(more)
   }
 }
 
-/* Side by side: d2h gives each pane its own `overflow-x`. The two facing lines
-   only stay aligned if both scrollbars advance together. */
+/* Side by side: d2h gives each pane its own `overflow-x`. The two facing lines only stay
+   aligned if the panes advance together — and the panes' native scrollbars sit at the bottom
+   of the whole file render, below the fold for anything taller than the pane, so they are
+   hidden and replaced by one shared bar stuck to the body's bottom edge (same construction
+   as wt-diff-body's SyncedColumns: the spacer sizes the bar's range to the widest pane's,
+   keeping the plain scrollLeft mirroring exact). */
 function syncSides(body: HTMLElement) {
   const sides = [...body.querySelectorAll<HTMLElement>(".d2h-file-side-diff")]
   if (sides.length < 2) return
+  for (const s of sides) s.style.scrollbarWidth = "none"
+  const bar = document.createElement("div")
+  bar.className = "sticky bottom-0 z-10 overflow-x-auto bg-background"
+  /* 1px tall, not 0: Chromium leaves a zero-height box out of the scrollable overflow,
+     which would zero the bar's range */
+  const spacer = document.createElement("div")
+  spacer.className = "h-px"
+  bar.appendChild(spacer)
+  body.appendChild(bar)
+  const fit = () => {
+    const range = Math.max(0, ...sides.map((s) => s.scrollWidth - s.clientWidth))
+    bar.style.display = range > 0 ? "" : "none"
+    spacer.style.width = `calc(100% + ${range}px)`
+  }
+  const ro = new ResizeObserver(fit)
+  for (const s of sides) {
+    ro.observe(s)
+    if (s.firstElementChild) ro.observe(s.firstElementChild)
+  }
+  fit()
+  const scrollers = [...sides, bar]
   let echo = false
   const onScroll = (ev: Event) => {
     if (echo) return
     echo = true
     const src = ev.currentTarget as HTMLElement
-    for (const s of sides) if (s !== src) s.scrollLeft = src.scrollLeft
+    for (const s of scrollers) if (s !== src) s.scrollLeft = src.scrollLeft
     requestAnimationFrame(() => (echo = false))
   }
-  sides.forEach((s) => s.addEventListener("scroll", onScroll))
-  return () => sides.forEach((s) => s.removeEventListener("scroll", onScroll))
+  scrollers.forEach((s) => s.addEventListener("scroll", onScroll))
+  return () => {
+    ro.disconnect()
+    bar.remove()
+    scrollers.forEach((s) => s.removeEventListener("scroll", onScroll))
+  }
 }
 
 type Props = {
