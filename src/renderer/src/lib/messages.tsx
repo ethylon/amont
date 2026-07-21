@@ -590,6 +590,24 @@ export const messages = {
       staged ? `${verb} · ${plural(staged, { one: "# file", other: "# files" })}` : verb,
   },
 
+  /* remote-ahead banner (features/repo/remote-ahead-banner.tsx): a push refused because the
+     remote branch has commits the local one doesn't */
+  remoteAhead: {
+    get banner() {
+      return t`The remote branch is ahead`
+    },
+    commitsBehind: (n: number) => plural(n, { one: "# commit to integrate", other: "# commits to integrate" }),
+    get pullFf() {
+      return t`Pull (fast-forward)`
+    },
+    get forcePush() {
+      return t`Force push`
+    },
+    get cancel() {
+      return t`Cancel`
+    },
+  },
+
   conflict: {
     get conflicts() {
       return t`Conflicts`

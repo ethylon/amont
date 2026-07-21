@@ -110,6 +110,9 @@ export interface RepoStoreState {
     /** "create a release from these branches" modal (sidebar selection menu) — `branches`
         keeps the selection order, which seeds the merge order */
     releaseCreate: { branches: string[] } | null
+    /** a push was refused because the remote branch is ahead (`git:op` error REMOTE_AHEAD):
+        the banner offers the ways out — fast-forward pull, force push, or cancel */
+    remoteAhead: { behind: number } | null
   }
   /** ordered merge queue (release composition) — see MergeQueue */
   mergeQueue: MergeQueue | null
@@ -161,6 +164,12 @@ export interface RepoStoreState {
   closeWorktreeCreate(): void
   openReleaseCreate(branches: string[]): void
   closeReleaseCreate(): void
+  openRemoteAhead(behind: number): void
+  closeRemoteAhead(): void
+  /** the banner's way out: `pull --ff` (integrate the remote's commits, merging if diverged)
+      or `push --force-with-lease` (overwrite them). Resolves when the op settles — feedback
+      travels on the usual `git:op` events (footer spinner, badge on failure). */
+  resolveRemoteAhead(choice: "pull" | "force"): Promise<void>
   /** arms the merge queue on `target` with `branches`, in order (replaces any previous queue) */
   armMergeQueue(target: string, branches: string[]): void
   /** drops the queue (remaining merges only — the release itself is untouched) */
@@ -304,6 +313,7 @@ export function createRepoStore(
       branchCreate: null,
       worktreeCreate: null,
       releaseCreate: null,
+      remoteAhead: null,
     },
     mergeQueue: null,
     ops: { busyOp: null, opState: null, opProgress: null, queue: { running: null, pending: [] }, flowBusy: false },
@@ -535,6 +545,19 @@ export function createRepoStore(
     openReleaseCreate(branches) {
       if (!branches.length) return
       set((s) => ({ ui: { ...s.ui, releaseCreate: { branches } } }))
+    },
+    openRemoteAhead(behind) {
+      set((s) => ({ ui: { ...s.ui, remoteAhead: { behind } } }))
+    },
+    closeRemoteAhead() {
+      set((s) => ({ ui: { ...s.ui, remoteAhead: null } }))
+    },
+    async resolveRemoteAhead(choice) {
+      /* close before running: the op's own feedback takes over (footer, badges), and a pull
+         that leaves the remote still ahead would re-raise the banner on the next push anyway */
+      set((s) => ({ ui: { ...s.ui, remoteAhead: null } }))
+      if (choice === "pull") await api.op("pull", "ff")
+      else await api.op("push", "force")
     },
     closeReleaseCreate() {
       set((s) => ({ ui: { ...s.ui, releaseCreate: null } }))
@@ -1051,8 +1074,14 @@ export function useRepoEvents(active: boolean): void {
         if (p.state === "start") return
         if (p.state === "error") {
           await queryClient.invalidateQueries({ queryKey: queryKeys.status(repoId) })
+          /* a push refused because the remote is ahead isn't a dead end: the banner takes it
+             (fast-forward pull / force push / cancel) instead of the danger badge */
+          if (p.op === "push" && p.code === "REMOTE_AHEAD") return s.openRemoteAhead(parseInt(p.detail ?? "", 10) || 0)
           return s.showOp(describePayload(p), "danger")
         }
+        /* a pull or push that went through leaves any remote-ahead banner without a subject
+           (a toolbar pull the user ran instead of the banner's own buttons, say) */
+        if (s.ui.remoteAhead && (p.op === "pull" || p.op === "push")) s.closeRemoteAhead()
         invalidateRepo(queryClient, repoId)
         /* Rien n'a bougé (push/pull « up to date », fetch sans nouveauté) : le graph est déjà
            juste, recharger ne ferait que secouer scroll et sélection pour rien. */

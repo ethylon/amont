@@ -216,9 +216,12 @@ export function registerIpc(): void {
 
   /* --- Repo: operations, id as first argument --- */
 
-  handle("repo:op", (_ev, id, name) => {
+  handle("repo:op", (_ev, id, name, variant) => {
     if (!ops.isOpName(name)) throw new AppError("BAD_ARG", "name")
-    return ops.runOp(repos.use(id), name)
+    /* only the two pairs the remote-ahead banner sends: a variant on the wrong op is garbage */
+    if (variant !== undefined && !((name === "push" && variant === "force") || (name === "pull" && variant === "ff")))
+      throw new AppError("BAD_ARG", "variant")
+    return ops.runOp(repos.use(id), name, false, variant)
   })
 
   handle("repo:status", (_ev, id) => queries.repoStatus(repos.use(id)))

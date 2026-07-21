@@ -104,6 +104,54 @@ describe("runOp argv: the settings-driven flags at their defaults", () => {
   })
 })
 
+/* The remote-ahead interception (banner flow): a plain push first probes the tracking ref,
+   and a remote holding commits HEAD doesn't have raises REMOTE_AHEAD without running any
+   push — the renderer's banner then offers `pull --ff`, `push --force-with-lease`, or
+   nothing. The two variants are the banner's buttons; they must not re-probe (force exists
+   to override exactly that state) nor drift from the commands the banner displays. */
+describe("runOp push: the remote-ahead probe and the banner's variant commands", () => {
+  const PROBE = ["rev-list", "--count", "HEAD..@{upstream}"]
+
+  it("remote ahead: REMOTE_AHEAD on the event channel, no push run", async () => {
+    const { r, calls, events } = fakeMutRepo({ "rev-list": "2" })
+    await runOp(r, "push")
+    assert.deepEqual(calls, [PROBE])
+    assert.deepEqual(events.at(-1), { op: "push", state: "error", auto: false, code: "REMOTE_AHEAD", detail: "2" })
+  })
+
+  it("remote not ahead: the probe stays silent and the push goes through", async () => {
+    const { r, calls, events } = fakeMutRepo({ "rev-list": "0" })
+    await runOp(r, "push")
+    assert.deepEqual(calls[0], PROBE)
+    assert.deepEqual(calls[2], ["push", "--progress"])
+    assert.equal(events.at(-1)?.state, "done")
+  })
+
+  it("no upstream: the failed probe reads as not ahead — git gets to say its own piece", async () => {
+    const { r, calls, events } = fakeMutRepo()
+    r.git = (args: string[]) => {
+      calls.push(args)
+      return args[0] === "rev-list" ? Promise.reject(new Error("no upstream")) : Promise.resolve("")
+    }
+    await runOp(r, "push")
+    assert.deepEqual(calls[2], ["push", "--progress"])
+    assert.equal(events.at(-1)?.state, "done")
+  })
+
+  it("force push skips the probe and carries --force-with-lease", async () => {
+    const { r, calls } = fakeMutRepo({ "rev-list": "2" })
+    await runOp(r, "push", false, "force")
+    assert.deepEqual(calls[1], ["push", "--force-with-lease", "--progress"])
+    assert.ok(!calls.some((c) => c[2] === "HEAD..@{upstream}"))
+  })
+
+  it("the banner's pull overrides the configured integration mode with --ff", async () => {
+    const { r, calls } = fakeMutRepo()
+    await runOp(r, "pull", false, "ff")
+    assert.deepEqual(calls[1], ["pull", "--ff", "--progress"])
+  })
+})
+
 /* --- Commit-anchored ops and remote-side deletions (graph/sidebar context menus) ---
    The fake records every git argv: the assertions pin the exact commands, which is where
    the option-injection guards (BRANCH/HASH validation) and the `-m 1` / `refs/tags/` details
@@ -111,6 +159,7 @@ describe("runOp argv: the settings-driven flags at their defaults", () => {
    the parent count). */
 function fakeMutRepo(replies: Record<string, string> = {}) {
   const calls: string[][] = []
+  const events: Emitted[] = []
   const r = {
     running: null as string | null,
     muted: 0,
@@ -119,13 +168,13 @@ function fakeMutRepo(replies: Record<string, string> = {}) {
     pending: [] as string[],
     lockCount: 0,
     lockTail: Promise.resolve(),
-    events: { op: () => {}, trace: () => {}, queue: () => {} },
+    events: { op: (p: Emitted) => events.push(p), trace: () => {}, queue: () => {} },
     git: (args: string[]) => {
       calls.push(args)
       return Promise.resolve(replies[args[0]] ?? "")
     },
   }
-  return { r: r as unknown as RepoHandle, calls }
+  return { r: r as unknown as RepoHandle, calls, events }
 }
 
 const SHA = "a".repeat(40)

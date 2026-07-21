@@ -22,6 +22,7 @@ import { FlowBanner, FlowCard } from "@/features/flow/flow-context"
 import { FlowStartBanner } from "@/features/flow/flow-start-banner"
 import { MergeQueueBanner } from "@/features/flow/merge-queue-banner"
 import { BranchCreateBanner, WorktreeCreateBanner } from "@/features/repo/create-banners"
+import { RemoteAheadBanner } from "@/features/repo/remote-ahead-banner"
 import { repoHealth } from "@/features/maintenance/health"
 import { useRepoMenuTools } from "@/features/repo/use-repo-menu-tools"
 import type { RepoCommandEnvelope } from "@/features/repo/repo-commands"
@@ -294,6 +295,10 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
           {/* conflict mode first, above the flow strips: an in-progress merge/rebase/… is the
               state everything else waits on, and the banner carries its way out (abort) */}
           <ConflictBanner />
+
+          {/* a push refused because the remote branch is ahead: the strip proposes the ways
+              out (fast-forward pull / force push / cancel) — cf. remote-ahead-banner.tsx */}
+          <RemoteAheadBanner />
 
           {flowStart && (
             <FlowStartBanner

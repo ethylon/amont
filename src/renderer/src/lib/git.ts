@@ -28,6 +28,7 @@ export type {
   MergeState,
   OpEvent,
   OpName,
+  OpVariant,
   OpenResult,
   ProgressEvent,
   QueueEvent,
@@ -70,6 +71,7 @@ import type {
   MergePreview,
   MergeState,
   OpName,
+  OpVariant,
   ResetMode,
   Stash,
   StashAct,
@@ -177,7 +179,9 @@ export type RepoApi = {
   /** raw bytes of one side of a binary path (image preview); `null` if absent on that side */
   blob(path: string, ref: BlobRef): Promise<BlobData | null>
   status(): Promise<Status>
-  op(name: OpName): Promise<void>
+  /** `variant`: the remote-ahead banner's one-shot override (`push --force-with-lease`,
+      `pull --ff`) — plain ops never pass one */
+  op(name: OpName, variant?: OpVariant): Promise<void>
   worktree(): Promise<Worktree>
   wtdiff(path: string, source: WtSource): Promise<DiffText>
   stage(paths: string[]): Promise<void>
@@ -265,7 +269,7 @@ export const repoApi = (id: number): RepoApi => ({
   diff: (hash, parent, path, oldPath, requestId) => bridge.diff(id, hash, parent, path, oldPath, requestId),
   blob: (path, ref) => bridge.blob(id, path, ref),
   status: () => bridge.status(id),
-  op: (name) => bridge.op(id, name),
+  op: (name, variant) => bridge.op(id, name, variant),
   worktree: () => bridge.worktree(id),
   wtdiff: (path, source) => bridge.wtdiff(id, path, source),
   stage: (paths) => bridge.stage(id, paths),
