@@ -26,6 +26,10 @@ export type Commit = {
   /** raw refs from `%D --decorate=full`: "HEAD -> refs/heads/develop, tag: refs/tags/v4.2.0" */
   r: string
   s: string
+  /** one-line description distilled from the body (cf. main/git/parse.ts commitDescription):
+      first paragraph flattened, trailer-only blocks dropped, capped — absent when empty.
+      Display-only filler for the graph's subject column. */
+  b?: string
   /** set by the release/hotfix collapse (cf. renderer/features/graph/layout/collapse.ts): this line merges the two merges
       of a version — the master side (absorbed) and the develop side (surviving). */
   cap?: {

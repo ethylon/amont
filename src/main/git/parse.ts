@@ -127,23 +127,48 @@ export function parseStashList(out: string): Stash[] {
    guarantees collisions past a few tens of thousands of commits — the renderer interns
    these SHAs into sequential integer ids at ingestion (cf. features/graph/ids.ts),
    8-character truncation becomes a display-only concern again. */
+
+/* A git trailer line (`Co-Authored-By: x`, `Signed-off-by: y`): the shape git's own
+   interpret-trailers recognizes. Matched per line, only to detect a paragraph made of
+   nothing else — a real sentence starting with `Note: ` shouldn't be censored. */
+const TRAILER = /^[A-Za-z][A-Za-z0-9-]*:\s/
+
+/** One display line out of a raw `%b`: the first paragraph, flattened. The graph row offers
+    a single line of leftover width, so the lead paragraph — the summary by convention — is
+    the whole story; a paragraph that is only trailers (a body reduced to its
+    `Co-Authored-By:` block) says nothing and yields "". Capped: the page result crosses
+    IPC, and a row will never show hundreds of characters anyway. */
+export function commitDescription(body: string): string {
+  const lines = (body.trim().split(/\n\s*\n/)[0] ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+  if (lines.every((l) => TRAILER.test(l))) return "" // covers the empty body too
+  return lines.join(" ").slice(0, 300)
+}
+
 export function parseLogPage(out: string): Commit[] {
-  /* git doesn't filter control bytes out of `%s`: a subject containing our
-     separators would manufacture extra fields (reattached to the subject, since it's last)
-     or lopsided lines (discarded by the field count check). */
+  /* git doesn't filter control bytes out of `%s`/`%b`: a subject containing our separators
+     would manufacture extra fields (reattached to the subject — the body stays last) or
+     lopsided lines (discarded by the field count check). The body's own newlines are safe:
+     records split on RS, never on `\n`. */
   return out
     .split("\x1e")
     .map((row) => row.split("\x1f"))
-    .filter((f) => f.length >= 7)
-    .map((f) => ({
-      h: f[0].trim(),
-      p: f[1].split(" ").filter(Boolean),
-      d: f[2],
-      a: f[3],
-      e: f[4],
-      r: f[5],
-      s: f.slice(6).join(" "),
-    }))
+    .filter((f) => f.length >= 8)
+    .map((f) => {
+      const b = commitDescription(f[f.length - 1])
+      return {
+        h: f[0].trim(),
+        p: f[1].split(" ").filter(Boolean),
+        d: f[2],
+        a: f[3],
+        e: f[4],
+        r: f[5],
+        s: f.slice(6, -1).join(" "),
+        ...(b && { b }),
+      }
+    })
 }
 
 /* --- Ordered hash list (log pagination) ---

@@ -7,6 +7,7 @@ import { describe, it } from "vitest"
 import {
   BRANCH,
   classifyGitFailure,
+  commitDescription,
   computeNextTag,
   flowInitConfigArgs,
   flowVersionSuffix,
@@ -139,24 +140,29 @@ describe("parseNameStatus (--name-status -z, fix B3)", () => {
 })
 
 describe("parseLogPage (RS/US-delimited log page)", () => {
-  /** one commit row: hash, parents, date, author, email, refs, subject… */
+  /** one commit row: hash, parents, date, author, email, refs, subject…, body */
   const row = (fields: string[]) => fields.join(US)
 
   it("returns an empty array for empty output", () => {
     assert.deepEqual(parseLogPage(""), [])
   })
 
-  it("parses a commit's seven fields into the Commit shape", () => {
-    const out = row(["abc123", "p1 p2", "2026-01-01", "Ada", "ada@x.io", "HEAD -> main", "init"])
+  it("parses a commit's eight fields into the Commit shape (empty body: no `b` key)", () => {
+    const out = row(["abc123", "p1 p2", "2026-01-01", "Ada", "ada@x.io", "HEAD -> main", "init", ""])
     assert.deepEqual(parseLogPage(out), [
       { h: "abc123", p: ["p1", "p2"], d: "2026-01-01", a: "Ada", e: "ada@x.io", r: "HEAD -> main", s: "init" },
     ])
   })
 
+  it("carries the body's first paragraph as the description, flattened", () => {
+    const out = row(["h", "", "d", "A", "a@x", "", "subject", "the why\nof it\n\ndetails ignored\n"])
+    assert.equal(parseLogPage(out)[0].b, "the why of it")
+  })
+
   it("splits multiple commits on the record separator and trims the hash", () => {
     const out = [
-      row([" h1 ", "", "d1", "A", "a@x", "", "first"]),
-      row(["h2", "h1", "d2", "B", "b@x", "", "second"]),
+      row([" h1 ", "", "d1", "A", "a@x", "", "first", ""]),
+      row(["h2", "h1", "d2", "B", "b@x", "", "second", ""]),
     ].join(RS)
     const commits = parseLogPage(out)
     assert.equal(commits.length, 2)
@@ -167,17 +173,37 @@ describe("parseLogPage (RS/US-delimited log page)", () => {
 
   it("reattaches a subject that itself contains a field separator, joined by a space", () => {
     // git doesn't filter control bytes out of %s: the extra fields fold back into the subject
-    // (slice(6).join(" ")), the stray separator surfacing as a space rather than shattering the row
-    const out = row(["h", "", "d", "A", "a@x", "", "sub", "ject"])
+    // (slice(6, -1).join(" ") — the body stays last), the stray separator surfacing as a space
+    // rather than shattering the row
+    const out = row(["h", "", "d", "A", "a@x", "", "sub", "ject", ""])
     assert.equal(parseLogPage(out)[0].s, "sub ject")
   })
 
   it("discards a row with too few fields (a subject-forged short line)", () => {
-    const out = [row(["h", "", "d", "A", "a@x", "", "ok"]), "not enough fields"].join(RS)
+    const out = [row(["h", "", "d", "A", "a@x", "", "ok", ""]), "not enough fields"].join(RS)
     assert.deepEqual(
       parseLogPage(out).map((c) => c.h),
       ["h"]
     )
+  })
+})
+
+describe("commitDescription (%b → one display line)", () => {
+  it("returns empty for an empty or whitespace body", () => {
+    assert.equal(commitDescription(""), "")
+    assert.equal(commitDescription("\n \n"), "")
+  })
+
+  it("yields nothing for a body that is only a trailer block", () => {
+    assert.equal(commitDescription("Co-Authored-By: A <a@x>\nSigned-off-by: B <b@x>\n"), "")
+  })
+
+  it("keeps a paragraph where trailer-shaped lines mingle with prose", () => {
+    assert.equal(commitDescription("Note: fragile area\nsee the audit"), "Note: fragile area see the audit")
+  })
+
+  it("caps a runaway body at 300 characters", () => {
+    assert.equal(commitDescription("x".repeat(500)).length, 300)
   })
 })
 

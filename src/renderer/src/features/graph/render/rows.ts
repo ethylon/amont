@@ -374,6 +374,19 @@ export function rowDiv(
     s.title = c.s
     subj.appendChild(s)
   }
+  /* Commit description (first body paragraph, cf. main/git/parse.ts commitDescription), muted
+     after the subject. `flex-1` with a 0 basis: it only ever fills the column's leftover width —
+     the subject keeps its natural size, the row can't grow wider, and a tight column clips it
+     to nothing. A plain span, deliberately not a scrollText: purely decorative, it neither
+     scrolls on hover nor joins `rowLabel` (the subject alone is the commit's name). A capsule
+     or stash row has no room for it — their subject is already a composed phrase. */
+  if (c.b && !c.cap && !c.stash) {
+    const desc = document.createElement("span")
+    desc.className = "min-w-0 flex-1 truncate text-muted-foreground"
+    desc.textContent = c.b
+    desc.setAttribute("aria-hidden", "true")
+    subj.appendChild(desc)
+  }
   /* Open-worktree action at the end of the message column: hidden until the row is hovered or
      holds the keyboard cursor (`.amont-wtopen`, cf. app.css). `c.wt` only ever carries linked
      worktrees (the main tree is filtered out at ingestion, cf. data/loader.ts), so the button
