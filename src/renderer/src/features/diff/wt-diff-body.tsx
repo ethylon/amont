@@ -20,7 +20,7 @@
    pointer-events rule keyed on the container's aria-busy (the UX guard), so no per-line
    button ever receives a changing `busy` prop. */
 
-import { memo, useCallback, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { ArrowTurnBackwardIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons"
 
@@ -57,6 +57,11 @@ const BTN_CLS = "my-px ms-0.5 size-4 shrink-0 opacity-50 hover:opacity-100 focus
    size keeps scrollbars honest before a row's real size is remembered — 18px is one
    text-xs/leading-normal mono line (audit §13, the cheap 80% of virtualization). */
 const CV_ROW = "[content-visibility:auto] [contain-intrinsic-size:auto_18px]"
+/* Wraps the rows of one horizontal scroller: sized to the widest row (`w-max`), never narrower
+   than the scrollport (`min-w-full`). Every row then stretches to the full scroll width, so its
+   tint follows the horizontal scroll — sized on its own (block width = scrollport width), a
+   short row's background would stop at the pane edge and longer lines would scroll past it. */
+const SCROLL_ROWS = "w-max min-w-full"
 
 type Props = {
   api: RepoApi
@@ -147,24 +152,32 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
        this component structure exists to avoid. Keyboard activation slips past pointer-events,
        but `run`'s ref guard makes a second submission a no-op either way. */
     <div
-      className="min-h-0 flex-auto overflow-y-auto rounded-md border [&[aria-busy=true]_button]:pointer-events-none"
+      className="@container min-h-0 flex-auto overflow-auto rounded-md border [&[aria-busy=true]_button]:pointer-events-none"
       aria-busy={busy}
     >
-      {parsed.hunks.map((h, hi) => (
-        <HunkSection
-          key={hi}
-          h={h}
-          hi={hi}
-          rows={splitRows?.[hi] ?? null}
-          view={view}
-          dir={dir}
-          canDiscard={canDiscard}
-          parsed={parsed}
-          tokensAt={tokensAt}
-          onStage={stage}
-          onDiscard={discard}
-        />
-      ))}
+      {/* Unified: the container scrolls BOTH axes, so the one horizontal scrollbar sits on the
+          pane's bottom edge — always in view — instead of at the bottom of each hunk, below the
+          fold for anything taller than the pane; all hunks advance together. The SCROLL_ROWS
+          wrapper spans every hunk so all rows share the global widest line (per-hunk widths
+          would leave a shorter hunk's tints ragged against a longer neighbour's scroll width).
+          Side-by-side: the panes clip their own overflow, nothing overflows this wrapper. */}
+      <div className={view === "unified" ? SCROLL_ROWS : undefined}>
+        {parsed.hunks.map((h, hi) => (
+          <HunkSection
+            key={hi}
+            h={h}
+            hi={hi}
+            rows={splitRows?.[hi] ?? null}
+            view={view}
+            dir={dir}
+            canDiscard={canDiscard}
+            parsed={parsed}
+            tokensAt={tokensAt}
+            onStage={stage}
+            onDiscard={discard}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -230,9 +243,15 @@ const HunkSection = memo(function HunkSection({
     </>
   )
 
+  /* `sticky left-0 w-[100cqw]`: pinned to the scrollport (100cqw = the @container root's inner
+     width) so the header and its actions never leave view while the unified body scrolls
+     sideways; inert in side-by-side, where nothing overflows at this level. */
   const header = (
     <div
-      className={cn("flex items-center justify-between gap-2 border-b bg-muted/60 px-2 py-0.5", hi > 0 && "border-t")}
+      className={cn(
+        "sticky left-0 flex w-[100cqw] items-center justify-between gap-2 border-b bg-muted/60 px-2 py-0.5",
+        hi > 0 && "border-t"
+      )}
     >
       <span className={cn("truncate text-[0.625rem] text-muted-foreground", MONO)}>{h.header}</span>
       <span className="flex shrink-0 items-center gap-1">
@@ -258,18 +277,20 @@ const HunkSection = memo(function HunkSection({
     </div>
   )
 
+  /* No scroller of its own: the rows live in the body-wide SCROLL_ROWS wrapper (cf. WtDiffBody)
+     and stretch to it, tints covering the whole scroll width. */
   const unifiedBody = () => {
     let oldNo = h.oldStart
     let newNo = h.newStart
     return (
-      <div className="min-w-0 overflow-x-auto">
+      <div>
         {h.lines.map((l, li) => {
           const no = {
             old: l.kind === "add" ? null : oldNo++,
             new: l.kind === "del" ? null : newNo++,
           }
           return (
-            <div key={li} className={cn("flex min-w-max items-start", CV_ROW, TINT[l.kind])}>
+            <div key={li} className={cn("flex items-start", CV_ROW, TINT[l.kind])}>
               {l.kind === "ctx" ? gutterBlanks() : lineButtons(li)}
               <span className={LINE_NO}>{no.old}</span>
               <span className={LINE_NO}>{no.new}</span>
@@ -287,7 +308,7 @@ const HunkSection = memo(function HunkSection({
     /* blank filler opposite an unpaired line: no number, hatched-quiet background */
     if (!cell)
       return (
-        <div className={cn("flex min-w-max items-start bg-muted/30", CV_ROW)}>
+        <div className={cn("flex items-start bg-muted/30", CV_ROW)}>
           {gutterBlanks()}
           <span className={LINE_NO} />
           <pre className={cn("flex-1 px-1.5 whitespace-pre", MONO)}> </pre>
@@ -295,7 +316,7 @@ const HunkSection = memo(function HunkSection({
       )
     const { at, line, no } = cell
     return (
-      <div className={cn("flex min-w-max items-start", CV_ROW, TINT[line.kind])}>
+      <div className={cn("flex items-start", CV_ROW, TINT[line.kind])}>
         {line.kind === actioned ? lineButtons(at) : gutterBlanks()}
         <span className={LINE_NO}>{no}</span>
         <pre className={cn("flex-1 px-1.5 whitespace-pre", MONO)}>
@@ -305,17 +326,19 @@ const HunkSection = memo(function HunkSection({
     )
   }
 
+  /* SCROLL_ROWS per pane: each side is its own scroller, so its rows only need to agree on
+     that pane's widest line for the tints to span its scroll width. */
   const splitBody = (rows: SideRow[]) => (
     <SyncedColumns
       old={
-        <div>
+        <div className={SCROLL_ROWS}>
           {rows.map((r, i) => (
             <div key={i}>{sideCell(r.old, "del")}</div>
           ))}
         </div>
       }
       neu={
-        <div>
+        <div className={SCROLL_ROWS}>
           {rows.map((r, i) => (
             <div key={i}>{sideCell(r.new, "add")}</div>
           ))}
@@ -332,29 +355,63 @@ const HunkSection = memo(function HunkSection({
   )
 })
 
-/* Two half-width panes whose horizontal scrollbars advance together — same policy as
+/* Two half-width panes whose horizontal scrolling advances together — same policy as
    diff-view's syncSides for the diff2html render; rows stay facing each other because every
-   line renders at the same height on both sides. */
+   line renders at the same height on both sides.
+
+   The panes' native scrollbars are hidden: they would sit at the bottom of the whole hunk,
+   below the fold for anything taller than the pane. One shared bar — `sticky bottom-0`, so it
+   pins to the pane's bottom edge while the hunk crosses it — scrolls both panes instead. Its
+   spacer is sized so the bar's range equals the widest pane's (100% + range), which keeps the
+   plain scrollLeft mirroring exact; `range` is remeasured when a pane or its rows resize
+   (window resize, content-visibility rendering rows in, shiki arriving) and the bar only
+   exists while something actually overflows. */
 function SyncedColumns({ old, neu }: { old: React.ReactNode; neu: React.ReactNode }) {
   const oldRef = useRef<HTMLDivElement>(null)
   const newRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
   const echo = useRef(false)
+  const [range, setRange] = useState(0)
+  useLayoutEffect(() => {
+    const panes = [oldRef.current, newRef.current].filter((p) => p !== null)
+    const measure = () => setRange(Math.max(0, ...panes.map((p) => p.scrollWidth - p.clientWidth)))
+    const ro = new ResizeObserver(measure)
+    for (const p of panes) {
+      ro.observe(p)
+      if (p.firstElementChild) ro.observe(p.firstElementChild)
+    }
+    measure()
+    return () => ro.disconnect()
+  }, [])
   const onScroll = (ev: React.UIEvent<HTMLDivElement>) => {
     if (echo.current) return
     echo.current = true
     const src = ev.currentTarget
-    const other = src === oldRef.current ? newRef.current : oldRef.current
-    if (other) other.scrollLeft = src.scrollLeft
+    for (const el of [oldRef.current, newRef.current, barRef.current])
+      if (el && el !== src) el.scrollLeft = src.scrollLeft
     requestAnimationFrame(() => (echo.current = false))
   }
   return (
-    <div className="flex">
-      <div ref={oldRef} onScroll={onScroll} className="min-w-0 flex-1 overflow-x-auto border-e">
-        {old}
+    <div>
+      <div className="flex">
+        <div
+          ref={oldRef}
+          onScroll={onScroll}
+          className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] border-e"
+        >
+          {old}
+        </div>
+        <div ref={newRef} onScroll={onScroll} className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]">
+          {neu}
+        </div>
       </div>
-      <div ref={newRef} onScroll={onScroll} className="min-w-0 flex-1 overflow-x-auto">
-        {neu}
-      </div>
+      {range > 0 && (
+        <div ref={barRef} onScroll={onScroll} className="sticky bottom-0 z-10 overflow-x-auto bg-background">
+          {/* 1px tall, not 0: Chromium leaves a zero-height box out of the scrollable
+              overflow, which would zero the bar's range */}
+          <div aria-hidden className="h-px" style={{ width: `calc(100% + ${range}px)` }} />
+        </div>
+      )}
     </div>
   )
 }
