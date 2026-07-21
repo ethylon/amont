@@ -335,10 +335,14 @@ export type ChangeEvent = { id: number }
     toolbar greys a network op already running or waiting. */
 export type QueueEvent = { id: number; running: string | null; pending: string[] }
 
-/** A console line: operation header, launched command, stderr output, or outcome. */
+/** A console line: operation header, launched command, stderr output, or outcome. `seq`
+    numbers each command within its repo's runner (git/exec.ts): parallel reads interleave
+    their lines, and the console needs it to pin an exit back onto its own cmd rather than
+    onto whatever line happens to sit above. Optional on `out`/`exit` — lines emitted outside
+    the runner (console.ts builtin output, maintenance logs) carry none. */
 export type TraceLine = { id: number } & (
   | { kind: "group"; text: string; ts: number }
-  | { kind: "cmd"; text: string }
-  | { kind: "out"; text: string }
-  | { kind: "exit"; ok: boolean; ms: number }
+  | { kind: "cmd"; text: string; seq: number }
+  | { kind: "out"; text: string; seq?: number }
+  | { kind: "exit"; ok: boolean; ms: number; seq?: number }
 )

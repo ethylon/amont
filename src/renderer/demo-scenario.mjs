@@ -401,12 +401,15 @@ export function formatPriceParts(cents: number): { units: string; decimals: stri
     }
   };
   const emitTrace = (line) => onTraceListeners.forEach((cb) => cb({ id: REPO.id, ...line }));
+  /* per-command seq like the real runner (git/exec.ts): the console joins exit↔cmd on it */
+  let traceSeq = 0;
   const simulateFlowCmds = async (cmds, ms = 900) => {
     await new Promise((r) => setTimeout(r, 30));
     for (const text of cmds) {
-      emitTrace({ kind: "cmd", text });
+      const seq = ++traceSeq;
+      emitTrace({ kind: "cmd", text, seq });
       await new Promise((r) => setTimeout(r, ms));
-      emitTrace({ kind: "exit", ok: true, ms });
+      emitTrace({ kind: "exit", ok: true, ms, seq });
     }
   };
 

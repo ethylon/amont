@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { TerminalIcon, Delete02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 
 import { onTrace, repoApi, type TraceLine } from "@/lib/git"
+import { displayOrder, lastFailure } from "@/features/console/trace-lines"
 import { decodeError, describeError } from "@/lib/errors"
 import { messages } from "@/lib/messages"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
@@ -202,20 +203,15 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
   const busy = lines.length > 0 && lines[lines.length - 1].kind !== "exit"
 
   /* last failed command, announced to screen readers (AUDIT.md §8) — independent of
-     whether the panel is open or not, like the status bar's operation feed (opState). */
-  let lastFailure: string | null = null
-  for (let i = lines.length - 1; i >= 0 && lastFailure === null; i--) {
-    const l = lines[i]
-    if (l.kind !== "exit" || l.ok) continue
-    lastFailure = messages.console.aCommand
-    for (let j = i - 1; j >= 0; j--) {
-      const p = lines[j]
-      if (p.kind === "cmd") {
-        lastFailure = p.text
-        break
-      }
-    }
-  }
+     whether the panel is open or not, like the status bar's operation feed (opState).
+     Joined by `seq`, not position: with parallel reads, "the cmd above" is often another
+     command's (trace-lines.ts). */
+  const failure = lastFailure(lines)
+  const failureText = failure ? (failure.cmd ?? messages.console.aCommand) : null
+
+  /* same join for the panel: each ✗ renders under its own command, not under whichever
+     line the interleaving left on top of it */
+  const display = useMemo(() => displayOrder(lines), [lines])
 
   /* what the feed says: the arbitrated entry when one is active, the live console line otherwise */
   const tone = entry?.tone ?? (busy ? "busy" : "neutral")
@@ -224,7 +220,7 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
   return (
     <div className="flex min-w-0 items-center gap-1">
       <span aria-live="polite" className="sr-only">
-        {lastFailure ? messages.console.commandFailed(lastFailure) : ""}
+        {failureText ? messages.console.commandFailed(failureText) : ""}
       </span>
 
       <Popover open={open} onOpenChange={setOpen} modal="trap-focus">
@@ -287,7 +283,7 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
             {lines.length === 0 ? (
               <p className="text-muted-foreground">{messages.console.noCommandsYet}</p>
             ) : (
-              lines.map((l) => <Line key={l.key} line={l} />)
+              display.map((l) => <Line key={l.key} line={l} />)
             )}
           </div>
 
