@@ -15,7 +15,7 @@ import { matchStash, StashSection } from "@/features/stash/stash-section"
 import { useWorktreesQuery } from "@/features/worktrees/worktrees-queries"
 import { matchWorktree, WorktreesSection } from "@/features/worktrees/worktrees-section"
 import { useRepoStore } from "@/features/repo/repo-store"
-import { buildTree, refKey, Tree, useResettableOpen, type Ctx } from "@/features/refs/refs-tree"
+import { buildTree, refKey, Tree, useAutoOpen, type Ctx } from "@/features/refs/refs-tree"
 import { DeleteBranchDialog } from "@/features/refs/delete-branch-dialog"
 import { DeleteRemoteBranchDialog, DeleteTagDialog } from "@/features/refs/delete-remote-dialog"
 import { paintFocusRuns } from "@/features/refs/refs-focus-paint"
@@ -70,7 +70,7 @@ const RefGroupSection = memo(function RefGroupSection({
   /* memo'd component: re-render on a runtime language switch even when no prop moved */
   useLocale()
   const focused = useMemo(() => refs.some((r) => ctx.focusedKeys.has(refKey(r))), [refs, ctx.focusedKeys])
-  const { open, onOpenChange } = useResettableOpen(true, forceOpen, focused)
+  const { open, onOpenChange } = useAutoOpen(true, forceOpen, focused)
 
   return (
     <RefGroup title={title} count={refs.length} open={open} onOpenChange={onOpenChange}>
