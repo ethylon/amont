@@ -220,6 +220,16 @@ export const messages = {
     get mergeParent() {
       return "  " + t`(merge)`
     },
+    get editMessage() {
+      return t`Edit message`
+    },
+    get cancel() {
+      return t`Cancel`
+    },
+    /* non-blocking: the amend stays available — the warning only says what it implies */
+    get pushedWarning() {
+      return t`Already pushed: amending rewrites history — the next push will need to be forced.`
+    },
   },
 
   /* footer feed while a network op runs — the live `--progress` occupant (fetch/pull/push),

@@ -208,6 +208,9 @@ export interface RepoStoreState {
       the git-flow init/start surfaces show it inline and stay open on failure. */
   runFlow(action: () => Promise<void>): Promise<string | null>
   doCommit(): Promise<void>
+  /** `git commit --amend --only` of HEAD's message alone (detail panel's inline edit).
+      Returns the error text (or `null`): the form shows it inline and stays open on failure. */
+  rewordHead(subject: string, description: string): Promise<string | null>
   runStash(action: StashAct, name?: string): Promise<void>
   runBranch(action: BranchAct, name: string): Promise<void>
   /** `git flow <kind> publish` through `runGitAction`, flagging `ops.flowBusy` like finish/start */
@@ -754,6 +757,24 @@ export function createRepoStore(
       /* soft: committing from the staging panel must not eject the user from it — with
          nothing left to commit, RepoView's emptied-tree effect switches views on its own */
       await get().resetAndLoad({ soft: true })
+    },
+
+    async rewordHead(subject, description) {
+      const subj = subject.trim()
+      const body = description.trim()
+      const err = await api.reword(body ? `${subj}\n\n${body}` : subj).then(() => null, describeError)
+      if (err) return err
+      invalidateRepo(queryClient, repoId)
+      /* soft: the edit happens in the side panel, nothing to tear down; the reload's
+         re-resolution drops the selection (the amended hash no longer exists), so re-anchor
+         it on the new HEAD — the panel keeps showing the commit that was just reworded */
+      await get().resetAndLoad({ soft: true })
+      const head = await api.status().then(
+        (s) => s.head,
+        () => null
+      )
+      if (head) await get().graphRef.current?.jumpTo(head)
+      return null
     },
 
     runStash(action, name) {

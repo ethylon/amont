@@ -190,6 +190,8 @@ export type RepoApi = {
   discardPatch(patch: string): Promise<void>
   /** `amend` rewrites the last commit (message, and staged tree if any) instead of creating a new one */
   commit(message: string, amend: boolean): Promise<void>
+  /** rewrites HEAD's message alone (`--amend --only`): the staged tree stays out of the amend */
+  reword(message: string): Promise<void>
   /** subject and body of the last commit, to prefill an amend */
   headMessage(): Promise<CommitMessage>
   /** switches to a local branch; the dirty tree is stashed then reapplied */
@@ -272,6 +274,7 @@ export const repoApi = (id: number): RepoApi => ({
   discard: (paths, untracked) => bridge.discard(id, paths, untracked),
   discardPatch: (patch) => bridge.discardPatch(id, patch),
   commit: (message, amend) => bridge.commit(id, message, amend),
+  reword: (message) => bridge.reword(id, message),
   headMessage: () => bridge.headMessage(id),
   checkout: (name) => bridge.checkout(id, name),
   stashes: () => bridge.stashes(id),
