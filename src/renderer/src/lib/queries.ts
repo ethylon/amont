@@ -39,6 +39,8 @@ export const queryKeys = {
   flowInfoAll: (id: number) => ["flowInfo", id] as const,
   countObjects: (id: number) => ["countObjects", id] as const,
   files: (id: number, hash: string, parent: string | null) => ["files", id, hash, parent] as const,
+  /** file-history walk, anchored on a fixed commit: content-addressed like `files`/`diff` */
+  fileLog: (id: number, from: string, path: string) => ["fileLog", id, from, path] as const,
   body: (id: number, hash: string) => ["body", id, hash] as const,
   diff: (id: number, ctx: DiffCtx, path: string, old: string | null) => ["diff", id, ctx, path, old] as const,
   diffAll: (id: number) => ["diff", id] as const,

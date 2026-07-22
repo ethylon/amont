@@ -1,4 +1,4 @@
-/* Side-by-side pairing of a hunk's lines (wt-diff-body's split view) — pure, testable under
+/* Side-by-side pairing of a hunk's lines (diff-body's split view) — pure, testable under
    Node like diff-parse.ts. Classic alignment: a context line faces itself; inside a change
    block (consecutive dels then adds, git's emission order in a hunk) del[i] faces add[i],
    the longer side's leftover faces a blank cell. */

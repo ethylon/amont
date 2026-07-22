@@ -7,6 +7,7 @@ import type {
   Commit,
   CountObjects,
   FileChange,
+  FileLogEntry,
   FlowInitConfig,
   FlowPrefixes,
   GitRef,
@@ -169,6 +170,35 @@ export function parseLogPage(out: string): Commit[] {
         ...(b && { b }),
       }
     })
+}
+
+/** Parser for `repo:fileLog`'s stream: one record per commit, opened by `%x1e` —
+    `%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%s%x1f`, then (after the newline that closes the format
+    line) the commit's `--name-status -z` block. With `--follow` that block carries exactly one
+    entry: the file itself, under whatever name it bore at that commit — `Rnn NUL old NUL new`
+    across a rename. Same control-byte caveat as parseLogPage: a subject containing our
+    separators is reattached, the name-status block stays last. A record whose block yields no
+    file (out of contract) is dropped. */
+export function parseFileLog(out: string): FileLogEntry[] {
+  const entries: FileLogEntry[] = []
+  for (const row of out.split("\x1e")) {
+    const f = row.split("\x1f")
+    if (f.length < 7) continue
+    const file = parseNameStatus(f[f.length - 1].replace(/^\n/, ""))[0]
+    if (!file) continue
+    entries.push({
+      h: f[0].trim(),
+      parent: f[1].split(" ").filter(Boolean)[0] ?? null,
+      d: f[2],
+      a: f[3],
+      e: f[4],
+      s: f.slice(5, -1).join(" "),
+      st: file.st,
+      path: file.path,
+      old: file.old ?? null,
+    })
+  }
+  return entries
 }
 
 /* --- Ordered hash list (log pagination) ---

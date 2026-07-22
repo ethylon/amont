@@ -363,6 +363,24 @@ export async function cherryPick(r: RepoHandle, hash: string): Promise<void> {
   })
 }
 
+/** `git restore --source=<hash> --worktree -- <path>` (detail panel's "restore from this
+    commit"): the working file goes back to its content at that commit. The index never
+    moves — the restored state shows up as an unstaged change, reviewable before any commit.
+    Overwrites the working copy, so the renderer confirms first, like discard. A path absent
+    from that commit (added later, or deleted there) makes git refuse — surfaced as-is. */
+export async function restoreFromCommit(r: RepoHandle, hash: string, path: string): Promise<void> {
+  if (typeof hash !== "string" || !HASH.test(hash)) throw new AppError("BAD_ARG", "hash")
+  inRepo(r, path) // validates and confines; the git call gets the repo-relative path
+  await withLock(r, "restore", async () => {
+    groupTrace(r, `Restore ${path} @ ${hash.slice(0, 8)}`)
+    try {
+      await r.git(["restore", "--source", hash, "--worktree", "--", path])
+    } finally {
+      mute(r)
+    }
+  })
+}
+
 /* --- Remote-only deletions (context menus of a remote branch / a tag) ---
    Same confirmation policy as deleteBranch: the renderer's dialog carries the intent, main
    only validates and runs. */

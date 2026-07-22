@@ -1,14 +1,21 @@
-/* Interactive working-tree diff: the body DiffView renders instead of diff2html for a
-   staged/unstaged text diff. Same visual grammar as the conflict view's ChunkSide — a header
-   row per hunk, action buttons per changed line, shiki on top — but the action is immediate
-   (the professional convention for staging): each click builds the minimal sub-patch
-   (diff-parse.ts) and applies it, then the worktree and diff caches refresh.
+/* Interactive diff body: what DiffView renders instead of diff2html for any single-file text
+   diff that parses — working-tree sources AND commit↔commit contexts. Same visual grammar as
+   the conflict view's ChunkSide — a header row per hunk, action buttons per changed line,
+   shiki on top — but the action is immediate (the professional convention for staging): each
+   click builds the minimal sub-patch (diff-parse.ts) and applies it, then the worktree and
+   diff caches refresh.
 
    Unstaged view: + stages (`git apply --cached`) and ↩ discards — the same sub-patch built in
    the "unstage" direction, reverse-applied to the working tree (`repo:discardPatch`); the
    unstaged diff's `+` side IS the working file, exactly what `git apply --reverse` matches.
    Staged view: − unstages (`--cached --reverse`), no discard — the change lives in the index,
    the working file carries nothing to throw away.
+   Commit view (a commit's diff, opened from the detail panel or the file-history view): ↩
+   reverts the hunk/line — the same "unstage"-direction sub-patch, reverse-applied to the
+   working tree. The `+` side is the committed content: on a file unchanged since, the patch
+   matches exactly; on one that moved, git tolerates line offsets but refuses a context
+   mismatch cleanly (error badge, tree untouched) rather than guessing. The commit itself is
+   immutable — only the worktree caches refresh.
 
    Renders unified or side-by-side (diff-split.ts pairs the lines); untracked files never
    reach here: without an index entry there is nothing to patch — whole-file staging remains
@@ -63,24 +70,26 @@ const CV_ROW = "[content-visibility:auto] [contain-intrinsic-size:auto_18px]"
    short row's background would stop at the pane edge and longer lines would scroll past it. */
 const SCROLL_ROWS = "w-max min-w-full"
 
+/** What the body acts on: the two index-facing sources, or a commit's immutable diff whose
+    only action is the working-tree revert (cf. header comment). */
+export type DiffBodySource = "staged" | "unstaged" | "commit"
+
 type Props = {
   api: RepoApi
   repoId: number
   path: string
-  source: "staged" | "unstaged"
+  source: DiffBodySource
   parsed: ParsedDiff
   view: DiffViewMode
 }
 
-export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
+export function DiffBody({ api, repoId, path, source, parsed, view }: Props) {
   const dark = useTheme()
   const queryClient = useQueryClient()
   const showOp = useRepoStore((s) => s.showOp)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
   const dir: StageDirection = source === "unstaged" ? "stage" : "unstage"
-  /* discarding only exists on the unstaged side (cf. header comment) */
-  const canDiscard = source === "unstaged"
 
   /* Two documents for the highlighter — old side (ctx + del) and new side (ctx + add) — so
      the grammar sees real code on each side; every diff line remembers which document and
@@ -142,8 +151,9 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
     (patch: string | null) => run(patch, (p) => api.applyPatch(p, dir === "unstage")),
     [run, api, dir]
   )
-  /* built in the "unstage" direction whatever the view: the target is the working file,
-     which matches the unstaged diff's `+` side — what `git apply --reverse` checks against */
+  /* built in the "unstage" direction whatever the view: the target is the working file, which
+     matches the `+` side of both the unstaged diff and a commit's diff (the revert case) —
+     what `git apply --reverse` checks against */
   const discard = useCallback((patch: string | null) => run(patch, (p) => api.discardPatch(p)), [run, api])
 
   return (
@@ -169,8 +179,7 @@ export function WtDiffBody({ api, repoId, path, source, parsed, view }: Props) {
             hi={hi}
             rows={splitRows?.[hi] ?? null}
             view={view}
-            dir={dir}
-            canDiscard={canDiscard}
+            source={source}
             parsed={parsed}
             tokensAt={tokensAt}
             onStage={stage}
@@ -188,8 +197,7 @@ type HunkSectionProps = {
   /** Pre-paired side-by-side rows for this hunk (null in unified view). */
   rows: SideRow[] | null
   view: DiffViewMode
-  dir: StageDirection
-  canDiscard: boolean
+  source: DiffBodySource
   parsed: ParsedDiff
   tokensAt: (hi: number, li: number) => TokenLine | undefined
   onStage: (patch: string | null) => void
@@ -205,8 +213,7 @@ const HunkSection = memo(function HunkSection({
   hi,
   rows,
   view,
-  dir,
-  canDiscard,
+  source,
   parsed,
   tokensAt,
   onStage,
@@ -215,31 +222,40 @@ const HunkSection = memo(function HunkSection({
   /* memo'd with referentially stable props: the localized button labels would freeze in
      the old language on a switch without a direct locale subscription */
   useLocale()
+  const dir: StageDirection = source === "unstaged" ? "stage" : "unstage"
+  /* the reverse-apply button: discard on the unstaged side, revert on a commit's diff —
+     same sub-patch, same target (the working tree), only the vocabulary differs; the staged
+     view has neither (the change lives in the index, the working file carries nothing) */
+  const undo = source === "unstaged" ? "discard" : source === "commit" ? "revert" : null
+  /* a commit's diff never touches the index: no stage/unstage column */
+  const canStage = source !== "commit"
   const lineButtons = (line: number) => (
     <>
-      {canDiscard && (
+      {undo && (
         <IconButton
-          label={messages.diff.discardLine}
+          label={undo === "revert" ? messages.diff.revertLine : messages.diff.discardLine}
           icon={ArrowTurnBackwardIcon}
           size="icon-xs"
           className={cn(BTN_CLS, "text-destructive hover:text-destructive")}
           onClick={() => onDiscard(buildPatch(parsed, hi, new Set([line]), "unstage"))}
         />
       )}
-      <IconButton
-        label={dir === "stage" ? messages.diff.stageLine : messages.diff.unstageLine}
-        icon={dir === "stage" ? PlusSignIcon : MinusSignIcon}
-        size="icon-xs"
-        className={BTN_CLS}
-        onClick={() => onStage(buildPatch(parsed, hi, new Set([line]), dir))}
-      />
+      {canStage && (
+        <IconButton
+          label={dir === "stage" ? messages.diff.stageLine : messages.diff.unstageLine}
+          icon={dir === "stage" ? PlusSignIcon : MinusSignIcon}
+          size="icon-xs"
+          className={BTN_CLS}
+          onClick={() => onStage(buildPatch(parsed, hi, new Set([line]), dir))}
+        />
+      )}
     </>
   )
   /* keeps ctx rows the same height and indent as actioned rows, one blank per button */
   const gutterBlanks = () => (
     <>
-      {canDiscard && <span aria-hidden className="my-px ms-0.5 size-4 shrink-0" />}
-      <span aria-hidden className="my-px ms-0.5 size-4 shrink-0" />
+      {undo && <span aria-hidden className="my-px ms-0.5 size-4 shrink-0" />}
+      {canStage && <span aria-hidden className="my-px ms-0.5 size-4 shrink-0" />}
     </>
   )
 
@@ -255,29 +271,31 @@ const HunkSection = memo(function HunkSection({
     >
       <span className={cn("truncate text-[0.625rem] text-muted-foreground", MONO)}>{h.header}</span>
       <span className="flex shrink-0 items-center gap-1">
-        {canDiscard && (
+        {undo && (
           <Button
             variant="ghost"
             size="sm"
             className="h-auto py-0.5 text-[0.625rem] font-medium text-destructive"
             onClick={() => onDiscard(buildHunkPatch(parsed, hi, "unstage"))}
           >
-            {messages.diff.discardHunk}
+            {undo === "revert" ? messages.diff.revertHunk : messages.diff.discardHunk}
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-auto py-0.5 text-[0.625rem] font-medium"
-          onClick={() => onStage(buildHunkPatch(parsed, hi, dir))}
-        >
-          {dir === "stage" ? messages.diff.stageHunk : messages.diff.unstageHunk}
-        </Button>
+        {canStage && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto py-0.5 text-[0.625rem] font-medium"
+            onClick={() => onStage(buildHunkPatch(parsed, hi, dir))}
+          >
+            {dir === "stage" ? messages.diff.stageHunk : messages.diff.unstageHunk}
+          </Button>
+        )}
       </span>
     </div>
   )
 
-  /* No scroller of its own: the rows live in the body-wide SCROLL_ROWS wrapper (cf. WtDiffBody)
+  /* No scroller of its own: the rows live in the body-wide SCROLL_ROWS wrapper (cf. DiffBody)
      and stretch to it, tints covering the whole scroll width. */
   const unifiedBody = () => {
     let oldNo = h.oldStart

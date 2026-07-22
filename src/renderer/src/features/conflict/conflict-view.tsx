@@ -82,7 +82,7 @@ function ConflictSkeleton() {
 const MONO = "font-mono text-xs leading-normal [tab-size:4]"
 /* Off-screen rows skip layout and paint entirely (`content-visibility: auto`); the intrinsic
    size keeps scrollbars honest before a row's real size is remembered — 18px is one
-   text-xs/leading-normal mono line (same policy as wt-diff-body's diff rows). */
+   text-xs/leading-normal mono line (same policy as diff-body's diff rows). */
 const CV_ROW = "[content-visibility:auto] [contain-intrinsic-size:auto_18px]"
 
 /* How long the output editor waits after the last keystroke before re-tokenizing its whole
@@ -250,7 +250,7 @@ function ChunkSide({
         {lines.length === 0 && ` · ${messages.conflict.deletedOnThisSide}`}
       </label>
       <div className="min-w-0 overflow-x-auto">
-        {/* `w-max min-w-full` (cf. wt-diff-body SCROLL_ROWS): rows stretch to the widest line
+        {/* `w-max min-w-full` (cf. diff-body SCROLL_ROWS): rows stretch to the widest line
             so the picked tint follows the horizontal scroll instead of stopping at the pane
             edge on shorter lines. */}
         <div className="w-max min-w-full">

@@ -15,7 +15,7 @@ import { DIFF_MAX_LINES } from "../../../../shared/diff.ts"
 import type { FileChange, RepoApi } from "@/lib/git"
 import { parseUnifiedDiff } from "@/features/diff/diff-parse"
 import { useDiffQuery } from "@/features/diff/diff-queries"
-import { WtDiffBody } from "@/features/diff/wt-diff-body"
+import { DiffBody, type DiffBodySource } from "@/features/diff/diff-body"
 import { imageExt, isTextImage } from "@/features/diff/image-diff-queries"
 import { ImageDiffView } from "@/features/diff/image-diff-view"
 import { getLangAliases, useLangAliasSig } from "@/lib/customization"
@@ -159,7 +159,7 @@ function renderRaw(body: HTMLElement, text: string, totalLines: number) {
   const lines = text.split("\n")
   body.textContent = ""
   body.className = DIFF_BODY + " bg-muted py-1.5"
-  /* `w-max min-w-full` (cf. wt-diff-body SCROLL_ROWS): every row stretches to the widest
+  /* `w-max min-w-full` (cf. diff-body SCROLL_ROWS): every row stretches to the widest
      line, so the add/del tints span the whole scroll width instead of stopping at the pane
      edge on the shorter lines once scrolled sideways. */
   const rows = document.createElement("div")
@@ -192,7 +192,7 @@ function renderRaw(body: HTMLElement, text: string, totalLines: number) {
    aligned if the panes advance together — and the panes' native scrollbars sit at the bottom
    of the whole file render, below the fold for anything taller than the pane, so they are
    hidden and replaced by one shared bar stuck to the body's bottom edge (same construction
-   as wt-diff-body's SyncedColumns: the spacer sizes the bar's range to the widest pane's,
+   as diff-body's SyncedColumns: the spacer sizes the bar's range to the widest pane's,
    keeping the plain scrollLeft mirroring exact). */
 function syncSides(body: HTMLElement) {
   const sides = [...body.querySelectorAll<HTMLElement>(".d2h-file-side-diff")]
@@ -287,15 +287,16 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
      the raw fallback whether or not its tail actually crossed IPC. Under the cap the payload
      is always complete, so diff2html/shiki still only ever see whole, uncapped diffs. */
 
-  /* A staged/unstaged text diff gets the interactive per-hunk/per-line staging body instead
-     of diff2html — it honors the same unified/side-by-side toggle. Untracked files (no index
-     entry to patch) and oversized or out-of-grammar diffs fall through to the existing
-     render paths. */
-  const wtSrc = "wt" in ctx && ctx.wt !== "untracked" ? ctx.wt : null
+  /* Any single-file text diff gets the interactive per-hunk/per-line body instead of
+     diff2html — it honors the same unified/side-by-side toggle. Staged/unstaged sources get
+     the staging actions; a commit↔commit context gets the revert action (the file-history
+     view's behavior, available in every commit diff). Untracked files (no index entry to
+     patch) and oversized or out-of-grammar diffs fall through to the existing render paths. */
+  const src: DiffBodySource | null = "wt" in ctx ? (ctx.wt !== "untracked" ? ctx.wt : null) : "commit"
   const parsed = useMemo(
     () =>
-      wtSrc && !showImage && diff !== null && diff.totalLines <= DIFF_MAX_LINES ? parseUnifiedDiff(diff.text) : null,
-    [wtSrc, showImage, diff]
+      src && !showImage && diff !== null && diff.totalLines <= DIFF_MAX_LINES ? parseUnifiedDiff(diff.text) : null,
+    [src, showImage, diff]
   )
 
   /* diff2html's parse is memoized apart from its HTML render: the unified↔side-by-side and
@@ -391,8 +392,8 @@ export function DiffView({ api, repoId, ctx, file, view, onViewChange, onClose }
         <p className="shrink-0 text-xs text-muted-foreground">{messages.diff.unavailable}</p>
       ) : diff === null ? (
         <DiffSkeleton />
-      ) : parsed && wtSrc ? (
-        <WtDiffBody api={api} repoId={repoId} path={file.path} source={wtSrc} parsed={parsed} view={view} />
+      ) : parsed && src ? (
+        <DiffBody api={api} repoId={repoId} path={file.path} source={src} parsed={parsed} view={view} />
       ) : (
         <div ref={body} className={DIFF_BODY} />
       )}

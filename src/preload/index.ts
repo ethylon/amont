@@ -81,6 +81,8 @@ const bridge: Bridge = {
   revert: invoke("repo:revert"),
   cherryPick: invoke("repo:cherryPick"),
   files: invoke("repo:files"),
+  fileLog: invoke("repo:fileLog"),
+  restore: invoke("repo:restore"),
   body: invoke("repo:body"),
   headMessage: invoke("repo:headMessage"),
   diff: invoke("repo:diff"),

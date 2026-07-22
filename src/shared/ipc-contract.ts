@@ -21,6 +21,7 @@ import type {
   CommitMessage,
   CountObjects,
   FileChange,
+  FileLogEntry,
   FlowInfo,
   FlowFinishOpts,
   FlowInitConfig,
@@ -152,6 +153,14 @@ export type InvokeChannels = {
   "repo:log": (id: number, skip: number, count: number, requestId?: string) => Promise<Commit[]>
   "repo:refs": (id: number) => Promise<GitRef[]>
   "repo:files": (id: number, hash: string, parent: string | null, requestId?: string) => Promise<FileChange[]>
+  /** History of one file: the commits that touched `path`, walked from `from` with
+      `--follow` (renames don't cut the chain). Each entry carries the file's status and
+      path AT that commit — everything `repo:diff` needs to show it (cf. FileLogEntry). */
+  "repo:fileLog": (id: number, from: string, path: string, requestId?: string) => Promise<FileLogEntry[]>
+  /** `git restore --source=<hash> --worktree -- <path>`: overwrites the working file with
+      its content at that commit. The index never moves — the restored state shows up as an
+      unstaged change, reviewable like any other. Confirmed renderer-side first. */
+  "repo:restore": (id: number, hash: string, path: string) => Promise<void>
   "repo:body": (id: number, hash: string, requestId?: string) => Promise<string>
   "repo:headMessage": (id: number) => Promise<CommitMessage>
   /** Diff text, truncated main-side a slack past DIFF_MAX_LINES (shared/diff.ts): the
@@ -287,6 +296,8 @@ export type Bridge = {
   revert: InvokeChannels["repo:revert"]
   cherryPick: InvokeChannels["repo:cherryPick"]
   files: InvokeChannels["repo:files"]
+  fileLog: InvokeChannels["repo:fileLog"]
+  restore: InvokeChannels["repo:restore"]
   body: InvokeChannels["repo:body"]
   headMessage: InvokeChannels["repo:headMessage"]
   diff: InvokeChannels["repo:diff"]

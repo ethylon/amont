@@ -3,8 +3,10 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowRight01Icon,
   File01Icon,
+  FileSyncIcon,
   FolderOpenIcon,
   Folder01Icon,
+  HistoryIcon,
   ListTreeIcon,
   Menu01Icon,
 } from "@hugeicons/core-free-icons"
@@ -17,7 +19,13 @@ import { ScrollText, scrollTextHover, scrollTextStop } from "@/features/graph/in
 import { prefs } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { LABEL_CLS } from "@/components/ui/typography"
 
@@ -62,10 +70,10 @@ const STATUS_TEXT: Record<string, string> = {
 
 /* `git diff --name-status` statuses. A two-letter status is a conflict (UU, AA, DD…).
    R and C no longer have their own tint: they're moves, not content changes.
-   Only consumer of this tint (AUDIT.md §7, phase 5 — used to live in lib/commit-message.ts,
-   on the domain side, even though it's a display decision specific to this file row): the
-   function stays private to this module rather than exposing a `BadgeColor` that no one else
-   reads. */
+   (AUDIT.md §7, phase 5 — used to live in lib/commit-message.ts, on the domain side, even
+   though it's a display decision.) Exposed as the ready-to-use class (`fileStatusCls`)
+   rather than a `BadgeColor`: the file-history rows show the same status letters and must
+   tint them identically, but nobody needs the intermediate color name. */
 const fileStatusColor = (st: string): keyof typeof STATUS_TEXT =>
   st.length > 1
     ? "danger"
@@ -76,6 +84,9 @@ const fileStatusColor = (st: string): keyof typeof STATUS_TEXT =>
         : st === "D"
           ? "danger"
           : "neutral"
+
+/** Tint class of a status letter — shared with the file-history view's commit rows. */
+export const fileStatusCls = (st: string): string => STATUS_TEXT[fileStatusColor(st)]
 
 /* ArrowUp/ArrowDown move to the previous/next visible file and open it — the diff follows
    the selection, like a click. DOM-based on purpose: the rendered order already accounts
@@ -139,10 +150,25 @@ export type FileRowProps = {
       (AUDIT.md §8): the file list is a core interaction, it can't stay
       mouse-only for this action. */
   onOpenFile?(): void
+  /** commit-anchored context entries (detail panel only — the staging panel has no commit
+      to anchor them on): the file's history view, and the confirmed working-tree restore. */
+  onHistory?(): void
+  onRestore?(): void
   action?: React.ReactNode
 }
 
-export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, onOpenFile, action }: FileRowProps) {
+export function FileRow({
+  file,
+  active,
+  nameOnly,
+  icon,
+  onClick,
+  onDoubleClick,
+  onOpenFile,
+  onHistory,
+  onRestore,
+  action,
+}: FileRowProps) {
   const cut = file.path.lastIndexOf("/")
   /* Selection = a quiet tinted fill alone, no rail or border: one visual channel for the
      open diff, neutral hover on the rest. Rounded list rows read cleaner with just the fill
@@ -173,9 +199,7 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
         onKeyDown={onFileRowKeyDown}
         className="flex min-w-0 flex-1 cursor-pointer items-baseline gap-2 rounded-sm ps-1.5 py-0.5 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
       >
-        <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", STATUS_TEXT[fileStatusColor(file.st)])}>
-          {file.st}
-        </span>
+        <span className={cn("w-3 shrink-0 text-[0.625rem] font-semibold", fileStatusCls(file.st))}>{file.st}</span>
         {icon}
         {/* tree: the name marquee-scrolls on hover; flat: the folder truncates, the file name stays whole */}
         {nameOnly ? (
@@ -191,7 +215,7 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
     </>
   )
 
-  if (!onOpenFile)
+  if (!onOpenFile && !onHistory && !onRestore)
     return (
       <div className={rowCls} {...rowHover}>
         {inner}
@@ -202,10 +226,25 @@ export function FileRow({ file, active, nameOnly, icon, onClick, onDoubleClick, 
     <ContextMenu>
       <ContextMenuTrigger render={<div className={rowCls} {...rowHover} />}>{inner}</ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onClick={onOpenFile}>
-          <HugeiconsIcon icon={FolderOpenIcon} strokeWidth={2} />
-          {messages.repo.openInFileExplorer}
-        </ContextMenuItem>
+        {onOpenFile && (
+          <ContextMenuItem onClick={onOpenFile}>
+            <HugeiconsIcon icon={FolderOpenIcon} strokeWidth={2} />
+            {messages.repo.openInFileExplorer}
+          </ContextMenuItem>
+        )}
+        {onOpenFile && (onHistory || onRestore) && <ContextMenuSeparator />}
+        {onHistory && (
+          <ContextMenuItem onClick={onHistory}>
+            <HugeiconsIcon icon={HistoryIcon} strokeWidth={2} />
+            {messages.detail.fileHistory}
+          </ContextMenuItem>
+        )}
+        {onRestore && (
+          <ContextMenuItem onClick={onRestore}>
+            <HugeiconsIcon icon={FileSyncIcon} strokeWidth={2} />
+            {messages.detail.restoreFromCommit}
+          </ContextMenuItem>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )
@@ -248,12 +287,16 @@ function TreeFile<T extends FileChange>({
   file,
   active,
   onOpen,
+  onHistory,
+  onRestore,
   action,
 }: {
   api: RepoApi
   file: T
   active?: boolean
   onOpen?(f: T): void
+  onHistory?(f: T): void
+  onRestore?(f: T): void
   action?: React.ReactNode
 }) {
   /* Instant single click (AUDIT.md §8): no more disambiguation delay with the double-click
@@ -270,6 +313,8 @@ function TreeFile<T extends FileChange>({
       onClick={onOpen && (() => onOpen(file))}
       onDoubleClick={() => api.openFile(file.path)}
       onOpenFile={() => api.openFile(file.path)}
+      onHistory={onHistory && (() => onHistory(file))}
+      onRestore={onRestore && (() => onRestore(file))}
     />
   )
 }
@@ -304,6 +349,8 @@ function Tree<T extends FileChange>({
   api,
   activePath,
   onOpen,
+  onHistory,
+  onRestore,
   action,
   dirAction,
 }: {
@@ -319,6 +366,8 @@ function Tree<T extends FileChange>({
   api: RepoApi
   activePath?: string
   onOpen?(f: T): void
+  onHistory?(f: T): void
+  onRestore?(f: T): void
   action?(f: T): React.ReactNode
   /** one button per folder, acting on all files of the subtree */
   dirAction?(files: T[]): React.ReactNode
@@ -357,6 +406,8 @@ function Tree<T extends FileChange>({
                 api={api}
                 activePath={activePath}
                 onOpen={onOpen}
+                onHistory={onHistory}
+                onRestore={onRestore}
                 action={action}
                 dirAction={dirAction}
               />
@@ -365,7 +416,16 @@ function Tree<T extends FileChange>({
         )
       })}
       {node.items.map((f) => (
-        <TreeFile key={f.path} api={api} file={f} active={f.path === activePath} onOpen={onOpen} action={action?.(f)} />
+        <TreeFile
+          key={f.path}
+          api={api}
+          file={f}
+          active={f.path === activePath}
+          onOpen={onOpen}
+          onHistory={onHistory}
+          onRestore={onRestore}
+          action={action?.(f)}
+        />
       ))}
     </>
   )
@@ -388,6 +448,8 @@ function FileEntriesInner<T extends FileChange>({
   api,
   activePath,
   onOpen,
+  onHistory,
+  onRestore,
   action,
   dirAction,
 }: {
@@ -396,6 +458,9 @@ function FileEntriesInner<T extends FileChange>({
   api: RepoApi
   activePath?: string
   onOpen?(f: T): void
+  /** commit-anchored context entries (cf. FileRowProps) — only the detail panel passes them */
+  onHistory?(f: T): void
+  onRestore?(f: T): void
   action?(f: T): React.ReactNode
   /** tree view only: one button per folder, acting on all files of the subtree */
   dirAction?(files: T[]): React.ReactNode
@@ -429,6 +494,8 @@ function FileEntriesInner<T extends FileChange>({
         api={api}
         activePath={activePath}
         onOpen={onOpen}
+        onHistory={onHistory}
+        onRestore={onRestore}
         action={action}
         dirAction={dirAction}
       />
@@ -445,6 +512,8 @@ function FileEntriesInner<T extends FileChange>({
              never gained it (AUDIT.md §8, audit/actual-code gap) — the two views of the same
              toggle (FileViewToggle) must offer the same action. */
           onOpenFile={() => api.openFile(f.path)}
+          onHistory={onHistory && (() => onHistory(f))}
+          onRestore={onRestore && (() => onRestore(f))}
           action={action?.(f)}
         />
       ))}
@@ -462,11 +531,16 @@ export function FileList({
   api,
   activePath,
   onOpen,
+  onHistory,
+  onRestore,
 }: {
   files: FileChange[]
   api: RepoApi
   activePath?: string
   onOpen?(f: FileChange): void
+  /** commit-anchored context entries (cf. FileRowProps) — only the detail panel passes them */
+  onHistory?(f: FileChange): void
+  onRestore?(f: FileChange): void
 }) {
   const [view, setView] = useFileView()
 
@@ -477,7 +551,15 @@ export function FileList({
       </FileListHeader>
 
       <div data-file-nav="" className="min-h-0 flex-1 overflow-y-auto">
-        <FileEntries files={files} view={view} api={api} activePath={activePath} onOpen={onOpen} />
+        <FileEntries
+          files={files}
+          view={view}
+          api={api}
+          activePath={activePath}
+          onOpen={onOpen}
+          onHistory={onHistory}
+          onRestore={onRestore}
+        />
       </div>
     </div>
   )
