@@ -61,7 +61,12 @@ export function UpdateCard() {
               </div>
             </>
           )}
-          {status.kind === "ready" && <p className="font-medium">{messages.updater.ready(status.version)}</p>}
+          {status.kind === "ready" && (
+            <>
+              <p className="font-medium">{messages.updater.ready(status.version)}</p>
+              <p className="mt-1 text-muted-foreground">{messages.updater.installNote}</p>
+            </>
+          )}
           {status.kind === "error" && <p className="text-destructive">{messages.updater.failed}</p>}
           {status.kind === "unavailable" && <p className="text-muted-foreground">{messages.updater.unavailable}</p>}
         </div>

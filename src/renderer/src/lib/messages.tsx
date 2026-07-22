@@ -957,6 +957,11 @@ export const messages = {
     },
     downloading: (version: string) => t`Downloading Amont ${version}…`,
     ready: (version: string) => t`Amont ${version} is ready to install.`,
+    /* NSIS installe pendant le redémarrage, pas avant (cf. main/updater.ts) : annoncer la
+       minute d'attente ici, avant le clic, plutôt que de la laisser surprendre après */
+    get installNote() {
+      return t`The installer runs during the restart — allow it about a minute.`
+    },
     get restartNow() {
       return t`Restart now`
     },
