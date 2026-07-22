@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { Tabs } from "@base-ui/react/tabs"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Home01Icon, Moon02Icon, PlusSignIcon, Sun03Icon } from "@hugeicons/core-free-icons"
 
@@ -33,43 +33,17 @@ type Props = {
 const tabClass =
   "group/tab flex h-7.5 shrink-0 cursor-pointer items-center rounded-md border text-xs focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none aria-selected:border-border aria-selected:bg-muted aria-selected:font-medium aria-selected:text-foreground"
 
+/* Chrome tabs, pas des tabs de contenu : Base UI fournit le pattern ARIA (roving tabindex,
+   flèches/Home/End, activation au focus), le styling reste celui de la barre d'app — d'où
+   l'import direct du primitive nu plutôt que du tabs stylé de ui/primitives. Les panels
+   keep-alive restent dans App (ids câblés à la main via tabId/panelId), hors de tout
+   Tabs.Panel : Base UI n'a pas à monter/démonter le canvas du graphe. */
 export function TabStrip({ tabs, active, onSelect, onClose, onNew, menu }: Props) {
   /* subscribed to the theme rather than a local copy: an OS flip (without an explicit
      choice saved) must flip the icon too */
   const dark = useTheme()
 
   const toggleTheme = () => setDark(!dark)
-
-  /* ARIA "tabs" pattern: only one tab in the tabulation order (roving tabindex), the
-     arrows move focus from tab to tab and activate it along the way. The "+" is an action,
-     not a tab, so it stays out of this list (reachable by Tab, like any button). */
-  const order = [HOME, ...tabs.map((t) => t.key)]
-  const tabEls = useRef(new Map<number, HTMLDivElement>())
-  const tabRef = (key: number) => (el: HTMLDivElement | null) => {
-    el ? tabEls.current.set(key, el) : tabEls.current.delete(key)
-  }
-
-  const onTabKey = (e: React.KeyboardEvent, key: number) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault()
-      return onSelect(key)
-    }
-    const i = order.indexOf(active)
-    const j =
-      e.key === "ArrowRight"
-        ? (i + 1) % order.length
-        : e.key === "ArrowLeft"
-          ? (i - 1 + order.length) % order.length
-          : e.key === "Home"
-            ? 0
-            : e.key === "End"
-              ? order.length - 1
-              : -1
-    if (j < 0) return
-    e.preventDefault()
-    onSelect(order[j])
-    tabEls.current.get(order[j])?.focus()
-  }
 
   return (
     <header className="flex shrink-0 flex-col border-b">
@@ -93,35 +67,34 @@ export function TabStrip({ tabs, active, onSelect, onClose, onNew, menu }: Props
       </div>
 
       {/* second row: the repository tabs, on their own line (see two-menu bar). The row scrolls;
-          the tablist holds the actual tabs and the "+" rides along at its end as a plain action. */}
-      <div className="flex items-center gap-1 overflow-x-auto border-t px-2.5 py-1">
-        <div role="tablist" className="flex shrink-0 items-center gap-1">
-          <div
-            ref={tabRef(HOME)}
-            role="tab"
+          the tablist holds the actual tabs and the "+" rides along at its end as a plain action
+          (reachable by Tab, like any button — it stays out of the arrow-key order). */}
+      <Tabs.Root
+        value={active}
+        onValueChange={(key) => onSelect(key as number)}
+        className="flex items-center gap-1 overflow-x-auto border-t px-2.5 py-1"
+      >
+        {/* activateOnFocus : les flèches activent l'onglet en passant, comme l'ancien roving manuel */}
+        <Tabs.List activateOnFocus className="flex shrink-0 items-center gap-1">
+          <Tabs.Tab
+            value={HOME}
+            render={<div />}
             id={tabId(HOME)}
             aria-controls={panelId(HOME)}
-            tabIndex={active === HOME ? 0 : -1}
-            aria-selected={active === HOME}
             aria-label={messages.app.home}
-            onClick={() => onSelect(HOME)}
-            onKeyDown={(e) => onTabKey(e, HOME)}
             className={cn(tabClass, "w-9 justify-center border-transparent text-muted-foreground hover:bg-muted/60")}
           >
             <HugeiconsIcon icon={Home01Icon} strokeWidth={2} className="size-3.5" />
-          </div>
+          </Tabs.Tab>
 
           {tabs.map((t) => (
-            <div
+            <Tabs.Tab
               key={t.key}
-              ref={tabRef(t.key)}
-              role="tab"
+              value={t.key}
+              /* div, pas button : le bouton de fermeture vit dedans, un button imbriqué serait invalide */
+              render={<div />}
               id={tabId(t.key)}
               aria-controls={panelId(t.key)}
-              tabIndex={t.key === active ? 0 : -1}
-              aria-selected={t.key === active}
-              onClick={() => onSelect(t.key)}
-              onKeyDown={(e) => onTabKey(e, t.key)}
               /* middle click: closes, like a browser */
               onAuxClick={(e) => e.button === 1 && onClose(t.key)}
               className={cn(
@@ -143,9 +116,9 @@ export function TabStrip({ tabs, active, onSelect, onClose, onNew, menu }: Props
               >
                 <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-2.5" />
               </Button>
-            </div>
+            </Tabs.Tab>
           ))}
-        </div>
+        </Tabs.List>
 
         {/* the "+" is no longer a tab: it opens the repository-creation dialog (see App) */}
         <button
@@ -159,7 +132,7 @@ export function TabStrip({ tabs, active, onSelect, onClose, onNew, menu }: Props
         >
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
         </button>
-      </div>
+      </Tabs.Root>
     </header>
   )
 }

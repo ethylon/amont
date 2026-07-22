@@ -4,15 +4,7 @@
    deleted untracked file isn't "restored", it's gone). */
 
 import { messages } from "@/lib/messages"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 export type DiscardRequest = {
   /** tracked paths, restored from the index (`git restore`) */
@@ -34,32 +26,20 @@ export function DiscardDialog({
   const single = total === 1 ? (request.paths[0] ?? request.untracked[0]) : null
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{messages.worktree.discardTitle}</DialogTitle>
-          <DialogDescription>
-            {single ? messages.worktree.discardOne(single) : messages.worktree.discardMany(total)}
-            {!single && request.untracked.length > 0 && (
-              <> {messages.worktree.discardUntracked(request.untracked.length)}</>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {messages.worktree.discardCancel}
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              onConfirm(request)
-              onClose()
-            }}
-          >
-            {messages.worktree.discardConfirm}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      title={messages.worktree.discardTitle}
+      description={
+        <>
+          {single ? messages.worktree.discardOne(single) : messages.worktree.discardMany(total)}
+          {!single && request.untracked.length > 0 && (
+            <> {messages.worktree.discardUntracked(request.untracked.length)}</>
+          )}
+        </>
+      }
+      cancelLabel={messages.worktree.discardCancel}
+      confirmLabel={messages.worktree.discardConfirm}
+      onConfirm={() => onConfirm(request)}
+      onClose={onClose}
+    />
   )
 }

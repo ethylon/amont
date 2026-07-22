@@ -17,6 +17,7 @@ import { messages } from "@/lib/messages"
 import { useMergeStateQuery } from "@/features/conflict/conflict-queries"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore } from "@/features/repo/repo-store"
+import { Banner, BannerActions, BannerDetail, BannerTitle } from "@/components/ui/banner"
 import { Button } from "@/components/ui/button"
 import { GitCmd } from "@/components/ui/git-cmd"
 
@@ -59,14 +60,14 @@ export function ConflictBanner() {
   if (!ms || (!ms.op && conflicts === 0)) return null
 
   return (
-    /* amont-drop: after boot, the insertion pushes the content in smoothly (see app.css) */
-    <div className="amont-drop flex shrink-0 items-center gap-2.5 border-b border-warning/40 bg-warning/10 px-3.5 py-1 text-xs whitespace-nowrap">
-      <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-4 shrink-0 text-warning" />
-      <span className="min-w-0 shrink-0 font-semibold">{title(ms)}</span>
-      <span className="min-w-0 truncate text-muted-foreground">
+    /* amont-drop (via Banner): after boot, the insertion pushes the content in smoothly (see app.css) */
+    <Banner>
+      <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-4 shrink-0" />
+      <BannerTitle>{title(ms)}</BannerTitle>
+      <BannerDetail>
         {conflicts > 0 ? messages.conflict.conflictedFiles(conflicts) : messages.conflict.allResolved}
-      </span>
-      <span className="ms-auto flex shrink-0 items-center gap-1.5">
+      </BannerDetail>
+      <BannerActions>
         {conflicts > 0 && view !== "wt" && (
           <Button variant="outline" size="sm" className="h-6" onClick={showWorktree}>
             {messages.conflict.viewConflicts}
@@ -96,7 +97,7 @@ export function ConflictBanner() {
             </span>
           </Button>
         )}
-      </span>
-    </div>
+      </BannerActions>
+    </Banner>
   )
 }
