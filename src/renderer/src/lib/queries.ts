@@ -47,9 +47,20 @@ export const queryKeys = {
   searchAll: (id: number) => ["search", id] as const,
 }
 
+/** A native text selection anchored in nodes about to be replaced by a refetch cycle
+    (detail-panel body, diff text, console output) is a Blink re-entrancy crash ingredient
+    (Sentry AMONT-2, cf. commit-graph.tsx): the post-layout selection commit relayouts a
+    document whose lifecycle forbids tree mutations → renderer CHECK crash. The content is
+    changing anyway, so the selection is stale — drop it before the DOM moves under it. */
+function dropNativeSelection(): void {
+  const sel = typeof window === "undefined" ? null : window.getSelection()
+  if (sel && !sel.isCollapsed) sel.removeAllRanges()
+}
+
 /** All keys of a repo that closely track its status: invalidated together on
     `onChanged` and at the end of any mutation (checkout, stash, branch, commit, network op). */
 export function invalidateRepo(client: QueryClient, id: number): void {
+  dropNativeSelection()
   void client.invalidateQueries({ queryKey: queryKeys.status(id) })
   void client.invalidateQueries({ queryKey: queryKeys.mergeState(id) })
   void client.invalidateQueries({ queryKey: queryKeys.refs(id) })
@@ -67,6 +78,7 @@ export function invalidateRepo(client: QueryClient, id: number): void {
     an open diff (external change, commit). Commit↔commit diffs are content-addressed — refetching
     them would be pure waste, so they are filtered out rather than sweeping `diffAll`. */
 export function invalidateWtDiffs(client: QueryClient, id: number): void {
+  dropNativeSelection()
   void client.invalidateQueries({
     predicate: (q) => {
       const [domain, qid, ctx] = q.queryKey

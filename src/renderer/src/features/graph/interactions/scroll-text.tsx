@@ -14,9 +14,13 @@ const SPEED = 30 // px/s, independent of text length
 /** fade width, mirroring the default of `scroll-fade-x` (shadcn) */
 const FADE_SIZE = "min(12%, calc(var(--spacing) * 10))"
 
-/** container classes, shared between scrollText() and ScrollText */
+/** container classes, shared between scrollText() and ScrollText.
+    `select-none`: the marquee clones the text node and mutates the DOM under the cursor
+    (cloneNode/append/remove + rAF scrollLeft) — a native selection anchored here is both
+    broken (duplicated text) and a Blink re-entrancy crash ingredient (Sentry AMONT-2,
+    cf. commit-graph.tsx). Selectable copies of the same text live in the detail panel. */
 export const SCROLL_TEXT_CLASS =
-  "amont-scrolltext scroll-fade-x flex min-w-0 max-w-full gap-3 overflow-hidden whitespace-nowrap"
+  "amont-scrolltext scroll-fade-x flex min-w-0 max-w-full select-none gap-3 overflow-hidden whitespace-nowrap"
 
 /* React twin of scrollText(). `selfHover: false` leaves the activation to an ancestor
    (a list row triggers the marquee for its whole surface, cf. FileRow) via
