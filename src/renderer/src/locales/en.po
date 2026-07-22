@@ -1204,6 +1204,9 @@ msgstr "The branch « {name} » will be deleted on the remote."
 msgid "The branch « {name} » will be deleted."
 msgstr "The branch « {name} » will be deleted."
 
+msgid "The installer runs during the restart — allow it about a minute."
+msgstr "The installer runs during the restart — allow it about a minute."
+
 msgid "The remote branch is ahead"
 msgstr "The remote branch is ahead"
 

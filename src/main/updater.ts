@@ -4,6 +4,10 @@
    "Restart now" (update:install → quitAndInstall). Toute la progression part vers le renderer
    par l'événement `update:status` — la carte UI (features/updater) décide quoi montrer.
 
+   NSIS ne sait pas pré-installer en arrière-plan pendant que l'app tourne (contrairement à
+   Squirrel.Mac) : NsisUpdater.doInstall ne fait que lancer l'exe téléchargé au quit, et
+   l'extraction prend son temps quel que soit le moment où on la déclenche.
+
    Pas de signature de code pour l'instant : l'intégrité repose sur HTTPS GitHub + le sha512
    de latest.yml. À revoir quand un certificat sera configuré (cf. electron-builder.yml). */
 
@@ -69,8 +73,11 @@ export async function checkForUpdates(): Promise<void> {
   await autoUpdater.checkForUpdates().catch(() => {})
 }
 
-/** Redémarre sur la version téléchargée (bouton "Restart now"). */
+/** Redémarre sur la version téléchargée (bouton "Restart now"). Installeur non silencieux :
+    NSIS affiche sa fenêtre de progression pendant la minute d'extraction — en /S l'app
+    disparaît sans aucun feedback et semble plantée jusqu'au relancement. Le quit ordinaire
+    (autoInstallOnAppQuit) reste silencieux, lui : personne n'attend l'app à ce moment-là. */
 export function installUpdate(): Promise<void> {
-  autoUpdater.quitAndInstall(true, true)
+  autoUpdater.quitAndInstall(false, true)
   return Promise.resolve()
 }
