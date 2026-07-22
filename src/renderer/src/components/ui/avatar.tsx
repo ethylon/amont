@@ -1,44 +1,41 @@
+import { useState } from "react"
+
+import { Avatar as AvatarPrimitive, AvatarFallback, AvatarImage } from "@/components/ui/primitives/avatar"
 import { avatarUrl, githubEmailAvatar, initials, tint } from "@/lib/avatar"
 import { cn } from "@/lib/utils"
 
-/* The image sits on top of the monogram: a 404 (author without a Gravatar) or no network hides
-   it and reveals the initials, while GitHub's e-mail lookup gets a second chance — resolved, the
-   image comes back with the new source; unresolved (or offline), the monogram stays. Still no
-   state, no layout shift, no render cascade: the swap touches the <img> node alone. */
-export function Avatar({ name, email, className }: { name: string; email: string; className?: string }) {
-  const src = avatarUrl(email)
+/* The tinted monogram is the fallback: Base UI keeps it visible until the image loads, so a 404
+   (author without a Gravatar) or no network reveals the initials, while GitHub's e-mail lookup
+   gets a second chance — resolved, the image comes back with the new source; unresolved (or
+   offline), the monogram stays. Keyed by e-mail so a recycled row restarts from the Gravatar. */
+export function Avatar(props: { name: string; email: string; className?: string }) {
+  return <GravatarAvatar key={props.email} {...props} />
+}
+
+function GravatarAvatar({ name, email, className }: { name: string; email: string; className?: string }) {
+  const [src, setSrc] = useState(() => avatarUrl(email))
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "relative flex size-4.5 shrink-0 items-center justify-center overflow-hidden",
-        /* neutral border (chroma 0 in both themes): a pale Gravatar doesn't blend into the surface */
-        "rounded-full text-[0.5625rem] font-medium text-background ring-1 ring-foreground/10",
-        className
-      )}
-      style={{ background: tint(name, email) }}
-    >
-      {initials(name)}
+    <AvatarPrimitive aria-hidden className={cn("size-4.5", className)}>
       {src && (
-        <img
-          key={src} // otherwise React would recycle the hidden image of a different author
+        <AvatarImage
           src={src}
           alt=""
-          className="absolute inset-0 size-full"
-          onError={(e) => {
-            const img = e.currentTarget
-            img.hidden = true
-            /* `src !== url` breaks the cycle if the looked-up source itself errors: the cached
-               lookup then answers with the URL already in place, and the image stays hidden. */
+          onLoadingStatusChange={(status) => {
+            if (status !== "error") return
+            /* `url !== src` breaks the cycle if the looked-up source itself errors: the cached
+               lookup then answers with the URL already in place, and the monogram stays. */
             void githubEmailAvatar(email).then((url) => {
-              if (url && img.isConnected && img.src !== url) {
-                img.src = url
-                img.hidden = false
-              }
+              if (url && url !== src) setSrc(url)
             })
           }}
         />
       )}
-    </span>
+      <AvatarFallback
+        className="text-[0.5625rem] font-medium text-background"
+        style={{ background: tint(name, email) }}
+      >
+        {initials(name)}
+      </AvatarFallback>
+    </AvatarPrimitive>
   )
 }

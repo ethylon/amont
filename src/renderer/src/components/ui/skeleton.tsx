@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react"
 
+import { Skeleton as SkeletonPrimitive } from "@/components/ui/primitives/skeleton"
 import { cn } from "@/lib/utils"
 
 /** One ghost block standing in for a piece of loading content. The call site gives it the
     shape of what it replaces (`h-2.5 w-24 rounded-full` text bar, `size-3.5 rounded` icon…),
     so the layout doesn't jump when the real thing lands. */
-export function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("animate-pulse bg-muted motion-reduce:animate-none", className)} {...props} />
+export function Skeleton({ className, ...props }: React.ComponentProps<typeof SkeletonPrimitive>) {
+  return <SkeletonPrimitive className={cn("motion-reduce:animate-none", className)} {...props} />
 }
 
 /** Wrapper for the skeletons of one loading area: announces the wait to assistive tech
