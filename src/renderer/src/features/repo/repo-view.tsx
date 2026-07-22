@@ -256,7 +256,13 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   useEffect(() => {
     if (!active || !selection.length) return
     const onDown = (ev: MouseEvent) => {
-      if ((ev.target as HTMLElement).closest("[data-amont-keep-focus], .amont-row, .amont-wtrow")) return
+      const el = ev.target as HTMLElement
+      /* Base UI portals (context menus, dialogs, popovers) mount outside #root: a mousedown
+         on a menu item is not "empty space". Clearing here unmounted the item before its
+         click could fire — the menu action never ran and the press fell through to the UI
+         underneath (diff closed, multi-selection lost). */
+      if (!el.closest("#root")) return
+      if (el.closest("[data-amont-keep-focus], .amont-row, .amont-wtrow")) return
       clearFocus()
     }
     document.addEventListener("mousedown", onDown)
