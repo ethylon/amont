@@ -475,8 +475,8 @@ msgstr "Dossier de destination"
 msgid "detached HEAD"
 msgstr "HEAD détachée"
 
-msgid "Detect feat:, fix:, chore:… and lift it out of the message into its own column."
-msgstr "Détecte feat:, fix:, chore:… et l'extrait du message dans sa propre colonne."
+msgid "Detect feat:, fix:, chore:… and lift it out of the message into a badge before it."
+msgstr "Détecte feat:, fix:, chore:… et l'extrait du message dans un badge placé devant."
 
 msgid "Development branch"
 msgstr "Branche de développement"
@@ -1093,8 +1093,8 @@ msgstr "Réglages…"
 msgid "Show git commands in the interface"
 msgstr "Afficher les commandes git dans l'interface"
 
-msgid "Show prefix as a separate column"
-msgstr "Afficher le préfixe dans une colonne séparée"
+msgid "Show prefix as a badge"
+msgstr "Afficher le préfixe en badge"
 
 msgid "Show sidebar"
 msgstr "Afficher la barre latérale"

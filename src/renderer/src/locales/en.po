@@ -475,8 +475,11 @@ msgstr "Destination folder"
 msgid "detached HEAD"
 msgstr "detached HEAD"
 
-msgid "Detect feat:, fix:, chore:… and lift it out of the message into its own column."
-msgstr "Detect feat:, fix:, chore:… and lift it out of the message into its own column."
+msgid "Detect feat:, fix:, chore:… and lift it out of the message into a badge before it."
+msgstr "Detect feat:, fix:, chore:… and lift it out of the message into a badge before it."
+
+#~ msgid "Detect feat:, fix:, chore:… and lift it out of the message into its own column."
+#~ msgstr "Detect feat:, fix:, chore:… and lift it out of the message into its own column."
 
 msgid "Development branch"
 msgstr "Development branch"
@@ -1093,8 +1096,11 @@ msgstr "Settings…"
 msgid "Show git commands in the interface"
 msgstr "Show git commands in the interface"
 
-msgid "Show prefix as a separate column"
-msgstr "Show prefix as a separate column"
+msgid "Show prefix as a badge"
+msgstr "Show prefix as a badge"
+
+#~ msgid "Show prefix as a separate column"
+#~ msgstr "Show prefix as a separate column"
 
 msgid "Show sidebar"
 msgstr "Show sidebar"

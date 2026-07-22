@@ -283,13 +283,14 @@ export function rowDiv(
 
   row.appendChild(document.createElement("div")) // spacer: the graph column, under the SVG
 
-  /* Prefix column: on (default), a recognized `feat:`/`[TAG]` prefix is lifted into its own
-     badge column and stripped from the message. Off, the type column stays empty (collapses to
-     0, cf. render/measure.ts) and the prefix reads inline in the subject. */
+  /* Type badge: on (default), a recognized `feat:`/`[TAG]` prefix becomes a badge leading the
+     message in the subject column, stripped from the text. Off, no badge — the prefix reads
+     inline in the subject. */
   const showPrefix = getShowPrefixColumn()
   const ps = parseSubject(c.s)
-  const badge = document.createElement("div")
-  badge.className = "flex min-w-0"
+
+  const subj = document.createElement("div")
+  subj.className = "flex min-w-0 items-center gap-1.5 truncate pe-2.5"
   if (showPrefix && ps.label) {
     const b = document.createElement("span")
     b.className = chip(typeColor(ps.type!)) + " " + TYPE_MAX
@@ -303,12 +304,8 @@ export function rowDiv(
       b.appendChild(g)
     }
     b.appendChild(scrollText(ps.label))
-    badge.appendChild(b)
+    subj.appendChild(b)
   }
-  row.appendChild(badge)
-
-  const subj = document.createElement("div")
-  subj.className = "flex min-w-0 items-center gap-1.5 truncate pe-2.5"
 
   if (c.cap) {
     /* Capsule: the whole pattern on one row — `release/x →(rocket/flame) master · develop`. */

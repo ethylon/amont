@@ -264,8 +264,8 @@ export function createGraph(
     svg.setAttribute("height", String(h))
     svg.setAttribute("viewBox", `0 0 ${graphW} ${h}`)
     inner.style.height = h + "px"
-    const { type, branch } = measurer.measureCols()
-    inner.style.minWidth = graphW + FIXED_W + type + branch + "px"
+    const { branch } = measurer.measureCols()
+    inner.style.minWidth = graphW + FIXED_W + branch + "px"
     cb.onGraphWidth(graphW)
     cb.onBranchWidth(branch)
     emitStats()

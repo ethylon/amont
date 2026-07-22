@@ -1,14 +1,14 @@
-/* Width of the branch and type columns (AUDIT.md §6): an `auto` track would size itself row
+/* Width of the branch column (AUDIT.md §6): an `auto` track would size itself row
    by row (each row is its own grid) — columns would no longer line up. So we measure,
    once per distinct string, in an off-flow ruler — batched writes then batched
    reads, a single reflow. Maxima only ever grow: neither pagination nor
-   scrolling ever moves a column. */
+   scrolling ever moves a column. (The type badge now rides inline in the subject
+   column, so only branch cells need measuring.) */
 
 import type { Commit } from "../../../../../shared/types.ts"
-import { parseRefs, parseSubject, type RefChip } from "@/lib/commit-parse"
-import { getShowPrefixColumn } from "@/lib/customization"
+import { parseRefs, type RefChip } from "@/lib/commit-parse"
 import { badgeVariants } from "@/components/ui/badge"
-import { BRANCH_BUDGET, BRANCH_MAX, GAP, TYPE_MAX } from "../constants.ts"
+import { BRANCH_BUDGET, BRANCH_MAX, GAP } from "../constants.ts"
 import { refGroup } from "./rows.ts"
 
 /** signature of a branch cell: two commits rendering the same chips have the same width.
@@ -19,17 +19,13 @@ const cellSig = (refs: RefChip[]) => refs.map((r) => r.kind + r.name + (r.remote
 export function createMeasurer(inner: HTMLDivElement) {
   const ruler = document.createElement("div")
   ruler.className = "invisible absolute top-0 left-0 flex"
-  const seenType = new Set<string>()
   const seenCell = new Set<string>()
-  let typeW = 0
   let cellW = 0 // auto width of the branch column: the widest rendered cell
   /* measurement queues, consumed by measureCols; the distinct sources persist (small:
-     unique types and decorated cells) so we can re-measure once the real font arrives —
+     decorated cells) so we can re-measure once the real font arrives —
      commit pages, on the other hand, may have been evicted in the meantime */
-  let queueTypes: string[] = []
   let queueCells: RefChip[][] = []
   let queueStash: string[] = []
-  const allTypes: string[] = []
   const allCells: string[] = [] // raw refs of the distinct cells, re-parsed on re-measurement
 
   function widest(texts: string[], maxw: string) {
@@ -47,18 +43,9 @@ export function createMeasurer(inner: HTMLDivElement) {
     return w
   }
 
-  /** Feeds the measurement queues with what the page brings that's new (types, cells). */
+  /** Feeds the measurement queues with what the page brings that's new (cells). */
   function scanPage(commits: Commit[]) {
-    /* Prefix column off → don't feed the type queue, so `--amont-type` stays 0 and the column
-       collapses. Re-evaluated on every rebuild: a toggle drives a graph reset (cf. controller). */
-    const showPrefix = getShowPrefixColumn()
     for (const c of commits) {
-      const label = showPrefix ? parseSubject(c.s).label : null
-      if (label && !seenType.has(label)) {
-        seenType.add(label)
-        queueTypes.push(label)
-        allTypes.push(label)
-      }
       if (!c.r) continue
       const refs = parseRefs(c.r)
       const sig = cellSig(refs)
@@ -79,13 +66,9 @@ export function createMeasurer(inner: HTMLDivElement) {
     }
   }
 
-  /** Sets `--amont-type` on `inner` and returns the `type`/`branch` widths — it's up to the controller
-      to push `branch` to `cb.onBranchWidth` and to sum both for `inner.style.minWidth`. */
-  function measureCols(): { type: number; branch: number } {
-    if (queueTypes.length) {
-      typeW = Math.max(typeW, widest(queueTypes, TYPE_MAX))
-      queueTypes = []
-    }
+  /** Returns the `branch` width — it's up to the controller
+      to push `branch` to `cb.onBranchWidth` and to add it to `inner.style.minWidth`. */
+  function measureCols(): { branch: number } {
     if (queueStash.length) {
       cellW = Math.max(cellW, widest(queueStash, BRANCH_MAX))
       queueStash = []
@@ -107,17 +90,14 @@ export function createMeasurer(inner: HTMLDivElement) {
       queueCells = []
     }
 
-    const type = typeW && typeW + GAP
     const branch = cellW && cellW + 2 * GAP // cell's px-2.5
-    inner.style.setProperty("--amont-type", type + "px")
-    return { type, branch }
+    return { branch }
   }
 
   /* Chips are measured against the actual font. As long as Geist hasn't replaced the fallback,
      widths are wrong: a single re-run, from the persisted sources, is enough. */
   function requeueAll(stashNames: string[]) {
-    typeW = cellW = 0
-    queueTypes = [...allTypes]
+    cellW = 0
     queueCells = allCells.map((r) => parseRefs(r))
     queueStash = [...new Set(stashNames)]
   }
@@ -127,13 +107,10 @@ export function createMeasurer(inner: HTMLDivElement) {
       rebuild: after a checkout or `branch -D`, a column should give back the width a since-gone
       decoration was holding rather than keep the historical maximum forever. */
   function reset() {
-    seenType.clear()
     seenCell.clear()
-    typeW = cellW = 0
-    queueTypes = []
+    cellW = 0
     queueCells = []
     queueStash = []
-    allTypes.length = 0
     allCells.length = 0
   }
 
