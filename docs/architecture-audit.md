@@ -5,8 +5,37 @@ abstractions held together by invariants that live far from where they can break
 one block (forget one call, one guard, one convention) and something above falls over
 silently. **God components / god files**: units that accumulate unrelated
 responsibilities until every change routes through them. Every finding below was
-verified against the code at the referenced lines; nothing is fixed on this branch —
-this is the audit only, with a recommended fix per finding.
+verified against the code at the referenced lines; line references describe the
+pre-fix code.
+
+> **Fix status** — every finding below is implemented on this branch. §I.1: a
+> `mutation()` combinator (repos.ts) owns the `withLock` + `finally mute()` pair; the 22
+> hand-repeated sites fold into it, and the sweep surfaced that `flowStart`/`flowPublish`/
+> `flowInit` had NO `mute()` at all — the exact predicted bug class, live — now covered
+> (`commit`/`reword` also upgrade from success-only to `finally` muting; the index-only ops
+> stay on plain `withLock` by design, documented at the combinator). §I.2: both snapshot
+> reads live in git/snapshot.ts with the divergence pinned by snapshot.test.ts. §I.3:
+> `commitsOf(rows)` (controller.ts) pins and reads in one task; the four `commit(row)!`
+> store sites use it, and `commit(row)`'s doc now states the invariant that keeps the
+> detail panel's synchronous reads safe (selection pages are eviction-pinned). §I.4: every
+> selection write goes through `applySelection` (store/selection.ts), which pairs the state
+> update with the canvas push. §I.5: `resetAndLoad({soft?})` is replaced by `reload()`
+> (preserving, the default posture) and `hardReload()` (the spelled-out destructive
+> variant). §I.6: `RepoApi` and its factory both derive from one runtime method list over
+> `Bridge`; the interface's per-method docs moved to the contract. §I.7: a typed
+> `sendEvent` (window.ts) covers all seven event sends. §I.8: the `WtAct` closure
+> round-trip is a `"stage" | "unstage"` union resolved inside `runWt`. §II.1: the store's
+> ~55 actions live in features/repo/store/ (selection, draft, dialogs, ops, reload,
+> merge-queue, mutations), composed by `createRepoStore`. §II.2: detail-panel sheds the
+> markdown renderer (lib/markdown.tsx), `RewordForm` and `RestoreDialog` (own files).
+> §II.3: App.tsx (293→182 lines) delegates to `useTabs`/`useDialogs`/`useRepoCommand`.
+> §II.4: git-console delegates to `useTraceBuffer`/`useCommandHistory`. §II.5: the
+> imperative diff2html/shiki machinery lives in lib/d2h-render.ts (diff-view 402→226).
+> §II.6: the dry-run orchestration is `useMergePreview`. §II.7: both recursive prop drills
+> ride a context (refs-tree `Ctx`, file-list's per-list entries context) with re-render
+> sets unchanged. Deferred deliberately, all §I.8/II watch items with no concrete break:
+> the `resetOwner` guard centralization (worth it only if the controller grows again), the
+> one-way stats triplication, and the shared diff-cap spanning three files.
 
 **Overall verdict.** The codebase is *not* a rotten tower. The process seams are clean
 (zero `renderer → main` imports, zero `shared → up` imports), the IPC surface is
