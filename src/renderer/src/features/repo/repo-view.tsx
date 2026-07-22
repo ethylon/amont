@@ -300,16 +300,6 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
               out (fast-forward pull / force push / cancel) — cf. remote-ahead-banner.tsx */}
           <RemoteAheadBanner />
 
-          {flowStart && (
-            <FlowStartBanner
-              key={`${flowStart.kind}:${flowStart.base ?? ""}`}
-              kind={flowStart.kind}
-              prefix={flow?.[flowStart.kind] ?? `${flowStart.kind}/`}
-              initialBase={flowStart.base}
-              onDone={closeFlowStart}
-            />
-          )}
-
           {/* create-at-commit banners (graph context menu) — same strip as the flow start */}
           {branchCreate && (
             <BranchCreateBanner key={branchCreate.from} from={branchCreate.from} onDone={closeBranchCreate} />
@@ -318,11 +308,21 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
             <WorktreeCreateBanner key={worktreeCreate.from} from={worktreeCreate.from} onDone={closeWorktreeCreate} />
           )}
 
-          {/* finish confirmation takes the strip over the cockpit (same component, the content
-              rolls); the merge queue takes it over the cockpit too, while HEAD sits on its
-              target — the cockpit returns when the queue empties; otherwise the read-only
-              cockpit of the checked-out flow branch */}
-          {flowFinish && finishInfo ? (
+          {/* One flow strip at a time. A start intent takes it over the cockpit (starting a new
+              feature while one is checked out must not stack a second banner — the cockpit
+              returns on cancel); the finish confirmation takes the strip over the cockpit (same
+              component, the content rolls); the merge queue takes it over the cockpit too, while
+              HEAD sits on its target — the cockpit returns when the queue empties; otherwise the
+              read-only cockpit of the checked-out flow branch */}
+          {flowStart ? (
+            <FlowStartBanner
+              key={`${flowStart.kind}:${flowStart.base ?? ""}`}
+              kind={flowStart.kind}
+              prefix={flow?.[flowStart.kind] ?? `${flowStart.kind}/`}
+              initialBase={flowStart.base}
+              onDone={closeFlowStart}
+            />
+          ) : flowFinish && finishInfo ? (
             <FlowBanner
               kind={flowFinish.kind}
               branch={flowFinish.branch}
