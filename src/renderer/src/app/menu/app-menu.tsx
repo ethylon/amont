@@ -28,7 +28,7 @@ function MenuItemNode({ node }: { node: MenuNode }) {
     case "action":
       return (
         <MenubarItem data-menu-item={node.id} disabled={node.disabled} variant={node.variant} onClick={node.run}>
-          {node.icon && <HugeiconsIcon icon={node.icon} strokeWidth={2} />}
+          {node.icon && <HugeiconsIcon icon={node.icon} strokeWidth={2} className={node.iconClass} />}
           {node.label}
           {node.shortcut && <MenubarShortcut>{node.shortcut}</MenubarShortcut>}
         </MenubarItem>
@@ -46,7 +46,7 @@ function MenuItemNode({ node }: { node: MenuNode }) {
       return (
         <MenubarSub>
           <MenubarSubTrigger data-menu-item={node.id}>
-            {node.icon && <HugeiconsIcon icon={node.icon} strokeWidth={2} />}
+            {node.icon && <HugeiconsIcon icon={node.icon} strokeWidth={2} className={node.iconClass} />}
             {node.label}
           </MenubarSubTrigger>
           <MenubarSubContent>

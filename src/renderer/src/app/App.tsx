@@ -29,6 +29,9 @@ const SettingsDialog = lazy(() =>
   import("@/features/settings/settings-dialog").then((m) => ({ default: m.SettingsDialog }))
 )
 
+/* About (Help ▸ About Amont): same lazy treatment as the settings — pure user-action UI. */
+const AboutDialog = lazy(() => import("@/features/about/about-dialog").then((m) => ({ default: m.AboutDialog })))
+
 const reduced = matchMedia("(prefers-reduced-motion: reduce)")
 
 /** The tab content slides; the rest of the chrome switches instantly (see `.amont-tabview`). */
@@ -172,6 +175,9 @@ export default function App({ boot }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const openSettings = useCallback(() => setSettingsOpen(true), [])
 
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const openAbout = useCallback(() => setAboutOpen(true), [])
+
   /* Menu → active repo: a menu item can't reach into a RepoView (different subtree), so it
      dispatches a nonce-stamped command that the foreground RepoView executes through its store. */
   const cmdSeq = useRef(0)
@@ -199,6 +205,7 @@ export default function App({ boot }: Props) {
       openRepo: openDialog,
       closeActiveTab: () => active.kind === "repo" && closeTab(active.id),
       openSettings,
+      openAbout,
       hasActiveRepo: active.kind === "repo",
       goHome: () => select(HOME),
       locale,
@@ -206,11 +213,10 @@ export default function App({ boot }: Props) {
       themeMode,
       setTheme,
       reload: () => window.location.reload(),
-      version: __APP_VERSION__,
       openExternal: (url) => void window.open(url, "_blank", "noopener,noreferrer"),
       checkForUpdates: () => void host.checkForUpdates(),
     }),
-    [active, closeTab, locale, openCreate, openDialog, openSettings, select, themeMode]
+    [active, closeTab, locale, openAbout, openCreate, openDialog, openSettings, select, themeMode]
   )
 
   return (
@@ -233,6 +239,12 @@ export default function App({ boot }: Props) {
       {settingsOpen && (
         <Suspense fallback={null}>
           <SettingsDialog onClose={() => setSettingsOpen(false)} />
+        </Suspense>
+      )}
+
+      {aboutOpen && (
+        <Suspense fallback={null}>
+          <AboutDialog onClose={() => setAboutOpen(false)} />
         </Suspense>
       )}
 

@@ -1019,6 +1019,19 @@ export const messages = {
     },
   },
 
+  about: {
+    get tagline() {
+      return t`A free and open-source Git client for Windows.`
+    },
+    version: (version: string) => t`Version ${version}`,
+    get website() {
+      return t`Website`
+    },
+    get license() {
+      return t`Released under the MIT license.`
+    },
+  },
+
   menu: {
     get file() {
       return t`File`
@@ -1062,7 +1075,9 @@ export const messages = {
     get checkForUpdates() {
       return t`Check for updates…`
     },
-    about: (version: string) => t`Amont ${version}`,
+    get about() {
+      return t`About Amont…`
+    },
 
     /* View ▸ Language / Theme (runtime switch) */
     get language() {
