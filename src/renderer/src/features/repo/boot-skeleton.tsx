@@ -57,21 +57,17 @@ export function BootSkeleton({ out, sidebar }: { out: boolean; sidebar: boolean 
           </div>
         </div>
       )}
-      {/* same grid as the real content: the detail panel border doesn't jump during the fade */}
-      <div className="grid min-w-0 flex-1 grid-cols-[minmax(280px,1fr)_minmax(240px,320px)]">
-        <div className="animate-pulse overflow-hidden motion-reduce:animate-none">
-          {ROWS.map((w, i) => (
-            <div key={i} className="flex h-7 items-center gap-3 px-4">
-              <div className="size-2.5 shrink-0 rounded-full bg-muted" />
-              <div className={cn("h-2.5 rounded-full bg-muted", w)} />
-              <div className="ms-auto h-2.5 w-16 rounded-full bg-muted" />
-              <div className="h-2.5 w-10 rounded-full bg-muted" />
-            </div>
-          ))}
-        </div>
-        <div className="border-l px-4.5 py-4">
-          <div className="h-2.5 w-32 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
-        </div>
+      {/* graph column only: a fresh tab boots without a selection, so the real content has no
+          detail panel — the skeleton matches its full-width graph */}
+      <div className="min-w-0 flex-1 animate-pulse overflow-hidden motion-reduce:animate-none">
+        {ROWS.map((w, i) => (
+          <div key={i} className="flex h-7 items-center gap-3 px-4">
+            <div className="size-2.5 shrink-0 rounded-full bg-muted" />
+            <div className={cn("h-2.5 rounded-full bg-muted", w)} />
+            <div className="ms-auto h-2.5 w-16 rounded-full bg-muted" />
+            <div className="h-2.5 w-10 rounded-full bg-muted" />
+          </div>
+        ))}
       </div>
     </div>
   )

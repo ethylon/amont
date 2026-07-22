@@ -276,6 +276,10 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   }, [active, clearFocus, selection.length])
 
   const panelOpen = view === "wt" || selection.length > 0
+  /* the aside only exists when it has a subject (worktree, selection detail or flow cockpit):
+     without one it is hidden entirely and the graph takes the full width */
+  const asideOpen =
+    (view === "wt" && !!worktree) || (panelOpen && !!graphRef.current) || !!(workFlow && flowInfo && status?.branch)
 
   return (
     <>
@@ -353,45 +357,54 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
             <RefsSidebar />
 
             <main className="flex min-w-0 flex-1 flex-col">
-              <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,1fr)_minmax(240px,320px)] grid-rows-[minmax(0,1fr)]">
+              <div
+                className={cn(
+                  "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)]",
+                  asideOpen ? "grid-cols-[minmax(280px,1fr)_minmax(240px,320px)]" : "grid-cols-[minmax(0,1fr)]"
+                )}
+              >
                 <GraphColumnMemo locale={locale} />
 
                 {/* column: the detail header is fixed, the list and diff each scroll on their own.
                     The panels render fragments — so their children are the flex items. */}
                 {/* opaque background: if the graph overflows its column, it passes underneath without showing through */}
-                <aside
-                  data-amont-keep-focus
-                  className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4"
-                >
-                  {view === "wt" && worktree ? (
-                    <WorktreePanel />
-                  ) : panelOpen && graphRef.current ? (
-                    /* resetKey: an error card caught on one commit must not survive a click on
-                       another (the old per-selection key remounted its way out of this; the
-                       boundary now recovers in place — `selection` is reference-stable) */
-                    <ErrorBoundary key={detailNonce} resetKey={selection} onReset={() => setDetailNonce((n) => n + 1)}>
-                      <DetailPanel
-                        api={api}
-                        repoId={repoId}
-                        graph={graphRef.current}
-                        selection={selection}
-                        selMode={selMode}
-                        activePath={diff?.file.path}
-                        onOpenDiff={openDiff}
-                        onJump={onJump}
-                      />
-                    </ErrorBoundary>
-                  ) : workFlow && flowInfo && status?.branch ? (
-                    <>
-                      <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
-                      <p className="mt-3 shrink-0 text-xs text-muted-foreground">
-                        {messages.repo.clickCommitForDetail}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="shrink-0 text-xs text-muted-foreground">{messages.repo.clickCommitForDetail}</p>
-                  )}
-                </aside>
+                {asideOpen && (
+                  <aside
+                    data-amont-keep-focus
+                    className="flex min-h-0 flex-col overflow-hidden border-l bg-background px-4.5 py-4"
+                  >
+                    {view === "wt" && worktree ? (
+                      <WorktreePanel />
+                    ) : panelOpen && graphRef.current ? (
+                      /* resetKey: an error card caught on one commit must not survive a click on
+                         another (the old per-selection key remounted its way out of this; the
+                         boundary now recovers in place — `selection` is reference-stable) */
+                      <ErrorBoundary
+                        key={detailNonce}
+                        resetKey={selection}
+                        onReset={() => setDetailNonce((n) => n + 1)}
+                      >
+                        <DetailPanel
+                          api={api}
+                          repoId={repoId}
+                          graph={graphRef.current}
+                          selection={selection}
+                          selMode={selMode}
+                          activePath={diff?.file.path}
+                          onOpenDiff={openDiff}
+                          onJump={onJump}
+                        />
+                      </ErrorBoundary>
+                    ) : workFlow && flowInfo && status?.branch ? (
+                      <>
+                        <FlowCard kind={workFlow} branch={status.branch} info={flowInfo} />
+                        <p className="mt-3 shrink-0 text-xs text-muted-foreground">
+                          {messages.repo.clickCommitForDetail}
+                        </p>
+                      </>
+                    ) : null}
+                  </aside>
+                )}
               </div>
             </main>
           </div>
