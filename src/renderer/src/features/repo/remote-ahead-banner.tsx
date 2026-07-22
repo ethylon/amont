@@ -10,6 +10,7 @@ import { ArrowUp02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 
 import { messages } from "@/lib/messages"
 import { useRepoStore } from "@/features/repo/repo-store"
+import { Banner, BannerActions, BannerDetail, BannerTitle } from "@/components/ui/banner"
 import { Button } from "@/components/ui/button"
 import { GitCmd } from "@/components/ui/git-cmd"
 
@@ -20,16 +21,12 @@ export function RemoteAheadBanner() {
   if (!remoteAhead) return null
 
   return (
-    /* amont-drop: after boot, the insertion pushes the content in smoothly (see app.css) */
-    <div className="amont-drop flex shrink-0 items-center gap-2.5 border-b border-warning/40 bg-warning/10 px-3.5 py-1 text-xs whitespace-nowrap">
-      <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} className="size-4 shrink-0 text-warning" />
-      <span className="min-w-0 shrink-0 font-semibold">{messages.remoteAhead.banner}</span>
-      {remoteAhead.behind > 0 && (
-        <span className="min-w-0 truncate text-muted-foreground">
-          {messages.remoteAhead.commitsBehind(remoteAhead.behind)}
-        </span>
-      )}
-      <span className="ms-auto flex shrink-0 items-center gap-1.5">
+    /* amont-drop (via Banner): after boot, the insertion pushes the content in smoothly (see app.css) */
+    <Banner>
+      <HugeiconsIcon icon={ArrowUp02Icon} strokeWidth={2} className="size-4 shrink-0" />
+      <BannerTitle>{messages.remoteAhead.banner}</BannerTitle>
+      {remoteAhead.behind > 0 && <BannerDetail>{messages.remoteAhead.commitsBehind(remoteAhead.behind)}</BannerDetail>}
+      <BannerActions>
         <Button variant="outline" size="sm" className="h-auto min-h-6 py-0.5" onClick={() => void resolve("pull")}>
           <span className="flex flex-col items-start">
             <span>{messages.remoteAhead.pullFf}</span>
@@ -50,7 +47,7 @@ export function RemoteAheadBanner() {
         <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label={messages.remoteAhead.cancel}>
           <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
         </Button>
-      </span>
-    </div>
+      </BannerActions>
+    </Banner>
   )
 }
