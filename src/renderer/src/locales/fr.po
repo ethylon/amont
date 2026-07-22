@@ -1204,6 +1204,9 @@ msgstr "La branche « {name} » sera supprimée sur le remote."
 msgid "The branch « {name} » will be deleted."
 msgstr "La branche « {name} » sera supprimée."
 
+msgid "The installer runs during the restart — allow it about a minute."
+msgstr "L'installation se déroule pendant le redémarrage — comptez environ une minute."
+
 msgid "The remote branch is ahead"
 msgstr "La branche distante est en avance"
 
