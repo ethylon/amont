@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowRight01Icon,
@@ -282,23 +282,8 @@ function FileIcon({ api, path }: { api: RepoApi; path: string }) {
   )
 }
 
-function TreeFile<T extends FileChange>({
-  api,
-  file,
-  active,
-  onOpen,
-  onHistory,
-  onRestore,
-  action,
-}: {
-  api: RepoApi
-  file: T
-  active?: boolean
-  onOpen?(f: T): void
-  onHistory?(f: T): void
-  onRestore?(f: T): void
-  action?: React.ReactNode
-}) {
+function TreeFile<T extends FileChange>({ file }: { file: T }) {
+  const { api, activePath, onOpen, onHistory, onRestore, action } = useEntriesCtx<T>()
   /* Instant single click (AUDIT.md §8): no more disambiguation delay with the double-click
      — the hot path (viewing the diff) shouldn't pay an artificial latency for the rare case
      (opening in the OS). A double-click therefore fires both in sequence (diff then open),
@@ -308,8 +293,8 @@ function TreeFile<T extends FileChange>({
       file={file}
       nameOnly
       icon={<FileIcon api={api} path={file.path} />}
-      active={active}
-      action={action}
+      active={file.path === activePath}
+      action={action?.(file)}
       onClick={onOpen && (() => onOpen(file))}
       onDoubleClick={() => api.openFile(file.path)}
       onOpenFile={() => api.openFile(file.path)}
@@ -341,28 +326,13 @@ function toViewTree<T extends FileChange>(node: PathTree<T>): ViewTree<T> {
   return { dirs, items, count: all.length, all }
 }
 
-function Tree<T extends FileChange>({
-  node,
-  prefix,
-  collapsed,
-  onToggleDir,
-  api,
-  activePath,
-  onOpen,
-  onHistory,
-  onRestore,
-  action,
-  dirAction,
-}: {
-  node: ViewTree<T>
-  /** path of `node` ("" at the root, "src/app/" below) — folder identity for `collapsed` */
-  prefix: string
-  /** collapsed folder paths — controlled here rather than `defaultOpen` on the Collapsible:
-      a refetch rebuilds the tree with possibly different compacted labels, and uncontrolled
-      state (living in the keyed-by-label component) used to pop folders back open and remount
-      their subtrees on every stage/unstage (refresh audit, §3) */
-  collapsed: ReadonlySet<string>
-  onToggleDir(path: string, open: boolean): void
+/* Everything the tree needs besides the node itself, provided once per list
+   (FileEntriesInner) instead of re-threading eleven props at every level of the
+   recursion. All list-wide: the callbacks and `api` are stable across renders
+   (worktree-panel useMemo/useCallback, cf. the FileEntries memo below), `activePath`
+   and `collapsed` change per interaction — but any such change re-renders the whole
+   list anyway (they're the provider's own prop/state), so bundling them costs nothing. */
+type EntriesCtx<T extends FileChange = FileChange> = {
   api: RepoApi
   activePath?: string
   onOpen?(f: T): void
@@ -371,7 +341,30 @@ function Tree<T extends FileChange>({
   action?(f: T): React.ReactNode
   /** one button per folder, acting on all files of the subtree */
   dirAction?(files: T[]): React.ReactNode
+  /** collapsed folder paths — controlled here rather than `defaultOpen` on the Collapsible:
+      a refetch rebuilds the tree with possibly different compacted labels, and uncontrolled
+      state (living in the keyed-by-label component) used to pop folders back open and remount
+      their subtrees on every stage/unstage (refresh audit, §3) */
+  collapsed: ReadonlySet<string>
+  onToggleDir(path: string, open: boolean): void
+}
+
+const EntriesContext = createContext<EntriesCtx | null>(null)
+
+/* The provider is generic per list (T = the caller's FileChange subtype); a React context
+   can't carry the type parameter, so the read casts it back — same trick as the
+   `FileEntries` memo cast below. `Tree` only renders under the provider, never null. */
+const useEntriesCtx = <T extends FileChange>() => useContext(EntriesContext)! as EntriesCtx<T>
+
+function Tree<T extends FileChange>({
+  node,
+  prefix,
+}: {
+  node: ViewTree<T>
+  /** path of `node` ("" at the root, "src/app/" below) — folder identity for `collapsed` */
+  prefix: string
 }) {
+  const { collapsed, onToggleDir, dirAction } = useEntriesCtx<T>()
   return (
     <>
       {node.dirs.map(({ label, node: d }) => {
@@ -398,34 +391,13 @@ function Tree<T extends FileChange>({
               {dirAction?.(d.all)}
             </div>
             <CollapsibleContent className="ml-2 border-l pl-2">
-              <Tree
-                node={d}
-                prefix={path}
-                collapsed={collapsed}
-                onToggleDir={onToggleDir}
-                api={api}
-                activePath={activePath}
-                onOpen={onOpen}
-                onHistory={onHistory}
-                onRestore={onRestore}
-                action={action}
-                dirAction={dirAction}
-              />
+              <Tree node={d} prefix={path} />
             </CollapsibleContent>
           </Collapsible>
         )
       })}
       {node.items.map((f) => (
-        <TreeFile
-          key={f.path}
-          api={api}
-          file={f}
-          active={f.path === activePath}
-          onOpen={onOpen}
-          onHistory={onHistory}
-          onRestore={onRestore}
-          action={action?.(f)}
-        />
+        <TreeFile key={f.path} file={f} />
       ))}
     </>
   )
@@ -484,21 +456,18 @@ function FileEntriesInner<T extends FileChange>({
       return next
     })
   }, [])
+  /* memoized so the provider's value only moves when one of its fields does — each of
+     which is a prop or state of this very component, so the value never changes without
+     the whole list re-rendering anyway */
+  const ctx = useMemo<EntriesCtx<T>>(
+    () => ({ api, activePath, onOpen, onHistory, onRestore, action, dirAction, collapsed, onToggleDir }),
+    [api, activePath, onOpen, onHistory, onRestore, action, dirAction, collapsed, onToggleDir]
+  )
   if (tree)
     return (
-      <Tree
-        node={tree}
-        prefix=""
-        collapsed={collapsed}
-        onToggleDir={onToggleDir}
-        api={api}
-        activePath={activePath}
-        onOpen={onOpen}
-        onHistory={onHistory}
-        onRestore={onRestore}
-        action={action}
-        dirAction={dirAction}
-      />
+      <EntriesContext.Provider value={ctx}>
+        <Tree node={tree} prefix="" />
+      </EntriesContext.Provider>
     )
   return (
     <>

@@ -3,7 +3,7 @@
    into the production CSP (csp.mjs). `shiki/core` + the pure-JS regex engine
    (`shiki/engine/javascript`, no WASM) with an explicit, finite language list gets the same
    tokenization for the languages this app actually renders diffs of, without either cost.
-   Loaded lazily (dynamic import, cf. diff-view.tsx) so it never touches the initial bundle.
+   Loaded lazily (dynamic import, cf. lib/d2h-render.ts) so it never touches the initial bundle.
 
    Each language is its own literal `import("shiki/langs/xxx.mjs")` rather than a single
    `LANGS.map(lang => import(\`shiki/langs/${lang}.mjs\`))`: a template-literal specifier can't be
@@ -36,7 +36,7 @@ import type { ShikiLang } from "./shiki-langs"
 
 /* Canonical shiki language ids for the file types this app is realistically asked to diff, each
    mapped to its lazy grammar loader. Add a language here the day a diff needs one that's missing; an
-   unrecognized language already falls back to plain text (cf. diff-view.tsx's shikiPass). The
+   unrecognized language already falls back to plain text (cf. d2h-render.ts's shikiPass). The
    `satisfies` clause ties this table to shiki-langs.ts's SHIKI_LANGS (the list the settings UI
    offers): every advertised id must have a loader here, and vice versa — they can't drift. */
 const langLoaders = {
