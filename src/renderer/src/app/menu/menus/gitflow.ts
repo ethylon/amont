@@ -23,6 +23,16 @@ const FLOW_ICON: Record<BranchFlow, IconSvgElement> = {
   hotfix: Fire02Icon,
 }
 
+/* Same hues as every other flow indicator (FLOW_META, sidebar badges). Important (`!`) so the
+   tint survives the item's focus repaint (`focus:**:text-accent-foreground`), like the
+   destructive variant's icon (cf. primitives/menubar.tsx). */
+const FLOW_TINT: Record<BranchFlow, string> = {
+  feature: "text-success!",
+  bugfix: "text-warning!",
+  release: "text-release!",
+  hotfix: "text-destructive!",
+}
+
 /* Thunks, not values: reading a `messages.*` getter at module scope would run `t` during import,
    before setupI18n() has activated a locale (cf. refs-menu.tsx). The `*Named` entries are plain
    functions (they only call `t` when invoked), so they can be referenced directly. */
@@ -72,6 +82,7 @@ function promotedItems(repo: MenuRepo): MenuNode[] {
         id: "gitflow.promoted.finish",
         label: FINISH_NAMED[kind](name),
         icon: CheckmarkCircle02Icon,
+        iconClass: FLOW_TINT[kind],
         run: () => repo.finishFlow(repo.branch!),
       },
     ]
@@ -81,6 +92,7 @@ function promotedItems(repo: MenuRepo): MenuNode[] {
         id: "gitflow.promoted.publish",
         label: PUBLISH_NAMED[kind](name),
         icon: ArrowUp02Icon,
+        iconClass: FLOW_TINT[kind],
         run: () => repo.publishFlow(kind, name),
       })
     return items
@@ -91,6 +103,7 @@ function promotedItems(repo: MenuRepo): MenuNode[] {
     id: `gitflow.promoted.start.${kind}`,
     label: START_LABEL[kind](),
     icon: FLOW_ICON[kind],
+    iconClass: FLOW_TINT[kind],
     run: () => repo.startFlow(kind, base),
   }))
 }
@@ -105,6 +118,7 @@ function typeItems(repo: MenuRepo, kind: BranchFlow): MenuNode[] {
       id: `gitflow.${kind}.start`,
       label: messages.menu.flowStart,
       icon: GitBranchIcon,
+      iconClass: FLOW_TINT[kind],
       run: () => repo.startFlow(kind),
     },
     {
@@ -112,6 +126,7 @@ function typeItems(repo: MenuRepo, kind: BranchFlow): MenuNode[] {
       id: `gitflow.${kind}.finish`,
       label: messages.menu.flowFinish,
       icon: CheckmarkCircle02Icon,
+      iconClass: FLOW_TINT[kind],
       disabled: name === null,
       run: () => repo.finishFlow(repo.branch!),
     },
@@ -120,6 +135,7 @@ function typeItems(repo: MenuRepo, kind: BranchFlow): MenuNode[] {
       id: `gitflow.${kind}.publish`,
       label: messages.menu.flowPublish,
       icon: ArrowUp02Icon,
+      iconClass: FLOW_TINT[kind],
       disabled: name === null || !repo.flowInfo?.unpushed,
       run: () => name !== null && repo.publishFlow(kind, name),
     },
@@ -154,6 +170,7 @@ export const gitflowMenu: MenuDescriptor = {
       id: `gitflow.${kind}`,
       label: FLOW_LABEL[kind](),
       icon: FLOW_ICON[kind],
+      iconClass: FLOW_TINT[kind],
       items: typeItems(repo, kind),
     }))
     return promoted.length ? [...promoted, { kind: "separator" }, ...grid] : grid

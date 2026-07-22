@@ -19,6 +19,9 @@ export type MenuAction = {
   /** Display-only shortcut hint (e.g. "F5"). The actual binding lives in app/shortcuts.ts. */
   shortcut?: string
   icon?: IconSvgElement
+  /** Extra classes on the icon — a tint (`text-…!`, important so it survives the item's
+      focus repaint, cf. primitives/menubar.tsx destructive variant). */
+  iconClass?: string
   disabled?: boolean
   variant?: "default" | "destructive"
   run: () => void
@@ -43,6 +46,8 @@ export type MenuSubmenu = {
   id: string
   label: string
   icon?: IconSvgElement
+  /** Extra classes on the icon (same contract as MenuAction.iconClass). */
+  iconClass?: string
   items: MenuNode[]
 }
 
@@ -102,6 +107,8 @@ export type MenuContext = {
   closeActiveTab(): void
   /** Open the app-wide settings modal (customization, colors, fetch). */
   openSettings(): void
+  /** Open the About modal (mark, version — Help ▸ About Amont). */
+  openAbout(): void
   /** True when a repository tab is in the foreground (drives "Close tab" enablement). */
   hasActiveRepo: boolean
   /** The foreground repository's flow state and actions, or `null` off a repo tab (drives the
@@ -119,8 +126,6 @@ export type MenuContext = {
   setTheme(mode: ThemeMode): void
   /** Full window reload (same lever as F5). */
   reload(): void
-  /** The running app version, e.g. "0.13.0". */
-  version: string
   /** Open a URL in the system browser (never in-app; cf. main/window.ts). */
   openExternal(url: string): void
   /** Manual update check (Help ▸ Check for updates); feedback via the update card. */

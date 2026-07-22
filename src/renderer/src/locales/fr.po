@@ -124,6 +124,9 @@ msgstr "A · {label}"
 msgid "a command"
 msgstr "une commande"
 
+msgid "A free and open-source Git client for Windows."
+msgstr "Client Git libre et open source pour Windows."
+
 msgid "A repository without a working tree, ready to be used as a remote."
 msgstr "Un dépôt sans copie de travail, prêt à servir de dépôt distant."
 
@@ -144,6 +147,9 @@ msgstr "Interrompre le rebase"
 
 msgid "Abort revert"
 msgstr "Interrompre le revert"
+
+msgid "About Amont…"
+msgstr "À propos d'Amont…"
 
 msgid "Add extension"
 msgstr "Ajouter une extension"
@@ -186,9 +192,6 @@ msgstr "Rechercher aussi dans le contenu des diffs"
 
 msgid "Amend"
 msgstr "Amender"
-
-msgid "Amont {version}"
-msgstr "Amont {version}"
 
 msgid "Amont {version} is ready to install."
 msgstr "Amont {version} est prêt à être installé."
@@ -1033,6 +1036,9 @@ msgstr "Release"
 msgid "Release prefix"
 msgstr "Préfixe release"
 
+msgid "Released under the MIT license."
+msgstr "Distribué sous licence MIT."
+
 msgid "Reload"
 msgstr "Recharger"
 
@@ -1333,6 +1339,9 @@ msgstr "Vérification de la base…"
 msgid "version"
 msgstr "version"
 
+msgid "Version {version}"
+msgstr "Version {version}"
+
 msgid "Version tag prefix"
 msgstr "Préfixe de tag de version"
 
@@ -1344,6 +1353,9 @@ msgstr "Voir les conflits"
 
 msgid "waiting"
 msgstr "en attente"
+
+msgid "Website"
+msgstr "Site web"
 
 msgid "Worktrees"
 msgstr "Worktrees"
