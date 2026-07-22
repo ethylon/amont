@@ -593,6 +593,9 @@
         flowPublish: async (_id, kind, name) => {
           await simulateFlowCmds(["git config --get-regexp ^gitflow\\.prefix\\.", `git flow ${kind} publish ${name}`])
         },
+        /* release-create dialog probe: every branch merges clean in the mock */
+        mergePreview: async (_id, _base, branches) =>
+          branches.map((branch) => ({ branch, status: "clean", files: [] })),
         countObjects: async () => counts,
         /* typed console command: replay the trace stream main would emit (group header, the
            command echo, some output, the outcome). A `config …` input rejects with the same
