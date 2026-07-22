@@ -555,6 +555,41 @@
     animation: amont-roll-out 220ms cubic-bezier(0.2, 0, 0, 1) both;
   }
 
+  /* Vertical fade at the clip edges while a roll is in flight — shadcn's `scroll-fade-y` look,
+     but state-driven. The stock utility is scroll-timeline-driven and useless here: the host
+     never scrolls, and during a roll the incoming line's overflow activates the timeline at
+     scrollTop 0, which pins the top fade to 0px. Same gradient, driven by [data-rolling]
+     instead; shadcn's registered --scroll-fade-* properties make the ramp transitionable,
+     so the mask eases in and out rather than popping. At rest both edges are 0px and the
+     mask is a no-op. */
+  .amont-roll-fade {
+    /* same unit as the active value: Chromium cannot interpolate a registered
+       <length-percentage> across units (0px ↔ 25%) and the transition stalls */
+    --scroll-fade-t: 0%;
+    --scroll-fade-b: 0%;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--scroll-fade-t, 0px),
+      #000 calc(100% - var(--scroll-fade-b, 0px)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--scroll-fade-t, 0px),
+      #000 calc(100% - var(--scroll-fade-b, 0px)),
+      transparent 100%
+    );
+    transition:
+      --scroll-fade-t 100ms ease-out,
+      --scroll-fade-b 100ms ease-out;
+  }
+  .amont-roll-fade[data-rolling] {
+    --scroll-fade-t: 25%;
+    --scroll-fade-b: 25%;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     /* keep the cross-fade, drop the vertical travel */
     .amont-roll-in {
@@ -562,6 +597,11 @@
     }
     .amont-roll-out {
       animation-name: amont-roll-fade-out;
+    }
+    /* nothing crosses the clip edges in a cross-fade */
+    .amont-roll-fade[data-rolling] {
+      --scroll-fade-t: 0%;
+      --scroll-fade-b: 0%;
     }
   }
   @keyframes amont-roll-fade-in {
