@@ -28,6 +28,14 @@ import { Avatar } from "@/components/ui/avatar"
 import { Skeleton, SkeletonGroup } from "@/components/ui/skeleton"
 import { Badge, badgeSeparator } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Field, FieldError, FieldGroup } from "@/components/ui/field"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
@@ -162,6 +170,44 @@ const spanCtx = (graph: GraphHandle, selection: number[]) => ({
   parent: graph.commit(selection[selection.length - 1])!.p[0] || null,
 })
 
+/* Confirmation before a restore (the file rows' "Restore from this commit…" entry): it
+   overwrites the working copy — same policy as the staging panel's discard. The index stays
+   put (repo:restore is worktree-only), which the body says explicitly. */
+function RestoreDialog({
+  req,
+  onConfirm,
+  onClose,
+}: {
+  req: { hash: string; path: string }
+  onConfirm(): void
+  onClose(): void
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{messages.detail.restoreTitle}</DialogTitle>
+          <DialogDescription>{messages.detail.restoreBody(req.path, shortHash(req.hash))}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {messages.detail.cancel}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              onConfirm()
+              onClose()
+            }}
+          >
+            {messages.detail.restoreConfirm}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function Files({
   api,
   queryKey,
@@ -183,6 +229,12 @@ function Files({
   /* content-addressed (hash + parent in the key): a commit's file list never changes —
      no refetch on remount (perf audit, finding 5) */
   const { data, isError } = useQuery({ queryKey, queryFn, staleTime: Infinity })
+  /* commit-anchored context entries of the file rows: the history overlay opens right away,
+     the restore asks first (it overwrites the working copy). Both anchor on the file's own
+     diff context — a stash's untracked files live in another commit (ctxOf). */
+  const openFileHistory = useRepoStore((s) => s.openFileHistory)
+  const restoreFile = useRepoStore((s) => s.restoreFile)
+  const [restoreReq, setRestoreReq] = useState<{ hash: string; path: string } | null>(null)
   if (isError)
     return (
       <div className="mt-4 shrink-0 border-t pt-3">
@@ -200,13 +252,24 @@ function Files({
      state — collapsed folders, scroll position — resets here, on the smallest component that
      used to rely on the remount. */
   return (
-    <FileList
-      key={`${ctx.hash}:${ctx.parent}`}
-      files={data}
-      api={api}
-      activePath={activePath}
-      onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)}
-    />
+    <>
+      <FileList
+        key={`${ctx.hash}:${ctx.parent}`}
+        files={data}
+        api={api}
+        activePath={activePath}
+        onOpen={(f) => onOpenDiff(ctxOf?.(f) ?? ctx, f)}
+        onHistory={(f) => openFileHistory((ctxOf?.(f) ?? ctx).hash, f.path)}
+        onRestore={(f) => setRestoreReq({ hash: (ctxOf?.(f) ?? ctx).hash, path: f.path })}
+      />
+      {restoreReq && (
+        <RestoreDialog
+          req={restoreReq}
+          onConfirm={() => void restoreFile(restoreReq.hash, restoreReq.path)}
+          onClose={() => setRestoreReq(null)}
+        />
+      )}
+    </>
   )
 }
 

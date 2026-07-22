@@ -98,6 +98,27 @@ export type FileChange = {
   old?: string | null
 }
 
+/** One entry of a file's history (`repo:fileLog`): a commit that touched the file, walked
+    with `--follow` so renames don't cut the chain. `path`/`old` are the file's names AT that
+    commit — behind a rename they differ from the path the history was asked for — and `st`
+    is its status there, so each entry carries exactly what `repo:diff` needs to show it. */
+export type FileLogEntry = {
+  /** full SHA, same contract as `Commit.h` */
+  h: string
+  /** first parent, `null` for a root commit — the diff base, like the detail panel's ctx */
+  parent: string | null
+  d: string
+  a: string
+  e: string
+  s: string
+  /** the file's status in this commit (A, M, D, R…) */
+  st: string
+  /** the file's path at this commit (differs from the queried path across renames) */
+  path: string
+  /** rename/copy source, like `FileChange.old` */
+  old: string | null
+}
+
 /** One side of a binary/image preview (cf. `repo:blob`): which version of a path to read.
     `commit` reads `<rev>:<path>` from the object DB, `index` reads the staged blob (`:path`),
     `worktree` reads the file straight from disk. */

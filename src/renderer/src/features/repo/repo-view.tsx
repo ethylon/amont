@@ -178,6 +178,8 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const selMode = useRepoStore((s) => s.selection.mode)
   const conflict = useRepoStore((s) => s.ui.conflict)
   const closeConflict = useRepoStore((s) => s.closeConflict)
+  const fileHistory = useRepoStore((s) => s.ui.fileHistory)
+  const closeFileHistory = useRepoStore((s) => s.closeFileHistory)
   const opState = useRepoStore((s) => s.ops.opState)
   const busyOp = useRepoStore((s) => s.ops.busyOp)
   const opProgress = useRepoStore((s) => s.ops.opProgress)
@@ -246,6 +248,10 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
     }
     if (ev.key === "Escape" && conflict) {
       closeConflict()
+      return true
+    }
+    if (ev.key === "Escape" && fileHistory) {
+      closeFileHistory()
       return true
     }
     return false

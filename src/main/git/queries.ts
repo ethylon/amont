@@ -16,6 +16,7 @@ import type {
   ConflictFile,
   DiffText,
   FileChange,
+  FileLogEntry,
   GitRef,
   MergeOp,
   MergeState,
@@ -31,6 +32,7 @@ import {
   HASH,
   hashListCount,
   hashListSlice,
+  parseFileLog,
   parseForEachRef,
   parseLogPage,
   parseNameStatus,
@@ -479,6 +481,33 @@ export function files(r: RepoHandle, hash: string, parent: string | null, signal
     ? ["diff", "--name-status", "-z", parent, hash]
     : ["diff-tree", "-r", "--root", "--no-commit-id", "--name-status", "-z", hash]
   return r.git(args, { signal }).then(parseNameStatus)
+}
+
+/* History of one file: the commits that touched `path`, walked from `from`. `--follow`
+   keeps the chain across renames, and the default history simplification elides merges —
+   the list is "commits that changed the file", which is what the history view shows.
+   Anchored on the commit the view was opened from rather than on HEAD: `--follow` only
+   walks a single starting point reliably, and a fixed anchor makes the result
+   content-addressed (from + path), cacheable forever on the renderer side. */
+export function fileLog(r: RepoHandle, from: string, path: string, signal?: AbortSignal): Promise<FileLogEntry[]> {
+  assertHash(from)
+  if (typeof path !== "string" || !path) throw new AppError("BAD_ARG", "path")
+  return r
+    .git(
+      [
+        "log",
+        "--follow",
+        "--date=short",
+        "-z",
+        "--name-status",
+        "--pretty=format:%x1e%H%x1f%P%x1f%ad%x1f%an%x1f%ae%x1f%s%x1f",
+        from,
+        "--",
+        path,
+      ],
+      { signal }
+    )
+    .then(parseFileLog)
 }
 
 /* Message body, on demand. Joining it to the log would cost, just to display one,

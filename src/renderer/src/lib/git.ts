@@ -15,6 +15,7 @@ export type {
   CountObjects,
   DiffText,
   FileChange,
+  FileLogEntry,
   FlowFinishOpts,
   FlowInfo,
   FlowInitConfig,
@@ -62,6 +63,7 @@ import type {
   CountObjects,
   DiffText,
   FileChange,
+  FileLogEntry,
   FlowFinishOpts,
   FlowInfo,
   FlowInitConfig,
@@ -171,6 +173,12 @@ export type RepoApi = {
   /** `git cherry-pick <hash>` onto HEAD (with `-m 1` for a merge commit) */
   cherryPick(hash: string): Promise<void>
   files(hash: string, parent: string | null, requestId?: string): Promise<FileChange[]>
+  /** history of one file: the commits that touched `path`, walked from `from` with
+      `--follow` — each entry carries the file's status and path at that commit */
+  fileLog(from: string, path: string, requestId?: string): Promise<FileLogEntry[]>
+  /** overwrites the working file with its content at `hash` (`git restore --source`);
+      the index never moves — the renderer confirms first, like discard */
+  restore(hash: string, path: string): Promise<void>
   /** message body (`%b`), trailers included */
   body(hash: string, requestId?: string): Promise<string>
   /** diff text, truncated main-side past DIFF_MAX_LINES (shared/diff.ts) — `totalLines`
@@ -265,6 +273,8 @@ export const repoApi = (id: number): RepoApi => ({
   revert: (hash) => bridge.revert(id, hash),
   cherryPick: (hash) => bridge.cherryPick(id, hash),
   files: (hash, parent, requestId) => bridge.files(id, hash, parent, requestId),
+  fileLog: (from, path, requestId) => bridge.fileLog(id, from, path, requestId),
+  restore: (hash, path) => bridge.restore(id, hash, path),
   body: (hash, requestId) => bridge.body(id, hash, requestId),
   diff: (hash, parent, path, oldPath, requestId) => bridge.diff(id, hash, parent, path, oldPath, requestId),
   blob: (path, ref) => bridge.blob(id, path, ref),

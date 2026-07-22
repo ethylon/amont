@@ -21,6 +21,9 @@ import { CommitMenu, CreateTagDialog, ResetDialog, type CommitMenuTarget } from 
    for the frame the chunk takes to load. */
 const DiffView = lazy(() => import("@/features/diff/diff-view").then((m) => ({ default: m.DiffView })))
 const ConflictView = lazy(() => import("@/features/conflict/conflict-view").then((m) => ({ default: m.ConflictView })))
+const FileHistoryView = lazy(() =>
+  import("@/features/history/file-history-view").then((m) => ({ default: m.FileHistoryView }))
+)
 
 const WT_COUNTERS = [
   { key: "conflicts", color: "danger" },
@@ -46,6 +49,8 @@ export function GraphColumn() {
   const closeDiff = useRepoStore((s) => s.closeDiff)
   const conflict = useRepoStore((s) => s.ui.conflict)
   const closeConflict = useRepoStore((s) => s.closeConflict)
+  const fileHistory = useRepoStore((s) => s.ui.fileHistory)
+  const closeFileHistory = useRepoStore((s) => s.closeFileHistory)
   const resolveConflict = useRepoStore((s) => s.resolveConflict)
   const showWorktree = useRepoStore((s) => s.showWorktree)
 
@@ -174,6 +179,26 @@ export function GraphColumn() {
                     file={conflict}
                     onClose={closeConflict}
                     onResolve={resolveConflict}
+                  />
+                </Suspense>
+              </ErrorBoundary>
+            </div>
+          )}
+          {fileHistory && (
+            <div data-amont-keep-focus className="absolute inset-0 z-2 flex bg-background">
+              <ErrorBoundary
+                key={`${fileHistory.from}:${fileHistory.path}:${diffNonce}`}
+                onReset={() => setDiffNonce((n) => n + 1)}
+              >
+                <Suspense fallback={null}>
+                  <FileHistoryView
+                    api={api}
+                    repoId={repoId}
+                    path={fileHistory.path}
+                    from={fileHistory.from}
+                    view={diffMode}
+                    onViewChange={setDiffMode}
+                    onClose={closeFileHistory}
                   />
                 </Suspense>
               </ErrorBoundary>

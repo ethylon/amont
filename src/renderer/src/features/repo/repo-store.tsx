@@ -95,6 +95,9 @@ export interface RepoStoreState {
     diffMode: DiffViewMode
     /** conflicted file open in the resolution view — exclusive with `diff`, same overlay slot */
     conflict: FileChange | null
+    /** file-history view (detail panel's context menu) — exclusive with `diff`/`conflict`,
+        same overlay slot; `from` anchors the walk on the commit the menu was opened from */
+    fileHistory: { path: string; from: string } | null
     /** inline `git flow <kind> start` banner open in RepoView — openable from the app menu
         (command channel) and from the sidebar's flow shortcut; `base` pre-selects the start
         point (the promoted moves pass the trunk HEAD sits on) */
@@ -187,6 +190,12 @@ export interface RepoStoreState {
   openDiff(ctx: DiffCtx, file: FileChange): void
   closeDiff(): void
   setDiffMode(v: DiffViewMode): void
+  /** opens the file-history overlay: the commits that touched `path`, walked from `from` */
+  openFileHistory(from: string, path: string): void
+  closeFileHistory(): void
+  /** `git restore --source=<hash> --worktree` of one path — confirmed upstream (dialog),
+      then the worktree caches refresh so the restored state shows up as an unstaged change */
+  restoreFile(hash: string, path: string): Promise<void>
   openConflict(file: FileChange): void
   closeConflict(): void
   /** writes the merged output, stages the file (main-side `repo:resolve`), closes the view */
@@ -307,6 +316,7 @@ export function createRepoStore(
       view: "commits",
       diff: null,
       conflict: null,
+      fileHistory: null,
       diffMode: prefs.diffView.get() || "unified",
       flowStart: null,
       flowFinish: null,
@@ -329,9 +339,9 @@ export function createRepoStore(
         /* the click clears any open diff/conflict and returns to commits; reuse `ui`
            untouched when it's already there — a new object would wake `s.ui` subscribers */
         const ui =
-          s.ui.view === "commits" && !s.ui.diff && !s.ui.conflict
+          s.ui.view === "commits" && !s.ui.diff && !s.ui.conflict && !s.ui.fileHistory
             ? s.ui
-            : { ...s.ui, view: "commits" as const, diff: null, conflict: null }
+            : { ...s.ui, view: "commits" as const, diff: null, conflict: null, fileHistory: null }
         if (!additive) {
           return {
             selection: {
@@ -379,7 +389,7 @@ export function createRepoStore(
           mode: "branch",
           focusedKeys: sameSet(s.selection.focusedKeys, new Set(key ? [key] : [])),
         },
-        ui: { ...s.ui, view: "commits", diff: null, conflict: null },
+        ui: { ...s.ui, view: "commits", diff: null, conflict: null, fileHistory: null },
       }))
       g.setSelection(rows, row)
     },
@@ -409,7 +419,7 @@ export function createRepoStore(
             mode: r.kind === "tag" ? "multi" : "branch",
             focusedKeys: sameSet(s.selection.focusedKeys, new Set([key])),
           },
-          ui: { ...s.ui, view: "commits", diff: null, conflict: null },
+          ui: { ...s.ui, view: "commits", diff: null, conflict: null, fileHistory: null },
         }))
         g.setSelection(get().selection.rows, row)
         return
@@ -424,7 +434,7 @@ export function createRepoStore(
         const hashes = sortedRows.map((x) => g.commit(x)!.h)
         return {
           selection: { hashes, rows: sortedRows, mode: "multi", focusedKeys },
-          ui: { ...s.ui, view: "commits", diff: null, conflict: null },
+          ui: { ...s.ui, view: "commits", diff: null, conflict: null, fileHistory: null },
         }
       })
       g.setSelection(get().selection.rows, row)
@@ -446,7 +456,7 @@ export function createRepoStore(
           mode: s.selection.mode,
           focusedKeys: sameSet(s.selection.focusedKeys, new Set()),
         },
-        ui: { ...s.ui, diff: null, conflict: null },
+        ui: { ...s.ui, diff: null, conflict: null, fileHistory: null },
       }))
       get().graphRef.current?.setSelection([])
     },
@@ -511,7 +521,7 @@ export function createRepoStore(
     showWorktree() {
       set((s) => ({
         selection: { ...s.selection, rows: [], hashes: [] },
-        ui: { ...s.ui, diff: null, conflict: null, view: "wt" },
+        ui: { ...s.ui, diff: null, conflict: null, fileHistory: null, view: "wt" },
       }))
       get().graphRef.current?.setSelection([])
     },
@@ -651,7 +661,8 @@ export function createRepoStore(
       }
     },
     openDiff(ctx, file) {
-      set((s) => ({ ui: { ...s.ui, diff: { ctx, file } } }))
+      /* the overlay slot is exclusive: a diff opened while the history view is up replaces it */
+      set((s) => ({ ui: { ...s.ui, diff: { ctx, file }, fileHistory: null } }))
     },
     closeDiff() {
       set((s) => ({ ui: { ...s.ui, diff: null, conflict: null } }))
@@ -659,6 +670,29 @@ export function createRepoStore(
     setDiffMode(v) {
       prefs.diffView.set(v)
       set((s) => ({ ui: { ...s.ui, diffMode: v } }))
+    },
+    openFileHistory(from, path) {
+      set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, fileHistory: { path, from } } }))
+    },
+    closeFileHistory() {
+      set((s) => ({ ui: { ...s.ui, fileHistory: null } }))
+    },
+
+    /* Same shape as runDiscard (failure = badge, no reload): the restore only moves working
+       files, the graph has nothing to relayout — the worktree row updates through its own
+       invalidation. A success badge names the path: unlike a discard, nothing else on screen
+       makes the outcome visible when the staging panel is closed. */
+    async restoreFile(hash, path) {
+      try {
+        await api.restore(hash, path)
+      } catch (e) {
+        get().showOp(describeError(e), "danger")
+        return
+      }
+      get().showOp(messages.detail.restored(path), "primary")
+      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+      /* wt diffs only: the restore touched the tree, never a commit↔commit diff */
+      invalidateWtDiffs(queryClient, repoId)
     },
     openConflict(file) {
       set((s) => ({ ui: { ...s.ui, diff: null, conflict: file } }))
@@ -719,7 +753,7 @@ export function createRepoStore(
     resetAndLoad(opts) {
       /* the UI intent of a hard reload applies immediately, even when the graph rerun is
          coalesced into an already-queued one */
-      if (!opts?.soft) set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, view: "commits" } }))
+      if (!opts?.soft) set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, fileHistory: null, view: "commits" } }))
       /* running + queued = 2: a third caller is satisfied by the queued rerun, which starts
          after the current one and reads fresh state */
       if (reloadDepth >= 2) return reloadChain

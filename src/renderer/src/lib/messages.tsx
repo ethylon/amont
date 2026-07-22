@@ -230,6 +230,38 @@ export const messages = {
     get pushedWarning() {
       return t`Already pushed: amending rewrites history — the next push will need to be forced.`
     },
+    /* file context menu (detail panel's file list) */
+    get fileHistory() {
+      return t`File history`
+    },
+    get restoreFromCommit() {
+      return t`Restore from this commit…`
+    },
+    get restoreTitle() {
+      return t`Restore file?`
+    },
+    restoreBody: (path: string, hash: string) =>
+      emphasize(t`« ${path} » will be overwritten with its content at commit ${hash}. The index is not touched.`),
+    get restoreConfirm() {
+      return t`Restore`
+    },
+    /** status-badge confirmation: nothing else on screen makes the outcome visible */
+    restored: (path: string) => t`${path} restored to the working tree`,
+  },
+
+  /* file-history overlay (detail panel's "File history" context entry) */
+  history: {
+    title: (path: string) => t`History of ${path}`,
+    commitCount: (n: number) => plural(n, { one: "# commit", other: "# commits" }),
+    get loading() {
+      return t`History…`
+    },
+    get unavailable() {
+      return t`History unavailable.`
+    },
+    get empty() {
+      return t`No commit touches this file.`
+    },
   },
 
   /* footer feed while a network op runs — the live `--progress` occupant (fetch/pull/push),
@@ -328,6 +360,14 @@ export const messages = {
     },
     get discardLine() {
       return t`Discard line`
+    },
+    /* commit-diff revert (interactive body over a commit↔commit context): undoes the
+       hunk/line in the working tree — the commit itself never moves */
+    get revertHunk() {
+      return t`Revert hunk`
+    },
+    get revertLine() {
+      return t`Revert line`
     },
     get before() {
       return t`Before`

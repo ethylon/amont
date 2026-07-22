@@ -290,6 +290,13 @@ export function registerIpc(): void {
     return withCancel(r, requestId, (signal) => queries.files(r, hash, parent, signal))
   })
 
+  handle("repo:fileLog", (_ev, id, from, path, requestId) => {
+    const r = repos.use(id)
+    return withCancel(r, requestId, (signal) => queries.fileLog(r, from, path, signal))
+  })
+
+  handle("repo:restore", (_ev, id, hash, path) => ops.restoreFromCommit(repos.use(id), hash, path))
+
   handle("repo:body", (_ev, id, hash, requestId) => {
     const r = repos.use(id)
     return withCancel(r, requestId, (signal) => queries.body(r, hash, signal))

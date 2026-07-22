@@ -14,6 +14,7 @@ import {
   hashListCount,
   hashListSlice,
   parseCountObjects,
+  parseFileLog,
   parseFlowPrefixes,
   parseForEachRef,
   parseLogPage,
@@ -185,6 +186,57 @@ describe("parseLogPage (RS/US-delimited log page)", () => {
       parseLogPage(out).map((c) => c.h),
       ["h"]
     )
+  })
+})
+
+describe("parseFileLog (RS/US-delimited log + name-status -z block per commit)", () => {
+  /** one record as `git log --follow -z --name-status --pretty=format:%x1e…%x1f` emits it:
+      the format line (six fields, all US-terminated), the newline git appends before the
+      name-status block, the block itself, and the NUL that separates commits under `-z` */
+  const rec = (fields: string[], ns: string) => RS + fields.map((f) => f + US).join("") + "\n" + ns + NUL
+
+  it("returns an empty array for empty output", () => {
+    assert.deepEqual(parseFileLog(""), [])
+  })
+
+  it("parses a modification: header fields plus the file's status and path at that commit", () => {
+    const out = rec(["h1", "p1 p2", "2026-01-01", "Ada", "ada@x.io", "fix: thing"], `M${NUL}src/a.ts`)
+    assert.deepEqual(parseFileLog(out), [
+      {
+        h: "h1",
+        parent: "p1",
+        d: "2026-01-01",
+        a: "Ada",
+        e: "ada@x.io",
+        s: "fix: thing",
+        st: "M",
+        path: "src/a.ts",
+        old: null,
+      },
+    ])
+  })
+
+  it("keeps the rename's old path and reads a root commit's empty parent as null", () => {
+    const out =
+      rec(["h2", "h1", "d2", "B", "b@x", "move"], `R100${NUL}old.ts${NUL}new.ts`) +
+      rec(["h1", "", "d1", "A", "a@x", "birth"], `A${NUL}old.ts`)
+    const log = parseFileLog(out)
+    assert.equal(log.length, 2)
+    assert.deepEqual(
+      log.map((e) => [e.st, e.path, e.old, e.parent]),
+      [
+        ["R", "new.ts", "old.ts", "h1"],
+        ["A", "old.ts", null, null],
+      ]
+    )
+  })
+
+  it("reattaches a subject containing a field separator and drops a record with no file", () => {
+    const out =
+      rec(["h1", "", "d", "A", "a@x", "sub" + US + "ject"], `M${NUL}a.ts`) + rec(["h2", "", "d", "A", "a@x", "s"], "")
+    const log = parseFileLog(out)
+    assert.equal(log.length, 1)
+    assert.equal(log[0].s, "sub ject")
   })
 })
 

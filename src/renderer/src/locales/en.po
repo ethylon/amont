@@ -19,6 +19,9 @@ msgstr "… {n} lines truncated"
 msgid "« {branch} » will be moved to {hash}."
 msgstr "« {branch} » will be moved to {hash}."
 
+msgid "« {path} » will be overwritten with its content at commit {hash}. The index is not touched."
+msgstr "« {path} » will be overwritten with its content at commit {hash}. The index is not touched."
+
 msgid "(first-parent)"
 msgstr "(first-parent)"
 
@@ -61,6 +64,9 @@ msgstr "{n, plural, one {# commit selected} other {# commits selected}}"
 msgid "{n, plural, one {# commit to integrate} other {# commits to integrate}}"
 msgstr "{n, plural, one {# commit to integrate} other {# commits to integrate}}"
 
+msgid "{n, plural, one {# commit} other {# commits}}"
+msgstr "{n, plural, one {# commit} other {# commits}}"
+
 msgid "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
 msgstr "{n, plural, one {# conflict remaining} other {# conflicts remaining}}"
 
@@ -96,6 +102,9 @@ msgstr "{n} h"
 
 msgid "{n} min"
 msgstr "{n} min"
+
+msgid "{path} restored to the working tree"
+msgstr "{path} restored to the working tree"
 
 msgid "{refs} · unmerged"
 msgstr "{refs} · unmerged"
@@ -586,6 +595,9 @@ msgstr "Fetching…"
 msgid "File"
 msgstr "File"
 
+msgid "File history"
+msgstr "File history"
+
 msgid "Filter branches"
 msgstr "Filter branches"
 
@@ -678,6 +690,15 @@ msgstr "Helps fix crashes. No repository contents, diffs, or credentials are eve
 
 msgid "Hide sidebar"
 msgstr "Hide sidebar"
+
+msgid "History of {path}"
+msgstr "History of {path}"
+
+msgid "History unavailable."
+msgstr "History unavailable."
+
+msgid "History…"
+msgstr "History…"
 
 msgid "Home"
 msgstr "Home"
@@ -843,6 +864,9 @@ msgstr "No changes to stage."
 
 msgid "No commands yet."
 msgstr "No commands yet."
+
+msgid "No commit touches this file."
+msgstr "No commit touches this file."
 
 msgid "No conflict markers left."
 msgstr "No conflict markers left."
@@ -1066,11 +1090,26 @@ msgstr "Resolve conflicts before committing."
 msgid "Restart now"
 msgstr "Restart now"
 
+msgid "Restore"
+msgstr "Restore"
+
+msgid "Restore file?"
+msgstr "Restore file?"
+
+msgid "Restore from this commit…"
+msgstr "Restore from this commit…"
+
 msgid "Reveal in file explorer"
 msgstr "Reveal in file explorer"
 
 msgid "Revert {hash}"
 msgstr "Revert {hash}"
+
+msgid "Revert hunk"
+msgstr "Revert hunk"
+
+msgid "Revert line"
+msgstr "Revert line"
 
 msgid "Reverting {theirs} (B)"
 msgstr "Reverting {theirs} (B)"
