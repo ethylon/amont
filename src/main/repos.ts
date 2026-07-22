@@ -20,7 +20,7 @@ import { basename } from "./util.ts"
 import { getSettings } from "./settings.ts"
 import { remember } from "./state.ts"
 import { addGitBreadcrumb, captureGitError } from "./telemetry.ts"
-import { watchGit, type Watchable } from "./watcher.ts"
+import { mute, watchGit, type Watchable } from "./watcher.ts"
 
 /** Hooks provided by the window layer (window.ts), injected at opening rather than read from
     a global `mainWindow` — exec.ts and this module only import `electron` for its types. */
@@ -160,6 +160,25 @@ export function withLock<T>(r: RepoHandle, label: string, fn: () => Promise<T>):
     }
   }
   return prev.then(run)
+}
+
+/** One in-app mutation: a queue slot (`withLock`) and — win or lose — a `mute()` in a single
+    `finally`, so the command's own .git writes never echo back through the watcher as an
+    "external change" (the double-blink refresh-audit §7 killed). Every operation that can
+    move HEAD, refs or the stash goes through here; the invariant lives in this one place,
+    never at call sites. Index- and worktree-only commands (stage, unstage, patch
+    apply/discard, discard) stay on plain `withLock`: the watcher doesn't subscribe to what
+    they touch (cf. watcher.ts WATCHED), there is nothing to mute. `runConsole`
+    (git/console.ts) also stays on `withLock`, deliberately: the renderer can't know what a
+    typed command changed — the watcher's `changed` IS its refresh path. */
+export function mutation(r: RepoHandle, label: string, fn: () => Promise<void>): Promise<void> {
+  return withLock(r, label, async () => {
+    try {
+      await fn()
+    } finally {
+      mute(r)
+    }
+  })
 }
 
 /* --- Autofetch ---

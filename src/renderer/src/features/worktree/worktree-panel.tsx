@@ -15,7 +15,7 @@ import { useTraceStep } from "@/lib/use-trace-step"
 import { useStatusQuery } from "@/features/repo/repo-queries"
 import { DiscardDialog, type DiscardRequest } from "@/features/worktree/discard-dialog"
 import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
-import { useRepoStore, useRepoStoreApi } from "@/features/repo/repo-store"
+import { useRepoStore, useRepoStoreApi, type WtStageAct } from "@/features/repo/repo-store"
 import { cn } from "@/lib/utils"
 import {
   FileEntries,
@@ -43,11 +43,6 @@ import { Textarea } from "@/components/ui/textarea"
 
 /** A tree file carries its source: that's what picks the diff command. */
 type WtFile = FileChange & { source: WtSource }
-
-export type WtAct = (api: RepoApi, paths: string[]) => Promise<void>
-
-const STAGE: WtAct = (a, p) => a.stage(p)
-const UNSTAGE: WtAct = (a, p) => a.unstage(p)
 
 /* The per-row button only appears on hover, but stays reachable from the keyboard.
    after: click target widened horizontally only — vertically it would bite into the
@@ -306,7 +301,7 @@ export function WorktreePanel() {
   /* The 4 stage/unstage × file/folder buttons only differed by label, icon,
      class (single vs per-folder) and target paths — a single factory (AUDIT.md §7, phase 5). */
   const wtButton = useCallback(
-    (label: string, icon: IconSvgElement, act: WtAct, dirScoped: boolean, paths: string[], cls?: string) => (
+    (label: string, icon: IconSvgElement, act: WtStageAct, dirScoped: boolean, paths: string[], cls?: string) => (
       <IconButton
         label={label}
         icon={icon}
@@ -321,7 +316,7 @@ export function WorktreePanel() {
     [onRun]
   )
   const unstageBtn = useCallback(
-    (f: WtFile) => wtButton(messages.worktree.unstage, MinusSignIcon, UNSTAGE, false, [f.path]),
+    (f: WtFile) => wtButton(messages.worktree.unstage, MinusSignIcon, "unstage", false, [f.path]),
     [wtButton]
   )
 
@@ -349,7 +344,7 @@ export function WorktreePanel() {
             askDiscard([f])
           }}
         />
-        {wtButton(messages.worktree.stage, PlusSignIcon, STAGE, false, [f.path], ROW_ACTION_CLS)}
+        {wtButton(messages.worktree.stage, PlusSignIcon, "stage", false, [f.path], ROW_ACTION_CLS)}
       </>
     ),
     [askDiscard, wtButton]
@@ -373,7 +368,7 @@ export function WorktreePanel() {
         {wtButton(
           messages.worktree.stageFolder,
           PlusSignIcon,
-          STAGE,
+          "stage",
           true,
           files.map((f) => f.path)
         )}
@@ -386,7 +381,7 @@ export function WorktreePanel() {
       wtButton(
         messages.worktree.unstageFolder,
         MinusSignIcon,
-        UNSTAGE,
+        "unstage",
         true,
         files.map((f) => f.path)
       ),
@@ -415,7 +410,7 @@ export function WorktreePanel() {
         icon: PlusSignIcon,
         onClick: () =>
           void onRun(
-            STAGE,
+            "stage",
             unindexed.map((f) => f.path)
           ),
       },
@@ -439,7 +434,7 @@ export function WorktreePanel() {
         icon: MinusSignIcon,
         onClick: () =>
           void onRun(
-            UNSTAGE,
+            "unstage",
             indexed.map((f) => f.path)
           ),
       },

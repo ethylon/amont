@@ -59,10 +59,16 @@ export type GraphHandle = {
       `maxRows` bounds the on-demand loading: without it, a hash that no longer exists
       (amended/rebased away) makes the search page in the entire history before giving up. */
   rowsOf(hashes: string[], maxRows?: number): Promise<number[]>
-  /** brings back into residence the commit pages covering these rows — call before setting
-      an extended selection, whose detail view will read `commit(row)` synchronously */
-  pin(rows: number[]): Promise<void>
-  /** commit of a row, `undefined` if its cache page was evicted (cf. `pin`) */
+  /** Commits of the given rows in one atomic step: their pages are brought into residence
+      and read within the same task. The old shape — a `pin(rows)` await followed by
+      synchronous `commit(row)!` reads at the call site — left an eviction race across the
+      await, held off only by discipline (architecture audit, §I.3). A row whose page still
+      can't be read is dropped, WITH its row: the pairs stay aligned. */
+  commitsOf(rows: number[]): Promise<{ row: number; commit: Commit }[]>
+  /** commit of a row, `undefined` if its cache page was evicted. Safe to read synchronously
+      for rows of the CURRENT selection: their pages are eviction-pinned (data/page-cache.ts)
+      from `setSelection` on — what the detail panel relies on. Anything else should go
+      through `commitsOf`. */
   commit(row: number): Commit | undefined
   branchSegment(row: number): number[]
   chainInfo(rows: number[]): ChainInfo
@@ -668,10 +674,17 @@ export function createGraph(
       return rows
     },
 
-    async pin(rows) {
-      if (!rows.length) return
+    async commitsOf(rows) {
+      if (!rows.length) return []
       await loader.ensureRows(Math.min(...rows), Math.max(...rows))
+      /* read before evicting: same task as the load, nothing can interleave */
+      const picked: { row: number; commit: Commit }[] = []
+      for (const row of rows) {
+        const commit = loader.commitAt(row)
+        if (commit) picked.push({ row, commit })
+      }
       evictNow()
+      return picked
     },
 
     setSelection(rows, active) {

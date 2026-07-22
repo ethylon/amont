@@ -40,6 +40,7 @@ import {
   parseStashList,
   parseWorktreeList,
 } from "./parse.ts"
+import { refSnapshot } from "./snapshot.ts"
 
 function assertHash(hash: string, parent?: string | null): void {
   if (!HASH.test(hash) || (parent != null && !HASH.test(parent))) throw new AppError("BAD_ARG", "hash")
@@ -249,17 +250,15 @@ function cachedStashes(r: RepoHandle): Promise<Stash[]> {
     reloads nothing.
 
     Names, not just tips (unlike `refTips`, whose dedup is right for "did history move"):
-    `git branch foo` on an existing tip, a branch rename, or switching HEAD between two
-    branches parked on the same commit changes what the UI shows without moving a single
-    object id — a tips-only key would silence those forever. */
+    the deliberate pair lives in snapshot.ts, whose test pins the difference. */
 async function computeSnapshot(r: RepoHandle): Promise<{ key: string; stashes: Stash[] }> {
   const [refs, stashes, head] = await Promise.all([
-    r.git(["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads", "refs/remotes", "refs/tags"]),
+    refSnapshot(r),
     cachedStashes(r),
     /* hash + symbolic name in one spawn; detached prints only the hash, unborn repo fails → "" */
     r.git(["rev-parse", "HEAD", "--symbolic-full-name", "HEAD"]).catch(() => ""),
   ])
-  return { key: [head.trim(), refs.trim(), ...stashes.map((s) => s.h)].join("\n"), stashes }
+  return { key: [head.trim(), refs, ...stashes.map((s) => s.h)].join("\n"), stashes }
 }
 
 /* Cached for one change-generation, like the stash list: the gate reads it when an event

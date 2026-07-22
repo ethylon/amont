@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useFlowQuery } from "@/features/flow/flow-queries"
+import { useMergePreview } from "@/features/flow/use-merge-preview"
 import { useRefsQuery } from "@/features/refs/refs-queries"
 import { useRepoStore } from "@/features/repo/repo-store"
 
@@ -80,45 +81,7 @@ export function ReleaseCreateDialog({ branches, onClose }: { branches: string[];
   }, [suggested, touched])
 
   const included = useMemo(() => items.filter((i) => i.included).map((i) => i.branch), [items])
-
-  /* --- Dry-run: one preview per [base, included order], latest response wins --- */
-  const [preview, setPreview] = useState<Map<string, MergePreview>>(new Map())
-  const [previewing, setPreviewing] = useState(false)
-  const seq = useRef(0)
-  useEffect(() => {
-    if (!base || !included.length) {
-      setPreview(new Map())
-      return
-    }
-    const mine = ++seq.current
-    setPreviewing(true)
-    api
-      .mergePreview(base, included)
-      .then(
-        (res) => {
-          if (seq.current === mine) setPreview(new Map(res.map((p) => [p.branch, p])))
-        },
-        () => {
-          if (seq.current === mine) setPreview(new Map())
-        }
-      )
-      .finally(() => {
-        if (seq.current === mine) setPreviewing(false)
-      })
-  }, [api, base, included])
-
-  /* a branch the base already holds has nothing to merge: unchecked once, automatically —
-     re-checking it stays the user's call (autoExcluded remembers who was already handled) */
-  const autoExcluded = useRef(new Set<string>())
-  useEffect(() => {
-    setItems((prev) =>
-      prev.map((i) => {
-        if (!i.included || preview.get(i.branch)?.status !== "merged" || autoExcluded.current.has(i.branch)) return i
-        autoExcluded.current.add(i.branch)
-        return { ...i, included: false }
-      })
-    )
-  }, [preview])
+  const { preview, previewing } = useMergePreview(api, base, included, setItems)
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

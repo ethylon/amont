@@ -1,9 +1,10 @@
 /* Migrated from scripts/check-refs.ts (AUDIT.md §10, tests item). Split off from
-   commit-message.test.ts (AUDIT.md §7, phase 5): this file only covers markdown.ts. */
+   commit-message.test.ts (AUDIT.md §7, phase 5): this file only covers the parser in
+   markdown.tsx. */
 import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
-import { parseMarkdown, type MdToken } from "./markdown.ts"
+import { parseMarkdown, type MdToken } from "./markdown.tsx"
 
 describe("parseMarkdown", () => {
   /** "p(text)" / "ul(item|item)"; inline tokens come out tagged: code[x], bold[x], em[x], link[x] */
