@@ -16,7 +16,7 @@ import { useShowGitCommands } from "@/lib/customization"
    host control keeps its label, only this subtext drops.
 
    `running`: the command is executing right now — shadcn's `shimmer` sweeps the text as the
-   textual counterpart of the host's spinner. */
+   host control's busy signal. */
 export function GitCmd({ cmd, running, className }: { cmd: string; running?: boolean; className?: string }) {
   if (!useShowGitCommands()) return null
   return (

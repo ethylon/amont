@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { RollingText } from "@/components/ui/rolling-text"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Spinner } from "@/components/ui/spinner"
 import { FLOW_META } from "@/features/flow/flow-context"
 
 type Props = {
@@ -96,11 +95,7 @@ export function FlowStartBanner({ kind, prefix, initialBase, onDone }: Props) {
         m.text
       )}
     >
-      {busy ? (
-        <Spinner className="size-3.5 shrink-0" />
-      ) : (
-        <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
-      )}
+      <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
       <span className="font-medium">{prefix}</span>
       <input
         ref={inputRef}

@@ -129,7 +129,7 @@ export interface RepoStoreState {
         waiting behind it, in run order — footer "N queued" indicator, toolbar greying */
     queue: { running: string | null; pending: string[] }
     /** a gitflow operation (start/finish/publish/init) is running its git commands — the flow
-        banners swap the kind icon for a spinner and roll the traced commands (cf. FlowBanner).
+        banners roll the traced commands with the shimmer sweeping them (cf. FlowBanner).
         Scoped to the commands themselves, not the invalidation/reload that follows: the ticker
         must never churn through the reload's read commands. */
     flowBusy: boolean
@@ -171,7 +171,7 @@ export interface RepoStoreState {
   closeRemoteAhead(): void
   /** the banner's way out: `pull --ff` (integrate the remote's commits, merging if diverged)
       or `push --force-with-lease` (overwrite them). Resolves when the op settles — feedback
-      travels on the usual `git:op` events (footer spinner, badge on failure). */
+      travels on the usual `git:op` events (footer feed, badge on failure). */
   resolveRemoteAhead(choice: "pull" | "force"): Promise<void>
   /** arms the merge queue on `target` with `branches`, in order (replaces any previous queue) */
   armMergeQueue(target: string, branches: string[]): void
@@ -600,7 +600,7 @@ export function createRepoStore(
             : {}
         )
       setItem("merging")
-      get().setFlowBusy(true) // the banner swaps its icon for a spinner and rolls the traced commands
+      get().setFlowBusy(true) // the banner rolls the traced commands, shimmer on
       const err = await api.merge(branch, true).then(() => null, decodeError)
       get().setFlowBusy(false)
       setItem(err ? (err.code === "MERGE_CONFLICT" ? "conflict" : "pending") : "merged")

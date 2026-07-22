@@ -1,7 +1,7 @@
 /* Merge-queue banner: while HEAD sits on the queue's target (the release branch, usually),
    this strip replaces the read-only flow cockpit and drives the composed merges — one
    explicit click per branch, never chained. Same 32px grammar as the other banners: the
-   flow tint of the target, spinner + traced-commands ticker while a merge runs, and the
+   flow tint of the target, a shimmering traced-commands ticker while a merge runs, and the
    destructive tint when a merge stopped on conflicts.
 
    A conflict carries no actions here: the repo-wide ConflictBanner (rendered above, as for
@@ -20,7 +20,6 @@ import { traceCommand, useTraceStep } from "@/lib/use-trace-step"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { RollingText } from "@/components/ui/rolling-text"
-import { Spinner } from "@/components/ui/spinner"
 import { useMergeStateQuery } from "@/features/conflict/conflict-queries"
 import { FLOW_META } from "@/features/flow/flow-context"
 import { useFlowQuery } from "@/features/flow/flow-queries"
@@ -83,11 +82,7 @@ export function MergeQueueBanner() {
       )}
     >
       <span className="flex items-center gap-1.5 font-medium">
-        {merging ? (
-          <Spinner className="size-3.5 shrink-0" />
-        ) : (
-          <HugeiconsIcon icon={conflict ? Alert02Icon : GitMergeIcon} strokeWidth={2} className="size-3.5 shrink-0" />
-        )}
+        <HugeiconsIcon icon={conflict ? Alert02Icon : GitMergeIcon} strokeWidth={2} className="size-3.5 shrink-0" />
         {queue.target}
       </span>
 
@@ -113,8 +108,7 @@ export function MergeQueueBanner() {
               {i.state === "conflict" && (
                 <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-2.5 shrink-0" />
               )}
-              {i.state === "merging" && <Spinner className="size-2.5 shrink-0" />}
-              <span className="truncate">{i.branch}</span>
+              <span className={cn("truncate", i.state === "merging" && "shimmer")}>{i.branch}</span>
             </span>
           </span>
         ))}

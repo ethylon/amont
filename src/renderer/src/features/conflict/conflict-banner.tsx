@@ -19,7 +19,6 @@ import { useWorktreeQuery } from "@/features/worktree/worktree-queries"
 import { useRepoStore } from "@/features/repo/repo-store"
 import { Button } from "@/components/ui/button"
 import { GitCmd } from "@/components/ui/git-cmd"
-import { Spinner } from "@/components/ui/spinner"
 
 /** What the strip says: the operation with its sides — the same A/B vocabulary as the
     conflict view's pane headers — or the op-less fallback (conflicts from a stash pop). */
@@ -92,10 +91,7 @@ export function ConflictBanner() {
             }}
           >
             <span className="flex flex-col items-start">
-              <span className="flex items-center gap-1.5">
-                {aborting && <Spinner className="size-3" />}
-                {ABORT_LABEL[ms.op]()}
-              </span>
+              <span className={aborting ? "shimmer" : undefined}>{ABORT_LABEL[ms.op]()}</span>
               <GitCmd cmd={`git ${ms.op} --abort`} running={aborting} className="text-destructive/70" />
             </span>
           </Button>

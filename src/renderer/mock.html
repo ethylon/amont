@@ -430,7 +430,7 @@
       }
 
       /* Gitflow ops: replay the command sequence main would trace (`git:trace`), one line per
-         command with a beat in between, so the flow banners' spinner + rolling ticker can be
+         command with a beat in between, so the flow banners' shimmering rolling ticker can be
          exercised in the harness. */
       const emitTrace = (line) => onTraceListeners.forEach((cb) => cb({ id: REPO.id, ...line }))
       /* per-command seq like the real runner (git/exec.ts): the console joins exit↔cmd on it */

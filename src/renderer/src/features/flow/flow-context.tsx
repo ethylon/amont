@@ -12,7 +12,6 @@ import { useRepoStore } from "@/features/repo/repo-store"
 import { Button, type ButtonColor } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RollingSwap, RollingText } from "@/components/ui/rolling-text"
-import { Spinner } from "@/components/ui/spinner"
 
 /* Colors and hues of all flow indicators (statusbar, cockpit, card): same hues
    as the sidebar badges, same icons as the commit-type badges (feat's sparkle,
@@ -39,8 +38,8 @@ const count = (info: FlowInfo) => messages.flow.commitCount(info.commits)
 /* Cockpit: banner under the toolbar as soon as a flow branch is checked out — hidden on
    trunks (master, develop) and detached HEAD. On the right, where the work will land once
    finished (finish merge, tag set). While a gitflow operation runs (finish, publish — they can
-   be long: merge + tag + back-merge, network), the kind icon gives way to a spinner and the
-   traced git commands roll where the count sits (same ticker as the commit button).
+   be long: merge + tag + back-merge, network), the traced git commands roll where the count
+   sits, swept by the shimmer (same ticker as the commit button).
 
    `finish`: the same strip in confirmation mode — a requested feature/bugfix finish rolls the
    info row out and the options row in (same ticker mechanics), instead of running outright. */
@@ -86,11 +85,7 @@ function FlowInfoRow({ kind, branch, info }: { kind: BranchFlow; branch: string;
   return (
     <div className="flex h-full items-center gap-3">
       <span className="flex items-center gap-1.5 font-medium">
-        {busy ? (
-          <Spinner className="size-3.5 shrink-0" />
-        ) : (
-          <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
-        )}
+        <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
         {branch}
       </span>
       {/* the ticker stays mounted across idle/busy so the count rolls up into the first traced
@@ -160,11 +155,7 @@ function FlowFinishRow({
 
   return (
     <div className="flex h-full items-center gap-2">
-      {busy ? (
-        <Spinner className="size-3.5 shrink-0" />
-      ) : (
-        <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
-      )}
+      <HugeiconsIcon icon={m.icon} strokeWidth={2} className="size-3.5 shrink-0" />
       <span className="font-medium">{branch}</span>
       <label className={cn("flex cursor-pointer items-center gap-1.5", busy && "pointer-events-none opacity-50")}>
         <Checkbox color={m.btn} checked={rebase} onCheckedChange={(v) => setRebase(v === true)} disabled={busy} />

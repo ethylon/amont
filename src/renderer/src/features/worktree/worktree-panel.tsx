@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
 import { RollingText } from "@/components/ui/rolling-text"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldError, FieldGroup } from "@/components/ui/field"
@@ -239,10 +238,7 @@ const CommitForm = memo(function CommitForm({ staged, hasConflicts }: { staged: 
               }
             }}
           >
-            <span className="flex max-w-full items-center gap-1.5">
-              {committing && <Spinner className="size-3" />}
-              <span className="truncate">{caption}</span>
-            </span>
+            <span className={cn("max-w-full truncate", committing && "shimmer")}>{caption}</span>
             <RollingText
               text={committing && step ? step : command}
               shimmer={committing}
