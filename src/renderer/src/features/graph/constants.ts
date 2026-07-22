@@ -74,7 +74,7 @@ export const FIXED_W = COL_GRAPH_GUTTER + COL_SUBJECT_MIN + COL_AUTHOR + COL_DAT
    fell back to a single column (everything crammed to the left). `grid-cols-(--amont-cols)` is a
    static class, so it gets emitted; the interpolated value flows through the var. The spaces around
    the calc's `+` are mandatory — `calc(a+b)` is invalid. */
-export const GRID_COLS = `var(--amont-branch,0px) calc(var(--graphw,0px) + ${COL_GRAPH_GUTTER}px) var(--amont-type,0px) 1fr ${COL_AUTHOR}px ${COL_DATE}px ${COL_HASH}px`
+export const GRID_COLS = `var(--amont-branch,0px) calc(var(--graphw,0px) + ${COL_GRAPH_GUTTER}px) 1fr ${COL_AUTHOR}px ${COL_DATE}px ${COL_HASH}px`
 
 export const ROW_CLASS =
   "amont-row grid h-7 cursor-pointer grid-cols-(--amont-cols) " +

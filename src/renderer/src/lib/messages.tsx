@@ -905,10 +905,10 @@ export const messages = {
       return t`Only show monospace fonts`
     },
     get showPrefixColumn() {
-      return t`Show prefix as a separate column`
+      return t`Show prefix as a badge`
     },
     get showPrefixColumnHint() {
-      return t`Detect feat:, fix:, chore:… and lift it out of the message into its own column.`
+      return t`Detect feat:, fix:, chore:… and lift it out of the message into a badge before it.`
     },
     get showGitCommands() {
       return t`Show git commands in the interface`
