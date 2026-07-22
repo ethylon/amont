@@ -40,7 +40,6 @@ import { Field, FieldError, FieldGroup } from "@/components/ui/field"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { IconButton } from "@/components/ui/icon-button"
 import { Input } from "@/components/ui/input"
-import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { LABEL_CLS } from "@/components/ui/typography"
 import { FileList } from "@/features/repo/file-list"
@@ -345,10 +344,7 @@ function RewordForm({
             aria-busy={busy}
             onClick={() => void submit()}
           >
-            <span className="flex max-w-full items-center gap-1.5">
-              {busy && <Spinner className="size-3" />}
-              <span className="truncate">{messages.worktree.amend}</span>
-            </span>
+            <span className={cn("max-w-full truncate", busy && "shimmer")}>{messages.worktree.amend}</span>
             <GitCmd cmd='git commit --amend --only -m "…"' running={busy} className="text-primary-foreground/70" />
           </Button>
           <Button variant="outline" disabled={busy} onClick={onClose}>

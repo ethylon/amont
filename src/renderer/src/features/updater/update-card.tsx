@@ -5,7 +5,6 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import { host, onUpdate, type UpdateStatus } from "@/lib/git"
 import { messages } from "@/lib/messages"
 import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
 
 /* La carte de mise à jour (coin bas-droit). Pilotée par l'événement `update:status`
    (main/updater.ts) : le check silencieux du démarrage ne fait apparaître la carte qu'à
@@ -47,11 +46,8 @@ export function UpdateCard() {
       className="absolute right-3 bottom-3 z-50 w-72 rounded-md border border-border bg-popover p-3 text-xs text-popover-foreground shadow-md"
     >
       <div className="flex items-start gap-2">
-        {(status.kind === "checking" || status.kind === "downloading") && (
-          <Spinner className="mt-0.5 size-3.5 shrink-0" />
-        )}
         <div className="min-w-0 flex-1">
-          {status.kind === "checking" && <p>{messages.updater.checking}</p>}
+          {status.kind === "checking" && <p className="shimmer">{messages.updater.checking}</p>}
           {status.kind === "none" && <p>{messages.updater.upToDate}</p>}
           {status.kind === "downloading" && (
             <>

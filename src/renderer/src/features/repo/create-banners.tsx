@@ -13,10 +13,9 @@ import { useRepoStore } from "@/features/repo/repo-store"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RollingText } from "@/components/ui/rolling-text"
-import { Spinner } from "@/components/ui/spinner"
 
-/** Shared strip: icon (spinner while busy), name input, the anchoring "at <hash>" chip,
-    optional extras, and the submit/cancel pair with the expected command rolling while busy. */
+/** Shared strip: icon, name input, the anchoring "at <hash>" chip, optional extras, and the
+    submit/cancel pair with the expected command rolling (and shimmering) while busy. */
 function CreateBanner({
   icon,
   label,
@@ -56,11 +55,7 @@ function CreateBanner({
 
   return (
     <div className="amont-drop flex h-8 shrink-0 items-center gap-2 border-b px-3.5 text-xs whitespace-nowrap">
-      {busy ? (
-        <Spinner className="size-3.5 shrink-0" />
-      ) : (
-        <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0" />
-      )}
+      <HugeiconsIcon icon={icon} strokeWidth={2} className="size-3.5 shrink-0" />
       <input
         ref={inputRef}
         value={value}

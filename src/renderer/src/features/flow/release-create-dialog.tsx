@@ -30,7 +30,6 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { GitCmd } from "@/components/ui/git-cmd"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Spinner } from "@/components/ui/spinner"
 import {
   Dialog,
   DialogContent,
@@ -206,8 +205,8 @@ export function ReleaseCreateDialog({ branches, onClose }: { branches: string[];
               {messages.release.branchCount(items.length)} · {messages.release.reorderHint}
             </span>
             <Badge color="release" className="h-4 px-1.5">
-              {previewing ? <Spinner className="size-2.5" /> : <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} />}
-              {messages.release.toMerge(included.length)}
+              <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} />
+              <span className={previewing ? "shimmer" : undefined}>{messages.release.toMerge(included.length)}</span>
             </Badge>
           </div>
           <ul className="flex max-h-56 flex-col overflow-y-auto">

@@ -24,7 +24,6 @@ import { IconButton } from "@/components/ui/icon-button"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
-import { Spinner } from "@/components/ui/spinner"
 import { FetchOptions, PullOptions } from "@/features/repo/op-options"
 
 /* labels are thunks, not values: reading messages.* at module scope would run `t` during
@@ -101,14 +100,10 @@ export const Toolbar = memo(function Toolbar({
         aria-busy={busyOp === op}
         onClick={() => onRunOp(op)}
       >
-        {busyOp === op ? (
-          <Spinner data-icon="inline-start" className="size-3" />
-        ) : (
-          <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />
-        )}
+        <HugeiconsIcon icon={icon} strokeWidth={2} data-icon="inline-start" />
         <span className="flex flex-col items-start">
           <span className="flex items-center gap-1">
-            {label()}
+            <span className={busyOp === op ? "shimmer" : undefined}>{label()}</span>
             {!!n && (
               <Badge color="primary" shape="squared" className="tabular-nums">
                 {n}

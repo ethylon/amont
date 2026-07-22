@@ -3,7 +3,7 @@
    dead-end badge). Same warning strip as the conflict banner, and it carries the ways out:
    integrate the remote's commits (`git pull --ff` — fast-forward when possible, a merge when
    diverged), overwrite them (`git push --force-with-lease`), or cancel. The choice closes the
-   strip right away; the op's own feedback (toolbar spinner, footer feed, badges) takes over. */
+   strip right away; the op's own feedback (toolbar shimmer, footer feed, badges) takes over. */
 
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowUp02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
