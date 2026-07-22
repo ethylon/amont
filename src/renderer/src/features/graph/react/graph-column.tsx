@@ -71,9 +71,9 @@ export function GraphColumn() {
   const [resetAt, setResetAt] = useState<string | null>(null)
 
   /* No selection-syncing effect here: the store is the source of truth AND already pushes
-     every `selection.rows` change to the canvas imperatively (each mutation in
-     repo-store.tsx ends with `g.setSelection(...)` — selectRow, selectBranch, focusRef,
-     clearFocus, reresolveSelection, showWorktree). Mirroring it through a subscription
+     every `selection.rows` change to the canvas imperatively — all selection writes go
+     through `applySelection` (features/repo/store/selection.ts), the single place that
+     pairs the state update with `g.setSelection(...)`. Mirroring it through a subscription
      would only re-render this whole column on every commit click to re-apply what the
      canvas already displays. */
 
@@ -85,7 +85,7 @@ export function GraphColumn() {
       onGraphWidth: (px) => wrapRef.current?.style.setProperty("--graphw", `${px}px`),
       onBranchWidth: (px) => wrapRef.current?.style.setProperty("--amont-branch", `${px}px`),
       /* `api.log` failures are no longer silent (AUDIT.md §6): the existing status badge
-         (git op → refresh → resetAndLoad → showOp) carries this one too */
+         (git op → refresh → hardReload → showOp) carries this one too */
       onError: (message) => storeApi.getState().showOp(message, "danger"),
       onWorktreeOpen: (path) => void storeApi.getState().openWorktree(path),
     }),
@@ -147,7 +147,9 @@ export function GraphColumn() {
             callbacks={callbacks}
             onReady={(graph) => {
               graphRef.current = graph
-              if (graph) void storeApi.getState().resetAndLoad()
+              /* bootstrap load: nothing is open yet, so hard vs soft makes no difference —
+                 hard keeps the "fresh graph, commits view" posture explicit */
+              if (graph) void storeApi.getState().hardReload()
             }}
           />
           {diff && (

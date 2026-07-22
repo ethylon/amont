@@ -28,7 +28,8 @@ function mockGraph(store: () => SelectRow): GraphHandle {
     setMatches: () => {},
     nextMatch: () => Promise.resolve(null),
     rowsOf: (hashes: string[]) => Promise.resolve(hashes.map((h) => rowOf[h]).filter((r) => r !== undefined)),
-    pin: () => Promise.resolve(),
+    commitsOf: (rows: number[]) =>
+      Promise.resolve(rows.map((row) => ({ row, commit: { h: row === 0 ? "a" : "b" } }))) as never,
     commit: (row: number) => ({ h: row === 0 ? "a" : "b" }) as never,
     branchSegment: (row: number) => [row],
     chainInfo: () => ({}) as never,

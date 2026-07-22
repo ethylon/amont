@@ -215,7 +215,7 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
   const booted = !!stats && ![statusQuery, flowQuery, worktreeQuery, flowInfoQuery].some((q) => q.isLoading)
   const { skeleton, settled } = useBootReveal(booted)
 
-  /* onChanged/onOp -> invalidations + resetAndLoad/showOp (see repo-store.tsx);
+  /* onChanged/onOp -> invalidations + reload/hardReload/showOp (see repo-store.tsx);
      `active` defers a background tab's reload until it's shown */
   useRepoEvents(active)
 
