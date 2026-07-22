@@ -1,20 +1,22 @@
 /* Mutating operations (AUDIT.md §4): network (fetch/pull/push, auto or manual), branch
    actions (merge/delete/pull/push/finish), checkout, stage/unstage/commit, stash.
 
-   All of them go through the repo mutation queue (`repos.withLock`): the
-   stash→checkout→pop dance used to run unlocked against autofetch before this refactor — two
-   concurrent mutations on the same `.git` otherwise end up with `index.lock` files stepping on
-   each other. A busy repo no longer throws BUSY at an explicit user action: the call waits its
-   turn FIFO (chaining a fetch, a checkout, a push just works). Auto-fetch keeps backing off
-   silently when anything runs or waits — background housekeeping must never lengthen the
-   user's queue. */
+   All of them go through `repos.mutation` — a slot in the repo mutation queue (`withLock`)
+   plus the watcher `mute()` in one `finally`: the stash→checkout→pop dance used to run
+   unlocked against autofetch before this refactor — two concurrent mutations on the same
+   `.git` otherwise end up with `index.lock` files stepping on each other. A busy repo no
+   longer throws BUSY at an explicit user action: the call waits its turn FIFO (chaining a
+   fetch, a checkout, a push just works). Auto-fetch keeps backing off silently when anything
+   runs or waits — background housekeeping must never lengthen the user's queue. The
+   index-only commands (stage/unstage/patches/discard) use plain `withLock`: nothing they
+   touch is watched, there is nothing to mute (cf. repos.ts `mutation`). */
 
 import { writeFile } from "node:fs/promises"
 
 import { AppError, decodeError } from "../../shared/errors.ts"
 import { pullModeFlag } from "../../shared/settings.ts"
 import type { BranchAct, OpEvent, OpName, OpVariant, ResetMode, StashAct, WorktreeAct } from "../../shared/types.ts"
-import { assertPaths, inRepo, withLock, type RepoHandle } from "../repos.ts"
+import { assertPaths, inRepo, mutation, withLock, type RepoHandle } from "../repos.ts"
 import { getSettings } from "../settings.ts"
 import { captureGitError, captureOpError } from "../telemetry.ts"
 import { mute } from "../watcher.ts"
@@ -22,6 +24,7 @@ import { OP_TIMEOUT } from "./exec.ts"
 import { finishFlow } from "./flow.ts"
 import { ALL_REFS, BRANCH, HASH } from "./parse.ts"
 import { conflictOp } from "./queries.ts"
+import { refTips } from "./snapshot.ts"
 
 /* --- Network ---
    --progress: without a TTY git stays silent about its progress; we force it so the console streams it. */
@@ -66,15 +69,6 @@ const reportProgress =
   (percent: number): void =>
     r.events.progress({ op, percent })
 
-/* Tips of all refs, deduplicated and sorted: two equal snapshots = nothing moved.
-   Much cheaper than the full `rev-list --all --count` we used to pay for twice per fetch.
-   (The graph fingerprint — git/queries.ts `computeSnapshot` — deliberately does NOT reuse
-   this: its dedup erases name-only changes the UI must repaint.) */
-const refTips = (r: RepoHandle): Promise<string[]> =>
-  r
-    .git(["for-each-ref", "--format=%(objectname)", "refs/heads", "refs/remotes", "refs/tags"])
-    .then((o) => [...new Set(o.split("\n").filter(Boolean))].sort())
-
 /* Commits reachable from the current refs but not from the old tips: the "new" ones from the
    fetch. More accurate than the difference of two counts, which a `--prune` could make lie. */
 const countNew = (r: RepoHandle, before: string[]): Promise<number> =>
@@ -99,7 +93,7 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false, variant?:
   if (r.running === name || r.pending.includes(name)) return
   /* the only throw left in this path is withLock's queue-overflow BUSY: surface it on the
      event channel like every other failure — this function's callers never await an error */
-  await withLock(r, name, async () => {
+  await mutation(r, name, async () => {
     groupTrace(r, auto ? "Auto-fetch" : OP_GROUP[name])
     r.events.op({ op: name, state: "start", auto })
     try {
@@ -132,8 +126,6 @@ export async function runOp(r: RepoHandle, name: OpName, auto = false, variant?:
          for the user, this is its only exit. captureOpError filters the network noise. */
       captureOpError(name, e, auto)
       r.events.op({ op: name, state: "error", auto, ...errorPayload(e) })
-    } finally {
-      mute(r)
     }
   }).catch((e) => {
     captureOpError(name, e, auto)
@@ -197,26 +189,18 @@ const BRANCH_OPS: Record<BranchAct, (r: RepoHandle, name: string) => Promise<voi
     surfaces as MERGE_CONFLICT and the merge state stays for the conflict view. */
 export async function mergeBranch(r: RepoHandle, name: string, noFF: boolean): Promise<void> {
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
-  await withLock(r, "merge", async () => {
+  await mutation(r, "merge", async () => {
     groupTrace(r, `Merge ${name}`)
-    try {
-      await r.git(["merge", ...(noFF ? ["--no-ff"] : []), name], { timeout: OP_TIMEOUT })
-    } finally {
-      mute(r)
-    }
+    await r.git(["merge", ...(noFF ? ["--no-ff"] : []), name], { timeout: OP_TIMEOUT })
   })
 }
 
 export async function branchAction(r: RepoHandle, action: BranchAct, name: string): Promise<void> {
   if (!Object.hasOwn(BRANCH_OPS, action)) throw new AppError("BAD_ARG", "action")
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
-  await withLock(r, action, async () => {
+  await mutation(r, action, async () => {
     groupTrace(r, `${BRANCH_GROUP[action]} ${name}`)
-    try {
-      await BRANCH_OPS[action](r, name)
-    } finally {
-      mute(r)
-    }
+    await BRANCH_OPS[action](r, name)
   })
 }
 
@@ -228,19 +212,15 @@ export async function branchAction(r: RepoHandle, action: BranchAct, name: strin
    so a rejected local delete never reaches the remote. */
 export async function deleteBranch(r: RepoHandle, name: string, deleteRemote: boolean): Promise<void> {
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
-  await withLock(r, "delete", async () => {
+  await mutation(r, "delete", async () => {
     groupTrace(r, `Delete ${name}`)
-    try {
-      const upstream = deleteRemote ? await upstreamOf(r, name) : null
-      await r.git(["branch", "-D", name])
-      if (upstream)
-        await r.git(["push", "--progress", upstream.remote, "--delete", upstream.merge], {
-          timeout: OP_TIMEOUT,
-          onProgress: reportProgress(r, "push"),
-        })
-    } finally {
-      mute(r)
-    }
+    const upstream = deleteRemote ? await upstreamOf(r, name) : null
+    await r.git(["branch", "-D", name])
+    if (upstream)
+      await r.git(["push", "--progress", upstream.remote, "--delete", upstream.merge], {
+        timeout: OP_TIMEOUT,
+        onProgress: reportProgress(r, "push"),
+      })
   })
 }
 
@@ -273,7 +253,7 @@ async function checkoutWithStash(r: RepoHandle, name: string): Promise<void> {
 
 export async function checkout(r: RepoHandle, name: string): Promise<void> {
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
-  await withLock(r, `checkout ${name}`, async () => {
+  await mutation(r, `checkout ${name}`, async () => {
     groupTrace(r, `Checkout ${name}`)
     await checkoutWithStash(r, name)
   })
@@ -288,13 +268,9 @@ export async function checkout(r: RepoHandle, name: string): Promise<void> {
 export async function createBranch(r: RepoHandle, name: string, from: string, checkout: boolean): Promise<void> {
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
   if (typeof from !== "string" || !HASH.test(from)) throw new AppError("BAD_ARG", "from")
-  await withLock(r, `branch ${name}`, async () => {
+  await mutation(r, `branch ${name}`, async () => {
     groupTrace(r, `Branch ${name}`)
-    try {
-      await r.git(["branch", name, from])
-    } finally {
-      mute(r)
-    }
+    await r.git(["branch", name, from])
     if (checkout) await checkoutWithStash(r, name)
   })
 }
@@ -303,13 +279,9 @@ export async function createBranch(r: RepoHandle, name: string, from: string, ch
 export async function createTag(r: RepoHandle, name: string, at: string): Promise<void> {
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
   if (typeof at !== "string" || !HASH.test(at)) throw new AppError("BAD_ARG", "at")
-  await withLock(r, `tag ${name}`, async () => {
+  await mutation(r, `tag ${name}`, async () => {
     groupTrace(r, `Tag ${name}`)
-    try {
-      await r.git(["tag", name, at])
-    } finally {
-      mute(r)
-    }
+    await r.git(["tag", name, at])
   })
 }
 
@@ -320,13 +292,9 @@ const RESET_MODES: readonly ResetMode[] = ["soft", "mixed", "hard"]
 export async function resetTo(r: RepoHandle, mode: ResetMode, to: string): Promise<void> {
   if (!RESET_MODES.includes(mode)) throw new AppError("BAD_ARG", "mode")
   if (typeof to !== "string" || !HASH.test(to)) throw new AppError("BAD_ARG", "to")
-  await withLock(r, `reset ${mode}`, async () => {
+  await mutation(r, `reset ${mode}`, async () => {
     groupTrace(r, `Reset ${mode}`)
-    try {
-      await r.git(["reset", `--${mode}`, to])
-    } finally {
-      mute(r)
-    }
+    await r.git(["reset", `--${mode}`, to])
   })
 }
 
@@ -336,14 +304,10 @@ export async function resetTo(r: RepoHandle, mode: ResetMode, to: string): Promi
     conflict view to resolve. */
 export async function revertCommit(r: RepoHandle, hash: string): Promise<void> {
   if (typeof hash !== "string" || !HASH.test(hash)) throw new AppError("BAD_ARG", "hash")
-  await withLock(r, "revert", async () => {
+  await mutation(r, "revert", async () => {
     groupTrace(r, `Revert ${hash.slice(0, 8)}`)
-    try {
-      const parents = (await r.git(["rev-list", "--parents", "-n", "1", hash])).trim().split(/\s+/).length - 1
-      await r.git(["revert", "--no-edit", ...(parents > 1 ? ["-m", "1"] : []), hash])
-    } finally {
-      mute(r)
-    }
+    const parents = (await r.git(["rev-list", "--parents", "-n", "1", hash])).trim().split(/\s+/).length - 1
+    await r.git(["revert", "--no-edit", ...(parents > 1 ? ["-m", "1"] : []), hash])
   })
 }
 
@@ -352,14 +316,10 @@ export async function revertCommit(r: RepoHandle, hash: string): Promise<void> {
     and the sequencer state stays for the conflict view to resolve. */
 export async function cherryPick(r: RepoHandle, hash: string): Promise<void> {
   if (typeof hash !== "string" || !HASH.test(hash)) throw new AppError("BAD_ARG", "hash")
-  await withLock(r, "cherry-pick", async () => {
+  await mutation(r, "cherry-pick", async () => {
     groupTrace(r, `Cherry-pick ${hash.slice(0, 8)}`)
-    try {
-      const parents = (await r.git(["rev-list", "--parents", "-n", "1", hash])).trim().split(/\s+/).length - 1
-      await r.git(["cherry-pick", ...(parents > 1 ? ["-m", "1"] : []), hash])
-    } finally {
-      mute(r)
-    }
+    const parents = (await r.git(["rev-list", "--parents", "-n", "1", hash])).trim().split(/\s+/).length - 1
+    await r.git(["cherry-pick", ...(parents > 1 ? ["-m", "1"] : []), hash])
   })
 }
 
@@ -371,13 +331,9 @@ export async function cherryPick(r: RepoHandle, hash: string): Promise<void> {
 export async function restoreFromCommit(r: RepoHandle, hash: string, path: string): Promise<void> {
   if (typeof hash !== "string" || !HASH.test(hash)) throw new AppError("BAD_ARG", "hash")
   inRepo(r, path) // validates and confines; the git call gets the repo-relative path
-  await withLock(r, "restore", async () => {
+  await mutation(r, "restore", async () => {
     groupTrace(r, `Restore ${path} @ ${hash.slice(0, 8)}`)
-    try {
-      await r.git(["restore", "--source", hash, "--worktree", "--", path])
-    } finally {
-      mute(r)
-    }
+    await r.git(["restore", "--source", hash, "--worktree", "--", path])
   })
 }
 
@@ -392,16 +348,12 @@ export async function deleteRemoteBranch(r: RepoHandle, name: string): Promise<v
   if (slash <= 0 || slash === name.length - 1) throw new AppError("BAD_ARG", "name")
   const remote = name.slice(0, slash)
   const branch = name.slice(slash + 1)
-  await withLock(r, `delete ${name}`, async () => {
+  await mutation(r, `delete ${name}`, async () => {
     groupTrace(r, `Delete ${name}`)
-    try {
-      await r.git(["push", "--progress", remote, "--delete", branch], {
-        timeout: OP_TIMEOUT,
-        onProgress: reportProgress(r, "push"),
-      })
-    } finally {
-      mute(r)
-    }
+    await r.git(["push", "--progress", remote, "--delete", branch], {
+      timeout: OP_TIMEOUT,
+      onProgress: reportProgress(r, "push"),
+    })
   })
 }
 
@@ -412,18 +364,14 @@ export async function deleteTag(r: RepoHandle, name: string, remote: string | nu
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
   if (remote !== null && (typeof remote !== "string" || !BRANCH.test(remote) || remote.includes("/")))
     throw new AppError("BAD_ARG", "remote")
-  await withLock(r, `delete tag ${name}`, async () => {
+  await mutation(r, `delete tag ${name}`, async () => {
     groupTrace(r, `Delete tag ${name}`)
-    try {
-      await r.git(["tag", "-d", name])
-      if (remote)
-        await r.git(["push", "--progress", remote, "--delete", `refs/tags/${name}`], {
-          timeout: OP_TIMEOUT,
-          onProgress: reportProgress(r, "push"),
-        })
-    } finally {
-      mute(r)
-    }
+    await r.git(["tag", "-d", name])
+    if (remote)
+      await r.git(["push", "--progress", remote, "--delete", `refs/tags/${name}`], {
+        timeout: OP_TIMEOUT,
+        onProgress: reportProgress(r, "push"),
+      })
   })
 }
 
@@ -499,11 +447,9 @@ export async function discard(r: RepoHandle, paths: string[], untracked: string[
 
 export async function commit(r: RepoHandle, message: string, amend: boolean): Promise<void> {
   if (typeof message !== "string" || !message.trim()) throw new AppError("BAD_ARG", "message")
-  await withLock(r, amend ? "amend" : "commit", async () => {
+  await mutation(r, amend ? "amend" : "commit", async () => {
     groupTrace(r, amend ? "Amend" : "Commit")
-    const args = ["commit", ...(amend ? ["--amend"] : []), "-m", message]
-    await r.git(args)
-    mute(r)
+    await r.git(["commit", ...(amend ? ["--amend"] : []), "-m", message])
   })
 }
 
@@ -512,10 +458,9 @@ export async function commit(r: RepoHandle, message: string, amend: boolean): Pr
     above, whose amend deliberately folds the index in). */
 export async function reword(r: RepoHandle, message: string): Promise<void> {
   if (typeof message !== "string" || !message.trim()) throw new AppError("BAD_ARG", "message")
-  await withLock(r, "reword", async () => {
+  await mutation(r, "reword", async () => {
     groupTrace(r, "Reword")
     await r.git(["commit", "--amend", "--only", "-m", message])
-    mute(r)
   })
 }
 
@@ -529,14 +474,10 @@ const RESOLVE_MAX = 4 * 1024 * 1024
 export async function resolveConflict(r: RepoHandle, path: string, content: string): Promise<void> {
   if (typeof content !== "string" || content.length > RESOLVE_MAX) throw new AppError("BAD_ARG", "content")
   const full = inRepo(r, path)
-  await withLock(r, "resolve", async () => {
+  await mutation(r, "resolve", async () => {
     groupTrace(r, `Resolve ${path}`)
-    try {
-      await writeFile(full, content, "utf8")
-      await r.git(["add", "--", path])
-    } finally {
-      mute(r)
-    }
+    await writeFile(full, content, "utf8")
+    await r.git(["add", "--", path])
   })
 }
 
@@ -546,14 +487,10 @@ export async function resolveConflict(r: RepoHandle, path: string, content: stri
     the abort aimed at whatever is actually in progress. Loses manual resolutions — same
     safeguard policy as branch delete: git refuses when there's nothing to abort, nothing more. */
 export async function mergeAbort(r: RepoHandle): Promise<void> {
-  await withLock(r, "merge abort", async () => {
+  await mutation(r, "merge abort", async () => {
     const op = (await conflictOp(r))?.op ?? "merge"
     groupTrace(r, `Abort ${op}`)
-    try {
-      await r.git([op, "--abort"])
-    } finally {
-      mute(r)
-    }
+    await r.git([op, "--abort"])
   })
 }
 
@@ -564,13 +501,9 @@ export async function mergeAbort(r: RepoHandle): Promise<void> {
    it can never be read as an option. `dir` (add) only ever comes from the system dialog. */
 export async function worktreeAdd(r: RepoHandle, dir: string, branch: string): Promise<void> {
   if (typeof branch !== "string" || !BRANCH.test(branch)) throw new AppError("BAD_ARG", "name")
-  await withLock(r, "worktree add", async () => {
+  await mutation(r, "worktree add", async () => {
     groupTrace(r, `Worktree add ${branch}`)
-    try {
-      await r.git(["worktree", "add", dir, branch], { timeout: OP_TIMEOUT })
-    } finally {
-      mute(r)
-    }
+    await r.git(["worktree", "add", dir, branch], { timeout: OP_TIMEOUT })
   })
 }
 
@@ -579,26 +512,18 @@ export async function worktreeAdd(r: RepoHandle, dir: string, branch: string): P
 export async function worktreeAddFrom(r: RepoHandle, dir: string, branch: string, from: string): Promise<void> {
   if (typeof branch !== "string" || !BRANCH.test(branch)) throw new AppError("BAD_ARG", "name")
   if (typeof from !== "string" || !HASH.test(from)) throw new AppError("BAD_ARG", "from")
-  await withLock(r, "worktree add", async () => {
+  await mutation(r, "worktree add", async () => {
     groupTrace(r, `Worktree add ${branch}`)
-    try {
-      await r.git(["worktree", "add", "-b", branch, dir, from], { timeout: OP_TIMEOUT })
-    } finally {
-      mute(r)
-    }
+    await r.git(["worktree", "add", "-b", branch, dir, from], { timeout: OP_TIMEOUT })
   })
 }
 
 export async function worktreeAction(r: RepoHandle, action: WorktreeAct, path?: string): Promise<void> {
   if (action !== "remove" && action !== "prune") throw new AppError("BAD_ARG", "action")
   if (action === "remove" && !path) throw new AppError("BAD_ARG", "path")
-  await withLock(r, `worktree ${action}`, async () => {
+  await mutation(r, `worktree ${action}`, async () => {
     groupTrace(r, action === "remove" ? `Worktree remove ${path}` : "Worktree prune")
-    try {
-      await r.git(action === "remove" ? ["worktree", "remove", path!] : ["worktree", "prune"])
-    } finally {
-      mute(r)
-    }
+    await r.git(action === "remove" ? ["worktree", "remove", path!] : ["worktree", "prune"])
   })
 }
 
@@ -624,12 +549,8 @@ export async function stashAction(r: RepoHandle, action: StashAct, arg?: string)
     if (typeof arg !== "string" || !STASH_NAME.test(arg)) throw new AppError("BAD_ARG", "name")
     args = ["stash", action, arg]
   }
-  await withLock(r, action, async () => {
+  await mutation(r, action, async () => {
     groupTrace(r, action === "push" ? STASH_GROUP.push : `${STASH_GROUP[action]} ${arg}`)
-    try {
-      await r.git(args)
-    } finally {
-      mute(r)
-    }
+    await r.git(args)
   })
 }
