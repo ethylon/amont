@@ -89,6 +89,7 @@ export type InvokeChannels = {
       pull `--ff`) — only the two valid (name, variant) pairs get past main's validation. */
   "repo:op": (id: number, name: OpName, variant?: OpVariant) => Promise<void>
   "repo:status": (id: number) => Promise<Status>
+  /** Windows icon of the file, `null` if it doesn't exist on disk. */
   "repo:fileIcon": (id: number, path: string) => Promise<string | null>
   "repo:openFile": (id: number, path: string) => Promise<string>
   "repo:worktree": (id: number) => Promise<Worktree>
@@ -106,11 +107,14 @@ export type InvokeChannels = {
   /** Partial discard (hunk or lines): reverse-applies a sub-patch to the working tree alone
       (`git apply --reverse`); the index never moves. Built renderer-side like applyPatch's. */
   "repo:discardPatch": (id: number, patch: string) => Promise<void>
+  /** `amend` rewrites the last commit (message, and staged tree if any) instead of creating a new one. */
   "repo:commit": (id: number, message: string, amend: boolean) => Promise<void>
   /** `git commit --amend --only -m …`: rewrites HEAD's message without folding the index in
       (the detail panel's inline edit — `repo:commit` with `amend` commits staged changes too). */
   "repo:reword": (id: number, message: string) => Promise<void>
+  /** `null`: the repo has never seen `git flow init`. */
   "repo:flow": (id: number) => Promise<FlowPrefixes | null>
+  /** Context of the current flow branch; `null` if the reference trunk is missing. */
   "repo:flowInfo": (id: number, branch: string, kind: keyof FlowPrefixes) => Promise<FlowInfo | null>
   /** Write the `gitflow.*` config from the form then `git flow init -d`; resolves the prefixes. */
   "flow:init": (id: number, cfg: FlowInitConfig) => Promise<FlowPrefixes | null>
@@ -161,7 +165,9 @@ export type InvokeChannels = {
       its content at that commit. The index never moves — the restored state shows up as an
       unstaged change, reviewable like any other. Confirmed renderer-side first. */
   "repo:restore": (id: number, hash: string, path: string) => Promise<void>
+  /** Message body (`%b`), trailers included. */
   "repo:body": (id: number, hash: string, requestId?: string) => Promise<string>
+  /** Subject and body of the last commit, to prefill an amend. */
   "repo:headMessage": (id: number) => Promise<CommitMessage>
   /** Diff text, truncated main-side a slack past DIFF_MAX_LINES (shared/diff.ts): the
       renderer never renders more than the cap, so the payload stops shipping up to the 64 MB
@@ -179,10 +185,15 @@ export type InvokeChannels = {
       renderer shows it through a `blob:` object URL. `null` when the path is absent on
       that side. */
   "repo:blob": (id: number, path: string, ref: BlobRef) => Promise<BlobData | null>
+  /** Short hashes of matching commits, all criteria combined; `content` searches the diffs
+      too. `requestId`: see `repo:cancel` — the renderer's query layer wires an AbortSignal to it. */
   "repo:search": (id: number, q: string, content: boolean, requestId?: string) => Promise<string[]>
   "repo:total": (id: number) => Promise<number>
+  /** Switches to a local branch; the dirty tree is stashed then reapplied. */
   "repo:checkout": (id: number, name: string) => Promise<void>
+  /** Entries of `git stash list`, most recent first. */
   "repo:stashes": (id: number) => Promise<Stash[]>
+  /** `push` stashes the tree (optional message); the others target a `stash@{N}` name. */
   "repo:stash": (id: number, action: StashAct, arg?: string) => Promise<void>
   /* Linked worktrees (`git worktree`). `worktreeOpen` only accepts a path listed by
      `git worktree list` for this repo — never an arbitrary path, same confinement model
@@ -200,7 +211,10 @@ export type InvokeChannels = {
   "repo:worktreeOpen": (id: number, path: string) => Promise<Repo>
   /** reveals a listed worktree in the system file explorer. */
   "repo:worktreeReveal": (id: number, path: string) => Promise<void>
+  /** The conflict-capable operation in progress (merge/rebase/cherry-pick/revert) and the
+      A/B labels of the conflict view: current branch (ours) and incoming side (theirs). */
   "repo:mergeState": (id: number) => Promise<MergeState>
+  /** The three index stages + working file of a conflicted path. */
   "repo:conflict": (id: number, path: string) => Promise<ConflictFile>
   /** Writes `content` to the working file and stages it (`git add`): the conflict is resolved. */
   "repo:resolve": (id: number, path: string, content: string) => Promise<void>

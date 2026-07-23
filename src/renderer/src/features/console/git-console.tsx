@@ -1,22 +1,16 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { TerminalIcon, Delete02Icon, Cancel01Icon } from "@hugeicons/core-free-icons"
 
-import { onTrace, repoApi, type TraceLine } from "@/lib/git"
 import { displayOrder, lastFailure } from "@/features/console/trace-lines"
-import { decodeError, describeError } from "@/lib/errors"
+import { useTraceBuffer, type Entry } from "@/features/console/use-trace-buffer"
+import { useCommandHistory } from "@/features/console/use-command-history"
 import { messages } from "@/lib/messages"
 import { PRIORITY, useShortcut } from "@/app/shortcuts"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { RollingText } from "@/components/ui/rolling-text"
-
-/* `key`: lines have no identity of their own on the main side; a local counter is enough for React. */
-type Entry = TraceLine & { key: number }
-
-/* Bounded buffer: a debug console, not a log. Beyond that, the oldest lines drop. */
-const CAP = 500
 
 /** One footer-feed occupant: a status dot, an optional operation verb, a detail line, and an
     optional inline action. The status bar arbitrates which entry owns the feed (op feedback,
@@ -48,9 +42,6 @@ const VERB: Partial<Record<FeedEntry["tone"], string>> = {
   warning: "text-warning",
 }
 
-/* session-local history of typed commands, Up/Down like a terminal — bounded like `lines` */
-const HISTORY_CAP = 50
-
 /** Git console: the footer feed as trigger, full history on click, and a typed-command input.
     The input sends the raw string to `repo:console`; parsing and the security policy
     (builtin allowlist, no shell, dangerous flags refused) live main-side in git/console.ts —
@@ -61,39 +52,9 @@ const HISTORY_CAP = 50
     click outside the panel handled natively — the old `fixed inset-0` button that simulated a click
     outside the panel goes away with it. */
 export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntry | null }) {
-  const [lines, setLines] = useState<Entry[]>([])
+  const { lines, clear } = useTraceBuffer(repoId)
   const [open, setOpen] = useState(false)
-  const keyRef = useRef(0)
   const scrollRef = useRef<HTMLDivElement | null>(null)
-
-  /* Traced lines are batched behind a rAF (perf audit, finding 23): a chatty command (fetch
-     progress, fsck) streams dozens of lines per frame, and one setState per line meant as
-     many re-renders of the whole status bar. The buffer flushes once per frame; the 500-line
-     cap applies at flush like before. */
-  const pendingRef = useRef<Entry[]>([])
-  const rafRef = useRef(0)
-  useEffect(() => {
-    const unsub = onTrace((p) => {
-      if (p.id !== repoId) return
-      pendingRef.current.push({ ...p, key: keyRef.current++ })
-      if (rafRef.current) return
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = 0
-        const batch = pendingRef.current
-        pendingRef.current = []
-        setLines((prev) => {
-          const next = [...prev, ...batch]
-          return next.length > CAP ? next.slice(next.length - CAP) : next
-        })
-      })
-    })
-    return () => {
-      unsub()
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = 0
-      pendingRef.current = []
-    }
-  }, [repoId])
 
   /* high priority, in addition to the primitive's native Escape: the console is a floating overlay
      above everything else, its Escape must never fall through to the one that closes the diff (see
@@ -119,80 +80,7 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
     if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) el.scrollTop = el.scrollHeight
   }, [lines, open])
 
-  /* --- Typed command --- */
-  const [cmd, setCmd] = useState("")
-  const [cmdError, setCmdError] = useState<string | null>(null)
-  const historyRef = useRef<string[]>([])
-  /* -1 = live draft; otherwise an index into the history being recalled */
-  const histIdxRef = useRef(-1)
-  const draftRef = useRef("")
-
-  const submit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault()
-      const text = cmd.trim()
-      if (!text) return
-      /* terminal feel: the input clears immediately, the echo is the `$ git …` trace line
-         main emits — no separate optimistic echo that could disagree with what actually ran */
-      setCmd("")
-      setCmdError(null)
-      const h = historyRef.current
-      if (h[h.length - 1] !== text) h.push(text)
-      if (h.length > HISTORY_CAP) h.shift()
-      histIdxRef.current = -1
-      repoApi(repoId)
-        .consoleRun(text)
-        .catch((err: unknown) => {
-          /* a command git actually ran also traces its own failure above; the inline line is
-             the only feedback for commands the policy refused (which never reach git) */
-          const p = decodeError(err)
-          if (p.code === "NOT_ALLOWED") setCmdError(messages.console.blocked(p.detail ?? text))
-          else if (p.code === "BAD_ARG") setCmdError(messages.console.invalid(p.detail ?? text))
-          else setCmdError(describeError(err))
-        })
-    },
-    [cmd, repoId]
-  )
-
-  /* Up/Down recall, like a terminal: Up walks back saving the in-progress draft, Down walks
-     forward and lands back on the draft past the newest entry. Editing resets to draft mode. */
-  const onCmdKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      const h = historyRef.current
-      if (e.key === "ArrowUp") {
-        if (!h.length || histIdxRef.current === 0) return
-        e.preventDefault()
-        if (histIdxRef.current === -1) {
-          draftRef.current = cmd
-          histIdxRef.current = h.length - 1
-        } else {
-          histIdxRef.current--
-        }
-        setCmd(h[histIdxRef.current])
-      } else if (e.key === "ArrowDown") {
-        if (histIdxRef.current === -1) return
-        e.preventDefault()
-        histIdxRef.current++
-        if (histIdxRef.current >= h.length) {
-          histIdxRef.current = -1
-          setCmd(draftRef.current)
-        } else {
-          setCmd(h[histIdxRef.current])
-        }
-      }
-    },
-    [cmd]
-  )
-
-  const clear = useCallback(() => {
-    /* also drop the un-flushed batch: resetting the key counter with old-keyed entries
-       still buffered could otherwise hand two lines the same React key later on */
-    cancelAnimationFrame(rafRef.current)
-    rafRef.current = 0
-    pendingRef.current = []
-    setLines([])
-    keyRef.current = 0
-  }, [])
+  const { cmd, cmdError, submit, onCmdKeyDown, onCmdChange } = useCommandHistory(repoId)
 
   /* last "spoken" line: neither the outcome (exit) nor an operation header */
   let last: Extract<Entry, { kind: "cmd" | "out" }> | undefined
@@ -295,10 +183,7 @@ export function GitConsole({ repoId, entry }: { repoId: number; entry?: FeedEntr
               <input
                 autoFocus
                 value={cmd}
-                onChange={(e) => {
-                  setCmd(e.target.value)
-                  histIdxRef.current = -1
-                }}
+                onChange={onCmdChange}
                 onKeyDown={onCmdKeyDown}
                 aria-label={messages.console.commandInput}
                 placeholder={messages.console.commandPlaceholder}

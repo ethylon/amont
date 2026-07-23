@@ -8,6 +8,7 @@ import { join } from "node:path"
 import { appendFile, stat, truncate } from "node:fs/promises"
 import { app, BrowserWindow, Menu, nativeTheme, shell } from "electron"
 
+import type { EventChannel, EventChannels } from "../shared/ipc-contract.ts"
 import { killCreations } from "./create.ts"
 import { all, closeAll } from "./repos.ts"
 import { captureRendererGone } from "./telemetry.ts"
@@ -16,6 +17,14 @@ import { emitChanged } from "./watcher.ts"
 let mainWindow: BrowserWindow | null = null
 
 export const getMainWindow = (): BrowserWindow | null => mainWindow
+
+/** The one way main talks to the renderer outside an invoke: channel and payload checked
+    against the contract's `EventChannels`, like `handle`/`invoke` on the request side — a
+    typo'd channel in a raw `webContents.send` was a silent runtime no-op, the only unchecked
+    string left in the IPC surface. */
+export const sendEvent = <K extends EventChannel>(channel: K, payload: EventChannels[K]): void => {
+  mainWindow?.webContents.send(channel, payload)
+}
 
 /* --- Incident log ---
    `incidents.log` under userData. In dev it's also mirrored to stderr. Writing is best-effort —

@@ -15,7 +15,7 @@ import { app } from "electron"
 import electronUpdater from "electron-updater"
 
 import type { UpdateState, UpdateStatus } from "../shared/types.ts"
-import { getMainWindow } from "./window.ts"
+import { getMainWindow, sendEvent } from "./window.ts"
 
 /* electron-updater est un module CJS bundlé dans out/main : l'import nommé n'est pas
    fiable à travers l'interop rollup, on déstructure le default. */
@@ -30,7 +30,7 @@ let pendingVersion = ""
 
 function send(state: UpdateState): void {
   const status: UpdateStatus = { origin, ...state }
-  getMainWindow()?.webContents.send("update:status", status)
+  sendEvent("update:status", status)
 }
 
 /** Câble les événements et lance le check silencieux du démarrage. No-op hors build packagée

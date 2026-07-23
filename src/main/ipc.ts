@@ -25,7 +25,7 @@ import { openable, persisted, saveState } from "./state.ts"
 import { captureIpcError, setTelemetryEnabled, telemetryState } from "./telemetry.ts"
 import { checkForUpdates, installUpdate } from "./updater.ts"
 import { basename } from "./util.ts"
-import { getMainWindow } from "./window.ts"
+import { getMainWindow, sendEvent } from "./window.ts"
 
 /* --- Generic registrar ---
    A single passage point for every `ipcMain.handle`: verifies that the call comes from the
@@ -56,11 +56,11 @@ function handle<K extends InvokeChannel>(
    Built once per opening, injected into the RepoHandle (repos.ts) then into the
    git runner (git/exec.ts): none of these modules read `mainWindow` themselves. */
 const makeHooks = (id: number): repos.RepoHooks => ({
-  trace: (line) => getMainWindow()?.webContents.send("git:trace", { id, ...line }),
-  op: (payload) => getMainWindow()?.webContents.send("git:op", { id, ...payload }),
-  progress: (payload) => getMainWindow()?.webContents.send("git:progress", { id, ...payload }),
-  queue: (payload) => getMainWindow()?.webContents.send("git:queue", { id, ...payload }),
-  changed: () => getMainWindow()?.webContents.send("git:changed", { id }),
+  trace: (line) => sendEvent("git:trace", { id, ...line }),
+  op: (payload) => sendEvent("git:op", { id, ...payload }),
+  progress: (payload) => sendEvent("git:progress", { id, ...payload }),
+  queue: (payload) => sendEvent("git:queue", { id, ...payload }),
+  changed: () => sendEvent("git:changed", { id }),
   isFocused: () => getMainWindow()?.isFocused() ?? false,
   /* fingerprint for the watcher's emitChanged gate (refresh audit, §2): a .git event whose
      HEAD/refs/stash snapshot is unchanged never wakes the renderer. async: `use` throws

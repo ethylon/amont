@@ -1,29 +1,26 @@
 /* Per-repo client store (AUDIT.md §5, "renderer state" workstream): a vanilla zustand store
    per open tab, created inside a `<RepoProvider>` and consumed by selector — the antidote to
    the `repo-view.tsx` god-component (22 `useState`, 14 `useEffect`, 10 props to RefsSidebar, 14
-   to WorktreePanel). Four slices:
-   - `selection`: keyed by commit HASH (not by row index) — the additive/subtractive
-     ctrl-click invariant lives in `toggleAdditive`, a single place for both
-     commits (`selectRow`) and refs (`focusRef`). After a graph reset, `resetAndLoad`
-     re-resolves rows via `graph.rowsOf(hashes)`: the selection survives pull/checkout/stash
-     as long as the commits still exist, rather than being cleared outright.
-   - `commitDraft`: subject/description/amend of the commit draft.
-   - `ui`: side panel, current view, open diff.
-   - `ops`: in-flight network operation, status badge (auto-cleared by a timer).
-   `graphRef` lives in the store as a non-reactive ref (same shape as the `RefObject` that
-   `CommitGraph` expects): mutating it notifies no subscriber. The selection actions here push
-   `selection.rows` to the canvas imperatively (`graphRef.current.setSelection`) — there is no
-   mirror effect on the graph component's side.
+   to WorktreePanel). Slices: `selection`, `commitDraft`, `ui`, `mergeQueue`, `ops`, `graph`.
 
-   The "git op → refresh → resetAndLoad → showOp" quartet, copy-pasted four times in the old
-   repo-view.tsx (checkout, stash, branch — the commit has its own shape, a failure doesn't
-   reload there), becomes `runGitAction`. */
+   This file is the store's contract and assembly: the state shape (`RepoStoreState`), the
+   slice initializers, and the provider/hooks. The ~55 actions live in ./store/, grouped by
+   what they own (architecture audit, §II.1) — selection.ts (and the one place that mirrors
+   every selection write to the canvas), draft.ts, dialogs.ts, ops.ts, reload.ts (the
+   soft/hard reload pair), merge-queue.ts, mutations.ts — each a `create*Actions(ctx)`
+   composed into `createRepoStore` below. An action group needing another goes through
+   `ctx.get()`, same as before the split; the interface here is what keeps the pieces honest.
+
+   `graphRef` lives in the store as a non-reactive ref (same shape as the `RefObject` that
+   `CommitGraph` expects): mutating it notifies no subscriber. The selection actions push
+   `selection.rows` to the canvas imperatively (store/selection.ts `applySelection`) — there
+   is no mirror effect on the graph component's side. */
 
 import { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { createStore, useStore, type StoreApi } from "zustand"
 
-import { decodeError, describeError, describePayload } from "@/lib/errors"
+import { describePayload } from "@/lib/errors"
 import {
   onChanged,
   onOp,
@@ -31,7 +28,6 @@ import {
   onQueue,
   type BranchAct,
   type FileChange,
-  type FlowPrefixes,
   type GitRef,
   type OpName,
   type Repo,
@@ -46,13 +42,25 @@ import type { BranchFlow } from "@/lib/gitflow"
 import { messages } from "@/lib/messages"
 import { prefs } from "@/lib/prefs"
 import { invalidateRepo, invalidateWtDiffs, queryKeys } from "@/lib/queries"
-import { queryClient } from "@/lib/query-client"
 import type { DiffCtx, DiffViewMode } from "@/features/diff/diff-view"
 import type { GraphHandle, Stats } from "@/features/graph/controller"
 import type { OpState } from "@/features/repo/status-bar"
-import type { WtAct } from "@/features/worktree/worktree-panel"
+
+import { createDialogActions } from "./store/dialogs"
+import { createDraftActions } from "./store/draft"
+import { createMergeQueueActions } from "./store/merge-queue"
+import { createMutationActions } from "./store/mutations"
+import { createOpsActions } from "./store/ops"
+import { createReloadActions } from "./store/reload"
+import { createSelectionActions } from "./store/selection"
 
 export type SelMode = "multi" | "branch"
+
+/** The staging panel's two per-path index moves — everything else it runs has a dedicated
+    store action. A plain name resolved against `api` in `runWt`, instead of the old
+    `WtAct` closures the panel built over the very `RepoApi` the store already holds
+    (architecture audit, §I.8). */
+export type WtStageAct = "stage" | "unstage"
 
 export type MergeQueueItemState = "pending" | "merging" | "merged" | "conflict"
 
@@ -65,9 +73,6 @@ export type MergeQueue = {
   target: string
   items: { branch: string; state: MergeQueueItemState }[]
 }
-
-/** Nothing left to act on: every branch landed. */
-const queueDone = (q: MergeQueue) => q.items.every((i) => i.state === "merged")
 
 export interface RepoStoreState {
   readonly repoId: number
@@ -213,14 +218,19 @@ export interface RepoStoreState {
   clearOp(): void
   setStats(stats: Stats): void
 
-  /** Restarts the graph (scroll-preserving, cf. controller.ts) and re-resolves the selection.
-      Default (user-initiated context switch — checkout, pull…): also closes the diff and
-      returns to the commits view. `soft` (background-initiated: watcher event, commit from
-      the staging panel) leaves the current view and any open diff alone — a change the user
+  /** Restarts the graph (scroll-preserving, cf. controller.ts) and re-resolves the selection,
+      leaving the current view and any open diff alone — the right call for anything
+      background-initiated (watcher event, commit from the staging panel): a change the user
       didn't just ask for must never rip their workspace away (refresh audit, §1/§4).
-      Overlapping calls coalesce into one trailing rerun instead of stacking full reloads. */
-  resetAndLoad(opts?: { soft?: boolean }): Promise<void>
-  /** git op → status invalidation → resetAndLoad → error badge, in a single place */
+      Overlapping reloads coalesce into one trailing rerun instead of stacking. */
+  reload(): Promise<void>
+  /** `reload()` plus the teardown of a user-initiated context switch (checkout, pull…):
+      closes the diff/conflict/history overlay and returns to the commits view. The
+      destructive variant is the one a caller must spell out — preservation used to be the
+      opt-in `soft` flag, and every caller that forgot it shipped the "lose my place"
+      regression back (architecture audit, §I.5). */
+  hardReload(): Promise<void>
+  /** git op → status invalidation → hardReload → error badge, in a single place */
   runGitAction(action: () => Promise<void>, opts?: { onSuccess?(): void }): Promise<void>
   /** Like `runGitAction`, but returns the error text (or `null`) instead of flashing a badge —
       the git-flow init/start surfaces show it inline and stay open on failure. */
@@ -250,7 +260,7 @@ export interface RepoStoreState {
   /** `git cherry-pick <hash>` onto HEAD — a conflict lands in the usual conflicts view */
   cherryPickCommit(hash: string): Promise<void>
   checkout(name: string): Promise<void>
-  runWt(act: WtAct, paths: string[]): Promise<void>
+  runWt(act: WtStageAct, paths: string[]): Promise<void>
   /** whole-file discard: tracked paths restored from the index, untracked deleted */
   runDiscard(paths: string[], untracked: string[]): Promise<void>
   /** remove/prune of a linked worktree; the graph reloads (the chip must disappear) */
@@ -264,729 +274,56 @@ export interface RepoStoreState {
   addWorktreeFrom(branch: string, from: string): Promise<string | null>
 }
 
-/** Ctrl-click: toggles a set of items at once — removes if the first is already in,
-    adds otherwise. Same invariant for commit rows (`selectRow`) and branch
-    segments (`focusRef`): a single place decides "remove" vs "add". */
-function toggleAdditive<T>(set: Set<T>, items: T[]): boolean {
-  const removing = items.length > 0 && set.has(items[0])
-  for (const it of items) removing ? set.delete(it) : set.add(it)
-  return removing
+/** What every action group closes over — handed once to each `create*Actions` (./store/). */
+export interface ActionCtx {
+  set: StoreApi<RepoStoreState>["setState"]
+  get: () => RepoStoreState
+  api: RepoApi
+  repoId: number
+  onOpenRepo: (repo: Repo) => void
 }
-
-const keyOfRow = (g: GraphHandle, row: number): string | null => {
-  const b = g.branchesOf(row)[0]
-  return b ? `${b.kind}:${b.name}` : null
-}
-
-/* Selection updates are the hottest store writes (one per commit click): reuse the previous
-   Set/array when the contents haven't actually changed, so selector-based subscribers
-   (RefsSidebar on `focusedKeys`, RepoView on `rows`) and downstream memos see a stable
-   reference instead of re-rendering on every click of an already-selected commit. */
-const sameSet = (prev: Set<string>, next: Set<string>): Set<string> =>
-  prev.size === next.size && [...next].every((k) => prev.has(k)) ? prev : next
-const sameArr = <T,>(prev: T[], next: T[]): T[] =>
-  prev.length === next.length && next.every((v, i) => prev[i] === v) ? prev : next
 
 export function createRepoStore(
   repoId: number,
   api: RepoApi,
   onOpenRepo: (repo: Repo) => void
 ): StoreApi<RepoStoreState> {
-  let okTimer = 0
-  /* message draft set aside while an amend borrows the last commit's */
-  let draftBackup: { subject: string; description: string } | null = null
-  /* Coalesced graph reload (refresh audit, §2): an external rebase fires one watcher event
-     per ref move — at most one rerun queues behind the running reload (it reads the
-     then-current repo state, satisfying every caller that landed mid-flight), and further
-     callers share that queued rerun's promise. A permanent chain rather than a nullable
-     in-flight marker: with a marker, the microtask between "run settled" and "trailing rerun
-     starts" let a caller's continuation slip a concurrent duplicate in. */
-  let reloadChain: Promise<void> = Promise.resolve()
-  let reloadDepth = 0
+  return createStore<RepoStoreState>((set, get) => {
+    const ctx: ActionCtx = { set, get, api, repoId, onOpenRepo }
+    return {
+      repoId,
+      api,
+      graphRef: { current: null },
 
-  return createStore<RepoStoreState>((set, get) => ({
-    repoId,
-    api,
-    graphRef: { current: null },
+      selection: { hashes: [], rows: [], mode: "multi", focusedKeys: new Set() },
+      commitDraft: { subject: "", description: "", amend: false },
+      ui: {
+        sidebarOpen: true,
+        view: "commits",
+        diff: null,
+        conflict: null,
+        fileHistory: null,
+        diffMode: prefs.diffView.get() || "unified",
+        flowStart: null,
+        flowFinish: null,
+        branchCreate: null,
+        worktreeCreate: null,
+        releaseCreate: null,
+        remoteAhead: null,
+      },
+      mergeQueue: null,
+      ops: { busyOp: null, opState: null, opProgress: null, queue: { running: null, pending: [] }, flowBusy: false },
+      graph: { stats: null },
 
-    selection: { hashes: [], rows: [], mode: "multi", focusedKeys: new Set() },
-    commitDraft: { subject: "", description: "", amend: false },
-    ui: {
-      sidebarOpen: true,
-      view: "commits",
-      diff: null,
-      conflict: null,
-      fileHistory: null,
-      diffMode: prefs.diffView.get() || "unified",
-      flowStart: null,
-      flowFinish: null,
-      branchCreate: null,
-      worktreeCreate: null,
-      releaseCreate: null,
-      remoteAhead: null,
-    },
-    mergeQueue: null,
-    ops: { busyOp: null, opState: null, opProgress: null, queue: { running: null, pending: [] }, flowBusy: false },
-    graph: { stats: null },
-
-    selectRow(row, additive) {
-      const g = get().graphRef.current
-      if (!g) return
-      const c = g.commit(row)
-      if (!c) return
-      const key = keyOfRow(g, row)
-      set((s) => {
-        /* the click clears any open diff/conflict and returns to commits; reuse `ui`
-           untouched when it's already there — a new object would wake `s.ui` subscribers */
-        const ui =
-          s.ui.view === "commits" && !s.ui.diff && !s.ui.conflict && !s.ui.fileHistory
-            ? s.ui
-            : { ...s.ui, view: "commits" as const, diff: null, conflict: null, fileHistory: null }
-        if (!additive) {
-          return {
-            selection: {
-              hashes: sameArr(s.selection.hashes, [c.h]),
-              rows: sameArr(s.selection.rows, [row]),
-              mode: "multi",
-              focusedKeys: sameSet(s.selection.focusedKeys, new Set(key ? [key] : [])),
-            },
-            ui,
-          }
-        }
-        const hashes = new Set(s.selection.hashes)
-        const rows = new Set(s.selection.rows)
-        const removing = toggleAdditive(rows, [row])
-        removing ? hashes.delete(c.h) : hashes.add(c.h)
-        const focusedKeys = new Set(s.selection.focusedKeys)
-        if (key) removing ? focusedKeys.delete(key) : focusedKeys.add(key)
-        return {
-          selection: {
-            hashes: [...hashes],
-            rows: [...rows].sort((a, b) => a - b),
-            mode: "multi",
-            focusedKeys: sameSet(s.selection.focusedKeys, focusedKeys),
-          },
-          ui,
-        }
-      })
-      /* explicit `active`: `row` is the row that just acted (click, ctrl-click, arrow…) — the
-         keyboard cursor (roving tabindex, AUDIT.md §8) follows it, whether or not it ends up
-         sorted at the head of `rows` once the Set is put back in ascending order. */
-      g.setSelection(get().selection.rows, row)
-    },
-
-    async selectBranch(row) {
-      const g = get().graphRef.current
-      if (!g) return
-      const rows = g.branchSegment(row).sort((a, b) => a - b)
-      await g.pin(rows) // the detail panel reads `commit(row)` synchronously across the whole selection
-      const key = keyOfRow(g, row)
-      const hashes = rows.map((r) => g.commit(r)!.h)
-      set((s) => ({
-        selection: {
-          hashes,
-          rows,
-          mode: "branch",
-          focusedKeys: sameSet(s.selection.focusedKeys, new Set(key ? [key] : [])),
-        },
-        ui: { ...s.ui, view: "commits", diff: null, conflict: null, fileHistory: null },
-      }))
-      g.setSelection(rows, row)
-    },
-
-    async focusRef(r, additive) {
-      const g = get().graphRef.current
-      if (!g) return
-      const key = `${r.kind}:${r.name}`
-      const removing = additive && get().selection.focusedKeys.has(key)
-      /* `select: false` — center the tip without letting the jump select it: reveal()'s built-in
-         non-additive select would wipe the current multi-selection before the additive branch
-         below extends it (a Ctrl-click on a second branch dropped the first). focusRef sets the
-         selection itself, right below. */
-      if (!removing) await g.jumpTo(r.tip, false)
-      const row = (await g.rowsOf([r.tip]))[0]
-      if (row === undefined) return
-      const seg = r.kind === "tag" ? [row] : g.branchSegment(row)
-      await g.pin(seg) // the detail panel reads `commit(row)` synchronously across the whole selection
-
-      if (!additive) {
-        const sorted = [...seg].sort((a, b) => a - b)
-        const hashes = sorted.map((x) => g.commit(x)!.h)
-        set((s) => ({
-          selection: {
-            hashes,
-            rows: sorted,
-            mode: r.kind === "tag" ? "multi" : "branch",
-            focusedKeys: sameSet(s.selection.focusedKeys, new Set([key])),
-          },
-          ui: { ...s.ui, view: "commits", diff: null, conflict: null, fileHistory: null },
-        }))
-        g.setSelection(get().selection.rows, row)
-        return
-      }
-
-      set((s) => {
-        const focusedKeys = new Set(s.selection.focusedKeys)
-        const rows = new Set(s.selection.rows)
-        for (const x of seg) removing ? rows.delete(x) : rows.add(x)
-        removing ? focusedKeys.delete(key) : focusedKeys.add(key)
-        const sortedRows = [...rows].sort((a, b) => a - b)
-        const hashes = sortedRows.map((x) => g.commit(x)!.h)
-        return {
-          selection: { hashes, rows: sortedRows, mode: "multi", focusedKeys },
-          ui: { ...s.ui, view: "commits", diff: null, conflict: null, fileHistory: null },
-        }
-      })
-      g.setSelection(get().selection.rows, row)
-    },
-
-    async focusStash(s) {
-      await get().graphRef.current?.jumpTo(s.h)
-    },
-
-    async focusWorktree(w) {
-      await get().graphRef.current?.jumpTo(w.head)
-    },
-
-    clearFocus() {
-      set((s) => ({
-        selection: {
-          hashes: sameArr(s.selection.hashes, []),
-          rows: sameArr(s.selection.rows, []),
-          mode: s.selection.mode,
-          focusedKeys: sameSet(s.selection.focusedKeys, new Set()),
-        },
-        ui: { ...s.ui, diff: null, conflict: null, fileHistory: null },
-      }))
-      get().graphRef.current?.setSelection([])
-    },
-
-    async reresolveSelection() {
-      const g = get().graphRef.current
-      const { hashes, rows: prevRows } = get().selection
-      if (!g || !hashes.length) {
-        set((s) => ({ selection: { ...s.selection, rows: [] } }))
-        return
-      }
-      /* bounded re-resolution (refresh audit, §6): the selection lived around `prevRows`
-         before the reset — search there (plus generous slack for commits pulled in on top),
-         not the whole history. Without the cap, amending a selected commit made `rowsOf`
-         page in the entire repo chasing a hash that no longer exists. rows are kept sorted
-         ascending, so the last element is the max (a spread over a branch-sized selection
-         would blow the argument limit). */
-      const bound = (prevRows.length ? prevRows[prevRows.length - 1] : 0) + 10_000
-      const rows = [...(await g.rowsOf(hashes, bound))].sort((a, b) => a - b)
-      await g.pin(rows)
-      const resolvedHashes = rows.map((r) => g.commit(r)!.h)
-      /* partial resolution (bound hit, page failure): keep the original hash list — the
-         missing commits may still exist beyond the search bound and the next reload retries;
-         only a complete resolution rewrites it (shedding duplicates the graph folded) */
-      set((s) => ({
-        selection: {
-          ...s.selection,
-          rows,
-          hashes: rows.length === hashes.length ? resolvedHashes : s.selection.hashes,
-        },
-      }))
-      /* reclaims the keyboard cursor (AUDIT.md §8): without this, the selection restored after a
-         pull/checkout/stash would stay displayed while the keyboard cursor — primed on row 0
-         by controller.ts `reset()` just before — would point elsewhere. */
-      g.setSelection(rows, rows[0])
-    },
-
-    setSubject(v) {
-      set((s) => ({ commitDraft: { ...s.commitDraft, subject: v } }))
-    },
-    setDescription(v) {
-      set((s) => ({ commitDraft: { ...s.commitDraft, description: v } }))
-    },
-    async toggleAmend(on) {
-      if (!on) {
-        const draft = draftBackup
-        draftBackup = null
-        set(() => ({
-          commitDraft: { subject: draft?.subject ?? "", description: draft?.description ?? "", amend: false },
-        }))
-        return
-      }
-      const msg = await api.headMessage().catch(() => null)
-      if (!msg) return
-      draftBackup = { subject: get().commitDraft.subject, description: get().commitDraft.description }
-      set(() => ({ commitDraft: { subject: msg.subject, description: msg.body, amend: true } }))
-    },
-
-    toggleSidebar() {
-      set((s) => ({ ui: { ...s.ui, sidebarOpen: !s.ui.sidebarOpen } }))
-    },
-    showWorktree() {
-      set((s) => ({
-        selection: { ...s.selection, rows: [], hashes: [] },
-        ui: { ...s.ui, diff: null, conflict: null, fileHistory: null, view: "wt" },
-      }))
-      get().graphRef.current?.setSelection([])
-    },
-    showCommits() {
-      set((s) => ({ ui: { ...s.ui, view: "commits" } }))
-    },
-    openFlowStart(kind, base) {
-      set((s) => ({ ui: { ...s.ui, flowStart: { kind, base }, flowFinish: null } }))
-    },
-    closeFlowStart() {
-      set((s) => ({ ui: { ...s.ui, flowStart: null } }))
-    },
-    openFlowFinish(branch, kind) {
-      set((s) => ({ ui: { ...s.ui, flowFinish: { branch, kind }, flowStart: null } }))
-    },
-    closeFlowFinish() {
-      set((s) => ({ ui: { ...s.ui, flowFinish: null } }))
-    },
-    openBranchCreate(from) {
-      set((s) => ({ ui: { ...s.ui, branchCreate: { from }, worktreeCreate: null } }))
-    },
-    closeBranchCreate() {
-      set((s) => ({ ui: { ...s.ui, branchCreate: null } }))
-    },
-    openWorktreeCreate(from) {
-      set((s) => ({ ui: { ...s.ui, worktreeCreate: { from }, branchCreate: null } }))
-    },
-    closeWorktreeCreate() {
-      set((s) => ({ ui: { ...s.ui, worktreeCreate: null } }))
-    },
-    openReleaseCreate(branches) {
-      if (!branches.length) return
-      set((s) => ({ ui: { ...s.ui, releaseCreate: { branches } } }))
-    },
-    openRemoteAhead(behind) {
-      set((s) => ({ ui: { ...s.ui, remoteAhead: { behind } } }))
-    },
-    closeRemoteAhead() {
-      set((s) => ({ ui: { ...s.ui, remoteAhead: null } }))
-    },
-    async resolveRemoteAhead(choice) {
-      /* close before running: the op's own feedback takes over (footer, badges), and a pull
-         that leaves the remote still ahead would re-raise the banner on the next push anyway */
-      set((s) => ({ ui: { ...s.ui, remoteAhead: null } }))
-      if (choice === "pull") await api.op("pull", "ff")
-      else await api.op("push", "force")
-    },
-    closeReleaseCreate() {
-      set((s) => ({ ui: { ...s.ui, releaseCreate: null } }))
-    },
-
-    /* --- Merge queue (release composition) --- */
-
-    armMergeQueue(target, branches) {
-      const items = branches.filter((b) => b !== target).map((branch) => ({ branch, state: "pending" as const }))
-      set(() => ({ mergeQueue: items.length ? { target, items } : null }))
-    },
-    closeMergeQueue() {
-      set(() => ({ mergeQueue: null }))
-    },
-
-    async queueMerge(branch) {
-      const q = get().mergeQueue
-      /* one at a time, always explicit: a second click while a merge runs is a no-op */
-      if (!q || q.items.some((i) => i.state === "merging")) return
-      if (!q.items.some((i) => i.branch === branch && (i.state === "pending" || i.state === "conflict"))) return
-      const setItem = (state: MergeQueueItemState) =>
-        set((s) =>
-          s.mergeQueue
-            ? {
-                mergeQueue: {
-                  ...s.mergeQueue,
-                  items: s.mergeQueue.items.map((i) => (i.branch === branch ? { ...i, state } : i)),
-                },
-              }
-            : {}
-        )
-      setItem("merging")
-      get().setFlowBusy(true) // the banner rolls the traced commands, shimmer on
-      const err = await api.merge(branch, true).then(() => null, decodeError)
-      get().setFlowBusy(false)
-      setItem(err ? (err.code === "MERGE_CONFLICT" ? "conflict" : "pending") : "merged")
-      invalidateRepo(queryClient, repoId)
-      if (err && err.code !== "MERGE_CONFLICT") {
-        get().showOp(describePayload(err), "danger")
-        return
-      }
-      /* a landed merge reshapes the graph — full reload; a conflict only dirtied the tree,
-         the soft reload refreshes without ripping the user's view away */
-      await get().resetAndLoad(err ? { soft: true } : undefined)
-      const done = get().mergeQueue
-      if (done && queueDone(done)) {
-        set(() => ({ mergeQueue: null }))
-        get().showOp(messages.queue.allMerged(done.target), "primary")
-      }
-    },
-
-    async queueRecheck() {
-      const q = get().mergeQueue
-      if (!q) return
-      const stale = q.items.filter((i) => i.state === "conflict" || i.state === "pending")
-      if (!stale.length) return
-      /* fresh read, not the query cache: right after a conflicted merge the cached mergeState
-         still says "no operation" for a beat — demoting the conflict on that stale beat would
-         flash it back to pending. Only a genuinely concluded operation moves items here. */
-      const inProgress = await api.mergeState().then(
-        (ms) => ms.op !== null,
-        () => true
-      )
-      if (inProgress) return
-      const preview = await api
-        .mergePreview(
-          q.target,
-          stale.map((i) => i.branch)
-        )
-        .catch(() => null)
-      if (!preview) return
-      const status = new Map(preview.map((p) => [p.branch, p.status]))
-      set((s) => {
-        if (!s.mergeQueue || s.mergeQueue.target !== q.target) return {}
-        return {
-          mergeQueue: {
-            ...s.mergeQueue,
-            items: s.mergeQueue.items.map((i) => {
-              if (status.get(i.branch) === "merged") return { ...i, state: "merged" as const }
-              /* the conflicted merge is gone (aborted): back in line */
-              if (i.state === "conflict") return { ...i, state: "pending" as const }
-              return i
-            }),
-          },
-        }
-      })
-      const left = get().mergeQueue
-      if (left && queueDone(left)) {
-        set(() => ({ mergeQueue: null }))
-        get().showOp(messages.queue.allMerged(left.target), "primary")
-      }
-    },
-    openDiff(ctx, file) {
-      /* the overlay slot is exclusive: a diff opened while the history view is up replaces it */
-      set((s) => ({ ui: { ...s.ui, diff: { ctx, file }, fileHistory: null } }))
-    },
-    closeDiff() {
-      set((s) => ({ ui: { ...s.ui, diff: null, conflict: null } }))
-    },
-    setDiffMode(v) {
-      prefs.diffView.set(v)
-      set((s) => ({ ui: { ...s.ui, diffMode: v } }))
-    },
-    openFileHistory(from, path) {
-      set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, fileHistory: { path, from } } }))
-    },
-    closeFileHistory() {
-      set((s) => ({ ui: { ...s.ui, fileHistory: null } }))
-    },
-
-    /* Same shape as runDiscard (failure = badge, no reload): the restore only moves working
-       files, the graph has nothing to relayout — the worktree row updates through its own
-       invalidation. A success badge names the path: unlike a discard, nothing else on screen
-       makes the outcome visible when the staging panel is closed. */
-    async restoreFile(hash, path) {
-      try {
-        await api.restore(hash, path)
-      } catch (e) {
-        get().showOp(describeError(e), "danger")
-        return
-      }
-      get().showOp(messages.detail.restored(path), "primary")
-      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
-      /* wt diffs only: the restore touched the tree, never a commit↔commit diff */
-      invalidateWtDiffs(queryClient, repoId)
-    },
-    openConflict(file) {
-      set((s) => ({ ui: { ...s.ui, diff: null, conflict: file } }))
-    },
-    closeConflict() {
-      set((s) => ({ ui: { ...s.ui, conflict: null } }))
-    },
-
-    /* Same shape as runWt (failure = badge, no reload): resolving only moves the file from
-       `conflicts` to `staged`, the graph has nothing to relayout. The conflict cache is
-       invalidated here rather than in `invalidateRepo` — a background refetch elsewhere
-       would clobber an in-progress edit of another file (cf. conflict-queries.ts). */
-    async resolveConflict(path, content) {
-      try {
-        await api.resolve(path, content)
-      } catch (e) {
-        get().showOp(describeError(e), "danger")
-        return
-      }
-      set((s) => ({ ui: { ...s.ui, conflict: null } }))
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.conflictAll(repoId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.mergeState(repoId) }),
-      ])
-    },
-
-    abortMerge() {
-      return get().runGitAction(() => api.mergeAbort())
-    },
-
-    setBusyOp(op) {
-      set((s) => ({ ops: { ...s.ops, busyOp: op } }))
-    },
-    setOpProgress(progress) {
-      set((s) => ({ ops: { ...s.ops, opProgress: progress } }))
-    },
-    setQueue(queue) {
-      set((s) => ({ ops: { ...s.ops, queue } }))
-    },
-    setFlowBusy(v) {
-      set((s) => ({ ops: { ...s.ops, flowBusy: v } }))
-    },
-    /* the badge clears itself; only an action ("Reload") keeps it in place */
-    showOp(text, color, action) {
-      clearTimeout(okTimer)
-      set((s) => ({ ops: { ...s.ops, opState: { text, color, action } } }))
-      if (!action) okTimer = window.setTimeout(() => set((s) => ({ ops: { ...s.ops, opState: null } })), 6000)
-    },
-    clearOp() {
-      clearTimeout(okTimer)
-      set((s) => ({ ops: { ...s.ops, opState: null } }))
-    },
-    setStats(stats) {
-      set((s) => ({ graph: { ...s.graph, stats } }))
-    },
-
-    resetAndLoad(opts) {
-      /* the UI intent of a hard reload applies immediately, even when the graph rerun is
-         coalesced into an already-queued one */
-      if (!opts?.soft) set((s) => ({ ui: { ...s.ui, diff: null, conflict: null, fileHistory: null, view: "commits" } }))
-      /* running + queued = 2: a third caller is satisfied by the queued rerun, which starts
-         after the current one and reads fresh state */
-      if (reloadDepth >= 2) return reloadChain
-      reloadDepth++
-      reloadChain = reloadChain
-        .catch(() => {}) // a failed run must not poison the runs chained behind it
-        .then(async () => {
-          try {
-            await get().graphRef.current?.reset()
-            await get().reresolveSelection()
-            await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
-          } finally {
-            reloadDepth--
-          }
-        })
-      return reloadChain
-    },
-
-    async runGitAction(action, opts) {
-      /* a branch pull/push/delete streams `--progress` into the footer (via onProgress); clear any
-         leftover before, and once the action settles, so the live percentage never outlives it */
-      get().setOpProgress(null)
-      const err = await action().then(() => null, describeError)
-      get().setOpProgress(null)
-      if (!err) opts?.onSuccess?.()
-      invalidateRepo(queryClient, repoId)
-      await get().resetAndLoad()
-      if (err) get().showOp(err, "danger")
-    },
-
-    async runFlow(action) {
-      get().setFlowBusy(true)
-      const err = await action().then(() => null, describeError)
-      get().setFlowBusy(false)
-      invalidateRepo(queryClient, repoId)
-      await get().resetAndLoad()
-      return err
-    },
-
-    async doCommit() {
-      const { subject, description, amend } = get().commitDraft
-      const subj = subject.trim()
-      const body = description.trim()
-      try {
-        await api.commit(body ? `${subj}\n\n${body}` : subj, amend)
-      } catch (e) {
-        get().showOp(describeError(e), "danger")
-        return
-      }
-      set(() => ({ commitDraft: { subject: "", description: "", amend: false } }))
-      draftBackup = null
-      /* a staged-source diff shows content that just left the tree — close it; unstaged/
-         untracked files weren't touched by the commit, their diff stays */
-      const open = get().ui.diff
-      if (open && "wt" in open.ctx && open.ctx.wt === "staged") set((s) => ({ ui: { ...s.ui, diff: null } }))
-      invalidateRepo(queryClient, repoId)
-      invalidateWtDiffs(queryClient, repoId)
-      /* soft: committing from the staging panel must not eject the user from it — with
-         nothing left to commit, RepoView's emptied-tree effect switches views on its own */
-      await get().resetAndLoad({ soft: true })
-    },
-
-    async rewordHead(subject, description) {
-      const subj = subject.trim()
-      const body = description.trim()
-      const err = await api.reword(body ? `${subj}\n\n${body}` : subj).then(() => null, describeError)
-      if (err) return err
-      invalidateRepo(queryClient, repoId)
-      /* soft: the edit happens in the side panel, nothing to tear down; the reload's
-         re-resolution drops the selection (the amended hash no longer exists), so re-anchor
-         it on the new HEAD — the panel keeps showing the commit that was just reworded */
-      await get().resetAndLoad({ soft: true })
-      const head = await api.status().then(
-        (s) => s.head,
-        () => null
-      )
-      if (head) await get().graphRef.current?.jumpTo(head)
-      return null
-    },
-
-    runStash(action, name) {
-      return get().runGitAction(() => api.stash(action, name), {
-        onSuccess: () => {
-          if (action === "push") set((s) => ({ commitDraft: { ...s.commitDraft, subject: "" } }))
-        },
-      })
-    },
-
-    runBranch(action, name) {
-      if (action !== "finish") return get().runGitAction(() => api.branch(action, name))
-      /* a feature/bugfix finish never runs straight away: every entry point (menu, sidebar
-         shortcut, refs menu) lands here, and the flow banner rolls to its confirmation row
-         instead — the submit goes through `api.flowFinish` with the chosen options. The kind
-         comes from the flow query's cache: the finish entry points only exist once it's loaded. */
-      const prefixes = queryClient.getQueryData<FlowPrefixes | null>(queryKeys.flow(repoId))
-      const kind = prefixes && (["feature", "bugfix"] as const).find((k) => prefixes[k] && name.startsWith(prefixes[k]))
-      if (kind) {
-        get().openFlowFinish(name, kind)
-        return Promise.resolve()
-      }
-      /* release/hotfix keep the plain `git flow finish`, flagged so the flow banner animates
-         while it runs (merge + tag + back-merge can take a while) */
-      return get().runGitAction(async () => {
-        get().setFlowBusy(true)
-        try {
-          await api.branch("finish", name)
-        } finally {
-          get().setFlowBusy(false)
-        }
-      })
-    },
-
-    runFlowPublish(kind, name) {
-      return get().runGitAction(async () => {
-        get().setFlowBusy(true)
-        try {
-          await api.flowPublish(kind, name)
-        } finally {
-          get().setFlowBusy(false)
-        }
-      })
-    },
-
-    deleteBranch(name, deleteRemote) {
-      return get().runGitAction(() => api.branchDelete(name, deleteRemote))
-    },
-
-    deleteRemoteBranch(name) {
-      return get().runGitAction(() => api.remoteBranchDelete(name))
-    },
-
-    deleteTag(name, remote) {
-      return get().runGitAction(() => api.tagDelete(name, remote))
-    },
-
-    /* through runFlow, not runGitAction: the create surfaces (banner, tag dialog) show the
-       error inline and stay open for a correction, like the git-flow start banner */
-    createBranch(name, from, checkout) {
-      return get().runFlow(() => api.branchCreate(name, from, checkout))
-    },
-
-    createTag(name, at) {
-      return get().runFlow(() => api.tagCreate(name, at))
-    },
-
-    resetTo(mode, to) {
-      return get().runGitAction(() => api.reset(mode, to))
-    },
-
-    revertCommit(hash) {
-      return get().runGitAction(() => api.revert(hash))
-    },
-
-    cherryPickCommit(hash) {
-      return get().runGitAction(() => api.cherryPick(hash))
-    },
-
-    checkout(name) {
-      return get().runGitAction(() => api.checkout(name))
-    },
-
-    async runWt(act, paths) {
-      try {
-        await act(api, paths)
-      } catch (e) {
-        get().showOp(describeError(e), "danger")
-        return
-      }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
-    },
-
-    /* Same shape as runWt (failure = badge, no reload), plus: the diff caches refresh — the
-       discarded file's diff may be on screen — and a diff open on a discarded path closes,
-       there is nothing left to show. */
-    async runDiscard(paths, untracked) {
-      try {
-        await api.discard(paths, untracked)
-      } catch (e) {
-        get().showOp(describeError(e), "danger")
-        return
-      }
-      const open = get().ui.diff
-      if (open && "wt" in open.ctx && [...paths, ...untracked].includes(open.file.path))
-        set((s) => ({ ui: { ...s.ui, diff: null } }))
-      await queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
-      /* wt diffs only: the discard touched the tree/index, never a commit↔commit diff */
-      invalidateWtDiffs(queryClient, repoId)
-    },
-
-    runWorktree(action, path) {
-      return get().runGitAction(() => api.worktreeAct(action, path))
-    },
-
-    async openWorktree(path) {
-      try {
-        onOpenRepo(await api.worktreeOpen(path))
-      } catch (e) {
-        get().showOp(describeError(e), "danger")
-      }
-    },
-
-    async addWorktree(branch) {
-      let repo: Repo | null
-      try {
-        repo = await api.worktreeAdd(branch)
-      } catch (e) {
-        get().showOp(describeError(e), "danger")
-        return
-      }
-      if (!repo) return // dialog cancelled
-      invalidateRepo(queryClient, repoId)
-      /* soft: the new worktree opens as its own tab — this tab only needs the chip to appear
-         on its branch tip, not a view/diff teardown */
-      await get().resetAndLoad({ soft: true })
-      onOpenRepo(repo)
-    },
-
-    /* same flow as addWorktree, but the error goes back to the banner (inline, correctable)
-       instead of the status badge — a cancelled picker counts as done, the banner closes */
-    async addWorktreeFrom(branch, from) {
-      let repo: Repo | null
-      try {
-        repo = await api.worktreeAddFrom(branch, from)
-      } catch (e) {
-        return describeError(e)
-      }
-      if (!repo) return null // dialog cancelled
-      invalidateRepo(queryClient, repoId)
-      await get().resetAndLoad({ soft: true })
-      onOpenRepo(repo)
-      return null
-    },
-  }))
+      ...createSelectionActions(ctx),
+      ...createDraftActions(ctx),
+      ...createDialogActions(ctx),
+      ...createOpsActions(ctx),
+      ...createReloadActions(ctx),
+      ...createMergeQueueActions(ctx),
+      ...createMutationActions(ctx),
+    }
+  })
 }
 
 const RepoStoreContext = createContext<StoreApi<RepoStoreState> | null>(null)
@@ -1047,13 +384,13 @@ export function useRepoEvents(active: boolean): void {
 
   /* One definition of "an external change must refresh this repo" — shared by the live
      handler and the deferred flush below, so a background tab replays exactly the reaction
-     a foreground tab would have had. Soft reload: an external change is background-initiated
-     — it must never close the user's diff, eject them from the staging view, or move their
-     scroll. */
+     a foreground tab would have had. Plain (soft) reload: an external change is
+     background-initiated — it must never close the user's diff, eject them from the staging
+     view, or move their scroll. */
   const externalReload = useCallback(() => {
     invalidateRepo(queryClient, repoId)
     invalidateWtDiffs(queryClient, repoId)
-    void store.getState().resetAndLoad({ soft: true })
+    void store.getState().reload()
   }, [queryClient, repoId, store])
 
   /* Refs moved outside the application: commit, rebase or checkout from a terminal.
@@ -1135,7 +472,7 @@ export function useRepoEvents(active: boolean): void {
           pendingAdded.current += p.added
           if (pendingAdded.current > 0) s.showOp(messages.app.newCommits(pendingAdded.current), "primary")
           pendingAdded.current = 0
-          await s.resetAndLoad()
+          await s.hardReload()
         } else if (!activeRef.current) {
           pendingAdded.current += p.added
           pendingChange.current = true
@@ -1147,7 +484,7 @@ export function useRepoEvents(active: boolean): void {
               run: () => {
                 pendingAdded.current = 0
                 s.clearOp()
-                void s.resetAndLoad()
+                void s.hardReload()
               },
             })
         }

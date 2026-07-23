@@ -17,9 +17,8 @@
 
 import { AppError } from "../../shared/errors.ts"
 import type { FlowFinishOpts, FlowInfo, FlowInitConfig, FlowKind, FlowPrefixes } from "../../shared/types.ts"
-import { withLock, type RepoHandle } from "../repos.ts"
+import { mutation, type RepoHandle } from "../repos.ts"
 import { captureGitError } from "../telemetry.ts"
-import { mute } from "../watcher.ts"
 import { OP_TIMEOUT } from "./exec.ts"
 import { BRANCH, computeNextTag, flowInitConfigArgs, flowVersionSuffix, parseFlowPrefixes } from "./parse.ts"
 
@@ -174,14 +173,10 @@ export async function finishFeature(r: RepoHandle, name: string, opts: FlowFinis
   if (typeof name !== "string" || !BRANCH.test(name)) throw new AppError("BAD_ARG", "name")
   const { type } = flowTypeOf(name, (await flowPrefixes(r)) ?? {})
   if (type !== "feature" && type !== "bugfix") throw new AppError("BAD_ARG", name)
-  await withLock(r, `flow ${type} finish`, async () => {
+  await mutation(r, `flow ${type} finish`, async () => {
     r.events.trace({ kind: "group", text: `Finish ${name}`, ts: Date.now() })
-    try {
-      if (opts.rebase) await finishRebase(r, name, opts.deleteBranch)
-      else await finishMerge(r, name, { noFF: true, deleteBranch: opts.deleteBranch })
-    } finally {
-      mute(r)
-    }
+    if (opts.rebase) await finishRebase(r, name, opts.deleteBranch)
+    else await finishMerge(r, name, { noFF: true, deleteBranch: opts.deleteBranch })
   })
 }
 
@@ -354,7 +349,7 @@ export async function flowStart(r: RepoHandle, kind: FlowKind, x: string, base?:
   const { prefix, name } = flowSuffix(await flowPrefixes(r), kind, x)
   const branch = prefix + name
   const from = flowStartBase(base)
-  await withLock(r, `flow ${kind} start`, async () => {
+  await mutation(r, `flow ${kind} start`, async () => {
     const [origin, { master, develop, heads }] = await Promise.all([originOf(r), trunksOf(r)])
     const trunk = from ?? (kind === "hotfix" ? master : develop)
     if (!heads.has(trunk)) throw new AppError("BAD_ARG", trunk)
@@ -378,7 +373,7 @@ export async function flowPublish(r: RepoHandle, kind: FlowKind, x: string): Pro
   if (!FLOW_TYPES.includes(kind)) throw new AppError("BAD_ARG", "kind")
   const { prefix, name } = flowSuffix(await flowPrefixes(r), kind, x)
   const branch = prefix + name
-  await withLock(r, `flow ${kind} publish`, async () => {
+  await mutation(r, `flow ${kind} publish`, async () => {
     const origin = await originOf(r)
     if (!(await shaOf(r, `refs/heads/${branch}`))) throw new AppError("BAD_ARG", branch)
     await r.git(["fetch", origin], { timeout: OP_TIMEOUT })
@@ -400,7 +395,7 @@ export async function flowInit(r: RepoHandle, cfg: FlowInitConfig): Promise<Flow
     const required = key === "gitflow.branch.master" || key === "gitflow.branch.develop"
     if (required && (!value || !BRANCH.test(value))) throw new AppError("BAD_ARG", key)
   }
-  await withLock(r, "flow init", async () => {
+  await mutation(r, "flow init", async () => {
     for (const [key, value] of pairs) await r.git(["config", key, value])
     const origin = await originOf(r)
     const heads = new Set(

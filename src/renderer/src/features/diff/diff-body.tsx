@@ -53,7 +53,7 @@ import { CodeLine, useShikiTokens, type TokenLine } from "@/features/diff/shiki-
 import { Button } from "@/components/ui/button"
 import { IconButton } from "@/components/ui/icon-button"
 
-/* Same tints as the raw fallback render (diff-view RAW_CLASS): red/green IS the diff
+/* Same tints as the raw fallback render (d2h-render RAW_CLASS): red/green IS the diff
    vocabulary here, unlike the conflict view where neither side is "removed". */
 const TINT: Record<DiffLineKind, string> = { add: "bg-success/16", del: "bg-destructive/16", ctx: "" }
 
@@ -374,7 +374,7 @@ const HunkSection = memo(function HunkSection({
 })
 
 /* Two half-width panes whose horizontal scrolling advances together — same policy as
-   diff-view's syncSides for the diff2html render; rows stay facing each other because every
+   d2h-render's syncSides for the diff2html render; rows stay facing each other because every
    line renders at the same height on both sides.
 
    The panes' native scrollbars are hidden: they would sit at the bottom of the whole hunk,

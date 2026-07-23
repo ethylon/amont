@@ -3,7 +3,7 @@
    branches first), and the ref row itself (menu included). See refs-menu.tsx for
    the context menu content and refs-focus-paint.ts for the selection-run painting. */
 
-import { memo, useEffect, useMemo, useState } from "react"
+import { createContext, memo, useContext, useEffect, useMemo, useState } from "react"
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react"
 import { ArrowRight01Icon, Delete02Icon, GitBranchIcon, GitMergeIcon } from "@hugeicons/core-free-icons"
 
@@ -29,8 +29,9 @@ import { ScrollText } from "@/features/graph/interactions/scroll-text"
 import { BranchMenu, SelectionMenu } from "@/features/refs/refs-menu"
 
 type RowProps = { onCheckout(name: string): void }
-/* the context a branch's menu needs to know, passed down as-is at every level
-   of the tree: four props threading through three components wouldn't say anything more. */
+/* the context a branch's menu needs to know — the single object the sidebar memoizes
+   (see refs-sidebar), provided once at the tree root instead of threading through
+   every level of the recursion. */
 export type Ctx = RowProps & {
   /** current branch, `null` on detached HEAD */
   current: string | null
@@ -59,6 +60,13 @@ export type Ctx = RowProps & {
   onMergeSelection(branches: string[]): void
   onClearFocus(): void
 }
+
+/* Dirs and rows read the ctx here; `Tree` wraps every root in the provider, so the
+   null default never reaches a consumer. The value is the sidebar's memoized object:
+   it only changes when the focus, the flow config or the refs themselves do, so
+   providing it is exactly as memo-friendly as passing it by prop was. */
+const CtxContext = createContext<Ctx | null>(null)
+const useCtx = () => useContext(CtxContext)!
 
 /** identity of a ref, shared with RepoView: local `master` and `origin/master` coexist */
 export const refKey = (r: GitRef) => `${r.kind}:${r.name}`
@@ -114,17 +122,16 @@ const RefDir = memo(function RefDir({
   label,
   node,
   icon,
-  ctx,
   openDirs,
   forceOpen,
 }: {
   label: string
   node: PathTree<GitRef>
   icon: IconSvgElement
-  ctx: Ctx
   openDirs: boolean
   forceOpen: boolean
 }) {
+  const ctx = useCtx()
   const dot = DOT[typeColor(label.toLowerCase())]
   /* memoized subtree scans (perf audit, finding 4b): `node` is stable (the tree is built
      once per [data, filter] in the sidebar) and `focusedKeys` is reference-stable while the
@@ -149,24 +156,15 @@ const RefDir = memo(function RefDir({
           <span className="truncate">{label}</span>
         </CollapsibleTrigger>
         <CollapsibleContent className="ml-2 border-l pl-2">
-          <Tree node={node} icon={icon} ctx={ctx} forceOpen={forceOpen} />
+          <TreeLevel node={node} icon={icon} forceOpen={forceOpen} />
         </CollapsibleContent>
       </Collapsible>
     </li>
   )
 })
 
-const RefRow = memo(function RefRow({
-  r,
-  label,
-  icon,
-  ctx,
-}: {
-  r: GitRef
-  label: string
-  icon: IconSvgElement
-  ctx: Ctx
-}) {
+const RefRow = memo(function RefRow({ r, label, icon }: { r: GitRef; label: string; icon: IconSvgElement }) {
+  const ctx = useCtx()
   /* memo'd component with localized descendants (the branch/checkout context menus):
      re-render on a runtime language switch even when no prop moved */
   useLocale()
@@ -289,6 +287,24 @@ export function Tree({
   openDirs?: boolean
   forceOpen?: boolean
 }) {
+  return (
+    <CtxContext.Provider value={ctx}>
+      <TreeLevel node={node} icon={icon} openDirs={openDirs} forceOpen={forceOpen} />
+    </CtxContext.Provider>
+  )
+}
+
+function TreeLevel({
+  node,
+  icon,
+  openDirs = false,
+  forceOpen = false,
+}: {
+  node: PathTree<GitRef>
+  icon: IconSvgElement
+  openDirs?: boolean
+  forceOpen?: boolean
+}) {
   /* Sorting memoized on the node (perf audit, finding 4b): the tree is rebuilt only when
      [data, filter] change (see refs-sidebar), so per-click re-renders (focus moved) reuse
      the sorted order instead of re-running the recursive `localeCompare`/`pinRank` sorts. */
@@ -302,21 +318,13 @@ export function Tree({
   }, [node])
   const label = (r: GitRef) => r.name.split("/").pop()!
 
-  const row = (r: GitRef) => <RefRow key={r.name} r={r} label={label(r)} icon={icon} ctx={ctx} />
+  const row = (r: GitRef) => <RefRow key={r.name} r={r} label={label(r)} icon={icon} />
 
   return (
     <ul role="list" className="flex flex-col">
       {pinned.map(row)}
       {dirs.map((k) => (
-        <RefDir
-          key={k}
-          label={k}
-          node={node.dirs.get(k)!}
-          icon={icon}
-          ctx={ctx}
-          openDirs={openDirs}
-          forceOpen={forceOpen}
-        />
+        <RefDir key={k} label={k} node={node.dirs.get(k)!} icon={icon} openDirs={openDirs} forceOpen={forceOpen} />
       ))}
       {rest.map(row)}
     </ul>

@@ -52,3 +52,48 @@ export function parseMarkdown(text: string): MdBlock[] {
   flush()
   return blocks
 }
+
+/* URLs go out to the browser: `setWindowOpenHandler` refuses navigation within the window. */
+export const Inline = ({ tokens }: { tokens: MdToken[] }) => (
+  <>
+    {tokens.map((k, i) =>
+      k.t === "code" ? (
+        <code key={i} className="rounded-sm bg-muted px-1 font-mono">
+          {k.v}
+        </code>
+      ) : k.t === "bold" ? (
+        <strong key={i} className="font-medium text-foreground">
+          {k.v}
+        </strong>
+      ) : k.t === "em" ? (
+        <em key={i}>{k.v}</em>
+      ) : k.t === "link" ? (
+        <a key={i} href={k.v} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+          {k.v}
+        </a>
+      ) : (
+        k.v
+      )
+    )}
+  </>
+)
+
+export const Markdown = ({ text }: { text: string }) => (
+  <>
+    {parseMarkdown(text).map((b, i) =>
+      b.kind === "p" ? (
+        <p key={i} className="whitespace-pre-wrap text-pretty">
+          <Inline tokens={b.tokens} />
+        </p>
+      ) : (
+        <ul key={i} className="list-disc space-y-0.5 ps-4 text-pretty">
+          {b.items.map((it, j) => (
+            <li key={j}>
+              <Inline tokens={it} />
+            </li>
+          ))}
+        </ul>
+      )
+    )}
+  </>
+)
