@@ -901,10 +901,10 @@ export const messages = {
     get crashReportsHint() {
       return t`Helps fix crashes. No repository contents, diffs, or credentials are ever sent.`
     },
-    get sectionDiff() {
-      return t`Diff`
+    get sectionSyntax() {
+      return t`Syntax highlighting`
     },
-    /** intro of the Diff section: the extension → language table for syntax highlighting */
+    /** intro of the Syntax highlighting section: the extension → language table for diff highlighting */
     get langAliasesIntro() {
       return t`Map a file extension to a language so its diffs are syntax-highlighted. Common types are built in; add your own below.`
     },

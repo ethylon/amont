@@ -496,9 +496,6 @@ msgstr "Detect feat:, fix:, chore:… and lift it out of the message into a badg
 msgid "Development branch"
 msgstr "Development branch"
 
-msgid "Diff"
-msgstr "Diff"
-
 msgid "Diff unavailable."
 msgstr "Diff unavailable."
 
@@ -1218,6 +1215,9 @@ msgstr "Stash"
 
 msgid "Support prefix"
 msgstr "Support prefix"
+
+msgid "Syntax highlighting"
+msgstr "Syntax highlighting"
 
 msgid "System"
 msgstr "System"

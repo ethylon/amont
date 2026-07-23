@@ -75,7 +75,7 @@ type Section = "customization" | "colors" | "diff"
 const SECTIONS: { id: Section; icon: IconSvgElement; label: () => string }[] = [
   { id: "customization", icon: SlidersHorizontalIcon, label: () => messages.settings.sectionCustomization },
   { id: "colors", icon: PaintBoardIcon, label: () => messages.settings.sectionColors },
-  { id: "diff", icon: SourceCodeIcon, label: () => messages.settings.sectionDiff },
+  { id: "diff", icon: SourceCodeIcon, label: () => messages.settings.sectionSyntax },
 ]
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
