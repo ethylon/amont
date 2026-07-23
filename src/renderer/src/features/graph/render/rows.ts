@@ -245,8 +245,9 @@ export function rowDiv(
   /* inherited by the row's `lane` chips — branch names carry the line's color */
   row.style.setProperty("--badge-color", laneColor(S.laneOf[i]))
 
-  /* Release/hotfix pattern: the row carries a side accent (cf. app.css) and its hue flows
-     into the merge's source chip as well as the tag's flag. */
+  /* Release/hotfix pattern: the hue flows into the merge's source chip as well as the tag's
+     flag; a release row also carries a side accent (cf. app.css — hotfixes don't, the
+     destructive red across a whole row read as an alarm). */
   const mg = c.p.length > 1 ? parseMerge(c.s) : null
   const flow = c.cap ? c.cap.flow : rowFlow(S, c, mg)
   if (flow) row.dataset.flow = flow

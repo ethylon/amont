@@ -293,14 +293,13 @@
     background: color-mix(in oklab, var(--warning) 14%, transparent);
   }
 
-  /* Release/hotfix pattern: tinted background to spot a version landing at a glance.
+  /* Release pattern: tinted background to spot a version landing at a glance.
      Hover and selection (utilities) cover it — their layer wins. The 2px rail, though, is
-     set outside @layer further below (otherwise ROW_CLASS's `border-l-transparent` would win). */
+     set outside @layer further below (otherwise ROW_CLASS's `border-l-transparent` would win).
+     Hotfixes deliberately get NO tint or rail: the destructive red read as an alarm across
+     the whole row — the milestone diamond and the flame chip already carry the pattern. */
   .amont-row[data-flow="release"] {
     background: color-mix(in oklab, var(--release) 8%, transparent);
-  }
-  .amont-row[data-flow="hotfix"] {
-    background: color-mix(in oklab, var(--destructive) 9%, transparent);
   }
 
   /* Stash: a neutral veil — the entry sits on the margin of history, not a milestone. */
@@ -616,14 +615,12 @@
   }
 }
 
-/* 2px rail of the release/hotfix pattern. Outside @layer, otherwise ROW_CLASS's
-   `border-l-transparent` utility would win (a later layer wins over specificity).
-   `:not([data-selected])` lets the selection set its own rail. The width (2px) comes from ROW_CLASS. */
+/* 2px rail of the release pattern (hotfix rows carry none — cf. the tint rules in @layer base).
+   Outside @layer, otherwise ROW_CLASS's `border-l-transparent` utility would win (a later layer
+   wins over specificity). `:not([data-selected])` lets the selection set its own rail. The
+   width (2px) comes from ROW_CLASS. */
 .amont-row[data-flow="release"]:not([data-selected="true"]) {
   border-left-color: var(--release);
-}
-.amont-row[data-flow="hotfix"]:not([data-selected="true"]) {
-  border-left-color: var(--destructive);
 }
 
 /* Selection runs in the refs sidebar. Lit rows carry their fill as a utility (see RefRow);
