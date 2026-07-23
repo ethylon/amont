@@ -163,3 +163,60 @@ export function watchGit(r: Watchable): void {
   r.watchers = [root, refs, stashLog].filter((w): w is FSWatcher => w !== null)
   r.watchRetries = 0
 }
+
+/* --- Working tree ---
+   Edits made in an editor while the app is frontmost (side-by-side IDE + amont, the common
+   setup) used to stay invisible until a window refocus or the next .git event — "the reload
+   is inconsistent". One recursive watch over the repo root closes that gap: any event outside
+   `.git/` marks the working tree as possibly moved and `wtChanged` tells the renderer to
+   re-read status/worktree/open wt diffs. No fingerprint gate like `emitChanged`'s: computing
+   one would cost the very `git status` the invalidation runs anyway, and the debounce already
+   collapses save-bursts (builds, formatters) into a single re-read.
+
+   Same foreground discipline as the .git trio: unfocused events are held as `wtDirty` and
+   flushed by the window's focus handler (window.ts). Events during our own mutations
+   (checkout/discard rewriting files) are dropped — the operation's completion path
+   invalidates those queries itself, and `muted` absorbs the trailing echoes.
+
+   Degradation is silent and safe: where the recursive watch can't subscribe or later errors
+   (inotify exhaustion on a huge tree, unmounted volume), the app simply falls back to the
+   focus-triggered refresh that was the only mechanism before this watcher existed. */
+const WT_DEBOUNCE = 400
+
+export interface WtWatchable {
+  running: string | null
+  muted: number
+  /** working-tree change observed while unfocused, flushed by the focus handler (window.ts) */
+  wtDirty: boolean
+  wtWatcher: FSWatcher | null
+  events: {
+    isFocused(): boolean
+    /** the working tree may have moved under the renderer — re-read status/worktree/wt diffs */
+    wtChanged(): void
+  }
+}
+
+export function watchWorktree(r: WtWatchable, root: string): void {
+  let timer: NodeJS.Timeout | undefined
+  const fire = () => {
+    if (r.running || Date.now() < r.muted) return
+    if (r.events.isFocused()) r.events.wtChanged()
+    else r.wtDirty = true
+  }
+  try {
+    const w = watch(root, { recursive: true }, (_type, file) => {
+      /* `.git/` belongs to the trio above (and would echo every index write); both separators —
+         the recursive watcher reports platform-native paths */
+      if (!file || file === ".git" || file.startsWith(".git/") || file.startsWith(".git\\")) return
+      clearTimeout(timer)
+      timer = setTimeout(fire, WT_DEBOUNCE)
+    })
+    w.on("error", () => {
+      w.close()
+      r.wtWatcher = null
+    })
+    r.wtWatcher = w
+  } catch {
+    r.wtWatcher = null
+  }
+}

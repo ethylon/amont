@@ -385,11 +385,14 @@
      `.git` change (checkout/commit done outside the app): it notifies every current subscriber. */
       const onOpListeners = new Set()
       const onChangedListeners = new Set()
+      const onWtChangedListeners = new Set()
       const onTraceListeners = new Set()
       const onProgressListeners = new Set()
       const onUpdateListeners = new Set()
       const onQueueListeners = new Set()
       window.__changed = (payload = { id: REPO.id }) => onChangedListeners.forEach((cb) => cb(payload))
+      /* working-tree edit outside the app: __wtchanged() re-reads status/worktree/wt diffs */
+      window.__wtchanged = (payload = { id: REPO.id }) => onWtChangedListeners.forEach((cb) => cb(payload))
       window.__update = (payload) => onUpdateListeners.forEach((cb) => cb(payload))
       /* mutation queue: nothing ever waits in the mock, but the footer indicator can be driven
          by hand — __queue({ running: "push", pending: ["pull", "checkout topic"] }) */
@@ -546,6 +549,10 @@
         onChanged: (cb) => {
           onChangedListeners.add(cb)
           return () => onChangedListeners.delete(cb)
+        },
+        onWtChanged: (cb) => {
+          onWtChangedListeners.add(cb)
+          return () => onWtChangedListeners.delete(cb)
         },
         onTrace: (cb) => {
           onTraceListeners.add(cb)

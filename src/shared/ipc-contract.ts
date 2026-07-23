@@ -247,6 +247,8 @@ export type InvokeChannel = keyof InvokeChannels
 export type EventChannels = {
   "git:op": OpEvent
   "git:changed": ChangeEvent
+  /** the working tree moved outside the app (IDE edit) — status/worktree/wt diffs are stale */
+  "git:wtchanged": ChangeEvent
   "git:trace": TraceLine
   "git:progress": ProgressEvent
   "git:queue": QueueEvent
@@ -283,6 +285,7 @@ export type Bridge = {
 
   onOp(cb: (payload: EventChannels["git:op"]) => void): () => void
   onChanged(cb: (payload: EventChannels["git:changed"]) => void): () => void
+  onWtChanged(cb: (payload: EventChannels["git:wtchanged"]) => void): () => void
   onTrace(cb: (payload: EventChannels["git:trace"]) => void): () => void
   onProgress(cb: (payload: EventChannels["git:progress"]) => void): () => void
   onQueue(cb: (payload: EventChannels["git:queue"]) => void): () => void

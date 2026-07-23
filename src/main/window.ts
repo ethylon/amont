@@ -122,6 +122,12 @@ export function createWindow(): void {
      in the background stayed invisible until some manual action. */
   win.on("focus", () => {
     for (const r of all()) {
+      /* working-tree edits held while unfocused (watcher.ts watchWorktree): same mid-op
+         restraint as `dirty` below — a running op's completion path re-reads these anyway */
+      if (r.wtDirty && !r.running) {
+        r.wtDirty = false
+        r.events.wtChanged()
+      }
       /* mid-op (autofetch racing the refocus): don't consume the flag — emitChanged would
          drop the emission, losing the held change; it stays dirty for the next flush */
       if (!r.dirty || r.running) continue
