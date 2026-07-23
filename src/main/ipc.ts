@@ -61,6 +61,7 @@ const makeHooks = (id: number): repos.RepoHooks => ({
   progress: (payload) => sendEvent("git:progress", { id, ...payload }),
   queue: (payload) => sendEvent("git:queue", { id, ...payload }),
   changed: () => sendEvent("git:changed", { id }),
+  wtChanged: () => sendEvent("git:wtchanged", { id }),
   isFocused: () => getMainWindow()?.isFocused() ?? false,
   /* fingerprint for the watcher's emitChanged gate (refresh audit, §2): a .git event whose
      HEAD/refs/stash snapshot is unchanged never wakes the renderer. async: `use` throws

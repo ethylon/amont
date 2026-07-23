@@ -88,6 +88,7 @@ export const host = {
    no more need for the `fanout` singleton that multiplexed a single listener never removed. */
 export const onOp = bridge.onOp
 export const onChanged = bridge.onChanged
+export const onWtChanged = bridge.onWtChanged
 export const onTrace = bridge.onTrace
 export const onProgress = bridge.onProgress
 export const onQueue = bridge.onQueue

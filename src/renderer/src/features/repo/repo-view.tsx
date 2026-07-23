@@ -219,9 +219,11 @@ function RepoViewContent({ repo, active, command }: Omit<Props, "onOpenRepo">) {
      `active` defers a background tab's reload until it's shown */
   useRepoEvents(active)
 
-  /* git doesn't notify anything: the tree may have moved in the editor while we were looking
-     elsewhere. `cancelRefetch: false` — the focus flush of a dirty repo (main/window.ts) lands
-     at the same instant and already refetches this key; don't cancel-and-restart its read. */
+  /* Fallback for the worktree watcher (main/watcher.ts watchWorktree): when its recursive
+     watch couldn't subscribe (inotify exhaustion on a huge tree), a refocus is still the
+     moment the tree may have moved in the editor. `cancelRefetch: false` — the focus flushes
+     of a dirty/wtDirty repo (main/window.ts) land at the same instant and already refetch
+     this key; don't cancel-and-restart their read. */
   useEffect(() => {
     if (!active) return
     const onFocus = () =>

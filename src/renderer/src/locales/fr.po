@@ -493,9 +493,6 @@ msgstr "Détecte feat:, fix:, chore:… et l'extrait du message dans un badge pl
 msgid "Development branch"
 msgstr "Branche de développement"
 
-msgid "Diff"
-msgstr "Diff"
-
 msgid "Diff unavailable."
 msgstr "Diff indisponible."
 
@@ -1212,6 +1209,9 @@ msgstr "Stash"
 
 msgid "Support prefix"
 msgstr "Préfixe support"
+
+msgid "Syntax highlighting"
+msgstr "Coloration syntaxique"
 
 msgid "System"
 msgstr "Système"

@@ -645,6 +645,8 @@ export function formatPriceParts(cents: number): { units: string; decimals: stri
       onChangedListeners.add(cb);
       return () => onChangedListeners.delete(cb);
     },
+    /* the demo's working tree never moves outside the scripted scenario */
+    onWtChanged: () => () => {},
     onTrace: (cb) => {
       onTraceListeners.add(cb);
       return () => onTraceListeners.delete(cb);

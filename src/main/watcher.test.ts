@@ -5,9 +5,12 @@
    (git/queries.ts orderedHashes), NOT eagerly by mute(): an eager post-op read could absorb
    an external change the renderer never saw and silence its recovery for good. */
 import assert from "node:assert/strict"
-import { describe, it } from "vitest"
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { afterEach, describe, it } from "vitest"
 
-import { emitChanged, mute, type Watchable } from "./watcher.ts"
+import { emitChanged, mute, watchWorktree, type Watchable, type WtWatchable } from "./watcher.ts"
 
 function fakeWatchable(keys: Array<string | Error>) {
   let calls = 0
@@ -113,5 +116,74 @@ describe("mute: quiets the watcher without touching the baseline", () => {
     assert.equal(r.gen, 1)
     assert.equal(reads, 0) // an eager read here could absorb a change held as `dirty`
     assert.equal(r.lastGraphKey, null)
+  })
+})
+
+/* Real-filesystem tests: fs.watch delivery timing varies by platform, so assertions poll up
+   to a deadline instead of sleeping a fixed debounce — a quiet CI box must not flake them. */
+describe("watchWorktree: recursive watch over the repo root", () => {
+  const roots: string[] = []
+  const watchers: WtWatchable[] = []
+  afterEach(() => {
+    for (const w of watchers.splice(0)) w.wtWatcher?.close()
+    for (const dir of roots.splice(0)) rmSync(dir, { recursive: true, force: true })
+  })
+
+  function setup(focused = true) {
+    const root = mkdtempSync(join(tmpdir(), "amont-wt-"))
+    roots.push(root)
+    mkdirSync(join(root, ".git"))
+    mkdirSync(join(root, "src"))
+    let fired = 0
+    const r: WtWatchable = {
+      running: null,
+      muted: 0,
+      wtDirty: false,
+      wtWatcher: null,
+      events: { isFocused: () => focused, wtChanged: () => fired++ },
+    }
+    watchWorktree(r, root)
+    watchers.push(r)
+    return { root, r, fired: () => fired }
+  }
+
+  const until = async (cond: () => boolean, ms = 3000) => {
+    const deadline = Date.now() + ms
+    while (!cond() && Date.now() < deadline) await new Promise((res) => setTimeout(res, 50))
+    return cond()
+  }
+  /** long enough past WT_DEBOUNCE for a wrongly-scheduled fire to have landed */
+  const settle = () => new Promise((res) => setTimeout(res, 700))
+
+  it("collapses a burst of edits into one focused wtChanged", async () => {
+    const { root, fired } = setup()
+    writeFileSync(join(root, "src", "a.ts"), "a")
+    writeFileSync(join(root, "src", "b.ts"), "b")
+    assert.ok(await until(() => fired() === 1), "expected one debounced emission")
+    await settle()
+    assert.equal(fired(), 1)
+  })
+
+  it("ignores writes under .git — that's the ref trio's domain", async () => {
+    const { root, fired } = setup()
+    writeFileSync(join(root, ".git", "index"), "idx")
+    await settle()
+    assert.equal(fired(), 0)
+  })
+
+  it("holds an unfocused change as wtDirty for the focus flush", async () => {
+    const { root, r, fired } = setup(false)
+    writeFileSync(join(root, "src", "a.ts"), "a")
+    assert.ok(await until(() => r.wtDirty), "expected the change held as wtDirty")
+    assert.equal(fired(), 0)
+  })
+
+  it("drops events while a mutation runs — its completion path re-reads anyway", async () => {
+    const { root, r, fired } = setup()
+    r.running = "checkout"
+    writeFileSync(join(root, "src", "a.ts"), "a")
+    await settle()
+    assert.equal(fired(), 0)
+    assert.equal(r.wtDirty, false)
   })
 })

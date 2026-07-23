@@ -26,6 +26,7 @@ import {
   onOp,
   onProgress,
   onQueue,
+  onWtChanged,
   type BranchAct,
   type FileChange,
   type GitRef,
@@ -377,6 +378,9 @@ export function useRepoEvents(active: boolean): void {
   const activeRef = useRef(active)
   activeRef.current = active
   const pendingChange = useRef(false)
+  /* working-tree-only change (IDE edit) observed while the tab was in the background —
+     flushed on activation like pendingChange, but with the cheaper wt-scoped invalidation */
+  const pendingWt = useRef(false)
   /* commits brought in by auto-fetch but not yet folded into a graph reload — accumulated
      across fetches, the count feeds the "N new commits" acknowledgment of whichever reload
      lands them: the badge's Reload click, a manual op's reload, or the activation flush */
@@ -392,6 +396,17 @@ export function useRepoEvents(active: boolean): void {
     invalidateWtDiffs(queryClient, repoId)
     void store.getState().reload()
   }, [queryClient, repoId, store])
+
+  /* The working tree moved outside the app (IDE edit — main/watcher.ts watchWorktree): refs
+     didn't move, so no graph reload — only what tracks the tree is stale. Status and merge
+     state ride along (dirty markers, a conflict resolved in the editor), conflict contents too. */
+  const externalWtRefresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.status(repoId) })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.worktree(repoId) })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.mergeState(repoId) })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.conflictAll(repoId) })
+    invalidateWtDiffs(queryClient, repoId)
+  }, [queryClient, repoId])
 
   /* Refs moved outside the application: commit, rebase or checkout from a terminal.
      Main only notifies when in the foreground, stays quiet after our own commands, and
@@ -409,6 +424,19 @@ export function useRepoEvents(active: boolean): void {
     [repoId, externalReload]
   )
 
+  useEffect(
+    () =>
+      onWtChanged((p) => {
+        if (p.id !== repoId) return
+        if (!activeRef.current) {
+          pendingWt.current = true
+          return
+        }
+        externalWtRefresh()
+      }),
+    [repoId, externalWtRefresh]
+  )
+
   /* Deferred change lands when the tab is brought back to the foreground: arriving at a tab
      reloads it directly — that instant can't disturb any in-progress work — instead of
      greeting the user with a "Reload" button; fetched commits announce themselves through
@@ -423,13 +451,19 @@ export function useRepoEvents(active: boolean): void {
       }
       return
     }
+    if (pendingWt.current) {
+      /* wt-scoped flush; overlapping keys with a simultaneous externalReload below dedupe
+         inside TanStack Query, and conflict contents are covered by neither path but this one */
+      pendingWt.current = false
+      externalWtRefresh()
+    }
     if (!pendingChange.current) return
     pendingChange.current = false
     const added = pendingAdded.current
     pendingAdded.current = 0
     if (added > 0) store.getState().showOp(messages.app.newCommits(added), "primary")
     externalReload()
-  }, [active, externalReload, store])
+  }, [active, externalReload, externalWtRefresh, store])
 
   /* --- Git operations: the click launches, but all the feedback goes through onOp (main
      process auto-fetch emits without a renderer-side caller). --- */

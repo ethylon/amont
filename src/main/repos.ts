@@ -20,7 +20,7 @@ import { basename } from "./util.ts"
 import { getSettings } from "./settings.ts"
 import { remember } from "./state.ts"
 import { addGitBreadcrumb, captureGitError } from "./telemetry.ts"
-import { mute, watchGit, type Watchable } from "./watcher.ts"
+import { mute, watchGit, watchWorktree, type Watchable, type WtWatchable } from "./watcher.ts"
 
 /** Hooks provided by the window layer (window.ts), injected at opening rather than read from
     a global `mainWindow` — exec.ts and this module only import `electron` for its types. */
@@ -32,6 +32,8 @@ export interface RepoHooks {
   /** mutation-queue transitions (enqueue/start/settle) — the footer's "N queued" indicator */
   queue(payload: Omit<QueueEvent, "id">): void
   changed(): void
+  /** the working tree may have moved outside the app (IDE edit) — cf. watcher.ts watchWorktree */
+  wtChanged(): void
   isFocused(): boolean
   /** graph fingerprint for the `emitChanged` gate (cf. watcher.ts) — ipc.ts supplies it in
       `makeHooks` like every other hook, resolving the handle by id at call time */
@@ -39,7 +41,7 @@ export interface RepoHooks {
 }
 
 /* Open repos, main side only. */
-export interface RepoHandle extends Watchable {
+export interface RepoHandle extends Watchable, WtWatchable {
   /** autofetch timer; `null` when auto-fetch is off or its interval isn't armed (cf. scheduleAutofetch) */
   timer: NodeJS.Timeout | null
   id: number
@@ -251,10 +253,12 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
     running: null,
     muted: 0,
     dirty: false,
+    wtDirty: false,
     gen: 0,
     lastGraphKey: null,
     timer: null,
     watchers: [],
+    wtWatcher: null,
     watchRetries: 0,
     retryTimer: null,
     captureError: captureGitError,
@@ -276,8 +280,14 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
   }
   scheduleAutofetch(r)
   watchGit(r)
+  watchWorktree(r, path)
   repos.set(r.id, r)
   remember(path)
+  /* Opening is also the moment the user most wants fresh remote state: fire one fetch right
+     away instead of making them wait out the first interval (or click Fetch by hand). After
+     registration, so the op events resolve the handle; runOp itself backs off if anything is
+     already queued, and its failures stay silent like every timer-driven auto-fetch. */
+  if (getSettings().autoFetch) autofetch?.(r)
   return pub(r)
 }
 
@@ -296,6 +306,7 @@ export function closeRepo(id: number): void {
   if (r.timer) clearInterval(r.timer)
   if (r.retryTimer) clearTimeout(r.retryTimer)
   for (const w of r.watchers) w.close()
+  r.wtWatcher?.close()
   killAll(r.children)
   for (const controller of r.requests.values()) controller.abort()
   repos.delete(id)
@@ -308,6 +319,7 @@ export function closeAll(): void {
     if (r.timer) clearInterval(r.timer)
     if (r.retryTimer) clearTimeout(r.retryTimer)
     for (const w of r.watchers) w.close()
+    r.wtWatcher?.close()
     killAll(r.children)
   }
   repos.clear()

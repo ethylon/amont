@@ -55,6 +55,7 @@ const bridge: Bridge = {
   onOp: on("git:op"),
   onUpdate: on("update:status"),
   onChanged: on("git:changed"),
+  onWtChanged: on("git:wtchanged"),
   onTrace: on("git:trace"),
   onProgress: on("git:progress"),
   onQueue: on("git:queue"),
