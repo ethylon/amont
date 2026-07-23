@@ -1,5 +1,7 @@
 ---
 import { Image } from "astro:assets"
+import Icon from "./Icon.astro"
+import { ContrastIcon } from "@hugeicons/core-free-icons"
 import { dict, REPO_URL, localePath, downloadPath, type Locale } from "../i18n/ui"
 import icon from "../../../resources/icon.png"
 
@@ -14,10 +16,11 @@ const t = dict[locale]
 
 // Anchors carry the locale root so they also work from the download page.
 const home = localePath(locale)
+// `mobile` garde le lien visible sous 640 px : Download reste atteignable partout.
 const links = [
-  { href: `${home}#graph`, label: t.nav.graph },
-  { href: `${home}#tour`, label: t.nav.tour },
-  { href: downloadPath(locale), label: t.nav.download },
+  { href: `${home}#graph`, label: t.nav.graph, mobile: false },
+  { href: `${home}#tour`, label: t.nav.tour, mobile: false },
+  { href: downloadPath(locale), label: t.nav.download, mobile: true },
 ]
 ---
 
@@ -30,10 +33,16 @@ const links = [
       <span class="text-lg">Amont</span>
     </a>
 
-    <div class="hidden items-center gap-6 text-sm text-zinc-600 sm:flex dark:text-zinc-400">
+    <div class="flex items-center gap-6 text-sm text-zinc-600 dark:text-zinc-400">
       {
         links.map((link) => (
-          <a href={link.href} class="transition-colors hover:text-zinc-950 dark:hover:text-white">
+          <a
+            href={link.href}
+            class:list={[
+              !link.mobile && "hidden sm:block",
+              "transition-colors hover:text-zinc-950 dark:hover:text-white",
+            ]}
+          >
             {link.label}
           </a>
         ))
@@ -86,10 +95,7 @@ const links = [
         aria-label={t.nav.theme}
         class="grid size-8 place-items-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-white"
       >
-        <svg class="size-4.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2"></circle>
-          <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"></path>
-        </svg>
+        <Icon icon={ContrastIcon} class="size-4.5" />
       </button>
     </div>
   </nav>

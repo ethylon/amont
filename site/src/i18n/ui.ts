@@ -58,14 +58,14 @@ export interface Dict {
 export const dict: Record<Locale, Dict> = {
   en: {
     meta: {
-      title: "Amont — Git history you can actually read",
+      title: "Amont · Git history you can actually read",
       description:
         "Amont is a free, open-source Git client for Windows built around one idea: a commit graph fast enough to be your workspace. Smooth at 100,000+ commits, keyboard-driven, and it shows every git command it runs.",
     },
     nav: { graph: "The graph", tour: "Tour", download: "Download", theme: "Toggle theme" },
     hero: {
       title: "Git history you can actually read.",
-      lede: "Amont lays your repository out as one fast, readable commit graph: branches, merges, tags, stashes and ahead/behind status at a glance. Smooth at 100,000+ commits. Driven entirely from the keyboard if you want.",
+      lede: "Your repository as one fast, readable commit graph: smooth at 100,000+ commits, keyboard-driven if you want.",
       ctaDownload: "Download for Windows",
       ctaSource: "View the source",
       caption: "A real history: Amont browsing its own repository.",
@@ -132,7 +132,7 @@ export const dict: Record<Locale, Dict> = {
           body: "MIT-licensed, developed in the open on GitHub. Optional crash reports carry no repository contents and no personal data.",
         },
       ],
-      consoleLabel: "Command log — read-only",
+      consoleLabel: "Read-only command log",
     },
     download: {
       heading: "Download Amont",
@@ -142,7 +142,7 @@ export const dict: Record<Locale, Dict> = {
       smartscreenTitle: "About the SmartScreen warning",
       smartscreen:
         "Released binaries are not code-signed yet, so Windows shows an “unknown publisher” warning when you run the installer. This is expected. Update integrity relies on HTTPS to GitHub and the sha512 checksum in latest.yml.",
-      pageTitle: "Download Amont — a free, open-source Git client for Windows",
+      pageTitle: "Download Amont · a free, open-source Git client for Windows",
       pageDescription:
         "Get the Amont installer for Windows from the latest release. Free and open-source, no account, and it keeps itself up to date.",
       backHome: "Back to the site",
@@ -153,14 +153,14 @@ export const dict: Record<Locale, Dict> = {
   },
   fr: {
     meta: {
-      title: "Amont — un historique Git enfin lisible",
+      title: "Amont · un historique Git enfin lisible",
       description:
         "Amont est un client Git libre et open source pour Windows, construit autour d’une idée : un graphe de commits assez rapide pour être votre espace de travail. Fluide à plus de 100 000 commits, pilotable au clavier, et il affiche chaque commande git exécutée.",
     },
     nav: { graph: "Le graphe", tour: "Visite", download: "Télécharger", theme: "Changer de thème" },
     hero: {
       title: "Un historique Git enfin lisible.",
-      lede: "Amont déploie votre dépôt en un graphe de commits rapide et lisible : branches, merges, tags, stashs et divergence ahead/behind d’un coup d’œil. Fluide à plus de 100 000 commits. Pilotable entièrement au clavier si vous voulez.",
+      lede: "Votre dépôt en un seul graphe de commits, rapide et lisible : fluide à plus de 100 000 commits, pilotable au clavier si vous voulez.",
       ctaDownload: "Télécharger pour Windows",
       ctaSource: "Lire le code source",
       caption: "Un vrai historique : Amont sur son propre dépôt.",
@@ -227,7 +227,7 @@ export const dict: Record<Locale, Dict> = {
           body: "Sous licence MIT, développé en public sur GitHub. Les rapports de crash optionnels ne contiennent ni contenu de dépôt ni donnée personnelle.",
         },
       ],
-      consoleLabel: "Journal des commandes — lecture seule",
+      consoleLabel: "Journal des commandes (lecture seule)",
     },
     download: {
       heading: "Télécharger Amont",
@@ -237,7 +237,7 @@ export const dict: Record<Locale, Dict> = {
       smartscreenTitle: "À propos de l’avertissement SmartScreen",
       smartscreen:
         "Les binaires publiés ne sont pas encore signés : Windows affiche un avertissement « éditeur inconnu » au lancement de l’installeur. C’est attendu. L’intégrité des mises à jour repose sur HTTPS vers GitHub et le sha512 de latest.yml.",
-      pageTitle: "Télécharger Amont — un client Git libre et open source pour Windows",
+      pageTitle: "Télécharger Amont · un client Git libre et open source pour Windows",
       pageDescription:
         "Téléchargez l’installeur d’Amont pour Windows depuis la dernière release. Libre et open source, sans compte, et il se tient à jour tout seul.",
       backHome: "Retour au site",

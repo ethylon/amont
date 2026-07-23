@@ -1,6 +1,9 @@
 ---
 // L'artefact "command transparency" : la console lecture seule d'Amont, peuplée de
 // vraies commandes. Toujours sur surface sombre (île Trust), quel que soit le thème.
+import Icon from "./Icon.astro"
+import { CommandLineIcon } from "@hugeicons/core-free-icons"
+
 interface Props {
   label: string
 }
@@ -22,10 +25,7 @@ const lines = [
   <figcaption
     class="flex items-center gap-2 border-b border-white/10 px-4 py-2.5 font-mono text-xs text-zinc-500"
   >
-    <svg viewBox="0 0 16 16" class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-      <path d="M3 5l4 3-4 3" stroke-linecap="round" stroke-linejoin="round"></path>
-      <path d="M8.5 11h4.5" stroke-linecap="round"></path>
-    </svg>
+    <Icon icon={CommandLineIcon} class="size-3.5" strokeWidth={1.5} />
     {label}
   </figcaption>
   <div class="space-y-1.5 overflow-x-auto px-4 py-4 font-mono text-[13px] leading-relaxed">

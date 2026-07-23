@@ -1,0 +1,29 @@
+---
+/* Rendu inline des icônes HugeIcons (@hugeicons/core-free-icons) : la même
+   bibliothèque que l'application, sans runtime — les données d'icône sont
+   converties en SVG au build, attributs React camelCase passés en kebab-case. */
+type IconElement = readonly [string, Record<string, string | number>]
+
+interface Props {
+  icon: readonly IconElement[]
+  class?: string
+  /** Épaisseur de trait standard du site. */
+  strokeWidth?: number
+}
+
+const { icon, class: className, strokeWidth = 2 } = Astro.props
+
+const toSvgAttrs = (attrs: Record<string, string | number>) =>
+  Object.fromEntries(
+    Object.entries(attrs)
+      .filter(([key]) => key !== "key")
+      .map(([key, value]) => [
+        key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`),
+        key === "strokeWidth" ? strokeWidth : value,
+      ])
+  )
+---
+
+<svg viewBox="0 0 24 24" fill="none" class={className} aria-hidden="true">
+  {icon.map(([Tag, attrs]) => <Tag {...toSvgAttrs(attrs)} />)}
+</svg>

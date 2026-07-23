@@ -1,5 +1,10 @@
 # Audit design du site amont.dev (skill design-taste-frontend)
 
+> **Statut : correctifs appliqués.** Toutes les non-conformités listées ci-dessous ont
+> été corrigées dans les commits qui suivent celui-ci sur la même branche, à une
+> exception près : le caractère `↗` des liens externes est conservé (c'est de la
+> typographie, pas un SVG dessiné à la main ; le skill ne l'interdit pas).
+
 Date : 2026-07-23. Périmètre : `site/` (landing EN/FR, pages download, 404) et les
 points de contact avec `brand/`. L'application Electron (`src/renderer`) est une UI
 produit dense, hors périmètre de ce skill (Section 13) ; elle n'est pas auditée ici.

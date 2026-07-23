@@ -99,7 +99,7 @@ const jsonLd = {
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <script is:inline>
       // Before first paint: mark JS as available (gates the reveal animations) and
-      // resolve the theme — stored choice first, OS preference otherwise.
+      // resolve the theme: stored choice first, OS preference otherwise.
       document.documentElement.classList.add("js")
       const stored = localStorage.getItem("theme")
       const dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches
