@@ -7,8 +7,9 @@ import Starfield from "./Starfield.astro"
 import HeroDemo from "./HeroDemo.astro"
 import CommandLog from "./CommandLog.astro"
 import Footer from "./Footer.astro"
+import Icon from "./Icon.astro"
+import { ArrowDown02Icon } from "@hugeicons/core-free-icons"
 import { dict, REPO_URL, DOWNLOAD_URL, type Locale } from "../i18n/ui"
-import pkg from "../../../package.json"
 
 import graphLight from "../../../docs/graph-light.png"
 import graphDark from "../../../docs/graph-dark.png"
@@ -48,7 +49,7 @@ const shots = {
       <Starfield />
       <GraphBg />
 
-      <div class="mx-auto max-w-6xl px-4 pt-20 sm:px-6 sm:pt-28">
+      <div class="mx-auto max-w-6xl px-4 pt-20 sm:px-6 sm:pt-24">
         <div class="max-w-3xl">
           <h1 class="text-5xl font-semibold tracking-tighter text-balance sm:text-6xl lg:text-7xl">
             {t.hero.title}
@@ -64,19 +65,7 @@ const shots = {
               rel="noopener"
               class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-3 font-medium text-white transition-colors hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
-              <svg
-                class="size-4.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M12 5v14"></path>
-                <path d="M19 12l-7 7-7-7"></path>
-              </svg>
+              <Icon icon={ArrowDown02Icon} class="size-4.5" />
               {t.hero.ctaDownload}
             </a>
             <a
@@ -88,10 +77,6 @@ const shots = {
               <span aria-hidden="true">↗</span>
             </a>
           </div>
-
-          <p class="mt-5 font-mono text-xs text-zinc-500">
-            v{pkg.version} · Windows · MIT
-          </p>
         </div>
       </div>
 
@@ -154,22 +139,40 @@ const shots = {
 
         <div class="mt-16 space-y-24">
           {
-            t.tour.stops.map((stop, index) => (
-              <div class="grid items-center gap-8 lg:grid-cols-5 lg:gap-12" data-reveal>
-                <div class:list={["lg:col-span-2", index % 2 === 1 && "lg:order-last"]}>
-                  <h3 class="text-2xl font-semibold tracking-tight text-balance">{stop.title}</h3>
-                  <p class="mt-4 leading-relaxed text-zinc-600 dark:text-zinc-400">{stop.body}</p>
+            /* Les deux premiers arrêts alternent texte/image ; le dernier passe en
+               pleine largeur pour casser le zigzag et donner sa place à la capture
+               la plus spectaculaire (la résolution de conflits). */
+            t.tour.stops.map((stop, index) =>
+              index < t.tour.stops.length - 1 ? (
+                <div class="grid items-center gap-8 lg:grid-cols-5 lg:gap-12" data-reveal>
+                  <div class:list={["lg:col-span-2", index % 2 === 1 && "lg:order-last"]}>
+                    <h3 class="text-2xl font-semibold tracking-tight text-balance">{stop.title}</h3>
+                    <p class="mt-4 leading-relaxed text-zinc-600 dark:text-zinc-400">{stop.body}</p>
+                  </div>
+                  <div class="lg:col-span-3">
+                    <Shot
+                      light={shots[stop.shot].light}
+                      dark={shots[stop.shot].dark}
+                      alt={stop.alt}
+                      sizes="(min-width: 1024px) 640px, 92vw"
+                    />
+                  </div>
                 </div>
-                <div class="lg:col-span-3">
+              ) : (
+                <div data-reveal>
+                  <div class="max-w-2xl">
+                    <h3 class="text-2xl font-semibold tracking-tight text-balance">{stop.title}</h3>
+                    <p class="mt-4 leading-relaxed text-zinc-600 dark:text-zinc-400">{stop.body}</p>
+                  </div>
                   <Shot
                     light={shots[stop.shot].light}
                     dark={shots[stop.shot].dark}
                     alt={stop.alt}
-                    sizes="(min-width: 1024px) 640px, 92vw"
+                    class="mt-8"
                   />
                 </div>
-              </div>
-            ))
+              )
+            )
           }
         </div>
       </div>
@@ -219,19 +222,7 @@ const shots = {
           rel="noopener"
           class="mt-9 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-3.5 text-lg font-medium text-white transition-colors hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         >
-          <svg
-            class="size-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M12 5v14"></path>
-            <path d="M19 12l-7 7-7-7"></path>
-          </svg>
+          <Icon icon={ArrowDown02Icon} class="size-5" />
           {t.download.cta}
         </a>
 
