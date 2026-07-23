@@ -150,6 +150,10 @@
   --lane-7: oklch(0.53 0.19 286);
   --lane-8: oklch(0.58 0.16 34);
   --lane-9: oklch(0.55 0.14 142);
+  /* Tronc (couleur sémantique du graphe, cf. render/svg.ts chainColor) : alias — la
+     chaîne var() suit le thème, pas de doublon en .dark. Master bleu, develop vert. */
+  --trunk-master: var(--lane-0);
+  --trunk-develop: var(--lane-9);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -293,14 +297,22 @@
     background: color-mix(in oklab, var(--warning) 14%, transparent);
   }
 
-  /* Release/hotfix pattern: tinted background to spot a version landing at a glance.
-     Hover and selection (utilities) cover it — their layer wins. The 2px rail, though, is
+  /* Focus de chaîne au survol (controller.ts) : la couche .amont-focus redessine le segment
+     survolé, le reste du métro s'atténue. */
+  .amont-graph > g {
+    transition: opacity 0.18s ease;
+  }
+  .amont-graph.amont-dim > g:not(.amont-focus) {
+    opacity: 0.25;
+  }
+
+  /* Release pattern : fond teinté pour repérer une version qui atterrit. Le hotfix, lui,
+     n'a plus que son rail 2px (cf. plus bas) : le fond rouge sur chaque hotfix mergé pesait
+     trop dans les repos gitflow chargés, le métro porte déjà la sémantique.
+     Hover and selection (utilities) cover it — their layer wins. The 2px rail is
      set outside @layer further below (otherwise ROW_CLASS's `border-l-transparent` would win). */
   .amont-row[data-flow="release"] {
     background: color-mix(in oklab, var(--release) 8%, transparent);
-  }
-  .amont-row[data-flow="hotfix"] {
-    background: color-mix(in oklab, var(--destructive) 9%, transparent);
   }
 
   /* Stash: a neutral veil — the entry sits on the margin of history, not a milestone. */
@@ -616,14 +628,12 @@
   }
 }
 
-/* 2px rail of the release/hotfix pattern. Outside @layer, otherwise ROW_CLASS's
+/* 2px rail du pattern release. Outside @layer, otherwise ROW_CLASS's
    `border-l-transparent` utility would win (a later layer wins over specificity).
-   `:not([data-selected])` lets the selection set its own rail. The width (2px) comes from ROW_CLASS. */
+   `:not([data-selected])` lets the selection set its own rail. The width (2px) comes from ROW_CLASS.
+   Le hotfix n'a plus ni fond ni rail : ses chips et le métro rouge suffisent. */
 .amont-row[data-flow="release"]:not([data-selected="true"]) {
   border-left-color: var(--release);
-}
-.amont-row[data-flow="hotfix"]:not([data-selected="true"]) {
-  border-left-color: var(--destructive);
 }
 
 /* Selection runs in the refs sidebar. Lit rows carry their fill as a utility (see RefRow);

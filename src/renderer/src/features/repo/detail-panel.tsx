@@ -504,7 +504,7 @@ function Single({
       {c.r && (
         <div
           className="mt-3 flex shrink-0 flex-wrap gap-1"
-          style={{ "--badge-color": graph.laneColor(row) } as React.CSSProperties}
+          style={{ "--badge-color": graph.rowColor(row) } as React.CSSProperties}
         >
           {parseRefs(c.r).map((r) => (
             <RefBadge key={`${r.kind}:${r.name}`} r={r} />

@@ -33,7 +33,8 @@ import {
 import { mergeColor, mergeFlow, SEMVER, tagFlowColor, type FlowKind } from "@/lib/gitflow"
 import { getShowPrefixColumn } from "@/lib/customization"
 import { scrollText } from "../interactions/scroll-text.tsx"
-import { BRANCH_BUDGET, BRANCH_MAX, GRID_COLS, laneColor, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
+import { BRANCH_BUDGET, BRANCH_MAX, GRID_COLS, ROW, ROW_CLASS, TYPE_MAX } from "../constants.ts"
+import { chainColor } from "./svg.ts"
 import type { LayoutState } from "../layout/state.ts"
 import type { SyncInfo } from "../layout/sync.ts"
 import { hashOfId, idOf, shortHash } from "../ids.ts"
@@ -243,7 +244,7 @@ export function rowDiv(
   row.tabIndex = active ? 0 : -1
   row.setAttribute("aria-label", rowLabel(c))
   /* inherited by the row's `lane` chips — branch names carry the line's color */
-  row.style.setProperty("--badge-color", laneColor(S.laneOf[i]))
+  row.style.setProperty("--badge-color", chainColor(S, i))
 
   /* Release/hotfix pattern: the row carries a side accent (cf. app.css) and its hue flows
      into the merge's source chip as well as the tag's flag. */

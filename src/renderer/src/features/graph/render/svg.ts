@@ -4,18 +4,44 @@
    (scroll away then back) once that chunk's history is fully known. */
 
 import { laneColor, R } from "../constants.ts"
+import { chainFlow } from "../layout/chains.ts"
 import type { Edge, GraphNode, LayoutState } from "../layout/state.ts"
 import type { SyncInfo } from "../layout/sync.ts"
 import { X, Y, edgePath } from "./geometry.ts"
 
-export const stroke = (e: Edge) => laneColor(e.travel)
+/* --- Couleur sémantique ---
+   La teinte suit la chaîne, plus la lane : tronc par sa lane réservée (master bleu, develop
+   vert), release/hotfix par les tokens déjà portés par les losanges et les tints de row,
+   travail ordinaire sur une rotation de hues stable par chaîne (clé = row du tip, jamais
+   recyclée, contrairement aux lanes). Les hues 0/1/9 sont exclues de la rotation : ce sont
+   celles du tronc et du rose voisin du rouge hotfix. */
+const FEAT_HUES = [2, 3, 4, 5, 6, 7, 8]
+
+export function chainColor(S: LayoutState, row: number): string {
+  const lane = S.laneOf[row]
+  for (const [name, l] of S.trunkLanes)
+    if (l === lane) return /^(master|main)$/.test(name) ? "var(--trunk-master)" : "var(--trunk-develop)"
+  const { flow, tip } = chainFlow(S, row)
+  if (flow === "hotfix") return "var(--destructive)"
+  if (flow === "release") return "var(--release)"
+  /* repli sans réservation (refs indisponibles au reset) : la sémantique tronc tient quand même */
+  if (flow === "master") return "var(--trunk-master)"
+  if (flow === "develop") return "var(--trunk-develop)"
+  return laneColor(FEAT_HUES[tip % FEAT_HUES.length])
+}
+
+/** Un edge appartient à la chaîne de la branche qu'il trace : celle du parent absorbé pour
+    un edge de merge (k>0), celle de l'enfant pour un premier-parent. */
+export const edgeOwner = (e: Edge) => (e.k > 0 && e.r2 !== undefined ? e.r2 : e.r1)
+
+export const stroke = (S: LayoutState, e: Edge) => chainColor(S, edgeOwner(e))
 
 /* Sync hue of a row: amber for the segment to push, blue for the one to pull.
    An edge belongs to the segment of its starting commit (r1). */
 const syncColor = (row: number, sync?: SyncInfo | null) =>
   sync ? (sync.ahead.has(row) ? "var(--sync-ahead)" : sync.behind.has(row) ? "var(--sync-behind)" : null) : null
 
-export const edgesSvg = (list: Edge[], sync?: SyncInfo | null) =>
+export const edgesSvg = (list: Edge[], S: LayoutState, sync?: SyncInfo | null) =>
   list
     .map((e) => {
       /* Dashes only on the segment to pull: those links don't exist locally yet. The
@@ -23,14 +49,14 @@ export const edgesSvg = (list: Edge[], sync?: SyncInfo | null) =>
          the nodes below). */
       const sc = syncColor(e.r1, sync)
       const dashed = e.dash || (sc !== null && sync!.behind.has(e.r1))
-      return `<path d="${edgePath(e)}" fill="none" stroke="${sc ?? stroke(e)}" stroke-width="1.6"${dashed ? ' stroke-dasharray="3 3"' : ""}/>`
+      return `<path d="${edgePath(e)}" fill="none" stroke="${sc ?? stroke(S, e)}" stroke-width="1.6"${dashed ? ' stroke-dasharray="3 3"' : ""}/>`
     })
     .join("")
 
-export const nodesSvg = (list: GraphNode[], sync?: SyncInfo | null) =>
+export const nodesSvg = (list: GraphNode[], S: LayoutState, sync?: SyncInfo | null) =>
   list
     .map((n) => {
-      const c = laneColor(n.lane)
+      const c = chainColor(S, n.row)
       if (n.stash) {
         /* Dashed ring, same grammar as the working-tree dot: a suspended
            state, not a history commit. */
@@ -80,7 +106,7 @@ export function createMarkupCache() {
         const cached = html.get(ci)
         if (cached !== undefined) return cached
       }
-      const markup = edgesSvg(edges, sync) + nodesSvg(nodes, sync)
+      const markup = edgesSvg(edges, S, sync) + nodesSvg(nodes, S, sync)
       lastEdgeLen.set(ci, edges.length)
       lastNodeLen.set(ci, nodes.length)
       html.set(ci, markup)
