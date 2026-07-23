@@ -60,14 +60,6 @@ export type LayoutState = {
       parents after all their children), so an entry stays valid for the whole life of this
       state. Dies with the state: a rebuild goes through `createState`, never a clear. */
   tipOf: Map<number, number>
-  /** famille gitflow mémoïsée par tip (cf. ./chains.ts `chainFlow`), même cycle de vie que `tipOf` */
-  flowOf: Map<number, "master" | "develop" | "hotfix" | "release" | null>
-  /** lanes réservées au tronc : nom court de ref (master/main/develop) → lane fixe.
-      Rempli par `reserveTrunks` (lanes.ts) avant le premier layoutChunk ; vide = pas de réservation. */
-  trunkLanes: Map<string, number>
-  /** slots réservés en tête de `lanes` — `alloc` n'y touche jamais, seuls le tronc décoré
-      et le parent master d'une capsule peuvent les (r)ouvrir */
-  reserved: number
 }
 
 export function createState(): LayoutState {
@@ -92,9 +84,6 @@ export function createState(): LayoutState {
     refsOf: new Map(),
     mergeOf: new Map(),
     tipOf: new Map(),
-    flowOf: new Map(),
-    trunkLanes: new Map(),
-    reserved: 0,
   }
 }
 

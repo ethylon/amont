@@ -4,8 +4,8 @@
    than the old `branchChain` fully rebuilt on every mouseover. */
 
 import { parseRefs } from "@/lib/commit-parse"
+import { laneColor } from "../constants.ts"
 import { chainTip } from "../layout/chains.ts"
-import { chainColor } from "../render/svg.ts"
 import type { LayoutState } from "../layout/state.ts"
 import { ghostChips } from "../render/rows.ts"
 
@@ -58,7 +58,7 @@ export function createHover(inner: HTMLDivElement) {
     if (!names.length) return
     const cell = inner.querySelector<HTMLElement>(`.amont-row[data-i="${i}"] .amont-branchcell`)
     if (!cell || cell.childElementCount) return
-    ghostEl = ghostChips(names, chainColor(S, tip))
+    ghostEl = ghostChips(names, laneColor(S.laneOf[tip]))
     cell.appendChild(ghostEl)
   }
 

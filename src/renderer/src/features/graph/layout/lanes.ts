@@ -5,48 +5,18 @@
    runnable under Node (cf. lanes.test.ts). */
 
 import type { Commit } from "../../../../../shared/types.ts"
-import { parseMerge, parseRefs } from "../../../lib/commit-parse.ts"
+import { parseMerge } from "../../../lib/commit-parse.ts"
 import { CHUNK } from "../constants.ts"
 import { internId } from "../ids.ts"
 import { chunkOf, type Edge, type LayoutState } from "./state.ts"
 
 function alloc(S: LayoutState) {
-  let i = S.lanes.indexOf(null, S.reserved)
+  let i = S.lanes.indexOf(null)
   if (i < 0) {
     i = S.lanes.length
     S.lanes.push(null)
   }
   return i
-}
-
-const MASTER = /^(master|main)$/
-
-/** Réserve les lanes de tête pour le tronc : master/main en 0, develop ensuite. À appeler
-    sur un état vierge, avant le premier `layoutChunk` — `names` sont les refs du repo en
-    forme courte (remote déjà raccourci). Sans tronc détecté, layout inchangé. */
-export function reserveTrunks(S: LayoutState, names: string[]) {
-  const claim = (matched: string[]) => {
-    if (!matched.length) return
-    const lane = S.reserved++
-    for (const n of matched) S.trunkLanes.set(n, lane)
-    S.lanes.push(null)
-    S.meta.push(-1)
-  }
-  const uniq = [...new Set(names)]
-  claim(uniq.filter((n) => MASTER.test(n)))
-  claim(uniq.filter((n) => n === "develop"))
-}
-
-/** Lane réservée que la row réclame, si elle est décorée d'une ref de tronc. */
-function trunkLaneOf(S: LayoutState, refs: string): number | undefined {
-  if (!S.trunkLanes.size || !refs) return undefined
-  for (const ref of parseRefs(refs)) {
-    if (ref.kind === "tag") continue
-    const name = ref.kind === "remote" ? ref.name.slice(ref.name.indexOf("/") + 1) : ref.name
-    const lane = S.trunkLanes.get(name)
-    if (lane !== undefined) return lane
-  }
-  return undefined
 }
 
 /** Lays out up to `CHUNK` more rows (or up to `total`, if closer). `at(row)`
@@ -67,15 +37,7 @@ export function layoutChunk(S: LayoutState, at: (row: number) => Commit, total: 
     S.lanes.forEach((h, i) => {
       if (h !== null && heads.includes(h)) waiting.push(i)
     })
-    /* Le tronc décoré réclame sa lane réservée (libre ou déjà en attente sur elle) : master
-       et develop gardent leur colonne quelle que soit l'activité au-dessus de leur tip. */
-    const tl = trunkLaneOf(S, c.r)
-    let lane = tl !== undefined && (S.lanes[tl] === null || waiting.includes(tl)) ? tl : undefined
-    /* Seuls des edges du tronc entrent en lane réservée (claim décoré, réouverture capsule) :
-       si l'une attend cette row, la row est le tronc — avant même la continuité premier-parent,
-       sinon un hotfix forké du tronc lui volerait sa colonne à leur ancêtre commun. */
-    if (lane === undefined) lane = waiting.find((i) => i < S.reserved)
-    if (lane === undefined) lane = waiting.find((i) => S.meta[i] === 0) // first-parent continuity takes priority
+    let lane = waiting.find((i) => S.meta[i] === 0) // first-parent continuity takes priority
     if (lane === undefined) lane = waiting.length ? Math.min(...waiting) : alloc(S)
     waiting.forEach((i) => {
       S.lanes[i] = null
@@ -129,14 +91,7 @@ export function layoutChunk(S: LayoutState, at: (row: number) => Commit, total: 
         S.lanes[lane] = p
         S.meta[lane] = 0
       } else {
-        let e = S.lanes.indexOf(p)
-        /* Parent master d'une capsule : la lane tronc vient d'être fermée par le nœud —
-           la rouvrir ici, sinon master repartirait sur une lane quelconque après chaque
-           release/hotfix et la colonne réservée resterait vide. */
-        if (e < 0 && c.cap && k === 1) {
-          const tl = S.trunkLanes.get(c.cap.targets[0])
-          if (tl !== undefined && S.lanes[tl] === null) e = tl
-        }
+        const e = S.lanes.indexOf(p)
         travel = e >= 0 ? e : alloc(S)
         S.lanes[travel] = p
         if (e < 0 && S.meta[travel] !== 0) S.meta[travel] = k

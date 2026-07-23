@@ -9,17 +9,15 @@
 import type { Commit, RepoApi } from "@/lib/git"
 import { describeError } from "@/lib/errors"
 import { scrollTextHover, scrollTextStop } from "./interactions/scroll-text.tsx"
-import { CHUNK, FIXED_W, LANE, MAX_LANES, PAD, PAGE, RESIDENT, ROW, ROW_BUCKET } from "./constants.ts"
+import { CHUNK, FIXED_W, LANE, laneColor, MAX_LANES, PAD, PAGE, RESIDENT, ROW, ROW_BUCKET } from "./constants.ts"
 import { idOf } from "./ids.ts"
 import { branchSegment, chainInfo, chainTip, type ChainInfo } from "./layout/chains.ts"
-import { reserveTrunks } from "./layout/lanes.ts"
 import { computeSync, syncSignature, type SyncInfo } from "./layout/sync.ts"
 
 export type { ChainInfo }
-import type { Edge, GraphNode } from "./layout/state.ts"
 import { createLoader } from "./data/loader.ts"
 import { createOverlay } from "./render/overlay.ts"
-import { chainColor, createMarkupCache, edgesSvg, nodesSvg } from "./render/svg.ts"
+import { createMarkupCache } from "./render/svg.ts"
 import { createMeasurer } from "./render/measure.ts"
 import { cloud, rowBucket } from "./render/rows.ts"
 import { createSelection } from "./interactions/selection.ts"
@@ -77,8 +75,8 @@ export type GraphHandle = {
   /** branches of the row: its own refs, otherwise those of its chain's tip, otherwise the
       branch absorbed by its merge; ordered HEAD, local, remote — empty if no name */
   branchesOf(row: number): { name: string; kind: "head" | "remote" }[]
-  /** teinte de la chaîne de la row (tronc, flow ou rotation), pour `--badge-color` des chips */
-  rowColor(row: number): string
+  /** hue of the row's line, to set as `--badge-color` on branch chips */
+  laneColor(row: number): string
   /** position and hue of the working-tree dot, aligned on HEAD's lane */
   headDot(headSha: string | null): { left: number; color: string } | null
   destroy(): void
@@ -97,12 +95,6 @@ export function createGraph(
   const markup = createMarkupCache()
   const overlay = createOverlay()
   svg.append(overlay.root)
-  /* Couche focus du survol : dernier enfant du SVG, dessine par-dessus chunks et overlay.
-     Les chunks en cache ne sont jamais restylés — le segment survolé est redessiné ici et
-     le reste s'atténue via la classe amont-dim sur le SVG (cf. app.css). */
-  const focusG = document.createElementNS(SVG_NS, "g")
-  focusG.setAttribute("class", "amont-focus")
-  svg.append(focusG)
 
   const selectionCtl = createSelection(inner)
   const hoverCtl = createHover(inner)
@@ -373,7 +365,6 @@ export function createGraph(
 
   function remount() {
     scrollTextStop() // rows leave without a mouseleave: the rAF loop stops along with them
-    clearFocus() // rebuild ou divergence : le segment focalisé peut ne plus exister tel quel
     mountedG.forEach((g) => g.remove())
     mountedG.clear()
     mountedRows.forEach((d) => d.remove())
@@ -448,72 +439,11 @@ export function createGraph(
     return el ? Number(el.dataset.i) : null
   }
 
-  /* --- Focus de chaîne au survol ---
-     `focusRows` : segment de la row survolée (branchSegment), gardé tant que le curseur y
-     reste — balayer une longue branche ne recalcule rien. La sérialisation est bornée au
-     viewport ; le scroll re-sérialise (renderFocus) sans recalculer le segment, pour que
-     la mise en avant suive une branche longue pendant qu'on la déroule. */
-  let focusRows: number[] | null = null
-  let focusSet: Set<number> | null = null
-
-  function clearFocus() {
-    if (!focusRows) return
-    focusRows = null
-    focusSet = null
-    focusG.innerHTML = ""
-    svg.classList.remove("amont-dim")
-  }
-
-  /** l'edge de merge qui absorbe `tip` : cherché dans le chunk de la row du merge, sinon
-      parmi les edges longs — jamais recomposé de tête, le tracé doit recouvrir l'existant */
-  function mergeEdgeOf(tip: number): Edge | null {
-    const S = loader.state
-    const mrow = S.mergedBy.get(tip)
-    if (mrow === undefined) return null
-    const match = (e: Edge) => e.r1 === mrow && e.r2 === tip && e.k > 0
-    return S.edges[Math.floor(mrow / CHUNK)]?.find(match) ?? S.long.find(match) ?? null
-  }
-
-  function renderFocus() {
-    if (!focusRows) return
-    const S = loader.state
-    const [c0, c1] = viewChunks()
-    const lo = c0 * CHUNK
-    const hi = (c1 + 1) * CHUNK - 1
-    const edges: Edge[] = []
-    const nodes: GraphNode[] = []
-    for (const r of focusRows) {
-      const e = S.fpEdge[r]
-      if (e && e.r1 <= hi && (e.r2 ?? e.r1) >= lo) edges.push(e)
-      if (r >= lo && r <= hi) {
-        const n = nodeAt(r)
-        if (n) nodes.push(n)
-      }
-    }
-    const me = mergeEdgeOf(focusRows[0])
-    if (me) edges.push(me)
-    focusG.innerHTML = edgesSvg(edges, S, syncInfo) + nodesSvg(nodes, S, syncInfo)
-  }
-
-  /** un stash n'a pas de chaîne : survolé, il relâche le focus au lieu d'en ouvrir un */
-  function focusRow(i: number) {
-    if (focusSet?.has(i)) return
-    if (nodeAt(i)?.stash) {
-      clearFocus()
-      return
-    }
-    focusRows = branchSegment(loader.state, i)
-    focusSet = new Set(focusRows)
-    svg.classList.add("amont-dim")
-    renderFocus()
-  }
-
   const onScroll = () => {
     popoverCtl.closeMore()
     scrollTextStop()
     hoverCtl.clearHover() // scrolling unmounts the hovered row: the ghost chip leaves with it
     sync()
-    renderFocus() // le focus survit au scroll : re-sérialisé sur les nouvelles bornes du viewport
   }
   const onMouseOver = (ev: MouseEvent) => {
     const t = ev.target as HTMLElement
@@ -524,10 +454,7 @@ export function createGraph(
       if (btn !== popoverCtl.openBtn) popoverCtl.openMore(btn)
     } else if (t.closest(".amont-more")) popoverCtl.cancelClose() // over the panel itself: keep it open
     const i = rowIndex(ev)
-    if (i !== null) {
-      hoverCtl.hoverRow(loader.state, i, !!nodeAt(i)?.stash)
-      focusRow(i)
-    } else clearFocus()
+    if (i !== null) hoverCtl.hoverRow(loader.state, i, !!nodeAt(i)?.stash)
   }
   /* Leaving the button or panel toward the outside arms the close; coming back to it cancels it. */
   const onMouseOut = (ev: MouseEvent) => {
@@ -539,7 +466,6 @@ export function createGraph(
   }
   const onMouseLeave = () => {
     hoverCtl.clearHover()
-    clearFocus()
     scrollTextStop()
     popoverCtl.closeMore()
   }
@@ -671,20 +597,6 @@ export function createGraph(
         const prevScroll = board.scrollTop
         const { stashes } = await loader.reset()
         if (destroyed || resetOwner !== me) return
-        /* Lanes tronc réservées AVANT la première page : master/develop gardent leur colonne.
-           refs() est le même for-each-ref que la sidebar — bon marché. En échec, layout inchangé. */
-        try {
-          const refs = await api.refs()
-          if (destroyed || resetOwner !== me) return
-          reserveTrunks(
-            loader.state,
-            refs
-              .filter((r) => r.kind !== "tag")
-              .map((r) => (r.kind === "remote" ? r.name.slice(r.name.indexOf("/") + 1) : r.name))
-          )
-        } catch {
-          /* pas de réservation : l'allocation retombe sur le comportement historique */
-        }
         const token = loader.token
         await loader.fetchMore()
         if (destroyed || resetOwner !== me) return
@@ -814,14 +726,14 @@ export function createGraph(
       const own = refChips(loader.state, row)
       return own.length ? own : tipBranches(loader.state, chainTip(loader.state, row))
     },
-    rowColor: (row) => chainColor(loader.state, row),
+    laneColor: (row) => laneColor(loader.state.laneOf[row]),
 
     headDot(headSha) {
       const S = loader.state
       const id = headSha === null ? undefined : idOf(S.ids, headSha)
       const row = id === undefined ? undefined : S.rowOf.get(id)
       const lane = row === undefined ? undefined : S.laneOf[row]
-      return lane === undefined ? null : { left: PAD + lane * LANE + LANE / 2, color: chainColor(S, row!) }
+      return lane === undefined ? null : { left: PAD + lane * LANE + LANE / 2, color: laneColor(lane) }
     },
 
     destroy() {
@@ -842,8 +754,6 @@ export function createGraph(
       syncMarker.remove()
       popoverCtl.destroy()
       overlay.root.remove()
-      focusG.remove()
-      svg.classList.remove("amont-dim")
     },
   }
 }

@@ -31,8 +31,8 @@ function bucketsOf(e: Edge): number[] {
   return out
 }
 
-const edgeMarkup = (e: Edge, S: LayoutState) =>
-  `<path d="${edgePath(e)}" fill="none" stroke="${stroke(S, e)}" stroke-width="1.6"${e.dash ? ' stroke-dasharray="3 3"' : ""}/>`
+const edgeMarkup = (e: Edge) =>
+  `<path d="${edgePath(e)}" fill="none" stroke="${stroke(e)}" stroke-width="1.6"${e.dash ? ' stroke-dasharray="3 3"' : ""}/>`
 
 export function createOverlay() {
   /** mounted once and for all by the controller, before the short SVG chunks */
@@ -57,7 +57,7 @@ export function createOverlay() {
         if (!buckets.has(b)) buckets.set(b, [])
         buckets.get(b)!.push(e)
         const g = mounted.get(b)
-        if (g) g.insertAdjacentHTML("beforeend", edgeMarkup(e, S)) // bucket already visible: append, no rebuild
+        if (g) g.insertAdjacentHTML("beforeend", edgeMarkup(e)) // bucket already visible: append, no rebuild
       }
     }
   }
@@ -79,7 +79,7 @@ export function createOverlay() {
     for (let b = b0; b <= b1; b++) {
       if (mounted.has(b)) continue
       const g = document.createElementNS(SVG_NS, "g")
-      g.innerHTML = (buckets.get(b) ?? []).map((e) => edgeMarkup(e, S)).join("")
+      g.innerHTML = (buckets.get(b) ?? []).map(edgeMarkup).join("")
       root.insertBefore(g, dangling)
       mounted.set(b, g)
     }
@@ -93,7 +93,7 @@ export function createOverlay() {
     let html = ""
     S.pending.forEach((list) =>
       list.forEach((e) => {
-        html += `<path d="${edgePath(e, height)}" fill="none" stroke="${stroke(S, e)}" stroke-width="1.6" stroke-dasharray="2 4" opacity="0.45"/>`
+        html += `<path d="${edgePath(e, height)}" fill="none" stroke="${stroke(e)}" stroke-width="1.6" stroke-dasharray="2 4" opacity="0.45"/>`
       })
     )
     dangling.innerHTML = html

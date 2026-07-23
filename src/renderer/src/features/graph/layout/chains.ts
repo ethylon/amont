@@ -2,7 +2,6 @@
    summary of what a selection belongs to. Pure, like the rest of layout/. */
 
 import { parseRefs } from "../../../lib/commit-parse.ts"
-import { branchFlow } from "../../../lib/gitflow.ts"
 import { hashOfId } from "../ids.ts"
 import type { LayoutState } from "./state.ts"
 
@@ -60,40 +59,6 @@ export function chainTip(S: LayoutState, i: number): number {
   S.tipOf.set(i, r)
   for (const v of path) S.tipOf.set(v, r)
   return r
-}
-
-/** Famille gitflow d'une chaîne, `null` = travail ordinaire (feature, PR, branche libre). */
-export type ChainFlow = "master" | "develop" | "hotfix" | "release" | null
-
-const TRUNK = /^(master|main|develop)$/
-const MASTER = /^(master|main)$/
-
-/** Famille de la chaîne de `row`, par son tip : refs vivantes d'abord, sinon le nom de la
-    branche absorbée par son merge (`mergedBy` → `from`) — la majorité de l'historique.
-    Le tronc, lui, se lit par sa lane réservée (cf. lanes.ts `reserveTrunks`) : ici la
-    classification par nom ne sert qu'aux chaînes ordinaires et au repli sans réservation.
-    Stable dès la pose de la row (le merge absorbant est toujours au-dessus, donc déjà posé) :
-    sûr vis-à-vis du cache de markup par chunk (render/svg.ts). Mémoïsé par tip dans `S.flowOf`. */
-export function chainFlow(S: LayoutState, row: number): { flow: ChainFlow; tip: number } {
-  const tip = chainTip(S, row)
-  let flow = S.flowOf.get(tip)
-  if (flow === undefined) {
-    const names = branchRefs(S, tip)
-    let name: string | null = names.find((n) => TRUNK.test(n)) ?? names[0] ?? null
-    if (name === null) {
-      const mrow = S.mergedBy.get(tip)
-      name = mrow !== undefined ? (S.mergeOf.get(mrow)?.from ?? null) : null
-    }
-    if (name === null) flow = null
-    else if (MASTER.test(name)) flow = "master"
-    else if (name === "develop") flow = "develop"
-    else {
-      const kind = branchFlow(name, null)
-      flow = kind === "hotfix" || kind === "release" ? kind : null
-    }
-    S.flowOf.set(tip, flow)
-  }
-  return { flow, tip }
 }
 
 /** Like `chainTip`, but bounded by the fork point or the first foreign ref, and returns the
