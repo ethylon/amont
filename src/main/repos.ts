@@ -283,6 +283,11 @@ async function createRepo(path: string, hooks: (id: number) => RepoHooks): Promi
   watchWorktree(r, path)
   repos.set(r.id, r)
   remember(path)
+  /* Opening is also the moment the user most wants fresh remote state: fire one fetch right
+     away instead of making them wait out the first interval (or click Fetch by hand). After
+     registration, so the op events resolve the handle; runOp itself backs off if anything is
+     already queued, and its failures stay silent like every timer-driven auto-fetch. */
+  if (getSettings().autoFetch) autofetch?.(r)
   return pub(r)
 }
 
