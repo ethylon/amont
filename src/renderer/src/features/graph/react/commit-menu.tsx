@@ -68,7 +68,7 @@ export function CommitMenu({
 
       <ContextMenuSeparator />
       <ContextMenuItem onClick={() => onCreateBranch(target.hash)}>
-        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+        <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="text-success" />
         <MenuItemWithCmd label={messages.commit.createBranchFrom(short)} cmd={`git branch <name> ${short}`} />
       </ContextMenuItem>
       <ContextMenuItem onClick={() => onCreateWorktree(target.hash)}>
@@ -81,14 +81,14 @@ export function CommitMenu({
 
       <ContextMenuSeparator />
       <ContextMenuItem onClick={() => onCreateTag(target.hash)}>
-        <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} />
+        <HugeiconsIcon icon={Tag01Icon} strokeWidth={2} className="text-warning" />
         <MenuItemWithCmd label={messages.commit.createTagHere} cmd={`git tag <name> ${short}`} />
       </ContextMenuItem>
 
       <ContextMenuSeparator />
       {/* reset moves the current branch: detached HEAD has nothing to move */}
       <ContextMenuItem disabled={!currentBranch} onClick={() => onReset(target.hash)}>
-        <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />
+        <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="text-destructive" />
         <MenuItemWithCmd
           label={messages.commit.resetBranchTo(currentBranch ?? "HEAD", short)}
           cmd={`git reset --<mode> ${short}`}
@@ -99,7 +99,7 @@ export function CommitMenu({
         <MenuItemWithCmd label={messages.commit.cherryPick(short)} cmd={`git cherry-pick ${short}`} />
       </ContextMenuItem>
       <ContextMenuItem onClick={() => void revertCommit(target.hash)}>
-        <HugeiconsIcon icon={ArrowTurnBackwardIcon} strokeWidth={2} />
+        <HugeiconsIcon icon={ArrowTurnBackwardIcon} strokeWidth={2} className="text-destructive" />
         <MenuItemWithCmd label={messages.commit.revert(short)} cmd={`git revert ${short}`} />
       </ContextMenuItem>
     </ContextMenuContent>

@@ -21,6 +21,7 @@ export const repositoryMenu: MenuDescriptor = {
         id: "repository.stats",
         label: messages.menu.databaseStatistics,
         icon: Analytics01Icon,
+        iconClass: "text-info",
         run: repo.openStats,
       },
       {
@@ -28,6 +29,7 @@ export const repositoryMenu: MenuDescriptor = {
         id: "repository.verify",
         label: messages.menu.verifyDatabase,
         icon: ShieldIcon,
+        iconClass: "text-success",
         run: repo.verifyDatabase,
       },
       {
@@ -35,6 +37,7 @@ export const repositoryMenu: MenuDescriptor = {
         id: "repository.compact",
         label: messages.menu.compactDatabase,
         icon: PackageIcon,
+        iconClass: "text-warning",
         run: repo.compactDatabase,
       },
     ]
