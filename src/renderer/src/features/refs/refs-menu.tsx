@@ -31,6 +31,15 @@ const FLOW_LABEL = {
   hotfix: () => messages.refs.finishHotfix,
 } as const satisfies Record<keyof FlowPrefixes, () => string>
 
+/* Same flow hues as the Git Flow menu (menus/gitflow.ts FLOW_TINT) and every other flow
+   indicator, so a Finish here reads the same colour as its type does everywhere else. */
+const FLOW_TINT = {
+  feature: "text-success",
+  bugfix: "text-warning",
+  release: "text-release",
+  hotfix: "text-destructive",
+} as const satisfies Record<keyof FlowPrefixes, string>
+
 const flowType = (name: string, prefixes: FlowPrefixes | null) =>
   prefixes &&
   (Object.keys(FLOW_LABEL) as (keyof FlowPrefixes)[]).find((t) => prefixes[t] && name.startsWith(prefixes[t]))
@@ -45,14 +54,14 @@ export function SelectionMenu({ ctx }: { ctx: Ctx }) {
   return (
     <ContextMenuContent className="max-w-72">
       <ContextMenuItem onClick={() => ctx.onCreateRelease(branches)}>
-        <HugeiconsIcon icon={RocketIcon} strokeWidth={2} />
+        <HugeiconsIcon icon={RocketIcon} strokeWidth={2} className="text-release" />
         <MenuItemWithCmd
           label={messages.refs.createReleaseWith(branches.length)}
           cmd={`git flow release start … + ${branches.length} merge${branches.length > 1 ? "s" : ""}`}
         />
       </ContextMenuItem>
       <ContextMenuItem disabled={!ctx.current || !mergeable.length} onClick={() => ctx.onMergeSelection(branches)}>
-        <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} />
+        <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} className="text-success" />
         <MenuItemWithCmd
           label={messages.refs.mergeInto(ctx.current ?? "HEAD")}
           cmd={`git merge --no-ff ${mergeable.join(" ")}`}
@@ -83,7 +92,7 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
         <MenuItemWithCmd label={messages.refs.checkout} cmd={`git checkout ${r.name}`} />
       </ContextMenuItem>
       <ContextMenuItem disabled={r.head || !ctx.current} onClick={() => ctx.onBranch("merge", r.name)}>
-        <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} />
+        <HugeiconsIcon icon={GitMergeIcon} strokeWidth={2} className="text-success" />
         <MenuItemWithCmd label={messages.refs.mergeInto(ctx.current ?? "HEAD")} cmd={`git merge ${r.name}`} />
       </ContextMenuItem>
 
@@ -118,7 +127,7 @@ export function BranchMenu({ r, ctx }: { r: GitRef; ctx: Ctx }) {
         <>
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => ctx.onBranch("finish", r.name)}>
-            <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} />
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className={FLOW_TINT[flow]} />
             <MenuItemWithCmd
               label={FLOW_LABEL[flow]()}
               cmd={`git flow ${flow} finish ${r.name.slice(ctx.flow![flow]!.length)}`}

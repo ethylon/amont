@@ -10,7 +10,14 @@ export const fileMenu: MenuDescriptor = {
     return messages.menu.file
   },
   build: (ctx) => [
-    { kind: "action", id: "file.new", label: messages.menu.newRepo, icon: FolderAddIcon, run: ctx.newRepo },
+    {
+      kind: "action",
+      id: "file.new",
+      label: messages.menu.newRepo,
+      icon: FolderAddIcon,
+      iconClass: "text-success",
+      run: ctx.newRepo,
+    },
     { kind: "action", id: "file.open", label: messages.menu.openRepo, icon: FolderOpenIcon, run: ctx.openRepo },
     { kind: "separator" },
     {
@@ -26,6 +33,7 @@ export const fileMenu: MenuDescriptor = {
       id: "file.close",
       label: messages.menu.closeTab,
       icon: Cancel01Icon,
+      iconClass: "text-destructive",
       disabled: !ctx.hasActiveRepo,
       run: ctx.closeActiveTab,
     },
