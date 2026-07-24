@@ -37,9 +37,10 @@ export const helpMenu: MenuDescriptor = {
       id: "help.issue",
       label: messages.menu.reportIssue,
       icon: BugIcon,
-      /* important (`!`): keeps the danger hue through the focus repaint, without turning the
-         whole row destructive — reporting a bug is not a destructive action */
-      iconClass: "text-destructive!",
+      /* the danger hue survives the focus repaint on its own (see the icon-tint note on
+         MenuAction.iconClass), without turning the whole row destructive — reporting a bug
+         is not a destructive action */
+      iconClass: "text-destructive",
       run: () => ctx.openExternal(`${REPO}/issues/new`),
     },
     { kind: "separator" },

@@ -19,8 +19,9 @@ export type MenuAction = {
   /** Display-only shortcut hint (e.g. "F5"). The actual binding lives in app/shortcuts.ts. */
   shortcut?: string
   icon?: IconSvgElement
-  /** Extra classes on the icon — a tint (`text-…!`, important so it survives the item's
-      focus repaint, cf. primitives/menubar.tsx destructive variant). */
+  /** Extra classes on the icon — typically a tint (`text-success`, `text-destructive`, …). The
+      menu item primitives spare icons from the focus repaint (icons follow `currentColor`), so a
+      plain `text-*` tint survives hover; no `!important` needed. */
   iconClass?: string
   disabled?: boolean
   variant?: "default" | "destructive"
@@ -46,7 +47,7 @@ export type MenuSubmenu = {
   id: string
   label: string
   icon?: IconSvgElement
-  /** Extra classes on the icon (same contract as MenuAction.iconClass). */
+  /** Extra classes on the icon — a tint (same contract as MenuAction.iconClass). */
   iconClass?: string
   items: MenuNode[]
 }

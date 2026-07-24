@@ -23,14 +23,14 @@ const FLOW_ICON: Record<BranchFlow, IconSvgElement> = {
   hotfix: Fire02Icon,
 }
 
-/* Same hues as every other flow indicator (FLOW_META, sidebar badges). Important (`!`) so the
-   tint survives the item's focus repaint (`focus:**:text-accent-foreground`), like the
-   destructive variant's icon (cf. primitives/menubar.tsx). */
+/* Same hues as every other flow indicator (FLOW_META, sidebar badges). A plain `text-*` tint:
+   the menu item primitives now spare icons from the focus repaint (they follow `currentColor`),
+   so an icon colour survives hover without the `!important` the old mechanism needed. */
 const FLOW_TINT: Record<BranchFlow, string> = {
-  feature: "text-success!",
-  bugfix: "text-warning!",
-  release: "text-release!",
-  hotfix: "text-destructive!",
+  feature: "text-success",
+  bugfix: "text-warning",
+  release: "text-release",
+  hotfix: "text-destructive",
 }
 
 /* Thunks, not values: reading a `messages.*` getter at module scope would run `t` during import,
